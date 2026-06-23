@@ -1,0 +1,12 @@
+# =====================================================================
+# 03_set_rate.txt  —  SET FLOW RATE
+# What it does : sets the flow rate, expressed in the CURRENT units
+#   (set those first with 01_set_units.txt).
+# Max          : up to ~170.5 mL/min (the ceiling depends on the units).
+# Expected echo: the pump replies   rate = 1.0
+#   A different echoed number means the value was out of range.
+# Channel (4000X): prefix the channel number, e.g.  "2 set rate 1.0".
+# REMINDER: press Enter (carriage return, \r) after the command line.
+# NOTE: lines starting with # are notes for YOU — do NOT type them.
+# ------------------- SEND THE LINE BELOW -----------------------------
+set rate 1.0

@@ -1,0 +1,11 @@
+# =====================================================================
+# 10_help.txt  —  HELP  (send 'help', read the response)
+# What it does : asks the pump to print its built-in list of commands.
+#   Use this as a quick "is the pump talking?" test — if you get a reply,
+#   your baud rate matches; if it's blank/garbled, it does not.
+# Expected echo: a line listing the available commands, e.g.
+#   Commands: start | stop | pause | set units [x] | set diameter [x.x] | ...
+# REMINDER: press Enter (carriage return, \r) after the command line.
+# NOTE: lines starting with # are notes for YOU — do NOT type them.
+# ------------------- SEND THE LINE BELOW -----------------------------
+help

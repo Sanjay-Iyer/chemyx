@@ -1,0 +1,11 @@
+# =====================================================================
+# 07_start.txt  —  START
+# What it does : begins the move using whatever units/diameter/rate/volume
+#   are currently set on the pump.
+# Expected echo: the pump replies   pump start
+# SAFETY: this makes the pump MOVE physically.
+# Channel (4000X): prefix the channel number, e.g.  "2 start".
+# REMINDER: press Enter (carriage return, \r) after the command line.
+# NOTE: lines starting with # are notes for YOU — do NOT type them.
+# ------------------- SEND THE LINE BELOW -----------------------------
+start

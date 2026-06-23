@@ -1,0 +1,33 @@
+# --- Per-machine local config (NEVER commit your real port) ------------------
+config_local.py
+.env
+
+# --- Python bytecode / caches ------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Virtual environments ----------------------------------------------------
+.venv/
+venv/
+env/
+ENV/
+.venv*/
+
+# --- Packaging / build artifacts ---------------------------------------------
+*.egg-info/
+build/
+dist/
+
+# --- OS junk -----------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Editor/IDE --------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
