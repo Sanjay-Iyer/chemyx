@@ -15,6 +15,7 @@ chemyx_lab/              Shared Python package
   pump.py                Chemyx serial wrapper
   mock_serial.py         Fake pump for dry runs and tests
   nmr.py                 JCAMP-DX parser and 6.1 ppm peak check
+  nmr_outputs.py         CSV/plot/manifest output helpers
   workflow.py            First-pass SOP workflow steps
 scripts/                 Clean commands to run from the repo root
 docs/                    Setup and instrument guides
@@ -82,6 +83,14 @@ Analyze the example `.dx` files near 6.1 ppm:
 
 ```powershell
 python scripts\analyze_nmr_dx.py NMR\06-08-26 --target 6.1
+```
+
+Each analysis run saves:
+
+```text
+runs/nmr_analysis/<timestamp>/results.csv
+runs/nmr_analysis/<timestamp>/manifest.json
+runs/nmr_analysis/<timestamp>/plots/*.png
 ```
 
 Run the SOP-shaped mock workflow and ingest the newest `.dx` file in a folder

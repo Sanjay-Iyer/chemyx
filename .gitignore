@@ -7,6 +7,9 @@ configs/*.local.json
 archive/
 .gitignore
 
+# --- Generated run outputs ---------------------------------------------------
+runs/nmr_plots/
+
 # --- Python bytecode / caches ------------------------------------------------
 __pycache__/
 *.py[cod]

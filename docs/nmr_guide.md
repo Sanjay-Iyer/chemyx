@@ -20,19 +20,43 @@ Run:
 python scripts\analyze_nmr_dx.py NMR\06-08-26 --target 6.1
 ```
 
+Each processing pass creates a clean analysis folder:
+
+```text
+runs/nmr_analysis/<timestamp>/
+  results.csv
+  manifest.json
+  plots/
+    <sample>_target_6p100ppm.png
+```
+
 The script parses the JCAMP-DX FID, Fourier transforms it with `numpy`, builds a
-ppm axis from the file metadata, and reports the strongest magnitude-spectrum
-signal near the target ppm.
+ppm axis from the file metadata, then uses `scipy.signal.find_peaks` inside the
+target ppm window. Candidate peaks are scored by prominence so the reported
+peak is a real local maximum, not just the tallest sampled point in the window.
+
+Those plots show a wider `6.1 +/- 0.5 ppm` region, shade the narrower detection
+window, and mark both the target ppm and the detected peak.
 
 Output columns:
 
 ```text
-file, target_ppm, peak_ppm, snr, peak_height, baseline, noise
+file, source_path, target_ppm, peak_ppm, snr, prominence_snr, prominence, width_ppm, peaks_considered, peak_height, baseline, noise, points_in_window, plot_file, error
 ```
 
 Use this as a screening metric at first. The exact integration window and
 phase/baseline treatment should be refined after comparing against the NMR
 software display.
+
+Useful peak-finder tuning options:
+
+```powershell
+python scripts\analyze_nmr_dx.py runs\nmr --target 6.1 --run-name first_real_test
+python scripts\analyze_nmr_dx.py runs\nmr --target 6.1 --window 0.20 --min-prominence-snr 2
+python scripts\analyze_nmr_dx.py runs\nmr --target 6.1 --min-distance-ppm 0.02
+python scripts\analyze_nmr_dx.py runs\nmr --target 6.1 --plot-window 0.75
+python scripts\analyze_nmr_dx.py runs\nmr --target 6.1 --no-plots
+```
 
 ## Signal Of Interest
 
