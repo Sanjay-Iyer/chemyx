@@ -1,0 +1,729 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>NMReady Experiment Designer Documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Experiment Designer</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#globals">globals</a></li>
+<li><a href="#Class_Core">Class Core </a></li>
+</ul>
+
+
+<h2>Sections</h2>
+<ul class="nowrap">
+  <li><a href="../sections/config.html">config</a></li>
+  <li><strong>core</strong></li>
+  <li><a href="../sections/data.html">data</a></li>
+  <li><a href="../sections/display.html">display</a></li>
+  <li><a href="../sections/integrals.html">integrals</a></li>
+  <li><a href="../sections/pulses.html">pulses</a></li>
+</ul>
+<h2>Manual</h2>
+<ul class="nowrap">
+  <li><a href="../manual/01_Overview.md.html">01_Overview</a></li>
+  <li><a href="../manual/02_Phase_Tables.md.html">02_Phase_Tables</a></li>
+  <li><a href="../manual/03_Language_Reference.md.html">03_Language_Reference</a></li>
+  <li><a href="../manual/04_Saving_Results.md.html">04_Saving_Results</a></li>
+  <li><a href="../manual/05_Special_Functions.md.html">05_Special_Functions</a></li>
+</ul>
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><a href="../examples/1d.lua.html">1d.lua</a></li>
+  <li><a href="../examples/cosy.lua.html">cosy.lua</a></li>
+  <li><a href="../examples/t1.lua.html">t1.lua</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>core</code></h1>
+<p>The primary interface to the NMReady hardware.</p>
+<p>The Core provides access to the NMReady hardware.
+It also maintains the "active" configuration, which will be used for the next acquisition.</p>
+
+
+<h2><a href="#globals">globals</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#lockLost">lockLost()</a></td>
+	<td class="summary">Get whether the frequency lock was lost or not since the last time this function was called.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#resetLockLost">resetLockLost()</a></td>
+	<td class="summary">Reset the lockLost setting.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setNoAcquire">setNoAcquire(disable)</a></td>
+	<td class="summary">This method can be used to disable acquisitions.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#monotonicTime">monotonicTime()</a></td>
+	<td class="summary">Get time in seconds and return it as a double.</td>
+	</tr>
+</table>
+<h2><a href="#Class_Core">Class Core </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#Core.setLockEnabled">Core.setLockEnabled(enabled)</a></td>
+	<td class="summary">Set whether lock is enabled or not.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.lockEnabled">Core.lockEnabled()</a></td>
+	<td class="summary">Returns whether lock should be done or not.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.numPoints">Core.numPoints()</a></td>
+	<td class="summary">Get the current number of points used for a 1D acquisition.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setNumPoints">Core.setNumPoints(numPoints)</a></td>
+	<td class="summary">Set the number of points to use for a 1D acquisition.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.numScans">Core.numScans()</a></td>
+	<td class="summary">Return the current number of transients.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setNumScans">Core.setNumScans(numScans)</a></td>
+	<td class="summary">Set the number of transients.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setDummyScans">Core.setDummyScans(dummyScans)</a></td>
+	<td class="summary">Set the number of dummy scans to use.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.sweepWidth">Core.sweepWidth()</a></td>
+	<td class="summary">Get the sweep width of the signal channel.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setSweepWidth">Core.setSweepWidth(sweepWidth)</a></td>
+	<td class="summary">Set the sweep width of the signal channel.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.sweepWidthLock">Core.sweepWidthLock()</a></td>
+	<td class="summary">Get the sweep width for the lock channel.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setSweepWidthLock">Core.setSweepWidthLock(sweepWidth)</a></td>
+	<td class="summary">Set the sweep width for the lock channel.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.savedSignalFrequency">Core.savedSignalFrequency()</a></td>
+	<td class="summary">Get the saved frequency.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.referenceFrequency">Core.referenceFrequency()</a></td>
+	<td class="summary">Get the reference frequency.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.signalFrequency">Core.signalFrequency()</a></td>
+	<td class="summary">Get the transmit frequency of the signal channel.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.lockFrequency">Core.lockFrequency()</a></td>
+	<td class="summary">Get the transmit frequency of the lock channel.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.frequency">Core.frequency(channel)</a></td>
+	<td class="summary">Get the frequency for the given channel config.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.processingSettings">Core.processingSettings()</a></td>
+	<td class="summary">Get the current processing settings.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.lastLockOffset">Core.lastLockOffset()</a></td>
+	<td class="summary">Get the last lock offset.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.lockLevel">Core.lockLevel()</a></td>
+	<td class="summary">Get the lock level.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.activeSolventColour">Core.activeSolventColour()</a></td>
+	<td class="summary">Get the colour of the active solvent's reference tube.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.autoGain">Core.autoGain(dataSet)</a></td>
+	<td class="summary">Increase gain if it is too low, decrease it if it is too high.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="globals"></a>globals</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "lockLost"></a>
+    <strong>lockLost()</strong>
+    </dt>
+    <dd>
+    Get whether the frequency lock was lost or not since the last time this function was called.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        Whether frequency lock was lost or not
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "resetLockLost"></a>
+    <strong>resetLockLost()</strong>
+    </dt>
+    <dd>
+    Reset the lockLost setting.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setNoAcquire"></a>
+    <strong>setNoAcquire(disable)</strong>
+    </dt>
+    <dd>
+    This method can be used to disable acquisitions.
+When disabled, the acquire() method will return immediately. It is useful when testing pulse sequence creation.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">disable</span>
+            <span class="types"><span class="type">bool</span></span>
+         True: acquire() returns immediately. False: acquire() acts normally.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "monotonicTime"></a>
+    <strong>monotonicTime()</strong>
+    </dt>
+    <dd>
+    Get time in seconds and return it as a double.
+This is the only way to get an accurate measure of elapsed time. Other methods are affected by system time changes (e.g. daylight savings, NTP update, manual time change.) The value returned is only valid for as long as the software is running.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        Seconds that have elapsed since an arbitrary point in the past.
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_Core"></a>Class Core </h2>
+
+          <div class="section-description">
+          The Core class maintains the system's active configuration as well as provides access to hardware.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "Core.setLockEnabled"></a>
+    <strong>Core.setLockEnabled(enabled)</strong>
+    </dt>
+    <dd>
+    Set whether lock is enabled or not.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">enabled</span>
+            <span class="types"><span class="type">bool</span></span>
+         Whether lock should be enabled or not.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.lockEnabled"></a>
+    <strong>Core.lockEnabled()</strong>
+    </dt>
+    <dd>
+    Returns whether lock should be done or not.
+This is determined from the user configured setting and experiment specific settings.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.numPoints"></a>
+    <strong>Core.numPoints()</strong>
+    </dt>
+    <dd>
+    Get the current number of points used for a 1D acquisition.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">unsigned_int</span></span>
+        The number of points
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setNumPoints"></a>
+    <strong>Core.setNumPoints(numPoints)</strong>
+    </dt>
+    <dd>
+    Set the number of points to use for a 1D acquisition.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">numPoints</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The number of points to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.numScans"></a>
+    <strong>Core.numScans()</strong>
+    </dt>
+    <dd>
+    Return the current number of transients.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">unsigned_int</span></span>
+        The number of transients
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setNumScans"></a>
+    <strong>Core.setNumScans(numScans)</strong>
+    </dt>
+    <dd>
+    Set the number of transients.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">numScans</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         the new number of transients
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setDummyScans"></a>
+    <strong>Core.setDummyScans(dummyScans)</strong>
+    </dt>
+    <dd>
+    Set the number of dummy scans to use.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dummyScans</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The number of dummy scans to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.sweepWidth"></a>
+    <strong>Core.sweepWidth()</strong>
+    </dt>
+    <dd>
+    Get the sweep width of the signal channel.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The sweep width of the signal channel (in PPM)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setSweepWidth"></a>
+    <strong>Core.setSweepWidth(sweepWidth)</strong>
+    </dt>
+    <dd>
+    Set the sweep width of the signal channel.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">sweepWidth</span>
+            <span class="types"><span class="type">double</span></span>
+         The new sweep width for the signal channel (in PPM).
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.sweepWidthLock"></a>
+    <strong>Core.sweepWidthLock()</strong>
+    </dt>
+    <dd>
+    Get the sweep width for the lock channel.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The sweep width for the lock channel (in PPM).
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setSweepWidthLock"></a>
+    <strong>Core.setSweepWidthLock(sweepWidth)</strong>
+    </dt>
+    <dd>
+    Set the sweep width for the lock channel.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">sweepWidth</span>
+            <span class="types"><span class="type">double</span></span>
+         The new sweep width for the lock channel (in PPM).
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.savedSignalFrequency"></a>
+    <strong>Core.savedSignalFrequency()</strong>
+    </dt>
+    <dd>
+    Get the saved frequency.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The reference frequency saved in Hz
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.referenceFrequency"></a>
+    <strong>Core.referenceFrequency()</strong>
+    </dt>
+    <dd>
+    Get the reference frequency.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The reference (1H) frequency in Hz
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.signalFrequency"></a>
+    <strong>Core.signalFrequency()</strong>
+    </dt>
+    <dd>
+    Get the transmit frequency of the signal channel.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The transmit frequency of the signal channel in Hz
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.lockFrequency"></a>
+    <strong>Core.lockFrequency()</strong>
+    </dt>
+    <dd>
+    Get the transmit frequency of the lock channel.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The transmit frequency of the lock channel in Hz
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.frequency"></a>
+    <strong>Core.frequency(channel)</strong>
+    </dt>
+    <dd>
+    Get the frequency for the given channel config.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">channel</span>
+            <span class="types"><span class="type">ChannelConfig</span></span>
+         The channel to get the frequency for
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The frequency in Hz
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.processingSettings"></a>
+    <strong>Core.processingSettings()</strong>
+    </dt>
+    <dd>
+    Get the current processing settings.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">ProcessingSettings</span></span>
+        The current processing settings.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.lastLockOffset"></a>
+    <strong>Core.lastLockOffset()</strong>
+    </dt>
+    <dd>
+    Get the last lock offset.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The lock frequency maximum magnitude signal, or the lock peak offset.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.lockLevel"></a>
+    <strong>Core.lockLevel()</strong>
+    </dt>
+    <dd>
+    Get the lock level.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The last lock level.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.activeSolventColour"></a>
+    <strong>Core.activeSolventColour()</strong>
+    </dt>
+    <dd>
+    Get the colour of the active solvent's reference tube.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The colour of the active solvent
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.autoGain"></a>
+    <strong>Core.autoGain(dataSet)</strong>
+    </dt>
+    <dd>
+    Increase gain if it is too low, decrease it if it is too high.
+Do nothing if it is in the right range
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataSet</span>
+            <span class="types"><span class="type">DataSet1D</span></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The level used when determining the new gain value
+    </ol>
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2023-09-22 17:06:42 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

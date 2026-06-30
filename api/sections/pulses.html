@@ -1,0 +1,2388 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>NMReady Experiment Designer Documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Experiment Designer</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#globals">globals</a></li>
+<li><a href="#Class_Core">Class Core </a></li>
+<li><a href="#DdsDriveStrength">DdsDriveStrength </a></li>
+<li><a href="#CPDState">CPDState </a></li>
+<li><a href="#Class_InterleavedDetection">Class InterleavedDetection </a></li>
+<li><a href="#Class_PhaseTable">Class PhaseTable </a></li>
+<li><a href="#Class_Pulse">Class Pulse </a></li>
+<li><a href="#Class_PulseSequence">Class PulseSequence </a></li>
+<li><a href="#Class_PulseShapeEntry">Class PulseShapeEntry </a></li>
+<li><a href="#Class_PulseSimpulse">Class PulseSimpulse </a></li>
+<li><a href="#Class_PulseSingle">Class PulseSingle </a></li>
+<li><a href="#Class_ShapedPulseSingle">Class ShapedPulseSingle </a></li>
+</ul>
+
+
+<h2>Sections</h2>
+<ul class="nowrap">
+  <li><a href="../sections/config.html">config</a></li>
+  <li><a href="../sections/core.html">core</a></li>
+  <li><a href="../sections/data.html">data</a></li>
+  <li><a href="../sections/display.html">display</a></li>
+  <li><a href="../sections/integrals.html">integrals</a></li>
+  <li><strong>pulses</strong></li>
+</ul>
+<h2>Manual</h2>
+<ul class="nowrap">
+  <li><a href="../manual/01_Overview.md.html">01_Overview</a></li>
+  <li><a href="../manual/02_Phase_Tables.md.html">02_Phase_Tables</a></li>
+  <li><a href="../manual/03_Language_Reference.md.html">03_Language_Reference</a></li>
+  <li><a href="../manual/04_Saving_Results.md.html">04_Saving_Results</a></li>
+  <li><a href="../manual/05_Special_Functions.md.html">05_Special_Functions</a></li>
+</ul>
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><a href="../examples/1d.lua.html">1d.lua</a></li>
+  <li><a href="../examples/cosy.lua.html">cosy.lua</a></li>
+  <li><a href="../examples/t1.lua.html">t1.lua</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>pulses</code></h1>
+<p>Classes and methods related to pulse sequences.</p>
+<p>
+
+
+</p>
+
+
+<h2><a href="#globals">globals</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#setWaitForDigitalInput">setWaitForDigitalInput(wait)</a></td>
+	<td class="summary">Wait for the digital input (DIGI_1) to start.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#newCpdState">newCpdState(state, delay)</a></td>
+	<td class="summary">Factory method: Create a new CpdState pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#newPulseSuppression">newPulseSuppression(suppressionSettings)</a></td>
+	<td class="summary">Factory method: Create a new suppression pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#newPulseSingle">newPulseSingle()</a></td>
+	<td class="summary">Factory method: Create a new PulseSingle from the default ChannelConfig.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#newPulseSingle">newPulseSingle(channel)</a></td>
+	<td class="summary">Factory method: Create a new PulseSingle from the given ChannelConfig.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#newPulseSimpulse">newPulseSimpulse()</a></td>
+	<td class="summary">Factory method: Create a new PulseSimpulse from the default ChannelConfigs.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#newPulseSimpulse">newPulseSimpulse(channelPrimary, channelSecondary)</a></td>
+	<td class="summary">Factory method: Create a new PulseSimpulse from the given ChannelConfigs.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#newInterleavedDetection">newInterleavedDetection(numPoints, totalTime)</a></td>
+	<td class="summary">Factory method: Create a new InterleavedDetection on the current signal channel.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#newInterleavedDetection">newInterleavedDetection(numPoints, dropTime, totalTime)</a></td>
+	<td class="summary">Factory method: Create a new InterleavedDetection on the current signal channel.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#newSuspendFieldLock">newSuspendFieldLock(on)</a></td>
+	<td class="summary">Factory method: Create a new item that turns field lock suspension on/off.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#newSuspendFieldLockTimed">newSuspendFieldLockTimed(time)</a></td>
+	<td class="summary">Factory method: Create a new item that turns field lock suspension on for the specified amount of time.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#newShapedPulseSingle">newShapedPulseSingle(channel, entries)</a></td>
+	<td class="summary">Factory method: Create a new shaped pulse.</td>
+	</tr>
+</table>
+<h2><a href="#Class_Core">Class Core </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#Core.usePulseSequence">Core.usePulseSequence(pulseSequence)</a></td>
+	<td class="summary">Use a pulse sequence.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setDigitalOutput">Core.setDigitalOutput(which, on)</a></td>
+	<td class="summary">Set a digital output to on or off.</td>
+	</tr>
+</table>
+<h2><a href="#DdsDriveStrength">DdsDriveStrength </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DdsDriveStrength">DdsDriveStrength</a></td>
+	<td class="summary">Constants:
+AD9959 configuration related items.</td>
+	</tr>
+</table>
+<h2><a href="#CPDState">CPDState </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#CPDState">CPDState</a></td>
+	<td class="summary">Constants:
+The state to set the Composite Pulse Decoupling to.</td>
+	</tr>
+</table>
+<h2><a href="#Class_InterleavedDetection">Class InterleavedDetection </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#InterleavedDetection.sampleTime">InterleavedDetection.sampleTime()</a></td>
+	<td class="summary">Get the time used to acquire data.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#InterleavedDetection.setTime">InterleavedDetection.setTime(time)</a></td>
+	<td class="summary">Set the total time used for the acquisition, including delay.</td>
+	</tr>
+</table>
+<h2><a href="#Class_PhaseTable">Class PhaseTable </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#PhaseTable.PhaseTable">PhaseTable.PhaseTable()</a></td>
+	<td class="summary">Create an empty phase table.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PhaseTable.PhaseTable">PhaseTable.PhaseTable(entries)</a></td>
+	<td class="summary">Create a phase table populated with the given entries.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PhaseTable.PhaseTable">PhaseTable.PhaseTable(entries, mArgs)</a></td>
+	<td class="summary">Create a phase table populated with the given entries.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PhaseTable.setName">PhaseTable.setName(name)</a></td>
+	<td class="summary">Set the name associated with this table.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PhaseTable.setStates360">PhaseTable.setStates360(states360)</a></td>
+	<td class="summary">Set the number used to represent 360 degree phase.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PhaseTable.addEntry">PhaseTable.addEntry(pulsePhases, rxPhase)</a></td>
+	<td class="summary">Add an entry to the table.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PhaseTable.addEntries">PhaseTable.addEntries(vvd)</a></td>
+	<td class="summary">Add entries in the form of a list of lists of doubles.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PhaseTable.numEntries">PhaseTable.numEntries()</a></td>
+	<td class="summary">Get the number of entries in the table.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PhaseTable.setAccumulates">PhaseTable.setAccumulates(accumulates)</a></td>
+	<td class="summary">Set whether the phase table is in "accumulates" mode or not.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PhaseTable.toString">PhaseTable.toString()</a></td>
+	<td class="summary">Get a string representation of the table.</td>
+	</tr>
+</table>
+<h2><a href="#Class_Pulse">Class Pulse </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#Pulse.pulseTime">Pulse.pulseTime()</a></td>
+	<td class="summary">Get the time that the pulse(s) is on.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Pulse.setPulseTime">Pulse.setPulseTime(pulseTime)</a></td>
+	<td class="summary">Set the time that the pulse is on.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Pulse.amplitude">Pulse.amplitude()</a></td>
+	<td class="summary">Get the pulse amplitude.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Pulse.setAmplitude">Pulse.setAmplitude(amplitude)</a></td>
+	<td class="summary">Set the pulse amplitude (0 to 100)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Pulse.setTxBias">Pulse.setTxBias(txBias)</a></td>
+	<td class="summary">Set the tx bias for the pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Pulse.phase">Pulse.phase()</a></td>
+	<td class="summary">Get the pulse tx phase.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Pulse.setPhase">Pulse.setPhase(phase)</a></td>
+	<td class="summary">Set the pulse tx phase.</td>
+	</tr>
+</table>
+<h2><a href="#Class_PulseSequence">Class PulseSequence </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#PulseSequence.PulseSequence">PulseSequence.PulseSequence()</a></td>
+	<td class="summary">Create a pulse sequence that uses the default settings.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.PulseSequence">PulseSequence.PulseSequence(channel)</a></td>
+	<td class="summary">Create a pulse sequence that uses a specific ChannelConfig.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.clone">PulseSequence.clone()</a></td>
+	<td class="summary">Return a copy of this pulse sequence.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.add">PulseSequence.add(pulse)</a></td>
+	<td class="summary">Add a copy of the pulse to the pulse sequence.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.numPulses">PulseSequence.numPulses()</a></td>
+	<td class="summary">Get the number of pulses.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.pulse">PulseSequence.pulse(index)</a></td>
+	<td class="summary">Get the pulse at the given index.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.pulseSingle">PulseSequence.pulseSingle(index)</a></td>
+	<td class="summary">Get a PulseSingle pulse from the list.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.pulseSimpulse">PulseSequence.pulseSimpulse(index)</a></td>
+	<td class="summary">Get a PulseSimpulse pulse from the list.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.shapedPulseSingle">PulseSequence.shapedPulseSingle(index)</a></td>
+	<td class="summary">Get a ShapedPulseSingle pulse from the list.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setAmplitude">PulseSequence.setAmplitude(index, amplitude)</a></td>
+	<td class="summary">Set the amplitude for the pulse at the given index.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setAmplitudeSecondary">PulseSequence.setAmplitudeSecondary(index, amplitude)</a></td>
+	<td class="summary">Set the amplitude for the secondary pulse at the given index.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setPulseTime">PulseSequence.setPulseTime(index, pulseTime)</a></td>
+	<td class="summary">Set the pulse "on" time for the pulse at the given index.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setPulseTimeSecondary">PulseSequence.setPulseTimeSecondary(index, pulseTime)</a></td>
+	<td class="summary">Set the pulse "on" time for the secondary pulse at the given index.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.interPulseTime">PulseSequence.interPulseTime(index)</a></td>
+	<td class="summary">Get the pulse "off" time for the pulse at the given index.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setInterPulseTime">PulseSequence.setInterPulseTime(index, ipd)</a></td>
+	<td class="summary">Set the pulse "off" time for the pulse at the given index.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setTxBias">PulseSequence.setTxBias(index, txBias)</a></td>
+	<td class="summary">Set the tx bias for a specific pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setTxBiasLow">PulseSequence.setTxBiasLow(index)</a></td>
+	<td class="summary">Set the tx bias for a specific pulse (to the low setting)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setTxBiasHigh">PulseSequence.setTxBiasHigh(index)</a></td>
+	<td class="summary">Set the tx bias for a specific pulse (to the high setting)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setTxBiasSecondary">PulseSequence.setTxBiasSecondary(index, txBias)</a></td>
+	<td class="summary">Set the tx bias for a specific pulse (secondary pulse)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setTxBiasLowSecondary">PulseSequence.setTxBiasLowSecondary(index)</a></td>
+	<td class="summary">Set the tx bias for a specific pulse (secondary pulse) (to the low setting)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setTxBiasHighSecondary">PulseSequence.setTxBiasHighSecondary(index)</a></td>
+	<td class="summary">Set the tx bias for a specific pulse (secondary pulse) (to the high setting)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setPhase">PulseSequence.setPhase(index, phase)</a></td>
+	<td class="summary">Set the tx phase for a specific pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setPhaseSecondary">PulseSequence.setPhaseSecondary(index, phase)</a></td>
+	<td class="summary">Set the tx phase for a specific pulse (the secondary part of the simpulse)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setFrequencyOffset">PulseSequence.setFrequencyOffset(offset)</a></td>
+	<td class="summary">Set the TX frequency offset in PPM for the primary channel relative to the spectral centre for that channel.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setFrequencyOffsetSecondary">PulseSequence.setFrequencyOffsetSecondary(offset)</a></td>
+	<td class="summary">Set the TX frequency offset in PPM for the secondary channel relative to the spectral centre for that channel.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.interleavedDetectionMaxOverhead">PulseSequence.interleavedDetectionMaxOverhead()</a></td>
+	<td class="summary">Get the maximum amount of overhead (in seconds) before or after an interleaved detection.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.toString">PulseSequence.toString()</a></td>
+	<td class="summary">Get a human readable string representation of the pulse sequence.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSequence.setAcquireDuringPulses">PulseSequence.setAcquireDuringPulses(acquireDuringPulses)</a></td>
+	<td class="summary">Set whether data is acquired while pulses are transmitted or not.</td>
+	</tr>
+</table>
+<h2><a href="#Class_PulseShapeEntry">Class PulseShapeEntry </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#PulseShapeEntry.PulseShapeEntry">PulseShapeEntry.PulseShapeEntry(args)</a></td>
+	<td class="summary">Construct a shaped pulse slice from a list of arguments: Duration (seconds), AmplitudeScale (0 to 1) and PhaseOffset (0 to 359)</td>
+	</tr>
+</table>
+<h2><a href="#Class_PulseSimpulse">Class PulseSimpulse </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#PulseSimpulse.phaseSecondary">PulseSimpulse.phaseSecondary()</a></td>
+	<td class="summary">Get the phase for the secondary pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSimpulse.txBiasPrimary">PulseSimpulse.txBiasPrimary()</a></td>
+	<td class="summary">Get the tx bias for the primary pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSimpulse.setTxBiasPrimary">PulseSimpulse.setTxBiasPrimary(txBiasPrimary)</a></td>
+	<td class="summary">Set the tx bias for the primary pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSimpulse.txBiasSecondary">PulseSimpulse.txBiasSecondary()</a></td>
+	<td class="summary">Get the tx bias for the secondary pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSimpulse.setTxBiasSecondary">PulseSimpulse.setTxBiasSecondary(txBiasSecondary)</a></td>
+	<td class="summary">Set the tx bias for the secondary pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSimpulse.driveStrengthPrimary">PulseSimpulse.driveStrengthPrimary()</a></td>
+	<td class="summary">Get the drive strength for the primary pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSimpulse.setDriveStrengthPrimary">PulseSimpulse.setDriveStrengthPrimary(driveStrength)</a></td>
+	<td class="summary">Set the drive strength for the primary pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSimpulse.driveStrengthSecondary">PulseSimpulse.driveStrengthSecondary()</a></td>
+	<td class="summary">Get the drive strength for the secondary pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSimpulse.setDriveStrengthSecondary">PulseSimpulse.setDriveStrengthSecondary(driveStrength)</a></td>
+	<td class="summary">Set the drive strength for the secondary pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSimpulse.setPhaseSecondary">PulseSimpulse.setPhaseSecondary(phase)</a></td>
+	<td class="summary">Set the phase for the secondary pulse.</td>
+	</tr>
+</table>
+<h2><a href="#Class_PulseSingle">Class PulseSingle </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#PulseSingle.txBias">PulseSingle.txBias()</a></td>
+	<td class="summary">Get the tx bias for the pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSingle.driveStrength">PulseSingle.driveStrength()</a></td>
+	<td class="summary">Get the drive strength.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#PulseSingle.setDriveStrength">PulseSingle.setDriveStrength(driveStrength)</a></td>
+	<td class="summary">Set the drive strength.</td>
+	</tr>
+</table>
+<h2><a href="#Class_ShapedPulseSingle">Class ShapedPulseSingle </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#ShapedPulseSingle.txBias">ShapedPulseSingle.txBias()</a></td>
+	<td class="summary">Get the tx bias for the pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ShapedPulseSingle.driveStrength">ShapedPulseSingle.driveStrength()</a></td>
+	<td class="summary">Get the drive strength.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ShapedPulseSingle.setDriveStrength">ShapedPulseSingle.setDriveStrength(driveStrength)</a></td>
+	<td class="summary">Set the drive strength.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="globals"></a>globals</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "setWaitForDigitalInput"></a>
+    <strong>setWaitForDigitalInput(wait)</strong>
+    </dt>
+    <dd>
+    Wait for the digital input (DIGI<em>1) to start.
+Normally, acquire() causes an acquisition to start as soon as possible (as soon as configured). This method can be used to wait for an input condition before starting the acquisition (pulse sequence). If lock is enabled, the "acquisition" includes the first lock. If lock is disabled, the "acquisition" is the main pulse sequence. DIGO</em>5 will be set to "high" when the system is ready for the input condition (a falling edge on DIGI_1.)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">wait</span>
+            <span class="types"><span class="type">bool</span></span>
+         If true, wait for DIGI_1 before the pulse sequence starts. To disable waiting and return the timeout to the default value, set this to false.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "newCpdState"></a>
+    <strong>newCpdState(state, delay)</strong>
+    </dt>
+    <dd>
+    Factory method: Create a new CpdState pulse.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">state</span>
+            <span class="types"><a class="type" href="../sections/pulses.html#CPDState">CPDState</a></span>
+         The CPDState to use
+        </li>
+        <li><span class="parameter">delay</span>
+            <span class="types"><span class="type">double</span></span>
+         The amount of time to delay after changing the CPDState before the start of the next pulse.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#CpdState">CpdState</a></span>
+        A CpdState pulse
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "newPulseSuppression"></a>
+    <strong>newPulseSuppression(suppressionSettings)</strong>
+    </dt>
+    <dd>
+    Factory method: Create a new suppression pulse.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">suppressionSettings</span>
+            <span class="types"><span class="type">SuppressionSettings</span></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#PulseSingle">PulseSingle</a></span>
+        A CpdState pulse
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "newPulseSingle"></a>
+    <strong>newPulseSingle()</strong>
+    </dt>
+    <dd>
+    Factory method: Create a new PulseSingle from the default ChannelConfig.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#PulseSingle">PulseSingle</a></span>
+        A single pulse object
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "newPulseSingle"></a>
+    <strong>newPulseSingle(channel)</strong>
+    </dt>
+    <dd>
+    Factory method: Create a new PulseSingle from the given ChannelConfig.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">channel</span>
+            <span class="types"><span class="type">ChannelConfig</span></span>
+         The channel configuration to use.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#PulseSingle">PulseSingle</a></span>
+        A single pulse object
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "newPulseSimpulse"></a>
+    <strong>newPulseSimpulse()</strong>
+    </dt>
+    <dd>
+    Factory method: Create a new PulseSimpulse from the default ChannelConfigs.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#PulseSimpulse">PulseSimpulse</a></span>
+        A simultaneous pulse object
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "newPulseSimpulse"></a>
+    <strong>newPulseSimpulse(channelPrimary, channelSecondary)</strong>
+    </dt>
+    <dd>
+    Factory method: Create a new PulseSimpulse from the given ChannelConfigs.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">channelPrimary</span>
+            <span class="types"><span class="type">ChannelConfig</span></span>
+         The channel configuration for the primary pulse
+        </li>
+        <li><span class="parameter">channelSecondary</span>
+            <span class="types"><span class="type">ChannelConfig</span></span>
+         The channel configuration for the secondary pulse
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#PulseSimpulse">PulseSimpulse</a></span>
+        A simultaneous pulse object
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "newInterleavedDetection"></a>
+    <strong>newInterleavedDetection(numPoints, totalTime)</strong>
+    </dt>
+    <dd>
+    Factory method: Create a new InterleavedDetection on the current signal channel.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">numPoints</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The number of points to acquire (using the current signal channel configuration)
+        </li>
+        <li><span class="parameter">totalTime</span>
+            <span class="types"><span class="type">double</span></span>
+         The total time the acquisition should take. This is enforced to be at least as long as it takes to acquire numPoints.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#InterleavedDetection">InterleavedDetection</a></span>
+        An InterleavedDetection object that should be added to the pulse sequence.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "newInterleavedDetection"></a>
+    <strong>newInterleavedDetection(numPoints, dropTime, totalTime)</strong>
+    </dt>
+    <dd>
+    Factory method: Create a new InterleavedDetection on the current signal channel.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">numPoints</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The number of points to acquire (using the current signal channel configuration)
+        </li>
+        <li><span class="parameter">dropTime</span>
+            <span class="types"><span class="type">double</span></span>
+         The amount of time to drop before the data will be acquired
+        </li>
+        <li><span class="parameter">totalTime</span>
+            <span class="types"><span class="type">double</span></span>
+         The total time the acquisition should take. This is enforced to be at least as long as it takes to acquire numPoints.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#InterleavedDetection">InterleavedDetection</a></span>
+        An InterleavedDetection object that should be added to the pulse sequence.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "newSuspendFieldLock"></a>
+    <strong>newSuspendFieldLock(on)</strong>
+    </dt>
+    <dd>
+    Factory method: Create a new item that turns field lock suspension on/off.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">on</span>
+            <span class="types"><span class="type">bool</span></span>
+         true: Turn field lock suspension on, false: Turn it off
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#SuspendFieldLock">SuspendFieldLock</a></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "newSuspendFieldLockTimed"></a>
+    <strong>newSuspendFieldLockTimed(time)</strong>
+    </dt>
+    <dd>
+    Factory method: Create a new item that turns field lock suspension on for the specified amount of time.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">time</span>
+            <span class="types"><span class="type">double</span></span>
+         The amount of time to turn it on for.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#SuspendFieldLock">SuspendFieldLock</a></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "newShapedPulseSingle"></a>
+    <strong>newShapedPulseSingle(channel, entries)</strong>
+    </dt>
+    <dd>
+    Factory method: Create a new shaped pulse.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">channel</span>
+            <span class="types"><span class="type">ChannelConfig</span></span>
+         The channel configuration to use.
+        </li>
+        <li><span class="parameter">entries</span>
+            <span class="types"><span class="type">vector<_vector<_double_>></span></span>
+         A description of the pulse shape (each entry is passed to the PulseShapeEntry constructor, so they must be the correct length to initialize that type).
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#ShapedPulseSingle">ShapedPulseSingle</a></span>
+        A shaped pulse object
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_Core"></a>Class Core </h2>
+
+          <div class="section-description">
+          The Core class maintains the system's active configuration as well as provides access to hardware.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "Core.usePulseSequence"></a>
+    <strong>Core.usePulseSequence(pulseSequence)</strong>
+    </dt>
+    <dd>
+    Use a pulse sequence.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pulseSequence</span>
+            <span class="types"><a class="type" href="../sections/pulses.html#PulseSequence">PulseSequence</a></span>
+         The pulse sequence to use for the next acquisition
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setDigitalOutput"></a>
+    <strong>Core.setDigitalOutput(which, on)</strong>
+    </dt>
+    <dd>
+    Set a digital output to on or off.
+It will be set this way until it is changed in one of several ways: 1. This method is called again to change it. 2. There is an acquisition error, in which case the hardware is reset and the output is set to its default state. 3. The output is changed in a pulse sequence (not yet supported.)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">which</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The output pin identifier (1, 2, 3, 4, or 5)
+        </li>
+        <li><span class="parameter">on</span>
+            <span class="types"><span class="type">bool</span></span>
+         True: Set the output to "on", False: Set the output to "off"
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="DdsDriveStrength"></a>DdsDriveStrength </h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "DdsDriveStrength"></a>
+    <strong>DdsDriveStrength</strong>
+    </dt>
+    <dd>
+    Constants:
+AD9959 configuration related items.
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">Undefined</span>
+         -1, The DDS Drive Strength is undefined.
+        </li>
+        <li><span class="parameter">EighthScale</span>
+         0, The DDS Drive Strength is 1/8 (0)
+        </li>
+        <li><span class="parameter">HalfScale</span>
+         1, The DDS Drive Strength is 1/2 (1)
+        </li>
+        <li><span class="parameter">QuarterScale</span>
+         2, The DDS Drive Strength is 1/4 (2)
+        </li>
+        <li><span class="parameter">FullScale</span>
+         3, The DDS Drive Strength is 1 (3)
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">DdsDriveStrength.Undefined</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="CPDState"></a>CPDState </h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "CPDState"></a>
+    <strong>CPDState</strong>
+    </dt>
+    <dd>
+    Constants:
+The state to set the Composite Pulse Decoupling to.
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">Automatic</span>
+         0, Non-custom decoupling.
+        </li>
+        <li><span class="parameter">Start</span>
+         1, Turn on decoupling.
+        </li>
+        <li><span class="parameter">Stop</span>
+         2, Turn off decoupling.
+        </li>
+        <li><span class="parameter">Blank</span>
+         3, Temporarily pause decoupling.
+        </li>
+        <li><span class="parameter">Unblank</span>
+         4, Resume decoupling.
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">CPDState.Automatic</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_InterleavedDetection"></a>Class InterleavedDetection </h2>
+
+          <div class="section-description">
+          Represents an acquisition that takes place during the pulse sequence.
+The Inter-pulse-time is the time from the end of the acquisition to the start of the next item in the pulse sequence.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "InterleavedDetection.sampleTime"></a>
+    <strong>InterleavedDetection.sampleTime()</strong>
+    </dt>
+    <dd>
+    Get the time used to acquire data.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The time spent acquiring data.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "InterleavedDetection.setTime"></a>
+    <strong>InterleavedDetection.setTime(time)</strong>
+    </dt>
+    <dd>
+    Set the total time used for the acquisition, including delay.
+The minimum allowed is the time it takes to acquire the data.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">time</span>
+            <span class="types"><span class="type">double</span></span>
+         The time used for the acquisition. If it is greater than the time it takes to acquire data, the extra will be considered the inter-pulse-delay.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_PhaseTable"></a>Class PhaseTable </h2>
+
+          <div class="section-description">
+          Phase tables contain lists of phases that are applied to each pulse (and one phase that is applied to the received data.
+A phase table can be used in two ways: 1. A row in the table is applied to all transients in a 1D acquisition. In the next acquisition, the 2. All rows in the table
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "PhaseTable.PhaseTable"></a>
+    <strong>PhaseTable.PhaseTable()</strong>
+    </dt>
+    <dd>
+    Create an empty phase table.
+Default states360=360.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PhaseTable.PhaseTable"></a>
+    <strong>PhaseTable.PhaseTable(entries)</strong>
+    </dt>
+    <dd>
+    Create a phase table populated with the given entries.
+Default states360=360.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">entries</span>
+            <span class="types"><span class="type">vector<_vector<_double_>></span></span>
+         The entries to use (passed to addEntries())
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PhaseTable.PhaseTable"></a>
+    <strong>PhaseTable.PhaseTable(entries, mArgs)</strong>
+    </dt>
+    <dd>
+    Create a phase table populated with the given entries.
+Default states360=360. Supported table arguments: "accumulates"
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">entries</span>
+            <span class="types"><span class="type">vector<_vector<_double_>></span></span>
+         The entries to use (passed to addEntries())
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         Table of arguments to set.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PhaseTable.setName"></a>
+    <strong>PhaseTable.setName(name)</strong>
+    </dt>
+    <dd>
+    Set the name associated with this table.
+This will be stored in exported results.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The new name for the table.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PhaseTable.setStates360"></a>
+    <strong>PhaseTable.setStates360(states360)</strong>
+    </dt>
+    <dd>
+    Set the number used to represent 360 degree phase.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">states360</span>
+            <span class="types"><span class="type">double</span></span>
+         The number to use to represent 360 degree phase.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PhaseTable.addEntry"></a>
+    <strong>PhaseTable.addEntry(pulsePhases, rxPhase)</strong>
+    </dt>
+    <dd>
+    Add an entry to the table.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pulsePhases</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         A list of transmit phases.
+        </li>
+        <li><span class="parameter">rxPhase</span>
+            <span class="types"><span class="type">double</span></span>
+         The receiver phase for this entry.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PhaseTable.addEntries"></a>
+    <strong>PhaseTable.addEntries(vvd)</strong>
+    </dt>
+    <dd>
+    Add entries in the form of a list of lists of doubles.
+The last item in each list is the receiver phase. Using names as an example of the positioning: { { tx1, tx2, tx3, tx4, rx }, { tx1, tx2, tx3, tx4, rx } }
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">vvd</span>
+            <span class="types"><span class="type">vector<_vector<_double_>></span></span>
+         The entries to add.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PhaseTable.numEntries"></a>
+    <strong>PhaseTable.numEntries()</strong>
+    </dt>
+    <dd>
+    Get the number of entries in the table.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">unsigned_int</span></span>
+        The number of entries in the table
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PhaseTable.setAccumulates"></a>
+    <strong>PhaseTable.setAccumulates(accumulates)</strong>
+    </dt>
+    <dd>
+    Set whether the phase table is in "accumulates" mode or not.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">accumulates</span>
+            <span class="types"><span class="type">bool</span></span>
+         The new "accumulates" setting.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PhaseTable.toString"></a>
+    <strong>PhaseTable.toString()</strong>
+    </dt>
+    <dd>
+    Get a string representation of the table.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        A human readable string representation of the phase table.
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_Pulse"></a>Class Pulse </h2>
+
+          <div class="section-description">
+          Represents a pulse, which may be a pulse on one channel, or a simultaneous pulse on two channels.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "Pulse.pulseTime"></a>
+    <strong>Pulse.pulseTime()</strong>
+    </dt>
+    <dd>
+    Get the time that the pulse(s) is on.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The time that the pulse(s) is on (in seconds)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Pulse.setPulseTime"></a>
+    <strong>Pulse.setPulseTime(pulseTime)</strong>
+    </dt>
+    <dd>
+    Set the time that the pulse is on.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pulseTime</span>
+            <span class="types"><span class="type">double</span></span>
+         The time that the primary pulse is on for (in seconds)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Pulse.amplitude"></a>
+    <strong>Pulse.amplitude()</strong>
+    </dt>
+    <dd>
+    Get the pulse amplitude.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        amplitude The pulse amplitude.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Pulse.setAmplitude"></a>
+    <strong>Pulse.setAmplitude(amplitude)</strong>
+    </dt>
+    <dd>
+    Set the pulse amplitude (0 to 100)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">amplitude</span>
+            <span class="types"><span class="type">double</span></span>
+         The pulse amplitude.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Pulse.setTxBias"></a>
+    <strong>Pulse.setTxBias(txBias)</strong>
+    </dt>
+    <dd>
+    Set the tx bias for the pulse.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">txBias</span>
+            <span class="types"><span class="type">double</span></span>
+         The tx bias to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Pulse.phase"></a>
+    <strong>Pulse.phase()</strong>
+    </dt>
+    <dd>
+    Get the pulse tx phase.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The tx phase
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Pulse.setPhase"></a>
+    <strong>Pulse.setPhase(phase)</strong>
+    </dt>
+    <dd>
+    Set the pulse tx phase.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">phase</span>
+            <span class="types"><span class="type">double</span></span>
+         The tx phase
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_PulseSequence"></a>Class PulseSequence </h2>
+
+          <div class="section-description">
+          A class filename for load and handle pulse sequence information Todo: Instead of using a boolean value for the acquire/lock selection, use an integer or enum like the Core does.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "PulseSequence.PulseSequence"></a>
+    <strong>PulseSequence.PulseSequence()</strong>
+    </dt>
+    <dd>
+    Create a pulse sequence that uses the default settings.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.PulseSequence"></a>
+    <strong>PulseSequence.PulseSequence(channel)</strong>
+    </dt>
+    <dd>
+    Create a pulse sequence that uses a specific ChannelConfig.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">channel</span>
+            <span class="types"><span class="type">ChannelConfig</span></span>
+         The channel config to use for the pulse sequence.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.clone"></a>
+    <strong>PulseSequence.clone()</strong>
+    </dt>
+    <dd>
+    Return a copy of this pulse sequence.
+Required for Lua, which uses references for objects
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#PulseSequence">PulseSequence</a></span>
+        A copy of the pulse sequence.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.add"></a>
+    <strong>PulseSequence.add(pulse)</strong>
+    </dt>
+    <dd>
+    Add a copy of the pulse to the pulse sequence.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pulse</span>
+            <span class="types"><a class="type" href="../sections/pulses.html#Pulse">Pulse</a></span>
+         The pulse to add to the sequence.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.numPulses"></a>
+    <strong>PulseSequence.numPulses()</strong>
+    </dt>
+    <dd>
+    Get the number of pulses.
+Simpulses are counted as 1 pulse.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">unsigned_int</span></span>
+        The number of pulses in this pulse sequence.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.pulse"></a>
+    <strong>PulseSequence.pulse(index)</strong>
+    </dt>
+    <dd>
+    Get the pulse at the given index.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The index of the pulse to get
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#Pulse">Pulse</a></span>
+        The pulse at the given index
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.pulseSingle"></a>
+    <strong>PulseSequence.pulseSingle(index)</strong>
+    </dt>
+    <dd>
+    Get a PulseSingle pulse from the list.
+NULL if the pulse was a different type
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The index of the pulse to get.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#PulseSingle">PulseSingle</a></span>
+        The single pulse at the given index.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.pulseSimpulse"></a>
+    <strong>PulseSequence.pulseSimpulse(index)</strong>
+    </dt>
+    <dd>
+    Get a PulseSimpulse pulse from the list.
+NULL if the pulse was a different type
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The index of the pulse to get.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#PulseSimpulse">PulseSimpulse</a></span>
+        The simultaneous pulse at the given index.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.shapedPulseSingle"></a>
+    <strong>PulseSequence.shapedPulseSingle(index)</strong>
+    </dt>
+    <dd>
+    Get a ShapedPulseSingle pulse from the list.
+NULL if the pulse was a different type
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The index of the pulse to get.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#ShapedPulseSingle">ShapedPulseSingle</a></span>
+        The simultaneous pulse at the given index.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setAmplitude"></a>
+    <strong>PulseSequence.setAmplitude(index, amplitude)</strong>
+    </dt>
+    <dd>
+    Set the amplitude for the pulse at the given index.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The pulse to set the amplitude for
+        </li>
+        <li><span class="parameter">amplitude</span>
+            <span class="types"><span class="type">double</span></span>
+         The amplitude for the pulse (0 to 100)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setAmplitudeSecondary"></a>
+    <strong>PulseSequence.setAmplitudeSecondary(index, amplitude)</strong>
+    </dt>
+    <dd>
+    Set the amplitude for the secondary pulse at the given index.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The index of the simultaneous pulse to set the amplitude for
+        </li>
+        <li><span class="parameter">amplitude</span>
+            <span class="types"><span class="type">double</span></span>
+         The amplitude for the pulse (0 to 100)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setPulseTime"></a>
+    <strong>PulseSequence.setPulseTime(index, pulseTime)</strong>
+    </dt>
+    <dd>
+    Set the pulse "on" time for the pulse at the given index.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The pulse to set the time for.
+        </li>
+        <li><span class="parameter">pulseTime</span>
+            <span class="types"><span class="type">double</span></span>
+         The "on" time for the pulse.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setPulseTimeSecondary"></a>
+    <strong>PulseSequence.setPulseTimeSecondary(index, pulseTime)</strong>
+    </dt>
+    <dd>
+    Set the pulse "on" time for the secondary pulse at the given index.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The index of the simultaneous pulse to set the secondary time for.
+        </li>
+        <li><span class="parameter">pulseTime</span>
+            <span class="types"><span class="type">double</span></span>
+         The "on" time for the secondary pulse.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.interPulseTime"></a>
+    <strong>PulseSequence.interPulseTime(index)</strong>
+    </dt>
+    <dd>
+    Get the pulse "off" time for the pulse at the given index.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The index of the pulse to get the "off" time for.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The "off" time for that pulse
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setInterPulseTime"></a>
+    <strong>PulseSequence.setInterPulseTime(index, ipd)</strong>
+    </dt>
+    <dd>
+    Set the pulse "off" time for the pulse at the given index.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The index of the pulse to set the "off" time for.
+        </li>
+        <li><span class="parameter">ipd</span>
+            <span class="types"><span class="type">double</span></span>
+         The "off" time for the pulse.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setTxBias"></a>
+    <strong>PulseSequence.setTxBias(index, txBias)</strong>
+    </dt>
+    <dd>
+    Set the tx bias for a specific pulse.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The pulse to set the tx bias for
+        </li>
+        <li><span class="parameter">txBias</span>
+            <span class="types"><span class="type">double</span></span>
+         The value to set the tx bias to
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setTxBiasLow"></a>
+    <strong>PulseSequence.setTxBiasLow(index)</strong>
+    </dt>
+    <dd>
+    Set the tx bias for a specific pulse (to the low setting)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The pulse to set the tx bias for
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setTxBiasHigh"></a>
+    <strong>PulseSequence.setTxBiasHigh(index)</strong>
+    </dt>
+    <dd>
+    Set the tx bias for a specific pulse (to the high setting)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The pulse to set the tx bias for
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setTxBiasSecondary"></a>
+    <strong>PulseSequence.setTxBiasSecondary(index, txBias)</strong>
+    </dt>
+    <dd>
+    Set the tx bias for a specific pulse (secondary pulse)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The pulse to set the tx bias for
+        </li>
+        <li><span class="parameter">txBias</span>
+            <span class="types"><span class="type">double</span></span>
+         The value to set the tx bias to
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setTxBiasLowSecondary"></a>
+    <strong>PulseSequence.setTxBiasLowSecondary(index)</strong>
+    </dt>
+    <dd>
+    Set the tx bias for a specific pulse (secondary pulse) (to the low setting)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The pulse to set the tx bias for
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setTxBiasHighSecondary"></a>
+    <strong>PulseSequence.setTxBiasHighSecondary(index)</strong>
+    </dt>
+    <dd>
+    Set the tx bias for a specific pulse (secondary pulse) (to the high setting)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The pulse to set the tx bias for
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setPhase"></a>
+    <strong>PulseSequence.setPhase(index, phase)</strong>
+    </dt>
+    <dd>
+    Set the tx phase for a specific pulse.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The pulse to set the phase for
+        </li>
+        <li><span class="parameter">phase</span>
+            <span class="types"><span class="type">double</span></span>
+         The phase to use for that pulse
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setPhaseSecondary"></a>
+    <strong>PulseSequence.setPhaseSecondary(index, phase)</strong>
+    </dt>
+    <dd>
+    Set the tx phase for a specific pulse (the secondary part of the simpulse)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The index of the simpulse to set the secondary phase for
+        </li>
+        <li><span class="parameter">phase</span>
+            <span class="types"><span class="type">double</span></span>
+         The secondary phase to use for that pulse
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setFrequencyOffset"></a>
+    <strong>PulseSequence.setFrequencyOffset(offset)</strong>
+    </dt>
+    <dd>
+    Set the TX frequency offset in PPM for the primary channel relative to the spectral centre for that channel.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">offset</span>
+            <span class="types"><span class="type">double</span></span>
+         The offset to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setFrequencyOffsetSecondary"></a>
+    <strong>PulseSequence.setFrequencyOffsetSecondary(offset)</strong>
+    </dt>
+    <dd>
+    Set the TX frequency offset in PPM for the secondary channel relative to the spectral centre for that channel.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">offset</span>
+            <span class="types"><span class="type">double</span></span>
+         The offset to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.interleavedDetectionMaxOverhead"></a>
+    <strong>PulseSequence.interleavedDetectionMaxOverhead()</strong>
+    </dt>
+    <dd>
+    Get the maximum amount of overhead (in seconds) before or after an interleaved detection.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        Overhead (in seconds)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.toString"></a>
+    <strong>PulseSequence.toString()</strong>
+    </dt>
+    <dd>
+    Get a human readable string representation of the pulse sequence.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        A string representation
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSequence.setAcquireDuringPulses"></a>
+    <strong>PulseSequence.setAcquireDuringPulses(acquireDuringPulses)</strong>
+    </dt>
+    <dd>
+    Set whether data is acquired while pulses are transmitted or not.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">acquireDuringPulses</span>
+            <span class="types"><span class="type">bool</span></span>
+         True: Acquire while transmitting pulses
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_PulseShapeEntry"></a>Class PulseShapeEntry </h2>
+
+          <div class="section-description">
+          One slice of a shaped pulse.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "PulseShapeEntry.PulseShapeEntry"></a>
+    <strong>PulseShapeEntry.PulseShapeEntry(args)</strong>
+    </dt>
+    <dd>
+    Construct a shaped pulse slice from a list of arguments: Duration (seconds), AmplitudeScale (0 to 1) and PhaseOffset (0 to 359)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">args</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         The arguments
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_PulseSimpulse"></a>Class PulseSimpulse </h2>
+
+          <div class="section-description">
+          Pulses on two channels simultaneously.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "PulseSimpulse.phaseSecondary"></a>
+    <strong>PulseSimpulse.phaseSecondary()</strong>
+    </dt>
+    <dd>
+    Get the phase for the secondary pulse.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The phase for the secondary pulse
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSimpulse.txBiasPrimary"></a>
+    <strong>PulseSimpulse.txBiasPrimary()</strong>
+    </dt>
+    <dd>
+    Get the tx bias for the primary pulse.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The tx bias
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSimpulse.setTxBiasPrimary"></a>
+    <strong>PulseSimpulse.setTxBiasPrimary(txBiasPrimary)</strong>
+    </dt>
+    <dd>
+    Set the tx bias for the primary pulse.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">txBiasPrimary</span>
+            <span class="types"><span class="type">double</span></span>
+         The tx bias to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSimpulse.txBiasSecondary"></a>
+    <strong>PulseSimpulse.txBiasSecondary()</strong>
+    </dt>
+    <dd>
+    Get the tx bias for the secondary pulse.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The tx bias
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSimpulse.setTxBiasSecondary"></a>
+    <strong>PulseSimpulse.setTxBiasSecondary(txBiasSecondary)</strong>
+    </dt>
+    <dd>
+    Set the tx bias for the secondary pulse.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">txBiasSecondary</span>
+            <span class="types"><span class="type">double</span></span>
+         The tx bias to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSimpulse.driveStrengthPrimary"></a>
+    <strong>PulseSimpulse.driveStrengthPrimary()</strong>
+    </dt>
+    <dd>
+    Get the drive strength for the primary pulse.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#DdsDriveStrength">DdsDriveStrength</a></span>
+        The drive strength
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSimpulse.setDriveStrengthPrimary"></a>
+    <strong>PulseSimpulse.setDriveStrengthPrimary(driveStrength)</strong>
+    </dt>
+    <dd>
+    Set the drive strength for the primary pulse.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">driveStrength</span>
+            <span class="types"><a class="type" href="../sections/pulses.html#DdsDriveStrength">DdsDriveStrength</a></span>
+         The drive strength
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSimpulse.driveStrengthSecondary"></a>
+    <strong>PulseSimpulse.driveStrengthSecondary()</strong>
+    </dt>
+    <dd>
+    Get the drive strength for the secondary pulse.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#DdsDriveStrength">DdsDriveStrength</a></span>
+        The drive strength
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSimpulse.setDriveStrengthSecondary"></a>
+    <strong>PulseSimpulse.setDriveStrengthSecondary(driveStrength)</strong>
+    </dt>
+    <dd>
+    Set the drive strength for the secondary pulse.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">driveStrength</span>
+            <span class="types"><a class="type" href="../sections/pulses.html#DdsDriveStrength">DdsDriveStrength</a></span>
+         The drive strength
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSimpulse.setPhaseSecondary"></a>
+    <strong>PulseSimpulse.setPhaseSecondary(phase)</strong>
+    </dt>
+    <dd>
+    Set the phase for the secondary pulse.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">phase</span>
+            <span class="types"><span class="type">double</span></span>
+         The phase for the secondary pulse
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_PulseSingle"></a>Class PulseSingle </h2>
+
+          <div class="section-description">
+          A pulse on one channel.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "PulseSingle.txBias"></a>
+    <strong>PulseSingle.txBias()</strong>
+    </dt>
+    <dd>
+    Get the tx bias for the pulse.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The tx bias
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSingle.driveStrength"></a>
+    <strong>PulseSingle.driveStrength()</strong>
+    </dt>
+    <dd>
+    Get the drive strength.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#DdsDriveStrength">DdsDriveStrength</a></span>
+        The drive strength
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "PulseSingle.setDriveStrength"></a>
+    <strong>PulseSingle.setDriveStrength(driveStrength)</strong>
+    </dt>
+    <dd>
+    Set the drive strength.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">driveStrength</span>
+            <span class="types"><a class="type" href="../sections/pulses.html#DdsDriveStrength">DdsDriveStrength</a></span>
+         The drive strength
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_ShapedPulseSingle"></a>Class ShapedPulseSingle </h2>
+
+          <div class="section-description">
+          A shaped pulse on one channel.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "ShapedPulseSingle.txBias"></a>
+    <strong>ShapedPulseSingle.txBias()</strong>
+    </dt>
+    <dd>
+    Get the tx bias for the pulse.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The tx bias
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ShapedPulseSingle.driveStrength"></a>
+    <strong>ShapedPulseSingle.driveStrength()</strong>
+    </dt>
+    <dd>
+    Get the drive strength.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/pulses.html#DdsDriveStrength">DdsDriveStrength</a></span>
+        The drive strength
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ShapedPulseSingle.setDriveStrength"></a>
+    <strong>ShapedPulseSingle.setDriveStrength(driveStrength)</strong>
+    </dt>
+    <dd>
+    Set the drive strength.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">driveStrength</span>
+            <span class="types"><a class="type" href="../sections/pulses.html#DdsDriveStrength">DdsDriveStrength</a></span>
+         The drive strength
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2023-09-22 17:06:42 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

@@ -1,6 +1,11 @@
 # --- Per-machine local config (NEVER commit your real port) ------------------
 config_local.py
 .env
+configs/*.local.json
+
+# --- Local archive / ignored project metadata --------------------------------
+archive/
+.gitignore
 
 # --- Python bytecode / caches ------------------------------------------------
 __pycache__/

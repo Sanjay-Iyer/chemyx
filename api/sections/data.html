@@ -1,0 +1,6328 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>NMReady Experiment Designer Documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Experiment Designer</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#globals">globals</a></li>
+<li><a href="#Class_Core">Class Core </a></li>
+<li><a href="#ApodizationMethod">ApodizationMethod </a></li>
+<li><a href="#PlotType">PlotType </a></li>
+<li><a href="#AxisUnits">AxisUnits </a></li>
+<li><a href="#Class_DataSet1D">Class DataSet1D </a></li>
+<li><a href="#Class_DataString">Class DataString </a></li>
+<li><a href="#Class_DataTable">Class DataTable </a></li>
+<li><a href="#Class_DataTableEntry">Class DataTableEntry </a></li>
+<li><a href="#Class_FitFunction">Class FitFunction </a></li>
+<li><a href="#Class_FitFunctionDampedWave">Class FitFunctionDampedWave </a></li>
+<li><a href="#Class_FitFunctionLinear">Class FitFunctionLinear </a></li>
+<li><a href="#Class_Results2D">Class Results2D </a></li>
+<li><a href="#Class_cFloat">Class cFloat </a></li>
+<li><a href="#Class_dcomplex">Class dcomplex </a></li>
+</ul>
+
+
+<h2>Sections</h2>
+<ul class="nowrap">
+  <li><a href="../sections/config.html">config</a></li>
+  <li><a href="../sections/core.html">core</a></li>
+  <li><strong>data</strong></li>
+  <li><a href="../sections/display.html">display</a></li>
+  <li><a href="../sections/integrals.html">integrals</a></li>
+  <li><a href="../sections/pulses.html">pulses</a></li>
+</ul>
+<h2>Manual</h2>
+<ul class="nowrap">
+  <li><a href="../manual/01_Overview.md.html">01_Overview</a></li>
+  <li><a href="../manual/02_Phase_Tables.md.html">02_Phase_Tables</a></li>
+  <li><a href="../manual/03_Language_Reference.md.html">03_Language_Reference</a></li>
+  <li><a href="../manual/04_Saving_Results.md.html">04_Saving_Results</a></li>
+  <li><a href="../manual/05_Special_Functions.md.html">05_Special_Functions</a></li>
+</ul>
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><a href="../examples/1d.lua.html">1d.lua</a></li>
+  <li><a href="../examples/cosy.lua.html">cosy.lua</a></li>
+  <li><a href="../examples/t1.lua.html">t1.lua</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>data</code></h1>
+<p>1D and 2D data analysis and export.</p>
+<p>In the Experiment Designer, data is acquired one DataSet1D at a time.
+These can be collected together into a Results2D, then processed and displayed and/or exported.</p>
+
+
+<h2><a href="#globals">globals</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#newDataSet1D">newDataSet1D(name)</a></td>
+	<td class="summary">Create a new DataSet1D with a name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#importDataSet1D">importDataSet1D(name, filename)</a></td>
+	<td class="summary">Import a DataSet1D from a JDX file.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#unregisterDataSet1D">unregisterDataSet1D(dataset)</a></td>
+	<td class="summary">Remove a DataSet1D from the list of registered DataSet1D instances.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#unregisterDataSet1Ds">unregisterDataSet1Ds()</a></td>
+	<td class="summary">Remove all DataSet1Ds from the list of registered DataSet1D instances.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#newResults2D">newResults2D(name)</a></td>
+	<td class="summary">Create a new Results2D with a name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#importResults2D">importResults2D(name, filename)</a></td>
+	<td class="summary">Load a Results2D object from disk.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#unregisterResults2D">unregisterResults2D(results2D)</a></td>
+	<td class="summary">Remove a Results2D from the list of registered Results2D instances.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#unregisterResults2Ds">unregisterResults2Ds()</a></td>
+	<td class="summary">Remove all Results2Ds from the list of registered Results2D instances.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#allResults2Ds">allResults2Ds()</a></td>
+	<td class="summary">Get a list of all registered Results2D instances.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#registerDataTable">registerDataTable(name, dataTable)</a></td>
+	<td class="summary">Register a DataTable with a name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#newDataTable">newDataTable(name, mArgs)</a></td>
+	<td class="summary">Create a new DataTable with a name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#unregisterDataTable">unregisterDataTable(dataTable)</a></td>
+	<td class="summary">Remove a DataTable from the list of registered DataTable instances.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#unregisterDataTables">unregisterDataTables()</a></td>
+	<td class="summary">Remove all DataTables from the list of registered DataTable instances.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#newDataString">newDataString(name)</a></td>
+	<td class="summary">Create a new DataString with a name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#allDataSet1Ds">allDataSet1Ds()</a></td>
+	<td class="summary">Get a list of all registered DataSet1D instances.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#dataSet1D">dataSet1D(name)</a></td>
+	<td class="summary">Get a registered DataSet1D instance by name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#results2DByName">results2DByName(name)</a></td>
+	<td class="summary">Get a registered Results2D instance by name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#dataTableByName">dataTableByName(name)</a></td>
+	<td class="summary">Get a registered DataTable instance by name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#runAcquisitionQueue">runAcquisitionQueue()</a></td>
+	<td class="summary">Run the acquisition queue.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#exportDataTable">exportDataTable(dataTable, filename)</a></td>
+	<td class="summary">Export a DataTable object.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#importDataTable">importDataTable(filename)</a></td>
+	<td class="summary">Import a DataTable from a file.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#exportDataTable">exportDataTable(dataTable, display, filename)</a></td>
+	<td class="summary">Sets the display parameters for the DataTable, then exports it.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#fitFunctionFactory">fitFunctionFactory(name)</a></td>
+	<td class="summary">Create a fit function.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#exportDataSet1D">exportDataSet1D(dataset, filename)</a></td>
+	<td class="summary">Export 1D results to a file (or two files if configured that way).</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#exportResults2D">exportResults2D(results, filename)</a></td>
+	<td class="summary">Export 2D results to a single file.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#exportResults2D">exportResults2D(results, filename, extraHeader)</a></td>
+	<td class="summary">Export 2D results to a single file.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#exportResults2D">exportResults2D(results, filename, mArgs)</a></td>
+	<td class="summary">Export 2D results to a single file.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#exportCustomResults2D">exportCustomResults2D(results, filename, mArgs, mNmrHeader, mNmreadyHeader)</a></td>
+	<td class="summary">Export 2D results to a single file.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#prepareExperimentResults">prepareExperimentResults(path)</a></td>
+	<td class="summary">Prepare a directory to store experiment results.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#compressExperimentResults">compressExperimentResults(path)</a></td>
+	<td class="summary">Compress experiment results to a zip file.</td>
+	</tr>
+</table>
+<h2><a href="#Class_Core">Class Core </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#Core.dataSetLock">Core.dataSetLock()</a></td>
+	<td class="summary">Returns the lock data set.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.dataSetSignal">Core.dataSetSignal()</a></td>
+	<td class="summary">Returns the current signal data set.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.resetBaselineCorrection">Core.resetBaselineCorrection()</a></td>
+	<td class="summary">Reset the baseline correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.automaticBaselineCorrection">Core.automaticBaselineCorrection(dataSet)</a></td>
+	<td class="summary">Perform an automatic baseline correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.automaticBaselineCorrection">Core.automaticBaselineCorrection(dataSet, method, param1, param2)</a></td>
+	<td class="summary">Perform an automatic baseline correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.zerothOrderBaselineCorrection">Core.zerothOrderBaselineCorrection(dataSet, percentage)</a></td>
+	<td class="summary">Perform a manual baseline correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.interleavedData">Core.interleavedData()</a></td>
+	<td class="summary">If the previous acquisition used a pulse sequence that contained InterleavedDetections, the data can be retrieved using this method.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.addAcquisitionToQueue">Core.addAcquisitionToQueue(progress, progressMessage)</a></td>
+	<td class="summary">Deprecated.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.addAcquisitionToQueue">Core.addAcquisitionToQueue()</a></td>
+	<td class="summary">Add an acquisition with the current settings to the back of the acquisition queue.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.popAcquisitionQueue">Core.popAcquisitionQueue()</a></td>
+	<td class="summary">Get a result from the front of the acquisition queue queue.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.acquisitionQueueMode">Core.acquisitionQueueMode()</a></td>
+	<td class="summary">Returns true if the acquisition queue is being used.</td>
+	</tr>
+</table>
+<h2><a href="#ApodizationMethod">ApodizationMethod </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#ApodizationMethod">ApodizationMethod</a></td>
+	<td class="summary">Constants:
+Apodization settings.</td>
+	</tr>
+</table>
+<h2><a href="#PlotType">PlotType </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#PlotType">PlotType</a></td>
+	<td class="summary">Constants:
+The type of plot to use when displaying the data <br/>
+PlotType
+.</td>
+	</tr>
+</table>
+<h2><a href="#AxisUnits">AxisUnits </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#AxisUnits">AxisUnits</a></td>
+	<td class="summary">Constants:
+Definitions (enum) of different units.</td>
+	</tr>
+</table>
+<h2><a href="#Class_DataSet1D">Class DataSet1D </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DataSet1D.set">DataSet1D.set(other)</a></td>
+	<td class="summary">Replace the data and config in this object with that from the given DataSet1D.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.update">DataSet1D.update(other)</a></td>
+	<td class="summary">Set the data and update the display.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.processingSettings">DataSet1D.processingSettings()</a></td>
+	<td class="summary">Get the processing settings used by this DataSet1D instance.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.setProcessingSettings">DataSet1D.setProcessingSettings(settings)</a></td>
+	<td class="summary">Set the processing settings to use.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.setTitle">DataSet1D.setTitle(title)</a></td>
+	<td class="summary">Set the title for this dataset.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.accumulate">DataSet1D.accumulate(dataSet, rxPhase)</a></td>
+	<td class="summary">Add to the tdOriginal member using the given receiver phase.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.scaledAccumulate">DataSet1D.scaledAccumulate(dataSet, rxPhase)</a></td>
+	<td class="summary">Add to the tdOriginal member using the given receiver phase.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.scaledAccumulate">DataSet1D.scaledAccumulate(dataSet)</a></td>
+	<td class="summary">Add to the tdOriginal member using the given receiver phase.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.scale">DataSet1D.scale(factor)</a></td>
+	<td class="summary">Apply a scaling factor and reprocess().</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.updateFromAverage">DataSet1D.updateFromAverage(dataSet1, dataSet2)</a></td>
+	<td class="summary">Assign this dataset the average of the two given datasets.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.tdOriginal">DataSet1D.tdOriginal()</a></td>
+	<td class="summary">Get the original TD data from the DataSet.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.td">DataSet1D.td()</a></td>
+	<td class="summary">Get the TD data from the DataSet, with apodization and zeroing applied.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.fd">DataSet1D.fd()</a></td>
+	<td class="summary">Get the FD data from the DataSet.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.tdSNR">DataSet1D.tdSNR()</a></td>
+	<td class="summary">Returns (RMS signal) / (RMS noise) for the first 250us of the TD signal.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.tdRmsNoise">DataSet1D.tdRmsNoise()</a></td>
+	<td class="summary">Get the TD RMS noise.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.tdPeak">DataSet1D.tdPeak()</a></td>
+	<td class="summary">Get the largest value in the time domain signal (real component)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.tdMagPeak">DataSet1D.tdMagPeak()</a></td>
+	<td class="summary">Like tdPeak(), but use the magnitude instead.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.tdMagPeak">DataSet1D.tdMagPeak(pcf)</a></td>
+	<td class="summary">
+
+</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.tdWithRdc">DataSet1D.tdWithRdc()</a></td>
+	<td class="summary">Like compute cFloat of TD with RDC.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.tdMagPeakWithRdc">DataSet1D.tdMagPeakWithRdc()</a></td>
+	<td class="summary">Like computes the peak of and TD with RDC using the magnitude.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.tdSaturated">DataSet1D.tdSaturated()</a></td>
+	<td class="summary">Get whether the TD data is saturated.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.lowSignal">DataSet1D.lowSignal()</a></td>
+	<td class="summary">Get whether the signal is considered "low".</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.fdNoiseLevel">DataSet1D.fdNoiseLevel()</a></td>
+	<td class="summary">Get the noise level of the frequency domain.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.fdRms">DataSet1D.fdRms(startPpm, endPpm)</a></td>
+	<td class="summary">Get the RMS value of a region of the spectrum (real values)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.fdPhase">DataSet1D.fdPhase(index)</a></td>
+	<td class="summary">Get the phase of the frequency domain signal at a specific point.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.tdPhase">DataSet1D.tdPhase(index)</a></td>
+	<td class="summary">Get the phase of the time domain signal at a specific point.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.tdPhaseWithRdc">DataSet1D.tdPhaseWithRdc(index)</a></td>
+	<td class="summary">Get the phase of the time domain signal with RDC at a specific point.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.fdPeak">DataSet1D.fdPeak()</a></td>
+	<td class="summary">Get the maximum value in the spectrum (real spectrum)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.fdMagPeak">DataSet1D.fdMagPeak()</a></td>
+	<td class="summary">Get the maximum value in the spectrum (magnitude spectrum)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.peakOffset">DataSet1D.peakOffset()</a></td>
+	<td class="summary">Get the raw offset of the peak in the spectrum.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.linewidth">DataSet1D.linewidth(pcent)</a></td>
+	<td class="summary">Get the bandwidth of the spectrum at a given height.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.importFromJdx">DataSet1D.importFromJdx(sFilename)</a></td>
+	<td class="summary">Import Data from Jdx to DataSet1D.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.importFromJdxString">DataSet1D.importFromJdxString(sJcamp)</a></td>
+	<td class="summary">Import Data from JCAMP-DX String to DataSet1D.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.exportToJdxString">DataSet1D.exportToJdxString()</a></td>
+	<td class="summary">Export DataSet1D Data to a JCAMP-DX String.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.exportToCsvString">DataSet1D.exportToCsvString(type)</a></td>
+	<td class="summary">Export Spectrum / FID or Raw FID to a CSV String.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.linewidthsWithoutRDC">DataSet1D.linewidthsWithoutRDC(pcents)</a></td>
+	<td class="summary">Get a vector of bandwidths of spectrum without RDC at a given vector of heights.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.reprocess">DataSet1D.reprocess()</a></td>
+	<td class="summary">Reprocess the TD data using the latest parameters and the current baseline correction from the Core.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.reprocess">DataSet1D.reprocess(doRDC, doApod, doZero, doPhC, doBlC)</a></td>
+	<td class="summary">Reprocess the TD data using the latest parameters and the current baseline correction from the Core.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.copyOriginalToCurrentData">DataSet1D.copyOriginalToCurrentData(doRDC, doApod, doZero)</a></td>
+	<td class="summary">Copy pCcFloatTimeDomainOriginal to pCcFloatTimeDomain and apply rdc, apodization and zeroing.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.applyRdcApodZero">DataSet1D.applyRdcApodZero(doRDC, doApod, doZero)</a></td>
+	<td class="summary">Apply rdc, apodization and zeroing.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.automaticSinglePhaseCorrection">DataSet1D.automaticSinglePhaseCorrection(which)</a></td>
+	<td class="summary">Apply automatic Zero or First phase correction to the FD data.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.automaticSinglePhaseCorrection">DataSet1D.automaticSinglePhaseCorrection(which, metric)</a></td>
+	<td class="summary">Apply automatic Zero or First phase correction to the FD data.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.automaticPhaseCorrection">DataSet1D.automaticPhaseCorrection()</a></td>
+	<td class="summary">Apply automatic phase correction to the FD data.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.automaticPhaseCorrection">DataSet1D.automaticPhaseCorrection(method)</a></td>
+	<td class="summary">Apply automatic phase correction to the FD data.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.automaticPhaseCorrection">DataSet1D.automaticPhaseCorrection(metric)</a></td>
+	<td class="summary">Apply automatic phase correction to the FD data.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.automaticPhaseCorrection">DataSet1D.automaticPhaseCorrection(metric, optMethod)</a></td>
+	<td class="summary">Apply automatic phase correction to the FD data.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.globalSearchAutomaticPhaseCorrection">DataSet1D.globalSearchAutomaticPhaseCorrection(metric)</a></td>
+	<td class="summary">Perform, doing a global search, an AutomaticPhaseCorrection.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.absoluteManualPhaseCorrection">DataSet1D.absoluteManualPhaseCorrection(zero, first)</a></td>
+	<td class="summary">Apply an absolute manual phase correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.manualPhaseCorrection">DataSet1D.manualPhaseCorrection(phC0, phC1, pivot)</a></td>
+	<td class="summary">Apply a relative manual phase correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.zeroOrderPhaseCorrection">DataSet1D.zeroOrderPhaseCorrection()</a></td>
+	<td class="summary">Get the zeroth order phase correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.setZeroOrderPhaseCorrection">DataSet1D.setZeroOrderPhaseCorrection(phase)</a></td>
+	<td class="summary">Set the zeroth order phase correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.firstOrderPhaseCorrection">DataSet1D.firstOrderPhaseCorrection()</a></td>
+	<td class="summary">Get the first order phase correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.firstOrderPivot">DataSet1D.firstOrderPivot()</a></td>
+	<td class="summary">Get the first order pivot.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.setFirstOrderPhaseCorrection">DataSet1D.setFirstOrderPhaseCorrection(phase)</a></td>
+	<td class="summary">Set the first order phase correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.setFirstOrderPivot">DataSet1D.setFirstOrderPivot(pivot)</a></td>
+	<td class="summary">Set the first order pivot.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.rdcEnabled">DataSet1D.rdcEnabled()</a></td>
+	<td class="summary">Get RDC enabled status.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.setRdcEnabled">DataSet1D.setRdcEnabled(enabled)</a></td>
+	<td class="summary">Set RDC enabled status.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.name">DataSet1D.name()</a></td>
+	<td class="summary">Get dataset name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.pulseSequenceDescription">DataSet1D.pulseSequenceDescription()</a></td>
+	<td class="summary">Get a description of the pulse sequence.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.setPulseSequenceDescription">DataSet1D.setPulseSequenceDescription(description)</a></td>
+	<td class="summary">Set a description of the pulse sequence.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.save">DataSet1D.save(filename, overwrite)</a></td>
+	<td class="summary">Export 1D results to a file (or two files if configured that way).</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataSet1D.instanceCount">DataSet1D.instanceCount()</a></td>
+	<td class="summary">Get the number of DataSet1D instances that exist.</td>
+	</tr>
+</table>
+<h2><a href="#Class_DataString">Class DataString </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DataString.DataString">DataString.DataString(name)</a></td>
+	<td class="summary">Construct class from a map of key/value pairs, each in string format.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataString.name">DataString.name()</a></td>
+	<td class="summary">Get the string name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataString.value">DataString.value()</a></td>
+	<td class="summary">Get the string value.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataString.setValue">DataString.setValue(value)</a></td>
+	<td class="summary">Set the string value.</td>
+	</tr>
+</table>
+<h2><a href="#Class_DataTable">Class DataTable </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DataTable.DataTable">DataTable.DataTable(name, mArgs)</a></td>
+	<td class="summary">Construct class from a map of key/value pairs, each in string format.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTable.addEntry">DataTable.addEntry(mArgs)</a></td>
+	<td class="summary">Add an entry (column) in the data table.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTable.addEntry">DataTable.addEntry(mArgs, data)</a></td>
+	<td class="summary">Add an entry (column) in the data table using the given string arguments and data.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTable.numEntries">DataTable.numEntries()</a></td>
+	<td class="summary">Returns the number of entries (columns) in the data table.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTable.entry">DataTable.entry(index)</a></td>
+	<td class="summary">Get a column of data.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTable.append">DataTable.append(xValue, yValues)</a></td>
+	<td class="summary">Append Y values for an x value.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTable.fitAll">DataTable.fitAll()</a></td>
+	<td class="summary">Fit data in all entries.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTable.name">DataTable.name()</a></td>
+	<td class="summary">Get the table name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTable.xUnits">DataTable.xUnits()</a></td>
+	<td class="summary">Get the x units.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTable.xValue">DataTable.xValue(row)</a></td>
+	<td class="summary">Get the x value of a row.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTable.rows">DataTable.rows()</a></td>
+	<td class="summary">Get the number of rows in the table.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTable.setRow">DataTable.setRow(row, x, yValues)</a></td>
+	<td class="summary">Set X and Y values for a row.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTable.setRow">DataTable.setRow(row, yValues)</a></td>
+	<td class="summary">Set Y values for a row.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTable.removeRows">DataTable.removeRows(start, end)</a></td>
+	<td class="summary">Remove rows from the table (inclusive)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTable.setDisplayParameters">DataTable.setDisplayParameters(display)</a></td>
+	<td class="summary">Set the display parameters for this object.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTable.save">DataTable.save(filename, overwrite)</a></td>
+	<td class="summary">Export DataTable results to a file (or two files if configured that way).</td>
+	</tr>
+</table>
+<h2><a href="#Class_DataTableEntry">Class DataTableEntry </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DataTableEntry.name">DataTableEntry.name()</a></td>
+	<td class="summary">Get the entry's name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTableEntry.setInformation">DataTableEntry.setInformation(information)</a></td>
+	<td class="summary">Set information about the entry.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTableEntry.setFitFunction">DataTableEntry.setFitFunction(name)</a></td>
+	<td class="summary">Set the fit function by name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTableEntry.fitFunction">DataTableEntry.fitFunction()</a></td>
+	<td class="summary">Get the fit function for this entry.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTableEntry.data">DataTableEntry.data(index)</a></td>
+	<td class="summary">Get the data point at the given index.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTableEntry.data">DataTableEntry.data()</a></td>
+	<td class="summary">Get a copy of the internal data.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTableEntry.fitted">DataTableEntry.fitted(xValue)</a></td>
+	<td class="summary">Get a fitted value.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DataTableEntry.addPointOfInterest">DataTableEntry.addPointOfInterest(x, y, text)</a></td>
+	<td class="summary">Add a point of interest.</td>
+	</tr>
+</table>
+<h2><a href="#Class_FitFunction">Class FitFunction </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#FitFunction.description">FitFunction.description()</a></td>
+	<td class="summary">Get a string description of the fit function.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FitFunction.expandedDescription">FitFunction.expandedDescription()</a></td>
+	<td class="summary">Get a string description of the fit function.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FitFunction.parameters">FitFunction.parameters()</a></td>
+	<td class="summary">Get a description of the parameters.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FitFunction.vparameters">FitFunction.vparameters()</a></td>
+	<td class="summary">Get the fitted function parameters in vector format.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FitFunction.parametersTable">FitFunction.parametersTable()</a></td>
+	<td class="summary">Get the fit function parameters as a table of key[string] : value[double].</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FitFunction.name">FitFunction.name()</a></td>
+	<td class="summary">Get the name of the fit function.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FitFunction.extraFitResults">FitFunction.extraFitResults()</a></td>
+	<td class="summary">Get extra fitting results.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FitFunction.fit">FitFunction.fit(x, y)</a></td>
+	<td class="summary">Determine fit parameters for the given x/y values.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FitFunction.toFitFunctionExponential">FitFunction.toFitFunctionExponential()</a></td>
+	<td class="summary">Cast to a FitFunctionExponential.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FitFunction.toFitFunctionDampedWave">FitFunction.toFitFunctionDampedWave()</a></td>
+	<td class="summary">Cast to a FitFunctionDampedWave.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FitFunction.toFitFunctionLinear">FitFunction.toFitFunctionLinear()</a></td>
+	<td class="summary">Cast to a FitFunctionLinear.</td>
+	</tr>
+</table>
+<h2><a href="#Class_FitFunctionDampedWave">Class FitFunctionDampedWave </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#FitFunctionDampedWave.extraFitResults">FitFunctionDampedWave.extraFitResults()</a></td>
+	<td class="summary">Get extra fitting results.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FitFunctionDampedWave.getTimeFromAngle">FitFunctionDampedWave.getTimeFromAngle(angle)</a></td>
+	<td class="summary">Get Time in us from Angle in Degrees.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FitFunctionDampedWave.getAngleFromTime">FitFunctionDampedWave.getAngleFromTime(time)</a></td>
+	<td class="summary">Get Angle in degrees from Time in us.</td>
+	</tr>
+</table>
+<h2><a href="#Class_FitFunctionLinear">Class FitFunctionLinear </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#Processing.resampleDataTable">Processing.resampleDataTable(data, numPoints)</a></td>
+	<td class="summary">Resample (interpolate or decimate) the rows in a data table.</td>
+	</tr>
+</table>
+<h2><a href="#Class_Results2D">Class Results2D </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#Results2D.title">Results2D.title()</a></td>
+	<td class="summary">Get the title.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.tubeName">Results2D.tubeName()</a></td>
+	<td class="summary">Get the tube name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.experimentType">Results2D.experimentType()</a></td>
+	<td class="summary">Get the type of experiment (COSY, JRES, HSQC, etc.)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setExperimentType">Results2D.setExperimentType(experimentType)</a></td>
+	<td class="summary">Set the type of experiment (COSY, JRES, HSQC, etc.)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setPlotType">Results2D.setPlotType(plotType)</a></td>
+	<td class="summary">Set the plot type (used when loading the data later)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.importReferenceXFromJdxString">Results2D.importReferenceXFromJdxString(sJcamp)</a></td>
+	<td class="summary">Import the reference (X axis) from a JCAMP-DX 5.0 string.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.importReferenceYFromJdxString">Results2D.importReferenceYFromJdxString(sJcamp)</a></td>
+	<td class="summary">Import the reference (Y axis) from a JCAMP-DX 5.0 string.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.exportReferenceXToJdxString">Results2D.exportReferenceXToJdxString()</a></td>
+	<td class="summary">Export the reference (X axis) to a JCAMP-DX 5.0 String.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.exportReferenceYToJdxString">Results2D.exportReferenceYToJdxString()</a></td>
+	<td class="summary">Export the reference (Y axis) to a JCAMP-DX 5.0 String.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.import2DFromJdxString">Results2D.import2DFromJdxString(jcamp)</a></td>
+	<td class="summary">Import Data from JCAMP-DX 6.0 String to Results2D.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.export2DToJdxString">Results2D.export2DToJdxString(mArgs, mNmrHeader, mNmreadyHeader)</a></td>
+	<td class="summary">Export 2D Data to a JCAMP-DX 6.0 String.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.clear">Results2D.clear()</a></td>
+	<td class="summary">Delete all of the 1Ds.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.reprocess">Results2D.reprocess()</a></td>
+	<td class="summary">Reprocess all data (pseudo-2d)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.process2D">Results2D.process2D()</a></td>
+	<td class="summary">Process 2D data for display.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.statesPhaseCycling">Results2D.statesPhaseCycling()</a></td>
+	<td class="summary">Get whether States phase cycling is in use or not.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setStatesPhaseCycling">Results2D.setStatesPhaseCycling(statesPhaseCycling)</a></td>
+	<td class="summary">Set whether States phase cycling is in use or not.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.phaseTable">Results2D.phaseTable()</a></td>
+	<td class="summary">Get the phase table.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.phaseTableY">Results2D.phaseTableY()</a></td>
+	<td class="summary">Get the phase table.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setPhaseTable">Results2D.setPhaseTable(phaseTable)</a></td>
+	<td class="summary">Set the phase table.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setPhaseTableY">Results2D.setPhaseTableY(phaseTable)</a></td>
+	<td class="summary">Set the phase table for alternating rows (when States is used)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setMirrorF1">Results2D.setMirrorF1(mirrorF1)</a></td>
+	<td class="summary">Set the "mirror" setting for the F1 axis.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setSwapHalvesF1">Results2D.setSwapHalvesF1(swapHalvesF1)</a></td>
+	<td class="summary">Set the "swap halves" setting for the F1 axis.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setMirrorF2">Results2D.setMirrorF2(mirrorF2)</a></td>
+	<td class="summary">Set the "mirror" setting for the F2 axis.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setSwapHalvesF2">Results2D.setSwapHalvesF2(swapHalvesF2)</a></td>
+	<td class="summary">Set the "swap halves" setting for the F2 axis.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setNucleusF1">Results2D.setNucleusF1(nucleusF1)</a></td>
+	<td class="summary">Set the nucleus for the f1 (indirect) dimension.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setFirstContourThreshold">Results2D.setFirstContourThreshold(firstContourThreshold)</a></td>
+	<td class="summary">Set the height of the first contour threshold.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setSpectralWidthF1Hz">Results2D.setSpectralWidthF1Hz(spectralWidthF1Hz)</a></td>
+	<td class="summary">Set the width in the indirect dimension (in Hz)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setSpectralWidthF1Ppm">Results2D.setSpectralWidthF1Ppm(spectralWidthF1Ppm)</a></td>
+	<td class="summary">Set the width in the indirect dimension (in PPM)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setSpectralCenterF1Ppm">Results2D.setSpectralCenterF1Ppm(spectralCenter)</a></td>
+	<td class="summary">Set the spectral center in the indirect dimension (in PPM)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.numDataRows">Results2D.numDataRows()</a></td>
+	<td class="summary">Get the number of rows containing data (without zero filling applied)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.numT1PointsAcquired">Results2D.numT1PointsAcquired()</a></td>
+	<td class="summary">Get the number of T1 points worth of data in the Results2D.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.apodizationMethodF1">Results2D.apodizationMethodF1()</a></td>
+	<td class="summary">Get the apodization method to use for the indirect dimension.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setApodizationMethodF1">Results2D.setApodizationMethodF1(apodizationMethodF1)</a></td>
+	<td class="summary">Set the apodization method to use for the indirect dimension.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.apodizationMethodF2">Results2D.apodizationMethodF2()</a></td>
+	<td class="summary">Get the apodization method to use for the direct dimension.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setApodizationMethodF2">Results2D.setApodizationMethodF2(apodizationMethodF2)</a></td>
+	<td class="summary">Set the apodization method to use for the direct dimension.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.f1BoundsPpm">Results2D.f1BoundsPpm()</a></td>
+	<td class="summary">Get the (approximate) F1 axis bounds in PPM.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.f1BoundsHz">Results2D.f1BoundsHz()</a></td>
+	<td class="summary">Get the (approximate) F1 axis bounds in Hz.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.f2BoundsPpm">Results2D.f2BoundsPpm(spectralCenterPpm, spectralWidthPpm)</a></td>
+	<td class="summary">Get the (approximate) F2 axis bounds in PPM.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.name">Results2D.name()</a></td>
+	<td class="summary">Get the results name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.dataSet">Results2D.dataSet(index)</a></td>
+	<td class="summary">Get a DataSet1D from the list by index.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setReferenceX">Results2D.setReferenceX(referenceX)</a></td>
+	<td class="summary">Set the reference data for the top of the plot.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setReferenceY">Results2D.setReferenceY(referenceY)</a></td>
+	<td class="summary">Set the reference data for the left side of the plot.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setUnitsF1">Results2D.setUnitsF1(unitsF1)</a></td>
+	<td class="summary">Set the units for the F1 (indirect dimension) axis.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.setUnitsF2">Results2D.setUnitsF2(unitsF2)</a></td>
+	<td class="summary">Set the units for the F2 (direct dimension) axis.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.addDataSet">Results2D.addDataSet(dataSet)</a></td>
+	<td class="summary">Add a dataset to the group.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.addDataSet">Results2D.addDataSet(dataSet, y)</a></td>
+	<td class="summary">Add a dataset to the group and associate a y value with it.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.save">Results2D.save(filename, overwrite)</a></td>
+	<td class="summary">Export 1D results to a file (or two files if configured that way).</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Results2D.save">Results2D.save(filename, overwrite, mArgs)</a></td>
+	<td class="summary">Export 1D results to a file (or two files if configured that way).</td>
+	</tr>
+</table>
+<h2><a href="#Class_cFloat">Class cFloat </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#cFloat.at">cFloat.at(i)</a></td>
+	<td class="summary">Access an element in the vector.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#cFloat.data">cFloat.data()</a></td>
+	<td class="summary">Get the signal data.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#cFloat.real">cFloat.real()</a></td>
+	<td class="summary">Get the real part of the signal.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#cFloat.real">cFloat.real(start, end)</a></td>
+	<td class="summary">Get a slice of the real part of the signal.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#cFloat.imag">cFloat.imag()</a></td>
+	<td class="summary">Get the imaginary part of the signal.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#cFloat.mag">cFloat.mag()</a></td>
+	<td class="summary">Get the magnitude part of the signal.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#cFloat.power">cFloat.power()</a></td>
+	<td class="summary">Get the power part of the signal.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#cFloat.phase">cFloat.phase(index)</a></td>
+	<td class="summary">Get the phase of the signal at a specific index.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#cFloat.ppmToFreq">cFloat.ppmToFreq(ppm)</a></td>
+	<td class="summary">Convert PPM to Hz for this signal.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#cFloat.freqToPpm">cFloat.freqToPpm(freq)</a></td>
+	<td class="summary">Convert Hz to PPM for this signal.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#cFloat.indexToFreq">cFloat.indexToFreq(index)</a></td>
+	<td class="summary">Get the frequency for a given index.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#cFloat.freqToIndex">cFloat.freqToIndex(freq)</a></td>
+	<td class="summary">Convert a frequency to an index into the vector.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#cFloat.instanceCount">cFloat.instanceCount()</a></td>
+	<td class="summary">Get the number of DataSet1D instances that exist.</td>
+	</tr>
+</table>
+<h2><a href="#Class_dcomplex">Class dcomplex </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#dcomplex.dcomplex">dcomplex.dcomplex(other)</a></td>
+	<td class="summary">Create a new copy of a dcomplex.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#dcomplex.dcomplex">dcomplex.dcomplex(real)</a></td>
+	<td class="summary">Create a new instance with imag=0.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#dcomplex.dcomplex">dcomplex.dcomplex(real, imag)</a></td>
+	<td class="summary">Create a new instance with both real and imag set.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#dcomplex.mag">dcomplex.mag()</a></td>
+	<td class="summary">Get the magnitude (absolute value) of the complex number.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#dcomplex.arg">dcomplex.arg()</a></td>
+	<td class="summary">Get the phase angle (or angular component) of the complex number, expressed in radians.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#dcomplex.real">dcomplex.real()</a></td>
+	<td class="summary">Get the real part.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#dcomplex.real">dcomplex.real(r)</a></td>
+	<td class="summary">Set the real part.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#dcomplex.imag">dcomplex.imag()</a></td>
+	<td class="summary">Get the imaginary part.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#dcomplex.imag">dcomplex.imag(i)</a></td>
+	<td class="summary">Set the imaginary part.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="globals"></a>globals</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "newDataSet1D"></a>
+    <strong>newDataSet1D(name)</strong>
+    </dt>
+    <dd>
+    Create a new DataSet1D with a name.
+This can be used for display or export.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name for the DataSet1D.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">shared_ptr<_DataSet1D_></span></span>
+        An empty, new dataset.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "importDataSet1D"></a>
+    <strong>importDataSet1D(name, filename)</strong>
+    </dt>
+    <dd>
+    Import a DataSet1D from a JDX file.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name for the DataSet1D object
+        </li>
+        <li><span class="parameter">filename</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The file to import from
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">shared_ptr<_DataSet1D_></span></span>
+        The loaded data. Returns nil if the load fails.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "unregisterDataSet1D"></a>
+    <strong>unregisterDataSet1D(dataset)</strong>
+    </dt>
+    <dd>
+    Remove a DataSet1D from the list of registered DataSet1D instances.
+This allows it to be garbage collected. After this is called, the data can no longer be reprocessed from outside the Lua environment (e.g. No re-phasing from the GUI.)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataset</span>
+            <span class="types"><span class="type">shared_ptr<_DataSet1D_></span></span>
+         The DataSet1D instance to remove
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "unregisterDataSet1Ds"></a>
+    <strong>unregisterDataSet1Ds()</strong>
+    </dt>
+    <dd>
+    Remove all DataSet1Ds from the list of registered DataSet1D instances.
+See removeDataSet1D for implications.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "newResults2D"></a>
+    <strong>newResults2D(name)</strong>
+    </dt>
+    <dd>
+    Create a new Results2D with a name.
+This can be used for display or export.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name for the Results2D.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">shared_ptr<_Results2D_></span></span>
+        An empty, new Results2D object.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "importResults2D"></a>
+    <strong>importResults2D(name, filename)</strong>
+    </dt>
+    <dd>
+    Load a Results2D object from disk.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name for the Results2D object
+        </li>
+        <li><span class="parameter">filename</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The file to load the Results2D from
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">shared_ptr<_Results2D_></span></span>
+        The loaded Results2D
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "unregisterResults2D"></a>
+    <strong>unregisterResults2D(results2D)</strong>
+    </dt>
+    <dd>
+    Remove a Results2D from the list of registered Results2D instances.
+This allows it to be garbage collected. After this is called, the data can no longer be reprocessed from outside the Lua environment (e.g. No re-phasing from the GUI.)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">results2D</span>
+            <span class="types"><span class="type">shared_ptr<_Results2D_></span></span>
+         The Results2D instance to remove
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "unregisterResults2Ds"></a>
+    <strong>unregisterResults2Ds()</strong>
+    </dt>
+    <dd>
+    Remove all Results2Ds from the list of registered Results2D instances.
+See removeResults2D for implications.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "allResults2Ds"></a>
+    <strong>allResults2Ds()</strong>
+    </dt>
+    <dd>
+    Get a list of all registered Results2D instances.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_shared_ptr<_Results2D_>_></span></span>
+        A list of all Results2D instances
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "registerDataTable"></a>
+    <strong>registerDataTable(name, dataTable)</strong>
+    </dt>
+    <dd>
+    Register a DataTable with a name.
+This is for displaying data tables that were created from something other than newDataTable().
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name for the DataTable.
+        </li>
+        <li><span class="parameter">dataTable</span>
+            <span class="types"><span class="type">shared_ptr<_DataTable_></span></span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "newDataTable"></a>
+    <strong>newDataTable(name, mArgs)</strong>
+    </dt>
+    <dd>
+    Create a new DataTable with a name.
+This can be used for display or export.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name for the DataTable.
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">shared_ptr<_DataTable_></span></span>
+        An empty, new DataTable object.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "unregisterDataTable"></a>
+    <strong>unregisterDataTable(dataTable)</strong>
+    </dt>
+    <dd>
+    Remove a DataTable from the list of registered DataTable instances.
+This allows it to be garbage collected. After this is called, the data can no longer be reprocessed from outside the Lua environment (e.g. No re-phasing from the GUI.)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataTable</span>
+            <span class="types"><span class="type">shared_ptr<_DataTable_></span></span>
+         The DataTable instance to remove
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "unregisterDataTables"></a>
+    <strong>unregisterDataTables()</strong>
+    </dt>
+    <dd>
+    Remove all DataTables from the list of registered DataTable instances.
+See unregisterDataTable for implications.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "newDataString"></a>
+    <strong>newDataString(name)</strong>
+    </dt>
+    <dd>
+    Create a new DataString with a name.
+This can be used for display or export.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name for the string.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#DataString">DataString</a></span>
+        An empty, new DataString object.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "allDataSet1Ds"></a>
+    <strong>allDataSet1Ds()</strong>
+    </dt>
+    <dd>
+    Get a list of all registered DataSet1D instances.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_shared_ptr<_DataSet1D_>_></span></span>
+        A list of all DataSet1D instances
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "dataSet1D"></a>
+    <strong>dataSet1D(name)</strong>
+    </dt>
+    <dd>
+    Get a registered DataSet1D instance by name.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">shared_ptr<_DataSet1D_></span></span>
+        The DataSet1D instance
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "results2DByName"></a>
+    <strong>results2DByName(name)</strong>
+    </dt>
+    <dd>
+    Get a registered Results2D instance by name.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">shared_ptr<_Results2D_></span></span>
+        The Results2D instance
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "dataTableByName"></a>
+    <strong>dataTableByName(name)</strong>
+    </dt>
+    <dd>
+    Get a registered DataTable instance by name.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">shared_ptr<_DataTable_></span></span>
+        The DataTable instance
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "runAcquisitionQueue"></a>
+    <strong>runAcquisitionQueue()</strong>
+    </dt>
+    <dd>
+    Run the acquisition queue.
+Control returns to the script when the queue is finished. Results can be accessed via popAcquisitionQueue()
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "exportDataTable"></a>
+    <strong>exportDataTable(dataTable, filename)</strong>
+    </dt>
+    <dd>
+    Export a DataTable object.
+If you want the display to be the same when the data is loaded, be sure to call setDisplayParameters() first.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataTable</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataTable">DataTable</a></span>
+         The table to export.
+        </li>
+        <li><span class="parameter">filename</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the file to export to.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        Whether the data was exported successfully or not
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "importDataTable"></a>
+    <strong>importDataTable(filename)</strong>
+    </dt>
+    <dd>
+    Import a DataTable from a file.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">filename</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The file to import the DataTable from
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#DataTable">DataTable</a></span>
+        The imported DataTable. An exception will be thrown if the file could not be loaded.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "exportDataTable"></a>
+    <strong>exportDataTable(dataTable, display, filename)</strong>
+    </dt>
+    <dd>
+    Sets the display parameters for the DataTable, then exports it.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataTable</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataTable">DataTable</a></span>
+         The table to export.
+        </li>
+        <li><span class="parameter">display</span>
+            <span class="types"><span class="type">DisplayDataTable</span></span>
+         The display, whose parameters are used.
+        </li>
+        <li><span class="parameter">filename</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the file to export to.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        Whether the data was exported successfully or not
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "fitFunctionFactory"></a>
+    <strong>fitFunctionFactory(name)</strong>
+    </dt>
+    <dd>
+    Create a fit function.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The fit function to create. Options: "Exponential", "Damped Wave", "Linear"
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">shared_ptr<_FitFunction_></span></span>
+        A new fit function with the given name.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "exportDataSet1D"></a>
+    <strong>exportDataSet1D(dataset, filename)</strong>
+    </dt>
+    <dd>
+    Export 1D results to a file (or two files if configured that way).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataset</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+         The dataset to export.
+        </li>
+        <li><span class="parameter">filename</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The filename to export to.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        true: The data was exported successfully
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "exportResults2D"></a>
+    <strong>exportResults2D(results, filename)</strong>
+    </dt>
+    <dd>
+    Export 2D results to a single file.
+The results will need to be reprocessed after this.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">results</span>
+            <span class="types"><a class="type" href="../sections/data.html#Results2D">Results2D</a></span>
+         The 2D results to export.
+        </li>
+        <li><span class="parameter">filename</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The filename to export to.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        true: The results were exported successfully.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "exportResults2D"></a>
+    <strong>exportResults2D(results, filename, extraHeader)</strong>
+    </dt>
+    <dd>
+    Export 2D results to a single file.
+The results will need to be reprocessed after this. Include additional custom header data in JDX format. WARNING: No checking is done on this data, and it may cause your results to not be loadable by any software.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">results</span>
+            <span class="types"><a class="type" href="../sections/data.html#Results2D">Results2D</a></span>
+         The 2D results to export.
+        </li>
+        <li><span class="parameter">filename</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The filename to export to.
+        </li>
+        <li><span class="parameter">extraHeader</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The extra header data to include.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        true: The results were exported successfully.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "exportResults2D"></a>
+    <strong>exportResults2D(results, filename, mArgs)</strong>
+    </dt>
+    <dd>
+
+<p>Export 2D results to a single file.
+The results will need to be reprocessed after this. Optional arguments (mArgs) can be specified in a table using key/value pairs. While optional, many are required (marked RFL) in order for the 2D data to be loadable in third party software. </p>
+
+<ul>
+    <li>extraHeader: Include additional Experiment Specific custom header data in JDX format. WARNING: No checking is done on this data, and it may cause your results to not be loadable by any software.</li>
+</ul>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">results</span>
+            <span class="types"><a class="type" href="../sections/data.html#Results2D">Results2D</a></span>
+         The 2D results to export.
+        </li>
+        <li><span class="parameter">filename</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The filename to export to.
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         Optional arguments used to create the item.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        true: The results were exported successfully.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "exportCustomResults2D"></a>
+    <strong>exportCustomResults2D(results, filename, mArgs, mNmrHeader, mNmreadyHeader)</strong>
+    </dt>
+    <dd>
+
+<p>Export 2D results to a single file.
+The results will need to be reprocessed after this. Additional arguments (mArgs) can be specified in a table using key/value pairs. While optional, many are required (marked RFL) in order for the 2D data to be loadable in third party software. </p>
+
+<ul>
+    <li>extraHeader: Include additional Experiment Specific custom header data in JDX format. in JDX format. WARNING: No checking is done on this data, and it may cause your results to not be loadable by any software.</li>
+</ul>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">results</span>
+            <span class="types"><a class="type" href="../sections/data.html#Results2D">Results2D</a></span>
+         The 2D results to export.
+        </li>
+        <li><span class="parameter">filename</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The filename to export to.
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         arguments used to create the item.
+        </li>
+        <li><span class="parameter">mNmrHeader</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         arguments used to add JDX Tags to NMR Section
+        </li>
+        <li><span class="parameter">mNmreadyHeader</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         arguments used to add JDX Tags to NMReady Section
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        true: The results were exported successfully.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "prepareExperimentResults"></a>
+    <strong>prepareExperimentResults(path)</strong>
+    </dt>
+    <dd>
+    Prepare a directory to store experiment results.
+If the directory did not exist, it will be created. If it did exist, the contents of it will be deleted.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">path</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the result directory to create
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        True: Success, False: Error creating or clearing directory
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "compressExperimentResults"></a>
+    <strong>compressExperimentResults(path)</strong>
+    </dt>
+    <dd>
+    Compress experiment results to a zip file.
+If successful, the results directory will be deleted.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">path</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the result directory to compress.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        True: Success, False: Error compressing directory.
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_Core"></a>Class Core </h2>
+
+          <div class="section-description">
+          The Core class maintains the system's active configuration as well as provides access to hardware.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "Core.dataSetLock"></a>
+    <strong>Core.dataSetLock()</strong>
+    </dt>
+    <dd>
+    Returns the lock data set.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+        The lock dataset.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.dataSetSignal"></a>
+    <strong>Core.dataSetSignal()</strong>
+    </dt>
+    <dd>
+    Returns the current signal data set.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+        The signal dataset.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.resetBaselineCorrection"></a>
+    <strong>Core.resetBaselineCorrection()</strong>
+    </dt>
+    <dd>
+    Reset the baseline correction.
+No baseline correction will be applied until a new one is created.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.automaticBaselineCorrection"></a>
+    <strong>Core.automaticBaselineCorrection(dataSet)</strong>
+    </dt>
+    <dd>
+    Perform an automatic baseline correction.
+This does two things. It generates a baseline correction that will be used in future acquisitions. It also applies the correction to the given data.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataSet</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+         The data to use when creating the baseline correction.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.automaticBaselineCorrection"></a>
+    <strong>Core.automaticBaselineCorrection(dataSet, method, param1, param2)</strong>
+    </dt>
+    <dd>
+    Perform an automatic baseline correction.
+Available methods: 1 = Asymmetic least squares (dParam1= lambda, dParam2= p), 2 = Pan Tompkins (dParam1= fit method, dParam2= safety margin), 3 = lowess (dParam1= span), 4 = Rlowess (dParam1= span), 5 = manual: (dParam1= 1 gives spline, = 2 gives polynomial, = 3 gives pchip) (if polynomial, dParam2= order)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataSet</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+         The data to use when creating the baseline correction.
+        </li>
+        <li><span class="parameter">method</span>
+            <span class="types"><span class="type">int</span></span>
+         The method to use.
+        </li>
+        <li><span class="parameter">param1</span>
+            <span class="types"><span class="type">double</span></span>
+         First parameter for the given method (see above)
+        </li>
+        <li><span class="parameter">param2</span>
+            <span class="types"><span class="type">double</span></span>
+         Second parameter for the given method (see above)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.zerothOrderBaselineCorrection"></a>
+    <strong>Core.zerothOrderBaselineCorrection(dataSet, percentage)</strong>
+    </dt>
+    <dd>
+    Perform a manual baseline correction.
+This does two things. It generates a baseline correction that will be used in future acquisitions. It also applies the correction to the given data.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataSet</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+         The data to use when creating the baseline correction.
+        </li>
+        <li><span class="parameter">percentage</span>
+            <span class="types"><span class="type">double</span></span>
+         The baseline correction will be equal to this percentage of the FD peak height.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.interleavedData"></a>
+    <strong>Core.interleavedData()</strong>
+    </dt>
+    <dd>
+    If the previous acquisition used a pulse sequence that contained InterleavedDetections, the data can be retrieved using this method.
+This can only be called once after each acquire().
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_DataSet1D_></span></span>
+        A number of DataSet1D objects, one for each interleaved detection in the pulse sequence.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.addAcquisitionToQueue"></a>
+    <strong>Core.addAcquisitionToQueue(progress, progressMessage)</strong>
+    </dt>
+    <dd>
+    Deprecated.
+The progress/progressMessage is no longer supported. Add an acquisition with the current settings to the back of the acquisition queue.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">progress</span>
+            <span class="types"><span class="type">double</span></span>
+         No longer used
+        </li>
+        <li><span class="parameter">progressMessage</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         No longer used
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.addAcquisitionToQueue"></a>
+    <strong>Core.addAcquisitionToQueue()</strong>
+    </dt>
+    <dd>
+    Add an acquisition with the current settings to the back of the acquisition queue.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.popAcquisitionQueue"></a>
+    <strong>Core.popAcquisitionQueue()</strong>
+    </dt>
+    <dd>
+    Get a result from the front of the acquisition queue queue.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">shared_ptr<_DataSet1D_></span></span>
+        The result, or nil if there were no results in the queue
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.acquisitionQueueMode"></a>
+    <strong>Core.acquisitionQueueMode()</strong>
+    </dt>
+    <dd>
+    Returns true if the acquisition queue is being used.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        true if the acquisition queue is being used
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="ApodizationMethod"></a>ApodizationMethod </h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "ApodizationMethod"></a>
+    <strong>ApodizationMethod</strong>
+    </dt>
+    <dd>
+    Constants:
+Apodization settings.
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">None</span>
+         0
+        </li>
+        <li><span class="parameter">Exponential</span>
+         1, Exponential apodization.
+        </li>
+        <li><span class="parameter">Gaussian</span>
+         2, Not supported yet.
+        </li>
+        <li><span class="parameter">Sine</span>
+         3, Not supported yet.
+        </li>
+        <li><span class="parameter">SineSquared</span>
+         4, Sine squared apodization.
+        </li>
+        <li><span class="parameter">Trapezoidal</span>
+         5, Not supported yet.
+        </li>
+        <li><span class="parameter">Sinc</span>
+         6, Not supported yet.
+        </li>
+        <li><span class="parameter">SincSquared</span>
+         7, Not supported yet.
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">ApodizationMethod.None</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="PlotType"></a>PlotType </h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "PlotType"></a>
+    <strong>PlotType</strong>
+    </dt>
+    <dd>
+    Constants:
+The type of plot to use when displaying the data <br/>
+PlotType
+.
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">Display1D</span>
+         0
+        </li>
+        <li><span class="parameter">Display2D</span>
+         1
+        </li>
+        <li><span class="parameter">Pseudo2D</span>
+         2
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">PlotType.Display1D</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="AxisUnits"></a>AxisUnits </h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "AxisUnits"></a>
+    <strong>AxisUnits</strong>
+    </dt>
+    <dd>
+    Constants:
+Definitions (enum) of different units.
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">Hz</span>
+         0
+        </li>
+        <li><span class="parameter">PPM</span>
+         1
+        </li>
+        <li><span class="parameter">Sec</span>
+         2
+        </li>
+        <li><span class="parameter">MSec</span>
+         3
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">AxisUnits.Hz</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_DataSet1D"></a>Class DataSet1D </h2>
+
+          <div class="section-description">
+          Data from a single acquisition and the configuration used to acquire it.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "DataSet1D.set"></a>
+    <strong>DataSet1D.set(other)</strong>
+    </dt>
+    <dd>
+    Replace the data and config in this object with that from the given DataSet1D.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">other</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+         The DataSet1D to use.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.update"></a>
+    <strong>DataSet1D.update(other)</strong>
+    </dt>
+    <dd>
+    Set the data and update the display.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">other</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+         The DataSet1D to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.processingSettings"></a>
+    <strong>DataSet1D.processingSettings()</strong>
+    </dt>
+    <dd>
+    Get the processing settings used by this DataSet1D instance.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">ProcessingSettings</span></span>
+        The processing settings
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.setProcessingSettings"></a>
+    <strong>DataSet1D.setProcessingSettings(settings)</strong>
+    </dt>
+    <dd>
+    Set the processing settings to use.
+You will want to reprocess() after this.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">settings</span>
+            <span class="types"><span class="type">ProcessingSettings</span></span>
+         The processing settings to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.setTitle"></a>
+    <strong>DataSet1D.setTitle(title)</strong>
+    </dt>
+    <dd>
+    Set the title for this dataset.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">title</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The new title.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.accumulate"></a>
+    <strong>DataSet1D.accumulate(dataSet, rxPhase)</strong>
+    </dt>
+    <dd>
+    Add to the tdOriginal member using the given receiver phase.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataSet</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+         The dataset to accumulate
+        </li>
+        <li><span class="parameter">rxPhase</span>
+            <span class="types"><span class="type">double</span></span>
+         The receiver phase to use (0 to 360)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.scaledAccumulate"></a>
+    <strong>DataSet1D.scaledAccumulate(dataSet, rxPhase)</strong>
+    </dt>
+    <dd>
+    Add to the tdOriginal member using the given receiver phase.
+A scaling factor will be applied to this instance and the given instance. The overall effect is similar to averaging.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataSet</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+         The dataset to scale and accumulate
+        </li>
+        <li><span class="parameter">rxPhase</span>
+            <span class="types"><span class="type">double</span></span>
+         The receiver phase to use (0 to 360)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.scaledAccumulate"></a>
+    <strong>DataSet1D.scaledAccumulate(dataSet)</strong>
+    </dt>
+    <dd>
+    Add to the tdOriginal member using the given receiver phase.
+A scaling factor will be applied to this instance and the given instance. The overall effect is similar to averaging.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataSet</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+         The dataset to scale and accumulate
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.scale"></a>
+    <strong>DataSet1D.scale(factor)</strong>
+    </dt>
+    <dd>
+    Apply a scaling factor and reprocess().
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">factor</span>
+            <span class="types"><span class="type">double</span></span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.updateFromAverage"></a>
+    <strong>DataSet1D.updateFromAverage(dataSet1, dataSet2)</strong>
+    </dt>
+    <dd>
+    Assign this dataset the average of the two given datasets.
+The number of transients will be equal to the sum of the transients in the two datasets.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataSet1</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+         The first to average
+        </li>
+        <li><span class="parameter">dataSet2</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+         The second to average
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.tdOriginal"></a>
+    <strong>DataSet1D.tdOriginal()</strong>
+    </dt>
+    <dd>
+    Get the original TD data from the DataSet.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#cFloat">cFloat</a></span>
+        the TD data
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.td"></a>
+    <strong>DataSet1D.td()</strong>
+    </dt>
+    <dd>
+    Get the TD data from the DataSet, with apodization and zeroing applied.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#cFloat">cFloat</a></span>
+        the TD data
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.fd"></a>
+    <strong>DataSet1D.fd()</strong>
+    </dt>
+    <dd>
+    Get the FD data from the DataSet.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#cFloat">cFloat</a></span>
+        the FD data
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.tdSNR"></a>
+    <strong>DataSet1D.tdSNR()</strong>
+    </dt>
+    <dd>
+    Returns (RMS signal) / (RMS noise) for the first 250us of the TD signal.
+Calculates the rms noise by taking the rms for the last 20% of the TD signal.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        Signal to Noise Ratio
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.tdRmsNoise"></a>
+    <strong>DataSet1D.tdRmsNoise()</strong>
+    </dt>
+    <dd>
+    Get the TD RMS noise.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The TD RMS noise
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.tdPeak"></a>
+    <strong>DataSet1D.tdPeak()</strong>
+    </dt>
+    <dd>
+    Get the largest value in the time domain signal (real component)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        Max value, or -1 if no data
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.tdMagPeak"></a>
+    <strong>DataSet1D.tdMagPeak()</strong>
+    </dt>
+    <dd>
+    Like tdPeak(), but use the magnitude instead.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The peak level
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.tdMagPeak"></a>
+    <strong>DataSet1D.tdMagPeak(pcf)</strong>
+    </dt>
+    <dd>
+
+
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pcf</span>
+            <span class="types"><a class="type" href="../sections/data.html#cFloat">cFloat</a></span>
+         cFloat pointer with the TD data Like tdPeak(), but use the magnitude instead.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The peak level
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.tdWithRdc"></a>
+    <strong>DataSet1D.tdWithRdc()</strong>
+    </dt>
+    <dd>
+    Like compute cFloat of TD with RDC.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#cFloat">cFloat</a></span>
+        cFloat with TD with RDC
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.tdMagPeakWithRdc"></a>
+    <strong>DataSet1D.tdMagPeakWithRdc()</strong>
+    </dt>
+    <dd>
+    Like computes the peak of and TD with RDC using the magnitude.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The peak level
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.tdSaturated"></a>
+    <strong>DataSet1D.tdSaturated()</strong>
+    </dt>
+    <dd>
+    Get whether the TD data is saturated.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        true The signal was saturated, false: it was not
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.lowSignal"></a>
+    <strong>DataSet1D.lowSignal()</strong>
+    </dt>
+    <dd>
+    Get whether the signal is considered "low".
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        true: It was low, false: it was not
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.fdNoiseLevel"></a>
+    <strong>DataSet1D.fdNoiseLevel()</strong>
+    </dt>
+    <dd>
+    Get the noise level of the frequency domain.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The noise level
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.fdRms"></a>
+    <strong>DataSet1D.fdRms(startPpm, endPpm)</strong>
+    </dt>
+    <dd>
+    Get the RMS value of a region of the spectrum (real values)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">startPpm</span>
+            <span class="types"><span class="type">double</span></span>
+         The start of the region
+        </li>
+        <li><span class="parameter">endPpm</span>
+            <span class="types"><span class="type">double</span></span>
+         The end of the region
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The RMS of the region
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.fdPhase"></a>
+    <strong>DataSet1D.fdPhase(index)</strong>
+    </dt>
+    <dd>
+    Get the phase of the frequency domain signal at a specific point.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         Index into the signal.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        Phase at the given index.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.tdPhase"></a>
+    <strong>DataSet1D.tdPhase(index)</strong>
+    </dt>
+    <dd>
+    Get the phase of the time domain signal at a specific point.
+If a point is not specified, the second point is used.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         Index into the signal
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        Phase at the given index
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.tdPhaseWithRdc"></a>
+    <strong>DataSet1D.tdPhaseWithRdc(index)</strong>
+    </dt>
+    <dd>
+    Get the phase of the time domain signal with RDC at a specific point.
+If a point is not specified, the second point is used.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         Index into the signal
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        Phase at the given index
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.fdPeak"></a>
+    <strong>DataSet1D.fdPeak()</strong>
+    </dt>
+    <dd>
+    Get the maximum value in the spectrum (real spectrum)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">unsigned_int</span></span>
+        Index of the peak in the FD</li>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        peakLevel Max value in the real portion of the FD</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.fdMagPeak"></a>
+    <strong>DataSet1D.fdMagPeak()</strong>
+    </dt>
+    <dd>
+    Get the maximum value in the spectrum (magnitude spectrum)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">unsigned_int</span></span>
+        Index of the maximum value in the FD</li>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        peakLevel the maximum value</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.peakOffset"></a>
+    <strong>DataSet1D.peakOffset()</strong>
+    </dt>
+    <dd>
+    Get the raw offset of the peak in the spectrum.
+This is without the spectral center applied.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The offset, in Hz.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.linewidth"></a>
+    <strong>DataSet1D.linewidth(pcent)</strong>
+    </dt>
+    <dd>
+    Get the bandwidth of the spectrum at a given height.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pcent</span>
+            <span class="types"><span class="type">double</span></span>
+         The height of the spectrum to use (0 to 100)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The width at the given height
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.importFromJdx"></a>
+    <strong>DataSet1D.importFromJdx(sFilename)</strong>
+    </dt>
+    <dd>
+    Import Data from Jdx to DataSet1D.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">sFilename</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         Jdx (.dx) filename
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        True if successful otherwise false
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.importFromJdxString"></a>
+    <strong>DataSet1D.importFromJdxString(sJcamp)</strong>
+    </dt>
+    <dd>
+    Import Data from JCAMP-DX String to DataSet1D.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">sJcamp</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         JCAMP-DX String
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        True if successful otherwise false
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.exportToJdxString"></a>
+    <strong>DataSet1D.exportToJdxString()</strong>
+    </dt>
+    <dd>
+    Export DataSet1D Data to a JCAMP-DX String.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        JCAMP-DX String
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.exportToCsvString"></a>
+    <strong>DataSet1D.exportToCsvString(type)</strong>
+    </dt>
+    <dd>
+    Export Spectrum / FID or Raw FID to a CSV String.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">type</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         is a string with type of Data: spectrum, fid or rawfid
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        CSV String
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.linewidthsWithoutRDC"></a>
+    <strong>DataSet1D.linewidthsWithoutRDC(pcents)</strong>
+    </dt>
+    <dd>
+    Get a vector of bandwidths of spectrum without RDC at a given vector of heights.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pcents</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         The vector of heights of the spectrum to use (0 to 100)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        The vector of widths at the given heights after recomputing FD without RDC
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.reprocess"></a>
+    <strong>DataSet1D.reprocess()</strong>
+    </dt>
+    <dd>
+    Reprocess the TD data using the latest parameters and the current baseline correction from the Core.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.reprocess"></a>
+    <strong>DataSet1D.reprocess(doRDC, doApod, doZero, doPhC, doBlC)</strong>
+    </dt>
+    <dd>
+    Reprocess the TD data using the latest parameters and the current baseline correction from the Core.
+Choose whether to apply RDC, Apodization, Zero filling, Phase Correction or Baseline Correction.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">doRDC</span>
+            <span class="types"><span class="type">bool</span></span>
+         if true applies RDC
+        </li>
+        <li><span class="parameter">doApod</span>
+            <span class="types"><span class="type">bool</span></span>
+         if true applies Apodization
+        </li>
+        <li><span class="parameter">doZero</span>
+            <span class="types"><span class="type">bool</span></span>
+         if true applies Zero filling
+        </li>
+        <li><span class="parameter">doPhC</span>
+            <span class="types"><span class="type">bool</span></span>
+         if true applies Manual Phase Correction
+        </li>
+        <li><span class="parameter">doBlC</span>
+            <span class="types"><span class="type">bool</span></span>
+         if true applies Baseline Correction
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.copyOriginalToCurrentData"></a>
+    <strong>DataSet1D.copyOriginalToCurrentData(doRDC, doApod, doZero)</strong>
+    </dt>
+    <dd>
+    Copy pCcFloatTimeDomainOriginal to pCcFloatTimeDomain and apply rdc, apodization and zeroing.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">doRDC</span>
+            <span class="types"><span class="type">bool</span></span>
+         true = Do RDC (Reference Apodization)
+        </li>
+        <li><span class="parameter">doApod</span>
+            <span class="types"><span class="type">bool</span></span>
+         true = Do apodization
+        </li>
+        <li><span class="parameter">doZero</span>
+            <span class="types"><span class="type">bool</span></span>
+         true = Do zeroing
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.applyRdcApodZero"></a>
+    <strong>DataSet1D.applyRdcApodZero(doRDC, doApod, doZero)</strong>
+    </dt>
+    <dd>
+    Apply rdc, apodization and zeroing.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">doRDC</span>
+            <span class="types"><span class="type">bool</span></span>
+         true = Do RDC (Reference Apodization)
+        </li>
+        <li><span class="parameter">doApod</span>
+            <span class="types"><span class="type">bool</span></span>
+         true = Do apodization
+        </li>
+        <li><span class="parameter">doZero</span>
+            <span class="types"><span class="type">bool</span></span>
+         true = Do zeroing
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.automaticSinglePhaseCorrection"></a>
+    <strong>DataSet1D.automaticSinglePhaseCorrection(which)</strong>
+    </dt>
+    <dd>
+    Apply automatic Zero or First phase correction to the FD data.
+Updates the local copy of the processing settings with the applied phase corrections. Default metric is NMS.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">which</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         if 0 will search only for the best zero order phase correction. If 1 will optimise the first order phase correction only.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.automaticSinglePhaseCorrection"></a>
+    <strong>DataSet1D.automaticSinglePhaseCorrection(which, metric)</strong>
+    </dt>
+    <dd>
+    Apply automatic Zero or First phase correction to the FD data.
+Updates the local copy of the processing settings with the applied phase corrections.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">which</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         if 0 will search only for the best zero order phase correction. If 1 will optimise the first order phase correction only.
+        </li>
+        <li><span class="parameter">metric</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         is the metric to optimise: nms or en (nms best)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.automaticPhaseCorrection"></a>
+    <strong>DataSet1D.automaticPhaseCorrection()</strong>
+    </dt>
+    <dd>
+    Apply automatic phase correction to the FD data.
+Updates the local copy of the processing settings with the applied phase corrections. Using metric method from the core which is set in the cfg file (usually 1) Default Optimisation Method is LBFGS
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.automaticPhaseCorrection"></a>
+    <strong>DataSet1D.automaticPhaseCorrection(method)</strong>
+    </dt>
+    <dd>
+    Apply automatic phase correction to the FD data.
+Updates the local copy of the processing settings with the applied phase corrections. If method = 0 method is NMS otherwise is EN Default Optimisation Method is LBFGS
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">method</span>
+            <span class="types"><span class="type">int</span></span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.automaticPhaseCorrection"></a>
+    <strong>DataSet1D.automaticPhaseCorrection(metric)</strong>
+    </dt>
+    <dd>
+    Apply automatic phase correction to the FD data.
+Updates the local copy of the processing settings with the applied phase corrections.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">metric</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         Is the metric used to optimise: nms or en (nms usually the best)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.automaticPhaseCorrection"></a>
+    <strong>DataSet1D.automaticPhaseCorrection(metric, optMethod)</strong>
+    </dt>
+    <dd>
+    Apply automatic phase correction to the FD data.
+Updates the local copy of the processing settings with the applied phase corrections.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">metric</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         Is the metric used to optimise: nms or en (nms usually the best)
+        </li>
+        <li><span class="parameter">optMethod</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         Is the optimization method: lbfgs or praxis (lbfgs usually the best)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.globalSearchAutomaticPhaseCorrection"></a>
+    <strong>DataSet1D.globalSearchAutomaticPhaseCorrection(metric)</strong>
+    </dt>
+    <dd>
+    Perform, doing a global search, an AutomaticPhaseCorrection.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">metric</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         Is the metric used to optimise: nms or en
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.absoluteManualPhaseCorrection"></a>
+    <strong>DataSet1D.absoluteManualPhaseCorrection(zero, first)</strong>
+    </dt>
+    <dd>
+    Apply an absolute manual phase correction.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">zero</span>
+            <span class="types"><span class="type">double</span></span>
+         Zero Order Phase Correction
+        </li>
+        <li><span class="parameter">first</span>
+            <span class="types"><span class="type">double</span></span>
+         First Order Phase Correction
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.manualPhaseCorrection"></a>
+    <strong>DataSet1D.manualPhaseCorrection(phC0, phC1, pivot)</strong>
+    </dt>
+    <dd>
+    Apply a relative manual phase correction.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">phC0</span>
+            <span class="types"><span class="type">double</span></span>
+         Zero Order Phase Correction
+        </li>
+        <li><span class="parameter">phC1</span>
+            <span class="types"><span class="type">double</span></span>
+         First Order Phase Correction
+        </li>
+        <li><span class="parameter">pivot</span>
+            <span class="types"><span class="type">double</span></span>
+         First Order Pivot
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.zeroOrderPhaseCorrection"></a>
+    <strong>DataSet1D.zeroOrderPhaseCorrection()</strong>
+    </dt>
+    <dd>
+    Get the zeroth order phase correction.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        Zero Order Phase Correction
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.setZeroOrderPhaseCorrection"></a>
+    <strong>DataSet1D.setZeroOrderPhaseCorrection(phase)</strong>
+    </dt>
+    <dd>
+    Set the zeroth order phase correction.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">phase</span>
+            <span class="types"><span class="type">double</span></span>
+         The Zero Order Phase Correction value to set
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.firstOrderPhaseCorrection"></a>
+    <strong>DataSet1D.firstOrderPhaseCorrection()</strong>
+    </dt>
+    <dd>
+    Get the first order phase correction.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        First Order Phase Correction
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.firstOrderPivot"></a>
+    <strong>DataSet1D.firstOrderPivot()</strong>
+    </dt>
+    <dd>
+    Get the first order pivot.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        First Order Pivot
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.setFirstOrderPhaseCorrection"></a>
+    <strong>DataSet1D.setFirstOrderPhaseCorrection(phase)</strong>
+    </dt>
+    <dd>
+    Set the first order phase correction.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">phase</span>
+            <span class="types"><span class="type">double</span></span>
+         The First Order Phase Correction value to set
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.setFirstOrderPivot"></a>
+    <strong>DataSet1D.setFirstOrderPivot(pivot)</strong>
+    </dt>
+    <dd>
+    Set the first order pivot.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pivot</span>
+            <span class="types"><span class="type">double</span></span>
+         The First Order Pivot value to set
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.rdcEnabled"></a>
+    <strong>DataSet1D.rdcEnabled()</strong>
+    </dt>
+    <dd>
+    Get RDC enabled status.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        True if enabled or False if disabled
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.setRdcEnabled"></a>
+    <strong>DataSet1D.setRdcEnabled(enabled)</strong>
+    </dt>
+    <dd>
+    Set RDC enabled status.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">enabled</span>
+            <span class="types"><span class="type">bool</span></span>
+         True to enable or False to disable
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.name"></a>
+    <strong>DataSet1D.name()</strong>
+    </dt>
+    <dd>
+    Get dataset name.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The name of the DataSet1D
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.pulseSequenceDescription"></a>
+    <strong>DataSet1D.pulseSequenceDescription()</strong>
+    </dt>
+    <dd>
+    Get a description of the pulse sequence.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        A description of the pulse sequence
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.setPulseSequenceDescription"></a>
+    <strong>DataSet1D.setPulseSequenceDescription(description)</strong>
+    </dt>
+    <dd>
+    Set a description of the pulse sequence.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">description</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         A description of the pulse sequence
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.save"></a>
+    <strong>DataSet1D.save(filename, overwrite)</strong>
+    </dt>
+    <dd>
+    Export 1D results to a file (or two files if configured that way).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">filename</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The filename to save to
+        </li>
+        <li><span class="parameter">overwrite</span>
+            <span class="types"><span class="type">bool</span></span>
+         Whether the file should be overwritten if it already exists
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">bool</span></span>
+        true: success, false: error</li>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        message The filename used, or the error message</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataSet1D.instanceCount"></a>
+    <strong>DataSet1D.instanceCount()</strong>
+    </dt>
+    <dd>
+    Get the number of DataSet1D instances that exist.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">int</span></span>
+        The number of DataSet1D instances that exist.
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_DataString"></a>Class DataString </h2>
+
+          <div class="section-description">
+          An experiment result in string format.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "DataString.DataString"></a>
+    <strong>DataString.DataString(name)</strong>
+    </dt>
+    <dd>
+    Construct class from a map of key/value pairs, each in string format.
+If this data is to be used in the GUI, use newDataString() instead.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the string
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataString.name"></a>
+    <strong>DataString.name()</strong>
+    </dt>
+    <dd>
+    Get the string name.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The string name
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataString.value"></a>
+    <strong>DataString.value()</strong>
+    </dt>
+    <dd>
+    Get the string value.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The string value
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataString.setValue"></a>
+    <strong>DataString.setValue(value)</strong>
+    </dt>
+    <dd>
+    Set the string value.
+Also updates the GUI.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">value</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_DataTable"></a>Class DataTable </h2>
+
+          <div class="section-description">
+          Experiment results that are in a table.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "DataTable.DataTable"></a>
+    <strong>DataTable.DataTable(name, mArgs)</strong>
+    </dt>
+    <dd>
+    Construct class from a map of key/value pairs, each in string format.
+If this data is to be displayed in the GUI, use newDataTable() instead.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the table
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         Optional arguments used to initialize the object. Available keys: "xUnits", "legend"
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTable.addEntry"></a>
+    <strong>DataTable.addEntry(mArgs)</strong>
+    </dt>
+    <dd>
+    Add an entry (column) in the data table.
+Arguments are used to construct a DataTableEntry object.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         A dictionary of strings used to initialize the column. See DataTableEntry for details.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTable.addEntry"></a>
+    <strong>DataTable.addEntry(mArgs, data)</strong>
+    </dt>
+    <dd>
+    Add an entry (column) in the data table using the given string arguments and data.
+Arguments are used to construct a DataTableEntry object.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         A dictionary of strings used to initialize the column. See DataTableEntry for details.
+        </li>
+        <li><span class="parameter">data</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         The data that will be put into the entry. (This must be the same size as the existing entries or an error will be thrown.)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTable.numEntries"></a>
+    <strong>DataTable.numEntries()</strong>
+    </dt>
+    <dd>
+    Returns the number of entries (columns) in the data table.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">unsigned_int</span></span>
+        The number of data entries (columns) in the data table.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTable.entry"></a>
+    <strong>DataTable.entry(index)</strong>
+    </dt>
+    <dd>
+    Get a column of data.
+This includes the fit function for that entry if it has one.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The column number to get
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">shared_ptr<_DataTableEntry_></span></span>
+        The column of data (with optional fit function)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTable.append"></a>
+    <strong>DataTable.append(xValue, yValues)</strong>
+    </dt>
+    <dd>
+    Append Y values for an x value.
+The length of yValues must match the number of entries, or else an exception is thrown.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">xValue</span>
+            <span class="types"><span class="type">double</span></span>
+         The x value for the y values
+        </li>
+        <li><span class="parameter">yValues</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         A list of y values to add
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTable.fitAll"></a>
+    <strong>DataTable.fitAll()</strong>
+    </dt>
+    <dd>
+    Fit data in all entries.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTable.name"></a>
+    <strong>DataTable.name()</strong>
+    </dt>
+    <dd>
+    Get the table name.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The table name
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTable.xUnits"></a>
+    <strong>DataTable.xUnits()</strong>
+    </dt>
+    <dd>
+    Get the x units.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The x units
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTable.xValue"></a>
+    <strong>DataTable.xValue(row)</strong>
+    </dt>
+    <dd>
+    Get the x value of a row.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">row</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The row to get the x value from
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The x value
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTable.rows"></a>
+    <strong>DataTable.rows()</strong>
+    </dt>
+    <dd>
+    Get the number of rows in the table.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">unsigned_int</span></span>
+        The number of rows
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTable.setRow"></a>
+    <strong>DataTable.setRow(row, x, yValues)</strong>
+    </dt>
+    <dd>
+    Set X and Y values for a row.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">row</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The row number to set the values for
+        </li>
+        <li><span class="parameter">x</span>
+            <span class="types"><span class="type">double</span></span>
+         The x value for the row
+        </li>
+        <li><span class="parameter">yValues</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         The y values for the row
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTable.setRow"></a>
+    <strong>DataTable.setRow(row, yValues)</strong>
+    </dt>
+    <dd>
+    Set Y values for a row.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">row</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The row number to set the values for
+        </li>
+        <li><span class="parameter">yValues</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         The y values for the row
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTable.removeRows"></a>
+    <strong>DataTable.removeRows(start, end)</strong>
+    </dt>
+    <dd>
+    Remove rows from the table (inclusive)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">start</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The first row to remove
+        </li>
+        <li><span class="parameter">end</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The last row to remove
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTable.setDisplayParameters"></a>
+    <strong>DataTable.setDisplayParameters(display)</strong>
+    </dt>
+    <dd>
+    Set the display parameters for this object.
+If this is not set and the object is saved/reloaded, the display parameters will be lost.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">display</span>
+            <span class="types"><span class="type">DisplayDataTable</span></span>
+         the datatable used to display the object
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTable.save"></a>
+    <strong>DataTable.save(filename, overwrite)</strong>
+    </dt>
+    <dd>
+    Export DataTable results to a file (or two files if configured that way).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">filename</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The filename to save to
+        </li>
+        <li><span class="parameter">overwrite</span>
+            <span class="types"><span class="type">bool</span></span>
+         Whether the file should be overwritten if it already exists
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">bool</span></span>
+        true: success, false: error</li>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        message The filename used, or the error message</li>
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_DataTableEntry"></a>Class DataTableEntry </h2>
+
+          <div class="section-description">
+          An entry in a DataTable.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "DataTableEntry.name"></a>
+    <strong>DataTableEntry.name()</strong>
+    </dt>
+    <dd>
+    Get the entry's name.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The name
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTableEntry.setInformation"></a>
+    <strong>DataTableEntry.setInformation(information)</strong>
+    </dt>
+    <dd>
+    Set information about the entry.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">information</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         Information about the entry
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTableEntry.setFitFunction"></a>
+    <strong>DataTableEntry.setFitFunction(name)</strong>
+    </dt>
+    <dd>
+    Set the fit function by name.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the fit function to use. Options: "Exponential", "Damped Wave"
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTableEntry.fitFunction"></a>
+    <strong>DataTableEntry.fitFunction()</strong>
+    </dt>
+    <dd>
+    Get the fit function for this entry.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">shared_ptr<_FitFunction_></span></span>
+        The FitFunction. Nil if there is not one.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTableEntry.data"></a>
+    <strong>DataTableEntry.data(index)</strong>
+    </dt>
+    <dd>
+    Get the data point at the given index.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The index to get the data at
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The data point
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTableEntry.data"></a>
+    <strong>DataTableEntry.data()</strong>
+    </dt>
+    <dd>
+    Get a copy of the internal data.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        A copy of the entry's data
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTableEntry.fitted"></a>
+    <strong>DataTableEntry.fitted(xValue)</strong>
+    </dt>
+    <dd>
+    Get a fitted value.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">xValue</span>
+            <span class="types"><span class="type">double</span></span>
+         The x value to get a fitted value for.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The fitted value.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DataTableEntry.addPointOfInterest"></a>
+    <strong>DataTableEntry.addPointOfInterest(x, y, text)</strong>
+    </dt>
+    <dd>
+    Add a point of interest.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">x</span>
+            <span class="types"><span class="type">double</span></span>
+         The x value
+        </li>
+        <li><span class="parameter">y</span>
+            <span class="types"><span class="type">double</span></span>
+         The y value
+        </li>
+        <li><span class="parameter">text</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         A description of the point of interest
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_FitFunction"></a>Class FitFunction </h2>
+
+          <div class="section-description">
+          An inteface for fit functions.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "FitFunction.description"></a>
+    <strong>FitFunction.description()</strong>
+    </dt>
+    <dd>
+    Get a string description of the fit function.
+Includes the parameters and equation.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        A string description.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FitFunction.expandedDescription"></a>
+    <strong>FitFunction.expandedDescription()</strong>
+    </dt>
+    <dd>
+    Get a string description of the fit function.
+The parameters are expanded inside the equation.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        A string description.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FitFunction.parameters"></a>
+    <strong>FitFunction.parameters()</strong>
+    </dt>
+    <dd>
+    Get a description of the parameters.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        A string description of the parameters, separated by semicolons.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FitFunction.vparameters"></a>
+    <strong>FitFunction.vparameters()</strong>
+    </dt>
+    <dd>
+    Get the fitted function parameters in vector format.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        A vector of doubles with the parameters.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FitFunction.parametersTable"></a>
+    <strong>FitFunction.parametersTable()</strong>
+    </dt>
+    <dd>
+    Get the fit function parameters as a table of key[string] : value[double].
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">map<_string,_double_></span></span>
+        The fit function parameters
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FitFunction.name"></a>
+    <strong>FitFunction.name()</strong>
+    </dt>
+    <dd>
+    Get the name of the fit function.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The name of the fit function
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FitFunction.extraFitResults"></a>
+    <strong>FitFunction.extraFitResults()</strong>
+    </dt>
+    <dd>
+    Get extra fitting results.
+Some fit methods have extra results.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        Extra results (if any)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FitFunction.fit"></a>
+    <strong>FitFunction.fit(x, y)</strong>
+    </dt>
+    <dd>
+    Determine fit parameters for the given x/y values.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">x</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         The X values to use
+        </li>
+        <li><span class="parameter">y</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         The Y values to use
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        Whether the fit was successful or not.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FitFunction.toFitFunctionExponential"></a>
+    <strong>FitFunction.toFitFunctionExponential()</strong>
+    </dt>
+    <dd>
+    Cast to a FitFunctionExponential.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#FitFunctionExponential">FitFunctionExponential</a></span>
+        the object or nil if this is not an instance of FitFunctionExponential.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FitFunction.toFitFunctionDampedWave"></a>
+    <strong>FitFunction.toFitFunctionDampedWave()</strong>
+    </dt>
+    <dd>
+    Cast to a FitFunctionDampedWave.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#FitFunctionDampedWave">FitFunctionDampedWave</a></span>
+        the object or nil if this is not an instance of FitFunctionDampedWave.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FitFunction.toFitFunctionLinear"></a>
+    <strong>FitFunction.toFitFunctionLinear()</strong>
+    </dt>
+    <dd>
+    Cast to a FitFunctionLinear.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#FitFunctionLinear">FitFunctionLinear</a></span>
+        the object or nil if this is not an instance of FitFunctionLinear.
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_FitFunctionDampedWave"></a>Class FitFunctionDampedWave </h2>
+
+          <div class="section-description">
+          A damped wave fit function.
+Derived from FitFunction.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "FitFunctionDampedWave.extraFitResults"></a>
+    <strong>FitFunctionDampedWave.extraFitResults()</strong>
+    </dt>
+    <dd>
+    Get extra fitting results.
+Some fit methods have extra results.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        Extra results (if any)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FitFunctionDampedWave.getTimeFromAngle"></a>
+    <strong>FitFunctionDampedWave.getTimeFromAngle(angle)</strong>
+    </dt>
+    <dd>
+    Get Time in us from Angle in Degrees.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">angle</span>
+            <span class="types"><span class="type">double</span></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        time in us
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FitFunctionDampedWave.getAngleFromTime"></a>
+    <strong>FitFunctionDampedWave.getAngleFromTime(time)</strong>
+    </dt>
+    <dd>
+    Get Angle in degrees from Time in us.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">time</span>
+            <span class="types"><span class="type">double</span></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        angle
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_FitFunctionLinear"></a>Class FitFunctionLinear </h2>
+
+          <div class="section-description">
+          An linear fit function.
+Derived from FitFunction.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "Processing.resampleDataTable"></a>
+    <strong>Processing.resampleDataTable(data, numPoints)</strong>
+    </dt>
+    <dd>
+    Resample (interpolate or decimate) the rows in a data table.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">data</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataTable">DataTable</a></span>
+         The source data, which will be unmodified
+        </li>
+        <li><span class="parameter">numPoints</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The number of rows for the new data table
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#DataTable">DataTable</a></span>
+        A new DataTable with numPoints number of rows
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_Results2D"></a>Class Results2D </h2>
+
+          <div class="section-description">
+          A collection of DataSet1D objects.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "Results2D.title"></a>
+    <strong>Results2D.title()</strong>
+    </dt>
+    <dd>
+    Get the title.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The title
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.tubeName"></a>
+    <strong>Results2D.tubeName()</strong>
+    </dt>
+    <dd>
+    Get the tube name.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The tube name
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.experimentType"></a>
+    <strong>Results2D.experimentType()</strong>
+    </dt>
+    <dd>
+    Get the type of experiment (COSY, JRES, HSQC, etc.)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The type of experiment (COSY, JRES, HSQC, etc.)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setExperimentType"></a>
+    <strong>Results2D.setExperimentType(experimentType)</strong>
+    </dt>
+    <dd>
+    Set the type of experiment (COSY, JRES, HSQC, etc.)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">experimentType</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The type of experiment (COSY, JRES, HSQC, etc.)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setPlotType"></a>
+    <strong>Results2D.setPlotType(plotType)</strong>
+    </dt>
+    <dd>
+    Set the plot type (used when loading the data later)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">plotType</span>
+            <span class="types"><a class="type" href="../sections/data.html#PlotType">PlotType</a></span>
+         The plot type (used when loading the data later)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.importReferenceXFromJdxString"></a>
+    <strong>Results2D.importReferenceXFromJdxString(sJcamp)</strong>
+    </dt>
+    <dd>
+    Import the reference (X axis) from a JCAMP-DX 5.0 string.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">sJcamp</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The JcampDx 5.0 format string to load from
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        true: Success
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.importReferenceYFromJdxString"></a>
+    <strong>Results2D.importReferenceYFromJdxString(sJcamp)</strong>
+    </dt>
+    <dd>
+    Import the reference (Y axis) from a JCAMP-DX 5.0 string.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">sJcamp</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The JcampDx 5.0 format string to load from
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        true: Success
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.exportReferenceXToJdxString"></a>
+    <strong>Results2D.exportReferenceXToJdxString()</strong>
+    </dt>
+    <dd>
+    Export the reference (X axis) to a JCAMP-DX 5.0 String.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        sJcamp The JcampDx 5.0 format string
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.exportReferenceYToJdxString"></a>
+    <strong>Results2D.exportReferenceYToJdxString()</strong>
+    </dt>
+    <dd>
+    Export the reference (Y axis) to a JCAMP-DX 5.0 String.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        sJcamp The JcampDx 5.0 format string
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.import2DFromJdxString"></a>
+    <strong>Results2D.import2DFromJdxString(jcamp)</strong>
+    </dt>
+    <dd>
+    Import Data from JCAMP-DX 6.0 String to Results2D.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">jcamp</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         JCAMP-DX 6.0 String (2D Format)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        True if successful otherwise false
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.export2DToJdxString"></a>
+    <strong>Results2D.export2DToJdxString(mArgs, mNmrHeader, mNmreadyHeader)</strong>
+    </dt>
+    <dd>
+    Export 2D Data to a JCAMP-DX 6.0 String.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+
+
+
+        </li>
+        <li><span class="parameter">mNmrHeader</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+
+
+
+        </li>
+        <li><span class="parameter">mNmreadyHeader</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        JCAMP-DX 6.0 String (2D / Pseudo2D Format)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.clear"></a>
+    <strong>Results2D.clear()</strong>
+    </dt>
+    <dd>
+    Delete all of the 1Ds.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.reprocess"></a>
+    <strong>Results2D.reprocess()</strong>
+    </dt>
+    <dd>
+    Reprocess all data (pseudo-2d)
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.process2D"></a>
+    <strong>Results2D.process2D()</strong>
+    </dt>
+    <dd>
+    Process 2D data for display.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        Whether processing was successful or not
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.statesPhaseCycling"></a>
+    <strong>Results2D.statesPhaseCycling()</strong>
+    </dt>
+    <dd>
+    Get whether States phase cycling is in use or not.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        Whether States phase cycling is in use or not.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setStatesPhaseCycling"></a>
+    <strong>Results2D.setStatesPhaseCycling(statesPhaseCycling)</strong>
+    </dt>
+    <dd>
+    Set whether States phase cycling is in use or not.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">statesPhaseCycling</span>
+            <span class="types"><span class="type">bool</span></span>
+         Whether States phase cycling is in use or not.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.phaseTable"></a>
+    <strong>Results2D.phaseTable()</strong>
+    </dt>
+    <dd>
+    Get the phase table.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">PhaseTable</span></span>
+        The phase table
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.phaseTableY"></a>
+    <strong>Results2D.phaseTableY()</strong>
+    </dt>
+    <dd>
+    Get the phase table.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">PhaseTable</span></span>
+        The phase table
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setPhaseTable"></a>
+    <strong>Results2D.setPhaseTable(phaseTable)</strong>
+    </dt>
+    <dd>
+    Set the phase table.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">phaseTable</span>
+            <span class="types"><span class="type">PhaseTable</span></span>
+         The phase table
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setPhaseTableY"></a>
+    <strong>Results2D.setPhaseTableY(phaseTable)</strong>
+    </dt>
+    <dd>
+    Set the phase table for alternating rows (when States is used)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">phaseTable</span>
+            <span class="types"><span class="type">PhaseTable</span></span>
+         The phase table
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setMirrorF1"></a>
+    <strong>Results2D.setMirrorF1(mirrorF1)</strong>
+    </dt>
+    <dd>
+    Set the "mirror" setting for the F1 axis.
+This will be applied when process2D() is called.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">mirrorF1</span>
+            <span class="types"><span class="type">bool</span></span>
+         The "mirror" setting for the F1 axis
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setSwapHalvesF1"></a>
+    <strong>Results2D.setSwapHalvesF1(swapHalvesF1)</strong>
+    </dt>
+    <dd>
+    Set the "swap halves" setting for the F1 axis.
+This will be applied when process2D() is called.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">swapHalvesF1</span>
+            <span class="types"><span class="type">bool</span></span>
+         The "swap halves" setting for the F1 axis
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setMirrorF2"></a>
+    <strong>Results2D.setMirrorF2(mirrorF2)</strong>
+    </dt>
+    <dd>
+    Set the "mirror" setting for the F2 axis.
+This will be applied when process2D() is called.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">mirrorF2</span>
+            <span class="types"><span class="type">bool</span></span>
+         The "mirror" setting for the F2 axis
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setSwapHalvesF2"></a>
+    <strong>Results2D.setSwapHalvesF2(swapHalvesF2)</strong>
+    </dt>
+    <dd>
+    Set the "swap halves" setting for the F2 axis.
+This will be applied when process2D() is called.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">swapHalvesF2</span>
+            <span class="types"><span class="type">bool</span></span>
+         The "swap halves" setting for the F2 axis
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setNucleusF1"></a>
+    <strong>Results2D.setNucleusF1(nucleusF1)</strong>
+    </dt>
+    <dd>
+    Set the nucleus for the f1 (indirect) dimension.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">nucleusF1</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The nucleus for the f1 (indirect) dimension
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setFirstContourThreshold"></a>
+    <strong>Results2D.setFirstContourThreshold(firstContourThreshold)</strong>
+    </dt>
+    <dd>
+    Set the height of the first contour threshold.
+Range: (0 to 1)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">firstContourThreshold</span>
+            <span class="types"><span class="type">double</span></span>
+         The height of the first contour threshold
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setSpectralWidthF1Hz"></a>
+    <strong>Results2D.setSpectralWidthF1Hz(spectralWidthF1Hz)</strong>
+    </dt>
+    <dd>
+    Set the width in the indirect dimension (in Hz)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">spectralWidthF1Hz</span>
+            <span class="types"><span class="type">double</span></span>
+         The width in the indirect dimension (in Hz)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setSpectralWidthF1Ppm"></a>
+    <strong>Results2D.setSpectralWidthF1Ppm(spectralWidthF1Ppm)</strong>
+    </dt>
+    <dd>
+    Set the width in the indirect dimension (in PPM)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">spectralWidthF1Ppm</span>
+            <span class="types"><span class="type">double</span></span>
+         The width in the indirect dimension (in PPM)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setSpectralCenterF1Ppm"></a>
+    <strong>Results2D.setSpectralCenterF1Ppm(spectralCenter)</strong>
+    </dt>
+    <dd>
+    Set the spectral center in the indirect dimension (in PPM)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">spectralCenter</span>
+            <span class="types"><span class="type">double</span></span>
+         the spectral center in the indirect dimension (in PPM)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.numDataRows"></a>
+    <strong>Results2D.numDataRows()</strong>
+    </dt>
+    <dd>
+    Get the number of rows containing data (without zero filling applied)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">unsigned_int</span></span>
+        The number of rows containing data
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.numT1PointsAcquired"></a>
+    <strong>Results2D.numT1PointsAcquired()</strong>
+    </dt>
+    <dd>
+    Get the number of T1 points worth of data in the Results2D.
+This is the same as numDataRows() unless States phase cycling is used.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">unsigned_int</span></span>
+        The number of T1 points worth of data in the Results2D
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.apodizationMethodF1"></a>
+    <strong>Results2D.apodizationMethodF1()</strong>
+    </dt>
+    <dd>
+    Get the apodization method to use for the indirect dimension.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#ApodizationMethod">ApodizationMethod</a></span>
+        The apodization method to use for the indirect dimension
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setApodizationMethodF1"></a>
+    <strong>Results2D.setApodizationMethodF1(apodizationMethodF1)</strong>
+    </dt>
+    <dd>
+    Set the apodization method to use for the indirect dimension.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">apodizationMethodF1</span>
+            <span class="types"><a class="type" href="../sections/data.html#ApodizationMethod">ApodizationMethod</a></span>
+         The apodization method to use for the indirect dimension
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.apodizationMethodF2"></a>
+    <strong>Results2D.apodizationMethodF2()</strong>
+    </dt>
+    <dd>
+    Get the apodization method to use for the direct dimension.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#ApodizationMethod">ApodizationMethod</a></span>
+        The apodization method to use for the direct dimension
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setApodizationMethodF2"></a>
+    <strong>Results2D.setApodizationMethodF2(apodizationMethodF2)</strong>
+    </dt>
+    <dd>
+    Set the apodization method to use for the direct dimension.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">apodizationMethodF2</span>
+            <span class="types"><a class="type" href="../sections/data.html#ApodizationMethod">ApodizationMethod</a></span>
+         The apodization method to use for the direct dimension
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.f1BoundsPpm"></a>
+    <strong>Results2D.f1BoundsPpm()</strong>
+    </dt>
+    <dd>
+    Get the (approximate) F1 axis bounds in PPM.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        min The minimum bounds</li>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        max The maximum bounds</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.f1BoundsHz"></a>
+    <strong>Results2D.f1BoundsHz()</strong>
+    </dt>
+    <dd>
+    Get the (approximate) F1 axis bounds in Hz.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        min The minimum bounds</li>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        max The maximum bounds</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.f2BoundsPpm"></a>
+    <strong>Results2D.f2BoundsPpm(spectralCenterPpm, spectralWidthPpm)</strong>
+    </dt>
+    <dd>
+    Get the (approximate) F2 axis bounds in PPM.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">spectralCenterPpm</span>
+            <span class="types"><span class="type">double</span></span>
+         The spectral center (in PPM)
+        </li>
+        <li><span class="parameter">spectralWidthPpm</span>
+            <span class="types"><span class="type">double</span></span>
+         The spectral width (in PPM)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        min The minimum bounds</li>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        max The maximum bounds</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.name"></a>
+    <strong>Results2D.name()</strong>
+    </dt>
+    <dd>
+    Get the results name.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The name of the Results2D object
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.dataSet"></a>
+    <strong>Results2D.dataSet(index)</strong>
+    </dt>
+    <dd>
+    Get a DataSet1D from the list by index.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+        the dataset, or nil if the index was out of range.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setReferenceX"></a>
+    <strong>Results2D.setReferenceX(referenceX)</strong>
+    </dt>
+    <dd>
+    Set the reference data for the top of the plot.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">referenceX</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+         The reference data for the top of the plot
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setReferenceY"></a>
+    <strong>Results2D.setReferenceY(referenceY)</strong>
+    </dt>
+    <dd>
+    Set the reference data for the left side of the plot.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">referenceY</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+         The reference data for the left side of the plot
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setUnitsF1"></a>
+    <strong>Results2D.setUnitsF1(unitsF1)</strong>
+    </dt>
+    <dd>
+    Set the units for the F1 (indirect dimension) axis.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">unitsF1</span>
+            <span class="types"><a class="type" href="../sections/data.html#AxisUnits">AxisUnits</a></span>
+         The units for the F1 (indirect dimension) axis
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.setUnitsF2"></a>
+    <strong>Results2D.setUnitsF2(unitsF2)</strong>
+    </dt>
+    <dd>
+    Set the units for the F2 (direct dimension) axis.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">unitsF2</span>
+            <span class="types"><a class="type" href="../sections/data.html#AxisUnits">AxisUnits</a></span>
+         The units for the F2 (direct dimension) axis
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.addDataSet"></a>
+    <strong>Results2D.addDataSet(dataSet)</strong>
+    </dt>
+    <dd>
+    Add a dataset to the group.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataSet</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+         The dataset to add
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.addDataSet"></a>
+    <strong>Results2D.addDataSet(dataSet, y)</strong>
+    </dt>
+    <dd>
+    Add a dataset to the group and associate a y value with it.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataSet</span>
+            <span class="types"><a class="type" href="../sections/data.html#DataSet1D">DataSet1D</a></span>
+         The dataset to add
+        </li>
+        <li><span class="parameter">y</span>
+            <span class="types"><span class="type">double</span></span>
+         The y value to associate with the data (usually a T1 time)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.save"></a>
+    <strong>Results2D.save(filename, overwrite)</strong>
+    </dt>
+    <dd>
+    Export 1D results to a file (or two files if configured that way).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">filename</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The filename to save to
+        </li>
+        <li><span class="parameter">overwrite</span>
+            <span class="types"><span class="type">bool</span></span>
+         Whether the file should be overwritten if it already exists
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">bool</span></span>
+        true: success, false: error</li>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        message The filename used, or the error message</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Results2D.save"></a>
+    <strong>Results2D.save(filename, overwrite, mArgs)</strong>
+    </dt>
+    <dd>
+    Export 1D results to a file (or two files if configured that way).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">filename</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The filename to save to
+        </li>
+        <li><span class="parameter">overwrite</span>
+            <span class="types"><span class="type">bool</span></span>
+         Whether the file should be overwritten if it already exists
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         Custom arguments, see exportResults2D()'s mArgs
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">bool</span></span>
+        true: success, false: error</li>
+        <li>
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        message The filename used, or the error message</li>
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_cFloat"></a>Class cFloat </h2>
+
+          <div class="section-description">
+          A vector of complex doubles with utility methods.
+May be either TD or FD
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "cFloat.at"></a>
+    <strong>cFloat.at(i)</strong>
+    </dt>
+    <dd>
+    Access an element in the vector.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">i</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The index of the element to get
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/data.html#dcomplex">dcomplex</a></span>
+        The element
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "cFloat.data"></a>
+    <strong>cFloat.data()</strong>
+    </dt>
+    <dd>
+    Get the signal data.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vdcomplex</span></span>
+        the recorded data
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "cFloat.real"></a>
+    <strong>cFloat.real()</strong>
+    </dt>
+    <dd>
+    Get the real part of the signal.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        The real part of the signal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "cFloat.real"></a>
+    <strong>cFloat.real(start, end)</strong>
+    </dt>
+    <dd>
+    Get a slice of the real part of the signal.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">start</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+
+
+
+        </li>
+        <li><span class="parameter">end</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        Some of the signal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "cFloat.imag"></a>
+    <strong>cFloat.imag()</strong>
+    </dt>
+    <dd>
+    Get the imaginary part of the signal.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        The imaginary part of the signal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "cFloat.mag"></a>
+    <strong>cFloat.mag()</strong>
+    </dt>
+    <dd>
+    Get the magnitude part of the signal.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        The magnitude part of the signal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "cFloat.power"></a>
+    <strong>cFloat.power()</strong>
+    </dt>
+    <dd>
+    Get the power part of the signal.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        The power part of the signal
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "cFloat.phase"></a>
+    <strong>cFloat.phase(index)</strong>
+    </dt>
+    <dd>
+    Get the phase of the signal at a specific index.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The index to get the phase at
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        the phase (in degrees)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "cFloat.ppmToFreq"></a>
+    <strong>cFloat.ppmToFreq(ppm)</strong>
+    </dt>
+    <dd>
+    Convert PPM to Hz for this signal.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">ppm</span>
+            <span class="types"><span class="type">double</span></span>
+         The PPM value
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The frequency in Hz
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "cFloat.freqToPpm"></a>
+    <strong>cFloat.freqToPpm(freq)</strong>
+    </dt>
+    <dd>
+    Convert Hz to PPM for this signal.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">freq</span>
+            <span class="types"><span class="type">double</span></span>
+         The frequency in Hz
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The PPM value
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "cFloat.indexToFreq"></a>
+    <strong>cFloat.indexToFreq(index)</strong>
+    </dt>
+    <dd>
+    Get the frequency for a given index.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">double</span></span>
+         The index to use
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The frequency for the given index
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "cFloat.freqToIndex"></a>
+    <strong>cFloat.freqToIndex(freq)</strong>
+    </dt>
+    <dd>
+    Convert a frequency to an index into the vector.
+Frequency must be in the range of frequencies returned by frequencyValues.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">freq</span>
+            <span class="types"><span class="type">double</span></span>
+         Frequency to convert
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">int</span></span>
+        index Index into the vector. -1 if freq was out of range
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "cFloat.instanceCount"></a>
+    <strong>cFloat.instanceCount()</strong>
+    </dt>
+    <dd>
+    Get the number of DataSet1D instances that exist.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">int</span></span>
+        The number of DataSet1D instances that exist.
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_dcomplex"></a>Class dcomplex </h2>
+
+          <div class="section-description">
+          A complex double floating point type.
+Supported operators: +, -, *, /, ^, ==, tostring().
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "dcomplex.dcomplex"></a>
+    <strong>dcomplex.dcomplex(other)</strong>
+    </dt>
+    <dd>
+    Create a new copy of a dcomplex.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">other</span>
+            <span class="types"><a class="type" href="../sections/data.html#dcomplex">dcomplex</a></span>
+         The original object to copy
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "dcomplex.dcomplex"></a>
+    <strong>dcomplex.dcomplex(real)</strong>
+    </dt>
+    <dd>
+    Create a new instance with imag=0.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">real</span>
+            <span class="types"><span class="type">double</span></span>
+         The real value to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "dcomplex.dcomplex"></a>
+    <strong>dcomplex.dcomplex(real, imag)</strong>
+    </dt>
+    <dd>
+    Create a new instance with both real and imag set.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">real</span>
+            <span class="types"><span class="type">double</span></span>
+         The real value to use
+        </li>
+        <li><span class="parameter">imag</span>
+            <span class="types"><span class="type">double</span></span>
+         The imag value to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "dcomplex.mag"></a>
+    <strong>dcomplex.mag()</strong>
+    </dt>
+    <dd>
+    Get the magnitude (absolute value) of the complex number.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The magnitude.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "dcomplex.arg"></a>
+    <strong>dcomplex.arg()</strong>
+    </dt>
+    <dd>
+    Get the phase angle (or angular component) of the complex number, expressed in radians.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The phase in radians.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "dcomplex.real"></a>
+    <strong>dcomplex.real()</strong>
+    </dt>
+    <dd>
+    Get the real part.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The real part.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "dcomplex.real"></a>
+    <strong>dcomplex.real(r)</strong>
+    </dt>
+    <dd>
+    Set the real part.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">r</span>
+            <span class="types"><span class="type">double</span></span>
+         The new real part.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "dcomplex.imag"></a>
+    <strong>dcomplex.imag()</strong>
+    </dt>
+    <dd>
+    Get the imaginary part.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The real part.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "dcomplex.imag"></a>
+    <strong>dcomplex.imag(i)</strong>
+    </dt>
+    <dd>
+    Set the imaginary part.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">i</span>
+            <span class="types"><span class="type">double</span></span>
+         The new imaginary part.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2023-09-22 17:06:42 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

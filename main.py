@@ -31,10 +31,10 @@ USE_MOCK = "--mock" in sys.argv or os.environ.get("CHEMYX_MOCK") == "1"
 ASSUME_YES = "--yes" in sys.argv or os.environ.get("CHEMYX_YES") == "1"
 
 # Small, safe demo amounts (pulled from config so there's one source of truth).
-DEMO_VOLUME = config.DEFAULT_VOLUME          # e.g. 0.5 mL
-DEMO_RATE = config.DEFAULT_RATE              # e.g. 1.0 mL/min
-DEMO_UNITS = config.DEFAULT_UNITS            # mL/min
-DEMO_DIAMETER = config.DIAMETER              # mm
+DEMO_VOLUME = config.DEFAULT_VOLUME  # e.g. 0.5 mL
+DEMO_RATE = config.DEFAULT_RATE  # e.g. 1.0 mL/min
+DEMO_UNITS = config.DEFAULT_UNITS  # mL/min
+DEMO_DIAMETER = config.DIAMETER  # mm
 
 # In real runs we pause between infuse and withdraw; keep mock runs snappy.
 SETTLE_SECONDS = 0.0 if USE_MOCK else 2.0
@@ -56,13 +56,17 @@ def confirm_movement():
         print("  [--yes] Confirmation skipped by flag.")
         return True
     if not sys.stdin.isatty():
-        print("  [ABORT] No interactive terminal to confirm movement; "
-              "re-run with --yes if you really mean it.")
+        print(
+            "  [ABORT] No interactive terminal to confirm movement; "
+            "re-run with --yes if you really mean it."
+        )
         return False
     print()
     print("  !! The pump is about to MOVE physically.")
-    print(f"  !! It will INFUSE then WITHDRAW {DEMO_VOLUME} mL at "
-          f"{DEMO_RATE} {config.UNITS[DEMO_UNITS]}.")
+    print(
+        f"  !! It will INFUSE then WITHDRAW {DEMO_VOLUME} mL at "
+        f"{DEMO_RATE} {config.UNITS[DEMO_UNITS]}."
+    )
     answer = input("  Type 'yes' to continue: ").strip().lower()
     return answer == "yes"
 

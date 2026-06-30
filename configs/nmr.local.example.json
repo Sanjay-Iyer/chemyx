@@ -1,0 +1,21 @@
+{
+  "host": "169.254.30.54",
+  "port": 5000,
+  "scheme": "http",
+  "route": "iflow",
+  "experiment": "1D",
+  "scans": 2,
+  "receiver_gain": 12.0,
+  "auto_gain": false,
+  "solvent": "Toluene",
+  "spectral_center": 5.0,
+  "sweep_width": 20.0,
+  "result_name": "DataSet",
+  "result_type": "fid",
+  "save_dir": "runs/nmr",
+  "target_ppm": 6.1,
+  "peak_window_ppm": 0.12,
+  "timeout": 10.0,
+  "poll_seconds": 2.0,
+  "max_wait_seconds": 300.0
+}

@@ -1,0 +1,278 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>NMReady Experiment Designer Documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Experiment Designer</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Save_button">Save button </a></li>
+<li><a href="#1D_Results_Export">1D Results Export </a></li>
+<li><a href="#2D_Results_Export">2D Results Export </a></li>
+<li><a href="#Exporting_Log_Messages">Exporting Log Messages </a></li>
+<li><a href="#Exporting_Data_Tables">Exporting Data Tables </a></li>
+<li><a href="#Multiple_Results_Export">Multiple Results Export </a></li>
+</ul>
+
+
+<h2>Manual</h2>
+<ul class="nowrap">
+  <li><a href="../manual/01_Overview.md.html">01_Overview</a></li>
+  <li><a href="../manual/02_Phase_Tables.md.html">02_Phase_Tables</a></li>
+  <li><a href="../manual/03_Language_Reference.md.html">03_Language_Reference</a></li>
+  <li><strong>04_Saving_Results</strong></li>
+  <li><a href="../manual/05_Special_Functions.md.html">05_Special_Functions</a></li>
+</ul>
+<h2>Sections</h2>
+<ul class="nowrap">
+  <li><a href="../sections/config.html">config</a></li>
+  <li><a href="../sections/core.html">core</a></li>
+  <li><a href="../sections/data.html">data</a></li>
+  <li><a href="../sections/display.html">display</a></li>
+  <li><a href="../sections/integrals.html">integrals</a></li>
+  <li><a href="../sections/pulses.html">pulses</a></li>
+</ul>
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><a href="../examples/1d.lua.html">1d.lua</a></li>
+  <li><a href="../examples/cosy.lua.html">cosy.lua</a></li>
+  <li><a href="../examples/t1.lua.html">t1.lua</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+
+<h1>Saving Results</h1>
+
+<p>There are several types of data that can be exported during an
+experiment. 1D results, 2D results, data tables, log messages, and
+more. A script may automatically save results, or saving can be
+initiated via the 'Save' button on the results screen.</p>
+
+<p><a name="Save_button"></a></p>
+<h2>Save button</h2>
+
+<p>In order for the 'Save' button to work, the script must create a
+'save()' function. The save function will have one parameter passed to
+it, the filename the user enters using the on-screen keyboard. The
+save function should return a table (array) consisting of a boolean
+(success) and a string (message). If the save function returns just a
+boolean, it will still work, but it is recommended to return a message
+as well.</p>
+
+<p>When using a custom save() function, you should put the function
+definition near the top of the script, before any acquisitions take
+place. The reason for this is that the script is interpreted one line
+at a time, and the save() function will not be created until its lines
+of code have been run through the interpreter. If a script is
+cancelled before the save function is defined, it will not be
+available for the Save button to use it.</p>
+
+<p>Here is an example of a save function that saves a DataSet1D whose Lua
+object is named 'dataSet'. Note: If the script was cancelled before
+'dataSet' was created, it can not be exported and it will have the
+value 'nil' if tested using 'if'.</p>
+
+
+<pre>
+<span class="keyword">function</span> save(fileName)
+    <span class="keyword">local</span> success = <span class="keyword">false</span>
+    <span class="keyword">local</span> message = <span class="string">"Could not save, the data did not exist!"</span>
+    <span class="comment">-- dataSet must be global
+</span>    <span class="keyword">if</span> dataSet
+    <span class="keyword">then</span>
+        exportDataSet1D(dataSet, fileName)
+        message = <span class="string">"Saved to "</span> .. fileName
+        success = <span class="keyword">true</span>;
+    <span class="keyword">end</span>
+    <span class="keyword">return</span> { success, message }
+<span class="keyword">end</span>
+
+acquire()
+<span class="comment">-- Note: dataSet is global, not local
+</span>dataSet = core:core:dataSetSignal()
+</pre>
+
+<p><a name="1D_Results_Export"></a></p>
+<h2>1D Results Export</h2>
+
+<p>After the acquire() statement, data is available for export and/or display.</p>
+
+<p>If you would like to export 1D data, you can do so with the
+exportDataSet1D function:</p>
+
+
+<pre>
+exportDataSet1D(core:dataSetSignal(), <span class="string">"my_filename"</span>)
+</pre>
+
+<p><a name="2D_Results_Export"></a></p>
+<h2>2D Results Export</h2>
+
+<p>Multiple DataSet1D objects can be collected into a single result object,
+a Results2D.</p>
+
+
+<pre>
+<span class="comment">-- Create a pulse sequence with 1 pulse.
+</span><span class="comment">-- The length of the pulse will be changed in this experiment.
+</span><span class="keyword">local</span> p = PulseSequence()
+p:add(newPulseSingle())
+<span class="comment">-- Perform acquisitions and put them in an object named "results"
+</span><span class="comment">-- (See '2D Results Export' section for a complete example)
+</span>results = newResults2D(<span class="string">"nutation"</span>)
+<span class="keyword">local</span> startWidth = <span class="number">10e-6</span>
+<span class="keyword">local</span> endWidth = <span class="number">100e-6</span>
+<span class="keyword">local</span> numSteps = <span class="number">11</span>
+<span class="keyword">for</span> i = <span class="number">1</span>, numSteps <span class="keyword">do</span>
+    <span class="comment">-- Set the length of the first pulse
+</span>    <span class="keyword">local</span> pulseTime = (startWidth +
+                       (i - <span class="number">1</span>) * (endWidth - startWidth) / (numSteps))
+    p:setPulseTime(<span class="number">0</span>, pulseTime)
+    acquire()
+    <span class="comment">-- Append the 1D acquisition to the 2D results
+</span>    results:addDataSet(core:dataSetSignal())
+done
+<span class="comment">-- Export a result to a file named "my_nutation"
+</span>exportResults2D(results, <span class="string">"my_nutation"</span>)
+</pre>
+
+<p><a name="Exporting_Log_Messages"></a></p>
+<h2>Exporting Log Messages</h2>
+
+<p>The log messages are normally displayed on the screen and not saved to
+disk. These messages are trimmed and old ones are eventually lost.</p>
+
+<p>If you would like to save the log messages, set the log file name in
+your experiment using setLogFileName(). After setting it, subsequent
+log messages will be shown on screen and will be saved in the log
+file. The log file name will have ".log" appended to it.</p>
+
+<p>Log messages can only be saved to one file at a time, but you can
+change the file at any time by calling setLogFileName() again.</p>
+
+
+<pre>
+<span class="comment">-- After this, log messages will be saved to "my_experiment.log"
+</span>setLogFileName(<span class="string">"my_experiment"</span>)
+<span class="keyword">for</span> i = <span class="number">1</span>, <span class="number">10</span> <span class="keyword">do</span>
+    <span class="comment">-- Change some parameters, then acquire()
+</span>    ...
+    acquire()
+    log(<span class="string">"FD Peak Magnitude: %f"</span>, core:dataSetSignal():fdMagPeak())
+<span class="keyword">end</span>
+</pre>
+
+<p><a name="Exporting_Data_Tables"></a></p>
+<h2>Exporting Data Tables</h2>
+
+<p>A data table is a relatively small collection of data compared to a 1D
+or 2D spectrum. It is simply a list of X values with one or more lists
+of Y values. A row is considered one X value and one Y value in each
+list. If you have a single list of Y values, then a row contains one X value
+and one Y value.</p>
+
+
+<pre>
+<span class="comment">-- Create a data table
+</span>dataTable = newDataTable(<span class="string">"Nutation"</span>, {xUnits = <span class="string">"uS"</span>})
+<span class="comment">-- Add a column
+</span>dataTable:addEntry({name = <span class="string">"Pulse Time"</span>,
+                    label = <span class="string">"Pulse Time"</span>,
+                    fitFunction = <span class="string">"Damped Wave"</span>})
+<span class="keyword">local</span> startWidth = <span class="number">10e-6</span>
+<span class="keyword">local</span> endWidth = <span class="number">100e-6</span>
+<span class="keyword">local</span> numSteps = <span class="number">11</span>
+<span class="keyword">for</span> i = <span class="number">1</span>, numSteps <span class="keyword">do</span>
+    <span class="comment">-- Set the length of the first pulse
+</span>    <span class="keyword">local</span> pulseTime = (startWidth +
+                       (i - <span class="number">1</span>) * (endWidth - startWidth) / (numSteps))
+    p:setPulseTime(<span class="number">0</span>, pulseTime)
+    acquire()
+    <span class="keyword">local</span> peakIndex, peak = core:dataSetSignal():fdMagPeak();
+    <span class="keyword">local</span> absPhase = <span class="global">math</span>.abs(core:dataSetSignal():fdPhase(peakIndex))
+    <span class="keyword">if</span> (absPhase &gt;= <span class="number">90</span> <span class="keyword">and</span> absPhase &lt;= <span class="number">180</span>)
+    <span class="keyword">then</span>
+        peak = peak * -<span class="number">1</span>
+    <span class="keyword">end</span>
+    dataTable:append(pulseTime * <span class="number">1e6</span>, { peak })
+done
+exportDataTable(dataTable, <span class="string">"nutation_data"</span>)
+</pre>
+
+<p><a name="Multiple_Results_Export"></a></p>
+<h2>Multiple Results Export</h2>
+
+<p>To export multiple kinds of results at once, you can use a zip
+file. To do this, first create a directory. Then save your results
+there. Finally, compress the directory. After the directory is
+compressed, it will be removed from disk.</p>
+
+
+<pre>
+<span class="comment">-- Create the results directory
+</span>prepareExperimentResults(<span class="string">"my_experiment"</span>)
+<span class="comment">-- Log messages will now go in the results directory in a file
+</span><span class="comment">-- named "my_experiment.log"
+</span>setLogFileName(<span class="string">"my_experiment/my_experiment"</span>)
+<span class="comment">-- Perform a reference scan and save it to a file in the results
+</span><span class="comment">-- directory
+</span>acquire()
+exportDataSet1D(core:dataSetSignal(), <span class="string">"reference"</span>)
+<span class="comment">-- Perform acquisitions and put them in an object named "results"
+</span><span class="comment">-- (See '2D Results Export' section for a complete example)
+</span>results = newResults2D(<span class="string">"2d_results"</span>)
+<span class="keyword">for</span> i = <span class="number">1</span>, N <span class="keyword">do</span>
+    <span class="comment">-- Change some parameters, then acquire()
+</span>    ...
+    acquire()
+    <span class="comment">-- Append the 1D acquisition to the 2D results
+</span>    results:addDataSet(core:dataSetSignal())
+<span class="keyword">end</span>
+<span class="comment">-- Export a result to a file named "result" in the "my_experiment" directory
+</span>exportResults2D(results, <span class="string">"my_experiment/2d_results"</span>)
+<span class="comment">-- Compress the results in the "my_experiment" results directory.
+</span><span class="comment">-- This creates a file, "my_experiment.zip" that contains the
+</span><span class="comment">-- files in that directory.
+</span>compressExperimentResults(<span class="string">"my_experiment"</span>)
+</pre>
+
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2023-09-22 17:06:42 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

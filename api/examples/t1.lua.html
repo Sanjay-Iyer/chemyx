@@ -1,0 +1,213 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>NMReady Experiment Designer Documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Experiment Designer</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+
+
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><a href="../examples/1d.lua.html">1d.lua</a></li>
+  <li><a href="../examples/cosy.lua.html">cosy.lua</a></li>
+  <li><strong>t1.lua</strong></li>
+</ul>
+<h2>Sections</h2>
+<ul class="nowrap">
+  <li><a href="../sections/config.html">config</a></li>
+  <li><a href="../sections/core.html">core</a></li>
+  <li><a href="../sections/data.html">data</a></li>
+  <li><a href="../sections/display.html">display</a></li>
+  <li><a href="../sections/integrals.html">integrals</a></li>
+  <li><a href="../sections/pulses.html">pulses</a></li>
+</ul>
+<h2>Manual</h2>
+<ul class="nowrap">
+  <li><a href="../manual/01_Overview.md.html">01_Overview</a></li>
+  <li><a href="../manual/02_Phase_Tables.md.html">02_Phase_Tables</a></li>
+  <li><a href="../manual/03_Language_Reference.md.html">03_Language_Reference</a></li>
+  <li><a href="../manual/04_Saving_Results.md.html">04_Saving_Results</a></li>
+  <li><a href="../manual/05_Special_Functions.md.html">05_Special_Functions</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+    <h2>t1.lua</h2>
+<pre>
+<span class="comment">------------------------------------------------------------
+</span><span class="comment">-- This is an example implementation of the T1 experiment --
+</span><span class="comment">------------------------------------------------------------
+</span>
+<span class="comment">-------------------------------------------------
+</span><span class="comment">-- Start by declaring the required api modules --
+</span><span class="comment">-------------------------------------------------
+</span><span class="keyword">local</span> api = <span class="global">require</span>(<span class="string">"api"</span>)
+<span class="keyword">local</span> standard = api.helpers.standard
+<span class="keyword">local</span> savehelper = api.operations.callbacks.savehelper
+<span class="keyword">local</span> logger = api.operations.logger
+<span class="keyword">local</span> dataTableUtils = api.operations.datatable.utils
+<span class="keyword">local</span> designerui = api.ui.designer
+<span class="keyword">local</span> common = api.operations.common
+
+<span class="comment">---------------------------------------
+</span><span class="comment">-- Then define a GUI for this script --
+</span><span class="comment">---------------------------------------
+</span><span class="keyword">local</span> tauStartSeconds = standard.millisecondsToSeconds(designerui.number(<span class="string">"Tau Start: (ms)"</span>, <span class="number">2</span>, <span class="number">1000</span>, <span class="number">0.1</span>, <span class="number">30000</span>))
+<span class="keyword">local</span> tauEndSeconds = standard.millisecondsToSeconds(designerui.number(<span class="string">"Tau Stop: (ms)"</span>, <span class="number">2</span>, <span class="number">2500</span>, <span class="number">0.1</span>, <span class="number">30000</span>))
+<span class="keyword">local</span> numSteps = designerui.number(<span class="string">"Number of Points"</span>, <span class="number">0</span>, <span class="number">16</span>, <span class="number">2</span>, <span class="number">8192</span>)
+<span class="keyword">local</span> pointDist = designerui.binaryChoice(<span class="string">"Point Distribution"</span>, <span class="string">"Logarithmic"</span>, <span class="string">"Linear"</span>, <span class="keyword">false</span>)
+<span class="keyword">local</span> dummyScans = core:dummyScans()
+<span class="comment">-------------------------------------------------------------------
+</span><span class="comment">-- Create variables where experiment data will be stored,        --
+</span><span class="comment">-- and register them to be saved if the <code>save</code> button is pressed --
+</span><span class="comment">-------------------------------------------------------------------
+</span><span class="keyword">local</span> results = newResults2D(<span class="string">"T1 Results"</span>)
+savehelper.saveDataOnSaveButton(<span class="keyword">nil</span>, <span class="string">"T1 Data"</span>, results)
+
+<span class="keyword">local</span> dataTable = newDataTable(<span class="string">"T1 Summary"</span>, { xUnits = <span class="string">"ms"</span> })
+<span class="keyword">local</span> integrals = core:copyIntegrals()
+dataTableUtils.addIntegralEntries{dataTable=dataTable, integrals=integrals, withSum=<span class="keyword">true</span>, fitFunction = <span class="string">"Exponential"</span>}
+dataTable:addEntry({ name = <span class="string">"FD Max"</span>,
+                     label = <span class="string">"FD Max"</span>,
+                     fitFunction = <span class="string">"Exponential"</span> })
+dataTable:addEntry({ name = <span class="string">"TD Max"</span>,
+                     label = <span class="string">"TD Max"</span>,
+                     fitFunction = <span class="string">"Exponential"</span> })
+savehelper.saveDataOnSaveButton(<span class="keyword">nil</span>, <span class="string">"Summary"</span>, dataTable)
+
+<span class="comment">---------------------------------------------------------
+</span><span class="comment">-- Create displays and pages where data will be viewed --
+</span><span class="comment">---------------------------------------------------------
+</span><span class="keyword">local</span> page = DisplayPage { name = <span class="string">"T1 Summary"</span> }
+<span class="keyword">local</span> display = DisplayDataTable(page,
+        { name = <span class="string">"T1 Summary Display"</span>,
+          datasetName = <span class="string">"T1 Summary"</span>,
+          nextEntryButton = <span class="string">'True'</span>,
+          legend = <span class="string">'upper left'</span>,
+          cursorFormat = <span class="string">'x: %0.1f ms\ny: %0.2f'</span>,
+          xAxisTickLabelFormat = <span class="string">'%.1f ms'</span> })
+<span class="comment">-- set the display parameters (for saving/loading)
+</span>dataTable:setDisplayParameters(display)
+
+<span class="comment">------------------------------------------------------------------------------------------------------
+</span><span class="comment">-- Make helper functions to create a pulse sequence, calculate tau, and callback functionality for  --
+</span><span class="comment">-- the T1 experiment and set some values in the core                                                --
+</span><span class="comment">------------------------------------------------------------------------------------------------------
+</span><span class="comment">-- Wait for the length of an interscan delay before the first acquisition
+</span>setPreScanDelay(core:channelConfigSignal():interscanTime())
+
+<span class="comment">-- This is a helper function to calculate the tau for T1 pulse sequence. It must have acquisition for the argument.
+</span><span class="keyword">local</span> <span class="keyword">function</span> calulateTau(acquisition)
+    <span class="keyword">local</span> tau = <span class="keyword">nil</span>
+    <span class="keyword">if</span> pointDist == <span class="string">"Linear"</span> <span class="keyword">then</span>
+        tau = acquisition * (tauEndSeconds - tauStartSeconds) / (numSteps - <span class="number">1</span>) + tauStartSeconds
+    <span class="keyword">elseif</span> pointDist == <span class="string">"Logarithmic"</span> <span class="keyword">then</span>
+        tau = tauStartSeconds * <span class="global">math</span>.pow( tauEndSeconds / tauStartSeconds, acquisition / (numSteps - <span class="number">1</span>) )
+    <span class="keyword">else</span>
+        logger.err(<span class="string">"Unknown point distribution method"</span>)
+    <span class="keyword">end</span>
+    <span class="keyword">return</span> tau
+<span class="keyword">end</span>
+
+<span class="comment">-- This is a helper function to create a T1 pulse sequence given tau. It must have acquisition for the argument.
+</span><span class="keyword">local</span> <span class="keyword">function</span> createPulseSequence(acquisition)
+    <span class="keyword">local</span> p = PulseSequence(core:channelConfigSignal())
+    p:add(newPulseSingle(core:channelConfigSignal()))
+    p:add(newPulseSingle(core:channelConfigSignal()))
+    p:setPulseTime(<span class="number">0</span>, core:channelConfigSignal():get90PulseSeconds())
+    p:setPulseTime(<span class="number">1</span>, core:channelConfigSignal():get90PulseSeconds() * <span class="number">2</span>)
+    p:setInterPulseTime(<span class="number">0</span>, calulateTau(acquisition))
+    core:usePulseSequence(p)
+    <span class="keyword">return</span> p
+<span class="keyword">end</span>
+
+<span class="comment">-- runMulti1DScans() will call this function after results gets updated every acquisition. Functionality such as
+</span><span class="comment">-- adding to the datatable, updating progress messages, or updating the display should be added here.
+</span><span class="keyword">local</span> <span class="keyword">function</span> newResultAddedCallback()
+    <span class="comment">-- "acquisition" is zero based.
+</span>    <span class="keyword">local</span> acquisition = results:numDataRows() - <span class="number">1</span>
+    <span class="keyword">local</span> tau = calulateTau(acquisition)
+    <span class="keyword">local</span> dataSet = results:dataSet(acquisition)
+
+    <span class="comment">-- Update progress before doing an acquisition
+</span>    setProgress(<span class="number">100</span> * acquisition / numSteps)
+    setProgressMessage(<span class="string">"T1: Running tau #"</span> .. <span class="global">tostring</span>(acquisition+<span class="number">1</span>) .. <span class="string">" of "</span> .. <span class="global">tostring</span>(numSteps))
+    setStatusMessage(<span class="string">"T1: Running tau #"</span> .. <span class="global">tostring</span>(acquisition+<span class="number">1</span>) .. <span class="string">" of "</span> .. <span class="global">tostring</span>(numSteps) .. <span class="string">": "</span> .. <span class="global">tostring</span>(standard.secondsToMicroseconds(tau)) .. <span class="string">"us"</span>)
+
+    <span class="keyword">local</span> fdPeakIndex, fdPeak = core:dataSetSignal():fdMagPeak()
+    <span class="keyword">local</span> tdPeak = core:dataSetSignal():tdMagPeak()
+    <span class="keyword">local</span> tdPoint = core:dataSetSignal():td():at(<span class="number">0</span>):real()
+
+    <span class="comment">-- Change the peak to a negative value if the first td point is negative
+</span>    <span class="keyword">if</span> tdPoint &lt; <span class="number">0</span> <span class="keyword">then</span>
+        fdPeak = -fdPeak
+        tdPeak = -tdPeak
+    <span class="keyword">end</span>
+
+    <span class="comment">-- Store the integrals and peaks
+</span>    <span class="keyword">local</span> row = dataTableUtils.manualIntegralRow{integrals=integrals, withSum=<span class="keyword">true</span>}
+    <span class="global">table</span>.insert(row, fdPeak)
+    <span class="global">table</span>.insert(row, tdPeak)
+    dataTable:append(standard.secondsToMilliseconds(tau), row)
+
+    <span class="keyword">if</span> acquisition &gt;= <span class="number">1</span> <span class="keyword">then</span>
+        dataTable:fitAll()
+        updateDisplay(dataTable)
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+<span class="comment">-- Run the main acquisitions based on the above functions
+</span>common.runMulti1DScans{
+    setupMethod=createPulseSequence,
+    yMethod=calulateTau,
+    results=results,
+    numPoints=numSteps,
+    dummyScans=dummyScans,
+    autoScaleCurrentResult=<span class="keyword">true</span>,
+    newResultAddedCallback=newResultAddedCallback
+}
+
+<span class="comment">-- Update the display one last time
+</span>updateDisplay(dataTable)
+<span class="comment">-- Set the progress to 100%
+</span>setProgress(<span class="number">100</span>)
+setProgressMessage(<span class="string">"Complete"</span>)</pre>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2023-09-22 17:06:42 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

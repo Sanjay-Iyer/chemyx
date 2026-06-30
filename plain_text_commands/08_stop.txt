@@ -1,9 +1,0 @@
-# =====================================================================
-# 08_stop.txt  —  STOP
-# What it does : stops the pump immediately.
-# Expected echo: the pump replies   pump stop
-# Channel (4000X): prefix the channel number, e.g.  "2 stop".
-# REMINDER: press Enter (carriage return, \r) after the command line.
-# NOTE: lines starting with # are notes for YOU — do NOT type them.
-# ------------------- SEND THE LINE BELOW -----------------------------
-stop

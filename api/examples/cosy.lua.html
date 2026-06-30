@@ -1,0 +1,195 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>NMReady Experiment Designer Documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Experiment Designer</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+
+
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><a href="../examples/1d.lua.html">1d.lua</a></li>
+  <li><strong>cosy.lua</strong></li>
+  <li><a href="../examples/t1.lua.html">t1.lua</a></li>
+</ul>
+<h2>Sections</h2>
+<ul class="nowrap">
+  <li><a href="../sections/config.html">config</a></li>
+  <li><a href="../sections/core.html">core</a></li>
+  <li><a href="../sections/data.html">data</a></li>
+  <li><a href="../sections/display.html">display</a></li>
+  <li><a href="../sections/integrals.html">integrals</a></li>
+  <li><a href="../sections/pulses.html">pulses</a></li>
+</ul>
+<h2>Manual</h2>
+<ul class="nowrap">
+  <li><a href="../manual/01_Overview.md.html">01_Overview</a></li>
+  <li><a href="../manual/02_Phase_Tables.md.html">02_Phase_Tables</a></li>
+  <li><a href="../manual/03_Language_Reference.md.html">03_Language_Reference</a></li>
+  <li><a href="../manual/04_Saving_Results.md.html">04_Saving_Results</a></li>
+  <li><a href="../manual/05_Special_Functions.md.html">05_Special_Functions</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+    <h2>cosy.lua</h2>
+<pre>
+<span class="comment">--------------------------------------------------------------
+</span><span class="comment">-- This is an example implementation of the COSY experiment --
+</span><span class="comment">--------------------------------------------------------------
+</span>
+<span class="comment">-------------------------------------------------
+</span><span class="comment">-- Start by declaring the required api modules --
+</span><span class="comment">-------------------------------------------------
+</span><span class="keyword">local</span> api = <span class="global">require</span>(<span class="string">"api"</span>)
+<span class="keyword">local</span> standard = api.helpers.standard
+<span class="keyword">local</span> savehelper = api.operations.callbacks.savehelper
+<span class="keyword">local</span> common = api.operations.common
+<span class="keyword">local</span> designerui = api.ui.designer
+
+<span class="comment">---------------------------------------
+</span><span class="comment">-- Then define a GUI for this script --
+</span><span class="comment">---------------------------------------
+</span><span class="keyword">local</span> t1NumPoints = designerui.number(<span class="string">"t1 Number of Points"</span>, <span class="number">0</span>, <span class="number">64</span>, <span class="number">2</span>, <span class="number">2048</span>)
+<span class="keyword">local</span> t1StartTimeMs = designerui.number(<span class="string">"t1 Start Time (ms)"</span>, <span class="number">2</span>, <span class="number">0.1</span>, <span class="number">0</span>, <span class="number">30000</span>)
+<span class="keyword">local</span> f1SpectralWidthPpm = designerui.number(<span class="string">"f1 Spectral Width (ppm)"</span>, <span class="number">0</span>, <span class="number">12</span>, <span class="number">4</span>, <span class="number">1000</span>)
+<span class="keyword">local</span> second90PulseUs = designerui.number(<span class="string">"Second 90 Pulse (us)"</span>, <span class="number">2</span>, <span class="number">30</span>, <span class="number">0</span>, <span class="number">1000</span>)
+
+<span class="comment">-- Convert some values for later use
+</span><span class="keyword">local</span> secondPulse90Seconds = standard.microsecondsToSeconds(second90PulseUs)
+<span class="keyword">local</span> f1SpectralWidthHz = common.ppmToHertz(f1SpectralWidthPpm)
+<span class="keyword">local</span> t1StepSizeMs = standard.secondsToMilliseconds(common.hertzToSeconds(f1SpectralWidthHz))
+<span class="keyword">local</span> dummyScans = core:dummyScans()
+
+<span class="comment">-------------------------------------------------
+</span><span class="comment">-- Setup Phase table and force number of scans --
+</span><span class="comment">-------------------------------------------------
+</span><span class="keyword">local</span> phaseTableEntries = {
+    { <span class="number">0.0</span>, <span class="number">270.0</span>, <span class="number">0.0</span> },
+    { <span class="number">0.0</span>, <span class="number">180.0</span>, <span class="number">180.0</span> },
+    { <span class="number">0.0</span>, <span class="number">90.0</span>, <span class="number">0.0</span> },
+    { <span class="number">0.0</span>, <span class="number">0.0</span>, <span class="number">180.0</span> }
+}
+<span class="keyword">local</span> roundedNumberOfScans = standard.roundUpToNearestStrictlyPositiveMultiple(
+        core:numScans(),
+        #phaseTableEntries
+)
+core:setNumScans(roundedNumberOfScans)
+<span class="keyword">local</span> phaseTable = PhaseTable()
+phaseTable:addEntries(phaseTableEntries)
+phaseTable:setAccumulates(<span class="keyword">true</span>)
+setPhaseTable(phaseTable)
+
+<span class="comment">-------------------------------------------------------------------
+</span><span class="comment">-- Create variables where experiment data will be stored,        --
+</span><span class="comment">-- and register them to be saved if the <code>save</code> button is pressed --
+</span><span class="comment">-------------------------------------------------------------------
+</span><span class="keyword">local</span> results = newResults2D(<span class="string">"COSY Results"</span>)
+results:setSpectralWidthF1Ppm(f1SpectralWidthPpm)
+results:setSwapHalvesF1(<span class="keyword">true</span>)
+results:setMirrorF1(<span class="keyword">true</span>)
+results:setSwapHalvesF2(<span class="keyword">true</span>)
+results:setMirrorF2(<span class="keyword">false</span>)
+savehelper.saveDataOnSaveButton(<span class="keyword">nil</span>, <span class="string">"COSY"</span>, results)
+
+<span class="comment">---------------------------------------------------------
+</span><span class="comment">-- Create displays and pages where data will be viewed --
+</span><span class="comment">---------------------------------------------------------
+</span><span class="keyword">local</span> page = DisplayPage{ name = <span class="string">"COSY Results"</span> }
+<span class="keyword">local</span> display = Display2D(page, { name = <span class="string">"COSY Results"</span>, datasetName = <span class="string">"COSY Results"</span>, mode = <span class="string">"magnitude"</span> })
+
+<span class="comment">-- Wait for the length of an interscan delay before the first acquisition
+</span>setPreScanDelay(core:channelConfigSignal():interscanTime())
+
+<span class="comment">---------------------------
+</span><span class="comment">-- Run reference Scans.  --
+</span><span class="comment">---------------------------
+</span>setProgressMessage(<span class="string">"Acquiring Reference"</span>)
+common.runReferenceScan{
+    results=results,
+    xReference=<span class="keyword">true</span>,
+    yReference=<span class="keyword">true</span>,
+    defaultPulseSequence=<span class="keyword">true</span>,
+    numScans=roundedNumberOfScans
+}
+<span class="comment">-------------------------------------------------------------------------------------
+</span><span class="comment">-- Make helper functions to create a pulse sequence, calculate tau, and callback   --
+</span><span class="comment">-- functionality for the COSY experiment and set some values in the core           --
+</span><span class="comment">-------------------------------------------------------------------------------------
+</span><span class="keyword">local</span> <span class="keyword">function</span> tauPerAcquisition(acquisition)
+    <span class="keyword">return</span> standard.millisecondsToSeconds(t1StepSizeMs * acquisition + t1StartTimeMs)
+<span class="keyword">end</span>
+
+<span class="keyword">local</span> <span class="keyword">function</span> createPulseSequence(acquisition)
+    <span class="keyword">local</span> p = PulseSequence(core:channelConfigSignal())
+    p:add(newPulseSingle(core:channelConfigSignal()))
+    p:add(newPulseSingle(core:channelConfigSignal()))
+    p:setPulseTime(<span class="number">0</span>, core:channelConfigSignal():get90PulseSeconds())
+    p:setPulseTime(<span class="number">1</span>, secondPulse90Seconds)
+    p:setInterPulseTime(<span class="number">0</span>, tauPerAcquisition(acquisition))
+    core:usePulseSequence(p)
+<span class="keyword">end</span>
+<span class="keyword">local</span> <span class="keyword">function</span> newResultAddedCallback()
+    <span class="comment">-- "acquisition" is zero based.
+</span>    <span class="keyword">local</span> acquisition = results:numDataRows() - <span class="number">1</span>
+    setProgress(<span class="number">100</span> * acquisition / (t1NumPoints - <span class="number">1</span>))
+    setProgressMessage(<span class="string">"Running point "</span> .. <span class="global">tostring</span>(acquisition+<span class="number">1</span>) .. <span class="string">" of "</span> .. <span class="global">tostring</span>(t1NumPoints))
+    results:process2D()
+    updateDisplay(results)
+<span class="keyword">end</span>
+
+<span class="comment">-- Run the main acquisitions based on the above functions
+</span>common.runMulti1DScans{
+    setupMethod=createPulseSequence,
+    yMethod=tauPerAcquisition,
+    results=results,
+    numPoints=t1NumPoints,
+    dummyScans=dummyScans,
+    newResultAddedCallback=newResultAddedCallback,
+}
+
+<span class="comment">-- Process and update the display one last time
+</span>results:process2D()
+updateDisplay(results)
+
+setProgress(<span class="number">100</span>)
+setProgressMessage(<span class="string">"Complete"</span>)</pre>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2023-09-22 17:06:42 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>NMReady Experiment Designer Documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Experiment Designer</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+
+
+<h2>Manual</h2>
+<ul class="nowrap">
+  <li><a href="../manual/01_Overview.md.html">01_Overview</a></li>
+  <li><strong>02_Phase_Tables</strong></li>
+  <li><a href="../manual/03_Language_Reference.md.html">03_Language_Reference</a></li>
+  <li><a href="../manual/04_Saving_Results.md.html">04_Saving_Results</a></li>
+  <li><a href="../manual/05_Special_Functions.md.html">05_Special_Functions</a></li>
+</ul>
+<h2>Sections</h2>
+<ul class="nowrap">
+  <li><a href="../sections/config.html">config</a></li>
+  <li><a href="../sections/core.html">core</a></li>
+  <li><a href="../sections/data.html">data</a></li>
+  <li><a href="../sections/display.html">display</a></li>
+  <li><a href="../sections/integrals.html">integrals</a></li>
+  <li><a href="../sections/pulses.html">pulses</a></li>
+</ul>
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><a href="../examples/1d.lua.html">1d.lua</a></li>
+  <li><a href="../examples/cosy.lua.html">cosy.lua</a></li>
+  <li><a href="../examples/t1.lua.html">t1.lua</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+
+<h1>What is a phase table?</h1>
+
+<p>Phase tables contain rows of transmit phases that are used for each
+pulse in a pulse sequence. Each row contains one receiver phase item
+as well.</p>
+
+<h1>How is a phase table used?</h1>
+
+<p>A phase table can be used in two ways:</p>
+
+<ol>
+    <li><p><em>accumulates=false</em> A row in the table is applied to all transients in a 1D
+    acquisition. In the next 1D acquisition, the phases in the next row in
+    the table is used. When there are no more rows in the table, the
+    first row is used again. In other words, acquire() uses one row at
+    a time.</p></li>
+    <li><p><em>accumulates=true</em> The number of transients in a 1D acquisition
+    will be adjusted to be a multiple of the number of rows in the
+    phase table. For the first transient, the phases from the first row
+    are used. For the next transient, the next row is used. If there
+    are more transients and no more rows to use, it starts back at the
+    first row again.</p></li>
+</ol>
+
+<h1>What about simultaneous pulses on multiple channels?</h1>
+
+<p>In a pulse sequence, there can be either (or both) single pulses and
+simultaneous pulses. Single pulses have one column in a phase table
+entry. Simultaneous pulses have two columns in a phase table.</p>
+
+<p>For example, consider a pulse sequence: Single pulse (1), simultaneous
+pulse (2), single pulse (3).</p>
+
+<p>Adding a phase table entry like this would:</p>
+
+<ul>
+    <li>Set the transmit phase for pulse 1 to 0</li>
+    <li>Set the transmit phase for pulse 2 to 90 on the primary channel and
+    180 on the secondary channel</li>
+    <li>Set the transmit phase for pulse 3 to 270</li>
+    <li>Set the receiver phase to 90</li>
+</ul>
+
+
+<pre>
+phaseTable.addEntry({<span class="number">0</span>, <span class="number">90</span>, <span class="number">180</span>, <span class="number">270</span>}, <span class="number">90</span>)
+</pre>
+
+<p>See <a href="../examples/cosy.lua.html#">cosy.lua</a> for a more complete example.</p>
+
+<h1>Debugging phase tables</h1>
+
+<p>It is possible to get a description of the pulse phases (and other
+pulse information) that is used for the first transient in a 1D
+acquisition.</p>
+
+<p>If you have a pulse sequence object named pulseSequence, you can log
+the information like this:</p>
+
+
+<pre>
+log(pulseSequence:toString())
+</pre>
+
+<p>If your experiment takes a long time to complete and you would first
+like to verify the pulse sequences used, you can add this after the
+configuration section of your experiment:</p>
+
+
+<pre>
+setNoAcquire(<span class="keyword">true</span>)
+</pre>
+
+<p>When you have verified your pulse sequences are correct, then you can
+remove that statement (or set it to false) and re-run your experiment.</p>
+
+<h1>Using a different scale for the phases</h1>
+
+<p>The default scale for the phases is 0 to 360. If you would like to use
+a different number to represent the 360 state, use PhaseTable:setStates360()</p>
+
+<p>For example, if you want to use the number 4 as the top end of the
+scale, you can do this:</p>
+
+
+<pre>
+pt = PhaseTable()
+pt:setStates360(<span class="number">4</span>)
+pt:addEntries {
+   {<span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">0</span>}
+}
+core:usePhaseTable(pt)
+</pre>
+
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2023-09-22 17:06:42 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

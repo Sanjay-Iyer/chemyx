@@ -1,0 +1,1026 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>NMReady Experiment Designer Documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Experiment Designer</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#globals">globals</a></li>
+<li><a href="#Class_Display1D">Class Display1D </a></li>
+<li><a href="#Class_Display2D">Class Display2D </a></li>
+<li><a href="#Class_DisplayConsole">Class DisplayConsole </a></li>
+<li><a href="#Class_DisplayDataTable">Class DisplayDataTable </a></li>
+<li><a href="#Class_DisplayElement">Class DisplayElement </a></li>
+<li><a href="#Class_DisplayExploreData">Class DisplayExploreData </a></li>
+<li><a href="#Class_DisplayLabel">Class DisplayLabel </a></li>
+<li><a href="#Class_DisplayLog">Class DisplayLog </a></li>
+<li><a href="#Class_DisplayPage">Class DisplayPage </a></li>
+<li><a href="#Class_DisplayScriptEditor">Class DisplayScriptEditor </a></li>
+<li><a href="#Class_DisplaySpacer">Class DisplaySpacer </a></li>
+</ul>
+
+
+<h2>Sections</h2>
+<ul class="nowrap">
+  <li><a href="../sections/config.html">config</a></li>
+  <li><a href="../sections/core.html">core</a></li>
+  <li><a href="../sections/data.html">data</a></li>
+  <li><strong>display</strong></li>
+  <li><a href="../sections/integrals.html">integrals</a></li>
+  <li><a href="../sections/pulses.html">pulses</a></li>
+</ul>
+<h2>Manual</h2>
+<ul class="nowrap">
+  <li><a href="../manual/01_Overview.md.html">01_Overview</a></li>
+  <li><a href="../manual/02_Phase_Tables.md.html">02_Phase_Tables</a></li>
+  <li><a href="../manual/03_Language_Reference.md.html">03_Language_Reference</a></li>
+  <li><a href="../manual/04_Saving_Results.md.html">04_Saving_Results</a></li>
+  <li><a href="../manual/05_Special_Functions.md.html">05_Special_Functions</a></li>
+</ul>
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><a href="../examples/1d.lua.html">1d.lua</a></li>
+  <li><a href="../examples/cosy.lua.html">cosy.lua</a></li>
+  <li><a href="../examples/t1.lua.html">t1.lua</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>display</code></h1>
+<p>Display, logging, and GUI configuration.</p>
+<p>
+
+
+</p>
+
+
+<h2><a href="#globals">globals</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#updateDisplay">updateDisplay(table)</a></td>
+	<td class="summary">Send a data table to the GUI.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#updateDisplay">updateDisplay(dataset)</a></td>
+	<td class="summary">Send a 1D result to the GUI.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#updateDisplay">updateDisplay(results)</a></td>
+	<td class="summary">Send a 2D result to the GUI.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setProgress">setProgress(progress)</a></td>
+	<td class="summary">Set the experiment progress, in percent.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setProgressMessage">setProgressMessage(message)</a></td>
+	<td class="summary">Set the progress message.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setStatusMessage">setStatusMessage(message)</a></td>
+	<td class="summary">Set a status message.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setAcquireInfoJson">setAcquireInfoJson(json)</a></td>
+	<td class="summary">Set the labels at the bottom of the screen while acquiring.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setPageJson">setPageJson(pageName, json)</a></td>
+	<td class="summary">Change the json for a page.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#showPage">showPage(pageName)</a></td>
+	<td class="summary">Show a specific page, by name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#showPage">showPage(page)</a></td>
+	<td class="summary">Show a specific page.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setLogFileName">setLogFileName(fileName)</a></td>
+	<td class="summary">All log messages after this point will be saved in the given file.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setCalculateIntermediateResults">setCalculateIntermediateResults(calculateIntermediateResults)</a></td>
+	<td class="summary">Set whether intermediate results should be calculated or not for acquisitions with multiple transients.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setMaxLogEntries">setMaxLogEntries(maxLogEntries)</a></td>
+	<td class="summary">Change the maximum number of log messages that will be sent to the GUI.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setExperimentName">setExperimentName(name)</a></td>
+	<td class="summary">Set experiment name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#log">log(msg)</a></td>
+	<td class="summary">Log a message.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#log">log(destination, msg)</a></td>
+	<td class="summary">Log a message.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#logError">logError(msg)</a></td>
+	<td class="summary">Log an error message.</td>
+	</tr>
+</table>
+<h2><a href="#Class_Display1D">Class Display1D </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#Display1D.Display1D">Display1D.Display1D(page, mArgs)</a></td>
+	<td class="summary">Construct class from a map of key/value pairs, each in string format.</td>
+	</tr>
+</table>
+<h2><a href="#Class_Display2D">Class Display2D </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#Display2D.Display2D">Display2D.Display2D(page, mArgs)</a></td>
+	<td class="summary">Construct class from a map of key/value pairs, each in string format.</td>
+	</tr>
+</table>
+<h2><a href="#Class_DisplayConsole">Class DisplayConsole </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DisplayConsole.DisplayConsole">DisplayConsole.DisplayConsole(page, mArgs)</a></td>
+	<td class="summary">Construct class from a map of key/value pairs, each in string format.</td>
+	</tr>
+</table>
+<h2><a href="#Class_DisplayDataTable">Class DisplayDataTable </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DisplayDataTable.DisplayDataTable">DisplayDataTable.DisplayDataTable(page, mArgs)</a></td>
+	<td class="summary">Construct class from a map of key/value pairs, each in string format.</td>
+	</tr>
+</table>
+<h2><a href="#Class_DisplayElement">Class DisplayElement </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DisplayElement.DisplayElement">DisplayElement.DisplayElement(mArgs, t)</a></td>
+	<td class="summary">Construct class from a map of key/value pairs, each in string format.</td>
+	</tr>
+</table>
+<h2><a href="#Class_DisplayExploreData">Class DisplayExploreData </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DisplayExploreData.DisplayExploreData">DisplayExploreData.DisplayExploreData(page, mArgs)</a></td>
+	<td class="summary">Construct class from a map of key/value pairs, each in string format.</td>
+	</tr>
+</table>
+<h2><a href="#Class_DisplayLabel">Class DisplayLabel </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DisplayLabel.DisplayLabel">DisplayLabel.DisplayLabel(page, mArgs)</a></td>
+	<td class="summary">Construct class from a map of key/value pairs, each in string format.</td>
+	</tr>
+</table>
+<h2><a href="#Class_DisplayLog">Class DisplayLog </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DisplayLog.DisplayLog">DisplayLog.DisplayLog(page, mArgs)</a></td>
+	<td class="summary">Construct class from a map of key/value pairs, each in string format.</td>
+	</tr>
+</table>
+<h2><a href="#Class_DisplayPage">Class DisplayPage </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DisplayPage.DisplayPage">DisplayPage.DisplayPage(mArgs)</a></td>
+	<td class="summary">Construct class from a map of key/value pairs, each in string format.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DisplayPage.DisplayPage">DisplayPage.DisplayPage(mArgs, info)</a></td>
+	<td class="summary">Construct class from a map of key/value pairs, each in string format.</td>
+	</tr>
+</table>
+<h2><a href="#Class_DisplayScriptEditor">Class DisplayScriptEditor </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DisplayScriptEditor.DisplayScriptEditor">DisplayScriptEditor.DisplayScriptEditor(page, mArgs)</a></td>
+	<td class="summary">Construct class from a map of key/value pairs, each in string format.</td>
+	</tr>
+</table>
+<h2><a href="#Class_DisplaySpacer">Class DisplaySpacer </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DisplaySpacer.DisplaySpacer">DisplaySpacer.DisplaySpacer(page, mArgs)</a></td>
+	<td class="summary">Construct class from a map of key/value pairs, each in string format.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="globals"></a>globals</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "updateDisplay"></a>
+    <strong>updateDisplay(table)</strong>
+    </dt>
+    <dd>
+    Send a data table to the GUI.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">table</span>
+            <span class="types"><span class="type">DataTable</span></span>
+         The DataTable to send to the GUI
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "updateDisplay"></a>
+    <strong>updateDisplay(dataset)</strong>
+    </dt>
+    <dd>
+    Send a 1D result to the GUI.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataset</span>
+            <span class="types"><span class="type">DataSet1D</span></span>
+         The dataset to send to the GUI
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "updateDisplay"></a>
+    <strong>updateDisplay(results)</strong>
+    </dt>
+    <dd>
+    Send a 2D result to the GUI.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">results</span>
+            <span class="types"><span class="type">shared_ptr<_Results2D_></span></span>
+         The 2D results to send to the GUI
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setProgress"></a>
+    <strong>setProgress(progress)</strong>
+    </dt>
+    <dd>
+    Set the experiment progress, in percent.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">progress</span>
+            <span class="types"><span class="type">double</span></span>
+         The progress, from 0 to 100
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setProgressMessage"></a>
+    <strong>setProgressMessage(message)</strong>
+    </dt>
+    <dd>
+    Set the progress message.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">message</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The message to show on the progress bar
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setStatusMessage"></a>
+    <strong>setStatusMessage(message)</strong>
+    </dt>
+    <dd>
+    Set a status message.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">message</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The message.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setAcquireInfoJson"></a>
+    <strong>setAcquireInfoJson(json)</strong>
+    </dt>
+    <dd>
+    Set the labels at the bottom of the screen while acquiring.
+e.g. setAcquireInfoJson(dkjson.encode{{"Number of Scans", core:numScans()}, {"...", "..."}, {"...", "..."}})
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">json</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         A JSON encoded list of two-element lists of strings.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setPageJson"></a>
+    <strong>setPageJson(pageName, json)</strong>
+    </dt>
+    <dd>
+    Change the json for a page.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pageName</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the page to change the json for
+        </li>
+        <li><span class="parameter">json</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The new json to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "showPage"></a>
+    <strong>showPage(pageName)</strong>
+    </dt>
+    <dd>
+    Show a specific page, by name.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pageName</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the page to show
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "showPage"></a>
+    <strong>showPage(page)</strong>
+    </dt>
+    <dd>
+    Show a specific page.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">page</span>
+            <span class="types"><a class="type" href="../sections/display.html#DisplayPage">DisplayPage</a></span>
+         The page to show
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setLogFileName"></a>
+    <strong>setLogFileName(fileName)</strong>
+    </dt>
+    <dd>
+    All log messages after this point will be saved in the given file.
+The file name will have a ".log" suffix added to it.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">fileName</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The file name to log to
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setCalculateIntermediateResults"></a>
+    <strong>setCalculateIntermediateResults(calculateIntermediateResults)</strong>
+    </dt>
+    <dd>
+    Set whether intermediate results should be calculated or not for acquisitions with multiple transients.
+When set to true, the special method "transientCallback" will be called.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">calculateIntermediateResults</span>
+            <span class="types"><span class="type">bool</span></span>
+         Whether transientCallback() will be called or not.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setMaxLogEntries"></a>
+    <strong>setMaxLogEntries(maxLogEntries)</strong>
+    </dt>
+    <dd>
+    Change the maximum number of log messages that will be sent to the GUI.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">maxLogEntries</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The maximum number of log messages that will be sent to the GUI
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setExperimentName"></a>
+    <strong>setExperimentName(name)</strong>
+    </dt>
+    <dd>
+    Set experiment name.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The experiment name
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "log"></a>
+    <strong>log(msg)</strong>
+    </dt>
+    <dd>
+    Log a message.
+This will be displayed on the GUI.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">msg</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The message to log.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "log"></a>
+    <strong>log(destination, msg)</strong>
+    </dt>
+    <dd>
+    Log a message.
+This will be displayed on the GUI.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">destination</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The destination to log to ("core", "external", "all")
+        </li>
+        <li><span class="parameter">msg</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The message to log.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "logError"></a>
+    <strong>logError(msg)</strong>
+    </dt>
+    <dd>
+    Log an error message.
+This will be displayed on the GUI.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">msg</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The message to log.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_Display1D"></a>Class Display1D </h2>
+
+          <div class="section-description">
+          A 1D results display.
+Inherits from DisplayElement.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "Display1D.Display1D"></a>
+    <strong>Display1D.Display1D(page, mArgs)</strong>
+    </dt>
+    <dd>
+    Construct class from a map of key/value pairs, each in string format.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">page</span>
+            <span class="types"><a class="type" href="../sections/display.html#DisplayPage">DisplayPage</a></span>
+         The page to add the display to.
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         The parameters to use for this element. See DisplayElement for details. Additional keys are: "mode": "td" or "fd", and "grid": "major", "minor", "both", or "off".
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_Display2D"></a>Class Display2D </h2>
+
+          <div class="section-description">
+          A 2D results display.
+Inherits from DisplayElement.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "Display2D.Display2D"></a>
+    <strong>Display2D.Display2D(page, mArgs)</strong>
+    </dt>
+    <dd>
+    Construct class from a map of key/value pairs, each in string format.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">page</span>
+            <span class="types"><a class="type" href="../sections/display.html#DisplayPage">DisplayPage</a></span>
+         The page to add the display to.
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         The parameters to use for this element. See DisplayElement for details.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_DisplayConsole"></a>Class DisplayConsole </h2>
+
+          <div class="section-description">
+          A console for running Lua commands.
+Inherits from DisplayElement.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "DisplayConsole.DisplayConsole"></a>
+    <strong>DisplayConsole.DisplayConsole(page, mArgs)</strong>
+    </dt>
+    <dd>
+    Construct class from a map of key/value pairs, each in string format.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">page</span>
+            <span class="types"><a class="type" href="../sections/display.html#DisplayPage">DisplayPage</a></span>
+         The page to add the display to.
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         The parameters to use for this element. See DisplayElement for details.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_DisplayDataTable"></a>Class DisplayDataTable </h2>
+
+          <div class="section-description">
+          A DataTable results display.
+Inherits from DisplayElement.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "DisplayDataTable.DisplayDataTable"></a>
+    <strong>DisplayDataTable.DisplayDataTable(page, mArgs)</strong>
+    </dt>
+    <dd>
+    Construct class from a map of key/value pairs, each in string format.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">page</span>
+            <span class="types"><a class="type" href="../sections/display.html#DisplayPage">DisplayPage</a></span>
+         The page to add the display to.
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+
+<p> The parameters to use for this element. See DisplayElement for details. Additional keys are: </p>
+
+<ul>
+    <li>nextentrybutton: "true" or "false". </li>
+    <li>legend: "upper right", "upper left", "lower left", "lower right", "right", "center left", "center right", "lower center", "upper center", or "center". </li>
+    <li>cursorformat: Format for the cursor text. Must contain two format specifiers, e.g. "x: %.2f,\ny: %.1f". </li>
+    <li>xAxisTickLabelFormat: Format for the x axis ticks. Must contain one format specifier, e.g. "%.1f ms" </li>
+    <li>expandedYUpper: Y axis bounds expansion factor (upper.) </li>
+    <li>expandedYLower: Y axis bounds expansion factor (lower.)</li>
+</ul>
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_DisplayElement"></a>Class DisplayElement </h2>
+
+          <div class="section-description">
+          A generic type of display element.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "DisplayElement.DisplayElement"></a>
+    <strong>DisplayElement.DisplayElement(mArgs, t)</strong>
+    </dt>
+    <dd>
+    Construct class from a map of key/value pairs, each in string format.
+Do not create a DisplayElement directly. Use one of the derived classes instead.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         A map (table) of optional string parameters to use when creating the object. Available keys are: "pageName", "name", "datasetName", "datasetIndex", "row", "column", "rowspan", "columnspan", "rowStretch", and "columnStretch".
+        </li>
+        <li><span class="parameter">t</span>
+            <span class="types"><span class="type">DEType</span></span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_DisplayExploreData"></a>Class DisplayExploreData </h2>
+
+          <div class="section-description">
+          Explore data.
+Inherits from DisplayElement.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "DisplayExploreData.DisplayExploreData"></a>
+    <strong>DisplayExploreData.DisplayExploreData(page, mArgs)</strong>
+    </dt>
+    <dd>
+    Construct class from a map of key/value pairs, each in string format.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">page</span>
+            <span class="types"><a class="type" href="../sections/display.html#DisplayPage">DisplayPage</a></span>
+         The page to add the display to.
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         The parameters to use for this element. See DisplayElement for details.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_DisplayLabel"></a>Class DisplayLabel </h2>
+
+          <div class="section-description">
+          A text label.
+Inherits from DisplayElement.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "DisplayLabel.DisplayLabel"></a>
+    <strong>DisplayLabel.DisplayLabel(page, mArgs)</strong>
+    </dt>
+    <dd>
+    Construct class from a map of key/value pairs, each in string format.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">page</span>
+            <span class="types"><a class="type" href="../sections/display.html#DisplayPage">DisplayPage</a></span>
+         The page to add the display to.
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         The parameters to use for this element. See DisplayElement for details. Additional keys are: "text" and "alignment". Alignment options are comma separated and case sensitive. Horizontal options: "AlignLeft", "AlignRight", "AlignHCenter", "AlignJustify". Veritcal options: "AlignTop", "AlignBottom", "AlignVCenter". Two-dimensional option: "AlignCenter". You can only specify one flag for each dimension.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_DisplayLog"></a>Class DisplayLog </h2>
+
+          <div class="section-description">
+          Log messages.
+Inherits from DisplayElement.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "DisplayLog.DisplayLog"></a>
+    <strong>DisplayLog.DisplayLog(page, mArgs)</strong>
+    </dt>
+    <dd>
+    Construct class from a map of key/value pairs, each in string format.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">page</span>
+            <span class="types"><a class="type" href="../sections/display.html#DisplayPage">DisplayPage</a></span>
+         The page to add the display to.
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         The parameters to use for this element. See DisplayElement for details.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_DisplayPage"></a>Class DisplayPage </h2>
+
+          <div class="section-description">
+          A display page.
+Inherits from DisplayElement.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "DisplayPage.DisplayPage"></a>
+    <strong>DisplayPage.DisplayPage(mArgs)</strong>
+    </dt>
+    <dd>
+    Construct class from a map of key/value pairs, each in string format.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         The parameters to use for this element. See DisplayElement for details.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DisplayPage.DisplayPage"></a>
+    <strong>DisplayPage.DisplayPage(mArgs, info)</strong>
+    </dt>
+    <dd>
+    Construct class from a map of key/value pairs, each in string format.
+An additional argument allows the "info" for the page to be set.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         The parameters to use for this element. See DisplayElement for details.
+        </li>
+        <li><span class="parameter">info</span>
+            <span class="types"><span class="type">vector<_vector<_string_>></span></span>
+         Information associated with the page (list of pairs of strings)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_DisplayScriptEditor"></a>Class DisplayScriptEditor </h2>
+
+          <div class="section-description">
+          Script Text Editor.
+Inherits from DisplayElement.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "DisplayScriptEditor.DisplayScriptEditor"></a>
+    <strong>DisplayScriptEditor.DisplayScriptEditor(page, mArgs)</strong>
+    </dt>
+    <dd>
+    Construct class from a map of key/value pairs, each in string format.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">page</span>
+            <span class="types"><a class="type" href="../sections/display.html#DisplayPage">DisplayPage</a></span>
+         The page to add the display to.
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         The parameters to use for this element. See DisplayElement for details.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_DisplaySpacer"></a>Class DisplaySpacer </h2>
+
+          <div class="section-description">
+          A layout spacing item.
+Inherits from DisplayElement.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "DisplaySpacer.DisplaySpacer"></a>
+    <strong>DisplaySpacer.DisplaySpacer(page, mArgs)</strong>
+    </dt>
+    <dd>
+    Construct class from a map of key/value pairs, each in string format.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">page</span>
+            <span class="types"><a class="type" href="../sections/display.html#DisplayPage">DisplayPage</a></span>
+         The page to add the display to.
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         The parameters to use for this element. See DisplayElement for details. Additional keys are: "width", "height", "hSizePolicy", "vSizePolicy"
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2023-09-22 17:06:42 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

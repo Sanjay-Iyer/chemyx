@@ -1,0 +1,6797 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>NMReady Experiment Designer Documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Experiment Designer</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#PhaseCycling">PhaseCycling </a></li>
+<li><a href="#DecouplingType">DecouplingType </a></li>
+<li><a href="#DecouplingMode">DecouplingMode </a></li>
+<li><a href="#SuppressionMode">SuppressionMode </a></li>
+<li><a href="#SimultaneousLockMode">SimultaneousLockMode </a></li>
+<li><a href="#NucleusSelection">NucleusSelection </a></li>
+<li><a href="#LockNucleusSelection">LockNucleusSelection </a></li>
+<li><a href="#globals">globals</a></li>
+<li><a href="#Class_ChannelConfig">Class ChannelConfig </a></li>
+<li><a href="#Class_Config">Class Config </a></li>
+<li><a href="#Class_ConfigItem">Class ConfigItem </a></li>
+<li><a href="#Class_ConfigItemButton">Class ConfigItemButton </a></li>
+<li><a href="#Class_ConfigItemComboList">Class ConfigItemComboList </a></li>
+<li><a href="#Class_ConfigItemContextDropdown">Class ConfigItemContextDropdown </a></li>
+<li><a href="#Class_ConfigItemDropdown">Class ConfigItemDropdown </a></li>
+<li><a href="#Class_ConfigItemFunctionButton">Class ConfigItemFunctionButton </a></li>
+<li><a href="#Class_ConfigItemLabel">Class ConfigItemLabel </a></li>
+<li><a href="#Class_ConfigItemMultiButton">Class ConfigItemMultiButton </a></li>
+<li><a href="#Class_ConfigItemNumber">Class ConfigItemNumber </a></li>
+<li><a href="#Class_ConfigItemString">Class ConfigItemString </a></li>
+<li><a href="#Class_Core">Class Core </a></li>
+<li><a href="#Class_DecouplingSettings">Class DecouplingSettings </a></li>
+<li><a href="#Class_FeedbackFilter">Class FeedbackFilter </a></li>
+<li><a href="#Class_FeedbackFilterGarett">Class FeedbackFilterGarett </a></li>
+<li><a href="#Class_FeedbackFilterModel">Class FeedbackFilterModel </a></li>
+<li><a href="#Class_FeedbackFilterPid">Class FeedbackFilterPid </a></li>
+<li><a href="#Class_FeedbackLockSettings">Class FeedbackLockSettings </a></li>
+<li><a href="#Class_LockStrategy">Class LockStrategy </a></li>
+<li><a href="#Class_LockStrategyContext">Class LockStrategyContext </a></li>
+<li><a href="#Class_LockStrategyFeedback">Class LockStrategyFeedback </a></li>
+<li><a href="#Class_ProcessingSettings">Class ProcessingSettings </a></li>
+<li><a href="#Class_SuppressionSettings">Class SuppressionSettings </a></li>
+<li><a href="#nmready">nmready</a></li>
+<li><a href="#nmready_config_app">nmready.config.app</a></li>
+<li><a href="#nmready_config_backup">nmready.config.backup</a></li>
+</ul>
+
+
+<h2>Sections</h2>
+<ul class="nowrap">
+  <li><strong>config</strong></li>
+  <li><a href="../sections/core.html">core</a></li>
+  <li><a href="../sections/data.html">data</a></li>
+  <li><a href="../sections/display.html">display</a></li>
+  <li><a href="../sections/integrals.html">integrals</a></li>
+  <li><a href="../sections/pulses.html">pulses</a></li>
+</ul>
+<h2>Manual</h2>
+<ul class="nowrap">
+  <li><a href="../manual/01_Overview.md.html">01_Overview</a></li>
+  <li><a href="../manual/02_Phase_Tables.md.html">02_Phase_Tables</a></li>
+  <li><a href="../manual/03_Language_Reference.md.html">03_Language_Reference</a></li>
+  <li><a href="../manual/04_Saving_Results.md.html">04_Saving_Results</a></li>
+  <li><a href="../manual/05_Special_Functions.md.html">05_Special_Functions</a></li>
+</ul>
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><a href="../examples/1d.lua.html">1d.lua</a></li>
+  <li><a href="../examples/cosy.lua.html">cosy.lua</a></li>
+  <li><a href="../examples/t1.lua.html">t1.lua</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>config</code></h1>
+<p>Acquisition parameters and other configuration items.</p>
+<p>
+
+
+</p>
+
+
+<h2><a href="#PhaseCycling">PhaseCycling </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#PhaseCyclingMode">PhaseCyclingMode</a></td>
+	<td class="summary">Constants:
+Modes for phase cycling.</td>
+	</tr>
+</table>
+<h2><a href="#DecouplingType">DecouplingType </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DecouplingType">DecouplingType</a></td>
+	<td class="summary">Constants:
+The type of decoupling to apply.</td>
+	</tr>
+</table>
+<h2><a href="#DecouplingMode">DecouplingMode </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DecouplingMode">DecouplingMode</a></td>
+	<td class="summary">Constants:
+The decoupling mode.</td>
+	</tr>
+</table>
+<h2><a href="#SuppressionMode">SuppressionMode </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#SuppressionMode">SuppressionMode</a></td>
+	<td class="summary">Constants:
+The suppression mode.</td>
+	</tr>
+</table>
+<h2><a href="#SimultaneousLockMode">SimultaneousLockMode </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#SimultaneousLockMode">SimultaneousLockMode</a></td>
+	<td class="summary">Constants:
+The type of simultaneous lock to apply.</td>
+	</tr>
+</table>
+<h2><a href="#NucleusSelection">NucleusSelection </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#NucleusSelection">NucleusSelection</a></td>
+	<td class="summary">Constants:
+Nucleus specific definitions and methods.</td>
+	</tr>
+</table>
+<h2><a href="#LockNucleusSelection">LockNucleusSelection </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#LockNucleusSelection">LockNucleusSelection</a></td>
+	<td class="summary">Constants:
+Which nucleus should be used for locking <br/>
+LockNucleusSelection
+.</td>
+	</tr>
+</table>
+<h2><a href="#globals">globals</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#phaseCyclingTable">phaseCyclingTable(mode)</a></td>
+	<td class="summary">Get a hard-coded phase cycling phase table.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#defaultsUpdated">defaultsUpdated()</a></td>
+	<td class="summary">If the default value for a ConfigItem changed, call this so the user interface knows that it occurred.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#phaseTable">phaseTable()</a></td>
+	<td class="summary">Get the phase table in use for the experiment.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setPhaseTable">setPhaseTable(phaseTable)</a></td>
+	<td class="summary">Set the phase table in use for the experiment.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setDecouplingAllowed">setDecouplingAllowed(decouplingAllowed)</a></td>
+	<td class="summary">Set whether decoupling is allowed or not (regardless of the configuration)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setSuppressionAllowed">setSuppressionAllowed(suppressionAllowed)</a></td>
+	<td class="summary">Set whether suppression is allowed or not (regardless of the configuration)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setLockRequired">setLockRequired(lockRequired)</a></td>
+	<td class="summary">Set (override) whether a lock acquisition is required before subsequent signal acquisitions.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setUseSignalForLock">setUseSignalForLock(useSignalForLock)</a></td>
+	<td class="summary">Set (override) whether the signal is used to lock the next acquisition.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setUseLockForSignal">setUseLockForSignal(useLockForSignal)</a></td>
+	<td class="summary">Set (override) whether the lock acquisition is used in place of the signal.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setExtraDelay">setExtraDelay(extraDelay)</a></td>
+	<td class="summary">When calculating the delay between acquisitions, add the given time to the delay without affecting the configuration.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setPreScanDelay">setPreScanDelay(preScanDelay)</a></td>
+	<td class="summary">Set a minimum amount of time to wait before acquiring transients.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setClusterDelay">setClusterDelay(clusterDelay)</a></td>
+	<td class="summary">Set the amount of time to wait between clusters of transients (start to start)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setDdsFrequencyPhaseErrorCorrection">setDdsFrequencyPhaseErrorCorrection(ddsFrequencyPhaseErrorCorrection)</a></td>
+	<td class="summary">Set whether a frequency/phase error correction is performed on the received data.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#setSpectralCenter2">setSpectralCenter2(spectralCenter2)</a></td>
+	<td class="summary">Set the spectral center for the secondary signal channel.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#lockStrategyContext">lockStrategyContext()</a></td>
+	<td class="summary">Get the lock strategy context instance.</td>
+	</tr>
+</table>
+<h2><a href="#Class_ChannelConfig">Class ChannelConfig </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.toString">ChannelConfig.toString()</a></td>
+	<td class="summary">Get a description of the object.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.nucleusString">ChannelConfig.nucleusString()</a></td>
+	<td class="summary">Get the nucleus as a human readable string.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.amplitude">ChannelConfig.amplitude()</a></td>
+	<td class="summary">Get the amplitude setting.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.setAmplitude">ChannelConfig.setAmplitude(amplitude)</a></td>
+	<td class="summary">Set the amplitude setting.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.txBias">ChannelConfig.txBias()</a></td>
+	<td class="summary">Get the tx bias.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.rxPhase">ChannelConfig.rxPhase()</a></td>
+	<td class="summary">Get the receiver phase.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.setRxPhase">ChannelConfig.setRxPhase(rxPhase)</a></td>
+	<td class="summary">Set the receiver phase.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.interscanTime">ChannelConfig.interscanTime()</a></td>
+	<td class="summary">Get the interscan time.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.setInterscanTime">ChannelConfig.setInterscanTime(time)</a></td>
+	<td class="summary">Set the interscan time.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.dampingFactor">ChannelConfig.dampingFactor()</a></td>
+	<td class="summary">Get the damping factor (exponential apodization).</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.setDampingFactor">ChannelConfig.setDampingFactor(damping)</a></td>
+	<td class="summary">Set the damping factor (exponential apodization).</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.zeroingFactor">ChannelConfig.zeroingFactor()</a></td>
+	<td class="summary">Get the active zeroing factor.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.setZeroingFactor">ChannelConfig.setZeroingFactor(zeroing)</a></td>
+	<td class="summary">Set the configured and active zeroing factors.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.getDampedWavePars">ChannelConfig.getDampedWavePars()</a></td>
+	<td class="summary">Get the Damped Wave Parameters.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.setDampedWavePars">ChannelConfig.setDampedWavePars(pars)</a></td>
+	<td class="summary">Set the Damped Wave Parameters.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.set90PulseSeconds">ChannelConfig.set90PulseSeconds(pulseTime)</a></td>
+	<td class="summary">Set the 90 pulse time (in seconds)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.get90PulseSeconds">ChannelConfig.get90PulseSeconds()</a></td>
+	<td class="summary">Get the 90 pulse time (in seconds)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.set180PulseSeconds">ChannelConfig.set180PulseSeconds(pulseTime)</a></td>
+	<td class="summary">Set the 180 pulse time (in seconds)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.get180PulseSeconds">ChannelConfig.get180PulseSeconds()</a></td>
+	<td class="summary">Get the 180 pulse time (in seconds)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.pulseTimeForAngle">ChannelConfig.pulseTimeForAngle(angle)</a></td>
+	<td class="summary">Get the pulse time (in seconds) for the given angle (in degrees) using the configured 90 (and later, 180) pulse time(s).</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.pulseAngleForTimeSeconds">ChannelConfig.pulseAngleForTimeSeconds(time)</a></td>
+	<td class="summary">Get the angle (in degrees) for the given pulse time (in seconds)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.pulseTimeUsForAngle">ChannelConfig.pulseTimeUsForAngle(angle)</a></td>
+	<td class="summary">Get the pulse time (in microseconds) for the given angle (in degrees) using the configured 90 (and later, 180) pulse time(s).</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.pulseAngleForTimeUs">ChannelConfig.pulseAngleForTimeUs(time)</a></td>
+	<td class="summary">Get the angle (in degrees) for the given pulse time (in microseconds)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.pulseTimeSeconds">ChannelConfig.pulseTimeSeconds()</a></td>
+	<td class="summary">Get the time (in seconds) for the pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.setPulseTimeSeconds">ChannelConfig.setPulseTimeSeconds(pulseTime)</a></td>
+	<td class="summary">Set the time (in seconds) for the pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.sweepWidth">ChannelConfig.sweepWidth()</a></td>
+	<td class="summary">Get the sweep width.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ChannelConfig.setSweepWidth">ChannelConfig.setSweepWidth(sweepWidth)</a></td>
+	<td class="summary">Set the sweep width.</td>
+	</tr>
+</table>
+<h2><a href="#Class_Config">Class Config </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#Config.add">Config.add(item)</a></td>
+	<td class="summary">Add a widget to the GUI.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Config.numItems">Config.numItems()</a></td>
+	<td class="summary">Get the number of config items added so far.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Config.item">Config.item(index)</a></td>
+	<td class="summary">Get a config item by number.</td>
+	</tr>
+</table>
+<h2><a href="#Class_ConfigItem">Class ConfigItem </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#ConfigItem.ConfigItem">ConfigItem.ConfigItem(name, mArgs)</a></td>
+	<td class="summary">This can not be used by itself.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ConfigItem.typeName">ConfigItem.typeName()</a></td>
+	<td class="summary">Get the name of the type of this configuration item.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ConfigItem.name">ConfigItem.name()</a></td>
+	<td class="summary">The config item's name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ConfigItem.changed">ConfigItem.changed()</a></td>
+	<td class="summary">Whether this item was changed externally or not.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ConfigItem.setEnabled">ConfigItem.setEnabled(enabled)</a></td>
+	<td class="summary">Set if the widget is enabled.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ConfigItem.setVisible">ConfigItem.setVisible(visible)</a></td>
+	<td class="summary">Set if the widget is Visible.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ConfigItem.__tostring">ConfigItem.__tostring()</a></td>
+	<td class="summary">Get a string representation of the object.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ConfigItem.__call">ConfigItem.__call()</a></td>
+	<td class="summary">The same as tostring().</td>
+	</tr>
+</table>
+<h2><a href="#Class_ConfigItemButton">Class ConfigItemButton </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#ConfigItemButton.ConfigItemButton">ConfigItemButton.ConfigItemButton(name, on, off, mArgs)</a></td>
+	<td class="summary">Create a new config item (button type).</td>
+	</tr>
+</table>
+<h2><a href="#Class_ConfigItemComboList">Class ConfigItemComboList </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#ConfigItemComboList.ConfigItemComboList">ConfigItemComboList.ConfigItemComboList(name, mArgs)</a></td>
+	<td class="summary">Create a new config item (combo list type).</td>
+	</tr>
+</table>
+<h2><a href="#Class_ConfigItemContextDropdown">Class ConfigItemContextDropdown </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#ConfigItemContextDropdown.ConfigItemContextDropdown">ConfigItemContextDropdown.ConfigItemContextDropdown(name, values, dropdownTexts, mArgs)</a></td>
+	<td class="summary">Create a new config item (dropdown type).</td>
+	</tr>
+</table>
+<h2><a href="#Class_ConfigItemDropdown">Class ConfigItemDropdown </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#ConfigItemDropdown.ConfigItemDropdown">ConfigItemDropdown.ConfigItemDropdown(name, values, mArgs)</a></td>
+	<td class="summary">Create a new config item (dropdown type).</td>
+	</tr>
+</table>
+<h2><a href="#Class_ConfigItemFunctionButton">Class ConfigItemFunctionButton </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#ConfigItemFunctionButton.ConfigItemFunctionButton">ConfigItemFunctionButton.ConfigItemFunctionButton(name, mArgs)</a></td>
+	<td class="summary">Create a new config item (fucntion button type).</td>
+	</tr>
+</table>
+<h2><a href="#Class_ConfigItemLabel">Class ConfigItemLabel </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#ConfigItemLabel.ConfigItemLabel">ConfigItemLabel.ConfigItemLabel(name, value, mArgs)</a></td>
+	<td class="summary">Create a new config item (label type).</td>
+	</tr>
+</table>
+<h2><a href="#Class_ConfigItemMultiButton">Class ConfigItemMultiButton </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#ConfigItemMultiButton.ConfigItemMultiButton">ConfigItemMultiButton.ConfigItemMultiButton(name, values, mArgs)</a></td>
+	<td class="summary">Create a new config item (multi button type).</td>
+	</tr>
+</table>
+<h2><a href="#Class_ConfigItemNumber">Class ConfigItemNumber </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#ConfigItemNumber.ConfigItemNumber">ConfigItemNumber.ConfigItemNumber(name, mArgs)</a></td>
+	<td class="summary">Create a new config item (number type).</td>
+	</tr>
+</table>
+<h2><a href="#Class_ConfigItemString">Class ConfigItemString </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#ConfigItemString.ConfigItemString">ConfigItemString.ConfigItemString(name, mArgs)</a></td>
+	<td class="summary">Create a new config item (string type).</td>
+	</tr>
+</table>
+<h2><a href="#Class_Core">Class Core </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#Core.interscanTime">Core.interscanTime()</a></td>
+	<td class="summary">Return the interscan time for the signal channel.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setInterscanTime">Core.setInterscanTime(time)</a></td>
+	<td class="summary">Set the interscan time for the signal channel.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.userDelay">Core.userDelay()</a></td>
+	<td class="summary">Get the user delay.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setUserDelay">Core.setUserDelay(userDelay)</a></td>
+	<td class="summary">Set the user delay.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.lockOffset">Core.lockOffset()</a></td>
+	<td class="summary">Get the lock offset.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setLockOffset">Core.setLockOffset(offset)</a></td>
+	<td class="summary">Set the lock offset.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.spectralCenter">Core.spectralCenter()</a></td>
+	<td class="summary">Get the spectral center in PPM.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setSpectralCenter">Core.setSpectralCenter(spectralCenter)</a></td>
+	<td class="summary">Set the spectral center in PPM.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.solventNumberOfPeaks">Core.solventNumberOfPeaks()</a></td>
+	<td class="summary">Get the number of lock peaks for this solvent.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setSolventNumberOfPeaks">Core.setSolventNumberOfPeaks(solventNumberOfPeaks)</a></td>
+	<td class="summary">Set the number of lock peaks for this solvent.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.solventPeakSelection">Core.solventPeakSelection()</a></td>
+	<td class="summary">Get the index of the lock peak to use for the current solvent.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setSolventPeakSelection">Core.setSolventPeakSelection(setSolventPeakSelection)</a></td>
+	<td class="summary">Set the index of the lock peak to use for the current solvent.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.acquisitionParameters">Core.acquisitionParameters()</a></td>
+	<td class="summary">Returns the acquisition parameters: sweepWidth, userDelay, spectralCenter, numPoints, numScans, dummyScans.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setAcquisitionParameters">Core.setAcquisitionParameters(acquisitionParameters)</a></td>
+	<td class="summary">Set the acquisition parameters: sweepWidth, userDelay, spectralCenter, numPoints, numScans, dummyScans.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.channelConfigSignal">Core.channelConfigSignal()</a></td>
+	<td class="summary">Returns the channel config for a signal acquisition.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.channelConfigSignal2">Core.channelConfigSignal2()</a></td>
+	<td class="summary">Returns the channel config for a the signal2 channel.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.frequencyResolutionHz">Core.frequencyResolutionHz()</a></td>
+	<td class="summary">Get the frequency resolution in Hz.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.activeScanTime">Core.activeScanTime()</a></td>
+	<td class="summary">Get the time it takes to acquire a signal and lock transient, including the estimated overhead to process each.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.frequencyAgilityLockScanTime">Core.frequencyAgilityLockScanTime()</a></td>
+	<td class="summary">Get the time it takes to acquire and process data for frequency agility lock.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.totalScanTime">Core.totalScanTime()</a></td>
+	<td class="summary">The estimated time between each transient, factoring in processing overhead.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.estimateAcquisitionQueueDuration">Core.estimateAcquisitionQueueDuration(pulseSequences, numScans)</a></td>
+	<td class="summary">Get an estimate of how long it would take to acquire the given pulse sequences using the current config.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.dwellTime">Core.dwellTime(channel)</a></td>
+	<td class="summary">Get the dwell time for the given channel config.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setDwellTime">Core.setDwellTime(channel, dwellTime)</a></td>
+	<td class="summary">Set the dwell time for the given channel config.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.samplingRate">Core.samplingRate(channel)</a></td>
+	<td class="summary">Get the sampling rate for the given channel config.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.receiverGain">Core.receiverGain()</a></td>
+	<td class="summary">Get the signal channel's receiver gain setting.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setReceiverGain">Core.setReceiverGain(gain)</a></td>
+	<td class="summary">Set the receiver gain in the signal channel config.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.lockReceiverGain">Core.lockReceiverGain()</a></td>
+	<td class="summary">Get the lock channel's receiver gain setting.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setLockReceiverGain">Core.setLockReceiverGain(gain)</a></td>
+	<td class="summary">Set the receiver gain in the lock channel config.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setSmallBandwidth">Core.setSmallBandwidth()</a></td>
+	<td class="summary">Set the bandwidth setting to small (narrow).</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setLargeBandwidth">Core.setLargeBandwidth()</a></td>
+	<td class="summary">Set the bandwidth setting to large (wide).</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.checkNucleus">Core.checkNucleus(nuclei)</a></td>
+	<td class="summary">See if the current nucleus is in the list of nuclei.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.checkNucleus2">Core.checkNucleus2(nuclei)</a></td>
+	<td class="summary">See if the current secondary nucleus is in the list of nuclei.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.applyConfig">Core.applyConfig()</a></td>
+	<td class="summary">Apply config parameters immediately.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.saveSignalConfig">Core.saveSignalConfig()</a></td>
+	<td class="summary">Save the signal channel config.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.saveLockConfig">Core.saveLockConfig()</a></td>
+	<td class="summary">Save the lock channel config.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.savePulseTimes">Core.savePulseTimes()</a></td>
+	<td class="summary">Save the pulse times in the signal and lock channel config files.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.savePulseSequence">Core.savePulseSequence()</a></td>
+	<td class="summary">Save the pulse sequence in the signal and lock channel config files.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setActiveSolventByName">Core.setActiveSolventByName(solventName)</a></td>
+	<td class="summary">Select the active solvent by name (case insensitive).</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.solventNames">Core.solventNames()</a></td>
+	<td class="summary">Get a list of available solvents for the current nucleus selection.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.configGroupSolventNames">Core.configGroupSolventNames(lockNucleusSelection, configGroupName)</a></td>
+	<td class="summary">Get a list of available solvents for the given config group name and lock mode.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.shortNames">Core.shortNames()</a></td>
+	<td class="summary">Get a list of available short names for the nucleus selection.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.activeSolventName">Core.activeSolventName()</a></td>
+	<td class="summary">Returns the active solvent name.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setConfigGroupByName">Core.setConfigGroupByName(name)</a></td>
+	<td class="summary">Set the current config group (nucleus).</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setLockNucleusByShortName">Core.setLockNucleusByShortName(name)</a></td>
+	<td class="summary">Set the current lock nucelus.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.configGroupNames">Core.configGroupNames()</a></td>
+	<td class="summary">Get a list of the config group (nucleus) names.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.activeConfigGroupName">Core.activeConfigGroupName()</a></td>
+	<td class="summary">Get the active config group (nucleus) names.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.formattedAcquisitionParameters">Core.formattedAcquisitionParameters()</a></td>
+	<td class="summary">Get a human readable representation of the acquisition parameters that are in use.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.useSignalForLockConfigured">Core.useSignalForLockConfigured()</a></td>
+	<td class="summary">Get whether useSignalForLock is used by the current config group.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.decouplingSettings">Core.decouplingSettings()</a></td>
+	<td class="summary">Get the current decoupling settings (read/write)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.deptNutationFactor">Core.deptNutationFactor()</a></td>
+	<td class="summary">Hidden calibration setting for Dept that should only be used my manufacturing, but lua needs it.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.suppressionSettings">Core.suppressionSettings()</a></td>
+	<td class="summary">Get the current suppression settings (read/write)</td>
+	</tr>
+</table>
+<h2><a href="#Class_DecouplingSettings">Class DecouplingSettings </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#DecouplingSettings.setDecouplingType">DecouplingSettings.setDecouplingType(type)</a></td>
+	<td class="summary">Set the decoupling type.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DecouplingSettings.decouplingType">DecouplingSettings.decouplingType()</a></td>
+	<td class="summary">Get the configured decoupling type.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DecouplingSettings.setDecouplingMode">DecouplingSettings.setDecouplingMode(mode)</a></td>
+	<td class="summary">Set the decoupling mode.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DecouplingSettings.decouplingMode">DecouplingSettings.decouplingMode()</a></td>
+	<td class="summary">Get the configured decoupling mode.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DecouplingSettings.enabled">DecouplingSettings.enabled()</a></td>
+	<td class="summary">Get whether decoupling is enabled or not.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DecouplingSettings.setAmplitude">DecouplingSettings.setAmplitude(amplitude)</a></td>
+	<td class="summary">Set the amplitude to use for decoupling.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DecouplingSettings.amplitude">DecouplingSettings.amplitude()</a></td>
+	<td class="summary">Get the amplitude to use for decoupling.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DecouplingSettings.setTime">DecouplingSettings.setTime(time)</a></td>
+	<td class="summary">Set the time (in seconds) to apply decoupling for during receive.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DecouplingSettings.time">DecouplingSettings.time()</a></td>
+	<td class="summary">Get the time decoupling will be applied for in the receive location.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DecouplingSettings.setPresatTime">DecouplingSettings.setPresatTime(time)</a></td>
+	<td class="summary">Set the time (in seconds) to apply decoupling for (presaturation)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DecouplingSettings.presatTime">DecouplingSettings.presatTime()</a></td>
+	<td class="summary">Get the time decoupling will be applied for in the presaturation location.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DecouplingSettings.bbWaltz16PulseLengths">DecouplingSettings.bbWaltz16PulseLengths()</a></td>
+	<td class="summary">Get the pulse times to use for BBWaltz16 decoupling (in seconds)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DecouplingSettings.setBbWaltz16PulseLengths">DecouplingSettings.setBbWaltz16PulseLengths(bbWaltz16PulseLengths)</a></td>
+	<td class="summary">Set the pulse times to use for BBWaltz16 decoupling (in seconds)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#DecouplingSettings.getDriveStrengthInt">DecouplingSettings.getDriveStrengthInt()</a></td>
+	<td class="summary">Get the DDS Drive Strength as an Integer.</td>
+	</tr>
+</table>
+<h2><a href="#Class_FeedbackFilter">Class FeedbackFilter </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#FeedbackFilter.repRate">FeedbackFilter.repRate()</a></td>
+	<td class="summary">Get the amount of time between filter updates (in seconds)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilter.setResetEnabled">FeedbackFilter.setResetEnabled(resetEnabled)</a></td>
+	<td class="summary">Set whether the filter parameters are reset between acquisitions.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilter.imaginaryHistory">FeedbackFilter.imaginaryHistory()</a></td>
+	<td class="summary">Get the history of the imaginary signal values.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilter.realHistory">FeedbackFilter.realHistory()</a></td>
+	<td class="summary">Get the history of the real signal values.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilter.filteredImaginaryHistory">FeedbackFilter.filteredImaginaryHistory()</a></td>
+	<td class="summary">Get the history of the imaginary signal values (prefiltered)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilter.filteredRealHistory">FeedbackFilter.filteredRealHistory()</a></td>
+	<td class="summary">Get the history of the real signal values (prefiltered)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilter.b0History">FeedbackFilter.b0History()</a></td>
+	<td class="summary">Get the history of the b0 adjustments.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilter.history">FeedbackFilter.history()</a></td>
+	<td class="summary">Get a copy of the filter's history as a data table (for plotting or export)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilter.phaseHistory">FeedbackFilter.phaseHistory()</a></td>
+	<td class="summary">Get the history of the phase information.</td>
+	</tr>
+</table>
+<h2><a href="#Class_FeedbackFilterGarett">Class FeedbackFilterGarett </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterGarett.filterHistory1">FeedbackFilterGarett.filterHistory1()</a></td>
+	<td class="summary">Get part 1 of the history of the filter.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterGarett.filterHistory2">FeedbackFilterGarett.filterHistory2()</a></td>
+	<td class="summary">Get part 2 of the history of the filter.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterGarett.lockHistory">FeedbackFilterGarett.lockHistory()</a></td>
+	<td class="summary">Get the history of the lock level values.</td>
+	</tr>
+</table>
+<h2><a href="#Class_FeedbackFilterModel">Class FeedbackFilterModel </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterModel.ks">FeedbackFilterModel.ks()</a></td>
+	<td class="summary">Get K parameters.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterModel.setKs">FeedbackFilterModel.setKs(ks)</a></td>
+	<td class="summary">Set K parameters.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterModel.xHistory">FeedbackFilterModel.xHistory()</a></td>
+	<td class="summary">Get the X history of the filter.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterModel.x2History">FeedbackFilterModel.x2History()</a></td>
+	<td class="summary">Get the X2 history of the filter.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterModel.x3History">FeedbackFilterModel.x3History()</a></td>
+	<td class="summary">Get the X3 history of the filter.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterModel.x4History">FeedbackFilterModel.x4History()</a></td>
+	<td class="summary">Get the X4 history of the filter.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterModel.x5History">FeedbackFilterModel.x5History()</a></td>
+	<td class="summary">Get the X5 history of the filter.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterModel.x7History">FeedbackFilterModel.x7History()</a></td>
+	<td class="summary">Get the X7 history of the filter.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterModel.errorCurrentHistory">FeedbackFilterModel.errorCurrentHistory()</a></td>
+	<td class="summary">Get the error current history of the filter.</td>
+	</tr>
+</table>
+<h2><a href="#Class_FeedbackFilterPid">Class FeedbackFilterPid </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterPid.pidn">FeedbackFilterPid.pidn()</a></td>
+	<td class="summary">Get P, I, D, and N parameters.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterPid.setPidn">FeedbackFilterPid.setPidn(p, i, d, n)</a></td>
+	<td class="summary">Set P, I, D, and N parameters.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterPid.pHistory">FeedbackFilterPid.pHistory()</a></td>
+	<td class="summary">Get the P history of the filter.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterPid.iHistory">FeedbackFilterPid.iHistory()</a></td>
+	<td class="summary">Get the I history of the filter.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterPid.dHistory">FeedbackFilterPid.dHistory()</a></td>
+	<td class="summary">Get the D history of the filter.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackFilterPid.errorCurrentHistory">FeedbackFilterPid.errorCurrentHistory()</a></td>
+	<td class="summary">Get the error current history of the filter.</td>
+	</tr>
+</table>
+<h2><a href="#Class_FeedbackLockSettings">Class FeedbackLockSettings </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.pulseTimeSeconds">FeedbackLockSettings.pulseTimeSeconds()</a></td>
+	<td class="summary">Get the pulse time in seconds.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.setPulseTimeSeconds">FeedbackLockSettings.setPulseTimeSeconds(pulseTimeSeconds)</a></td>
+	<td class="summary">Set the pulse time in seconds.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.preSignalTime">FeedbackLockSettings.preSignalTime()</a></td>
+	<td class="summary">Get the amount of time to lock before the signal is acquired.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.setPreSignalTime">FeedbackLockSettings.setPreSignalTime(preSignalTime)</a></td>
+	<td class="summary">Set the amount of time to lock before the signal is acquired.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.correctionStabilizationTime">FeedbackLockSettings.correctionStabilizationTime()</a></td>
+	<td class="summary">Get the correction stabilization time.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.setCorrectionStabilizationTime">FeedbackLockSettings.setCorrectionStabilizationTime(correctionStabilizationTime)</a></td>
+	<td class="summary">Set the correction stabilization time.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.lockLevelThreshold">FeedbackLockSettings.lockLevelThreshold()</a></td>
+	<td class="summary">Get the threshold at which the lock level is considered too low.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.setLockLevelThreshold">FeedbackLockSettings.setLockLevelThreshold(threshold)</a></td>
+	<td class="summary">Set the threshold at which the lock level is considered too low.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.lockPhaseThreshold">FeedbackLockSettings.lockPhaseThreshold()</a></td>
+	<td class="summary">Get the threshold at which the lock phase is considered too far out of range.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.setLockPhaseThreshold">FeedbackLockSettings.setLockPhaseThreshold(lockPhaseThreshold)</a></td>
+	<td class="summary">Set the threshold at which the lock phase is considered too far out of range.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.maxShimValue">FeedbackLockSettings.maxShimValue()</a></td>
+	<td class="summary">Get the maximum allowable shim value.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.setMaxShimValue">FeedbackLockSettings.setMaxShimValue(maxShimValue)</a></td>
+	<td class="summary">Set the maximum allowable shim value.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.filterFactor">FeedbackLockSettings.filterFactor()</a></td>
+	<td class="summary">Get the filter factor.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.setFilterFactor">FeedbackLockSettings.setFilterFactor(filterFactor)</a></td>
+	<td class="summary">Set the filter factor.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.proportionalFactor">FeedbackLockSettings.proportionalFactor()</a></td>
+	<td class="summary">Get the Proportional factor.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.setProportionalFactor">FeedbackLockSettings.setProportionalFactor(proportionalFactor)</a></td>
+	<td class="summary">Set the Proportional factor.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.integralFactor">FeedbackLockSettings.integralFactor()</a></td>
+	<td class="summary">Get the Integral factor.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.setIntegralFactor">FeedbackLockSettings.setIntegralFactor(integralFactor)</a></td>
+	<td class="summary">Set the Integral factor.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.transferFactors">FeedbackLockSettings.transferFactors()</a></td>
+	<td class="summary">Get the transfer factors (imaginary.) Deprecated.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.transferFactorsImaginary">FeedbackLockSettings.transferFactorsImaginary()</a></td>
+	<td class="summary">Get the transfer factors (imaginary.) Deprecated.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.transferFactorsReal">FeedbackLockSettings.transferFactorsReal()</a></td>
+	<td class="summary">Get the transfer factors (real)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.setTransferFactors">FeedbackLockSettings.setTransferFactors(transferFactors)</a></td>
+	<td class="summary">Set the transfer factors.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.setTransferFactors">FeedbackLockSettings.setTransferFactors(real, imaginary)</a></td>
+	<td class="summary">Set the transfer factors (real and imaginary).</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.gainValue">FeedbackLockSettings.gainValue()</a></td>
+	<td class="summary">Get the gain value.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.setGainValue">FeedbackLockSettings.setGainValue(gainValue)</a></td>
+	<td class="summary">Set the gain value.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.setB0Adjustments">FeedbackLockSettings.setB0Adjustments(adjustments)</a></td>
+	<td class="summary">Set timed adjustments of the B0 gradient offset.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.setGradientAdjustments">FeedbackLockSettings.setGradientAdjustments(adjustments)</a></td>
+	<td class="summary">Set timed adjustments of the non-B0 gradient.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#FeedbackLockSettings.setAutoShimGradientId">FeedbackLockSettings.setAutoShimGradientId(autoShimGradientId)</a></td>
+	<td class="summary">Set the id of the gradient to use for feedback auto shimming.</td>
+	</tr>
+</table>
+<h2><a href="#Class_LockStrategy">Class LockStrategy </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#LockStrategy.name">LockStrategy.name()</a></td>
+	<td class="summary">The name of this strategy.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#LockStrategy.toLockStrategyFeedback">LockStrategy.toLockStrategyFeedback()</a></td>
+	<td class="summary">Downcast this object to a LockStrategyFeedback (if it is an instance of that type.)</td>
+	</tr>
+</table>
+<h2><a href="#Class_LockStrategyContext">Class LockStrategyContext </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#LockStrategyContext.setStrategy">LockStrategyContext.setStrategy(mode)</a></td>
+	<td class="summary">Set the strategy to use.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#LockStrategyContext.strategy">LockStrategyContext.strategy()</a></td>
+	<td class="summary">Get the strategy in use (NULL if it has never been set)</td>
+	</tr>
+</table>
+<h2><a href="#Class_LockStrategyFeedback">Class LockStrategyFeedback </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#LockStrategyFeedback.settings">LockStrategyFeedback.settings()</a></td>
+	<td class="summary">Get the current feedback lock settings.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#LockStrategyFeedback.channelConfig">LockStrategyFeedback.channelConfig()</a></td>
+	<td class="summary">Get the channel configuration for the feedback lock acquisitions.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#LockStrategyFeedback.feedbackFilter">LockStrategyFeedback.feedbackFilter()</a></td>
+	<td class="summary">Get the current feedback filter.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#LockStrategyFeedback.feedbackFilterGarett">LockStrategyFeedback.feedbackFilterGarett()</a></td>
+	<td class="summary">Get the feedback filter (Garett method) if it is configured.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#LockStrategyFeedback.feedbackFilterPid">LockStrategyFeedback.feedbackFilterPid()</a></td>
+	<td class="summary">Get the feedback filter (PID method) if it is configured.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#LockStrategyFeedback.feedbackFilterModel">LockStrategyFeedback.feedbackFilterModel()</a></td>
+	<td class="summary">Get the feedback filter (Model method) if it is configured.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#LockStrategyFeedback.setModeGarett">LockStrategyFeedback.setModeGarett()</a></td>
+	<td class="summary">Use FeedbackFilterGarett.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#LockStrategyFeedback.setModePid">LockStrategyFeedback.setModePid(index)</a></td>
+	<td class="summary">Use FeedbackFilterPid.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#LockStrategyFeedback.setModeModel">LockStrategyFeedback.setModeModel(index)</a></td>
+	<td class="summary">Use FeedbackFilterModel.</td>
+	</tr>
+</table>
+<h2><a href="#Class_ProcessingSettings">Class ProcessingSettings </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#ProcessingSettings.phaseFromDataset">ProcessingSettings.phaseFromDataset(dataSet)</a></td>
+	<td class="summary">Use the phase correction values from the given dataset.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ProcessingSettings.setZeroOrderPhaseCorrection">ProcessingSettings.setZeroOrderPhaseCorrection(zeroOrderPhaseCorrection)</a></td>
+	<td class="summary">Get the zero order phase correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ProcessingSettings.setZeroOrderPhaseCorrection">ProcessingSettings.setZeroOrderPhaseCorrection(zeroOrderPhaseCorrection, nucleus)</a></td>
+	<td class="summary">Set the zero order phase correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ProcessingSettings.zeroOrderPhaseCorrection">ProcessingSettings.zeroOrderPhaseCorrection()</a></td>
+	<td class="summary">Get the zero order phase correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ProcessingSettings.zeroOrderPhaseCorrection">ProcessingSettings.zeroOrderPhaseCorrection(nucleus)</a></td>
+	<td class="summary">Get the zero order phase correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ProcessingSettings.setFirstOrderPhaseCorrection">ProcessingSettings.setFirstOrderPhaseCorrection(firstOrderPhaseCorrection)</a></td>
+	<td class="summary">Set the first order phase correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ProcessingSettings.setFirstOrderPhaseCorrection">ProcessingSettings.setFirstOrderPhaseCorrection(firstOrderPhaseCorrection, nucleus)</a></td>
+	<td class="summary">Set the first order phase correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ProcessingSettings.firstOrderPhaseCorrection">ProcessingSettings.firstOrderPhaseCorrection()</a></td>
+	<td class="summary">Get the first order phase correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ProcessingSettings.firstOrderPhaseCorrection">ProcessingSettings.firstOrderPhaseCorrection(nucleus)</a></td>
+	<td class="summary">Get the first order phase correction.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ProcessingSettings.firstOrderPivot">ProcessingSettings.firstOrderPivot()</a></td>
+	<td class="summary">Get the first order pivot.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ProcessingSettings.firstOrderPivot">ProcessingSettings.firstOrderPivot(nucleus)</a></td>
+	<td class="summary">Get the first order pivot.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ProcessingSettings.setFirstOrderPivot">ProcessingSettings.setFirstOrderPivot(firstOrderPivot)</a></td>
+	<td class="summary">Set the first order pivot.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#ProcessingSettings.setFirstOrderPivot">ProcessingSettings.setFirstOrderPivot(firstOrderPivot, nucleus)</a></td>
+	<td class="summary">Set the first order pivot.</td>
+	</tr>
+</table>
+<h2><a href="#Class_SuppressionSettings">Class SuppressionSettings </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#SuppressionSettings.setSuppressionMode">SuppressionSettings.setSuppressionMode(mode)</a></td>
+	<td class="summary">Set the suppression mode.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#SuppressionSettings.suppressionMode">SuppressionSettings.suppressionMode()</a></td>
+	<td class="summary">Get the suppression mode.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#SuppressionSettings.enabled">SuppressionSettings.enabled()</a></td>
+	<td class="summary">Get whether suppression is enabled or not.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#SuppressionSettings.configured">SuppressionSettings.configured()</a></td>
+	<td class="summary">Get whether suppression is configured or not (enabled and not off)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#SuppressionSettings.phase">SuppressionSettings.phase()</a></td>
+	<td class="summary">Get the phase to use for suppression.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#SuppressionSettings.amplitude">SuppressionSettings.amplitude()</a></td>
+	<td class="summary">Get the amplitude to use for suppression.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#SuppressionSettings.length">SuppressionSettings.length()</a></td>
+	<td class="summary">Get Length.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#SuppressionSettings.setLength">SuppressionSettings.setLength(length)</a></td>
+	<td class="summary">Set the length of the suppression pulse.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#SuppressionSettings.txBias">SuppressionSettings.txBias()</a></td>
+	<td class="summary">Get TX Bias.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#SuppressionSettings.driveStrength">SuppressionSettings.driveStrength()</a></td>
+	<td class="summary">Get the suppression drive strength.</td>
+	</tr>
+</table>
+<h2><a href="#nmready">nmready</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#nmready.fakeMode">nmready.fakeMode()</a></td>
+	<td class="summary">Get whether fake mode is set or not.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#nmready.softwareVersion">nmready.softwareVersion()</a></td>
+	<td class="summary">Gets the software version.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#nmready.firmwareVersion">nmready.firmwareVersion()</a></td>
+	<td class="summary">Gets the firmware version.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#nmready.svnVersion">nmready.svnVersion()</a></td>
+	<td class="summary">Gets the SVN version.</td>
+	</tr>
+</table>
+<h2><a href="#nmready_config_app">nmready.config.app</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#nmready.config.app.configDir">nmready.config.app.configDir()</a></td>
+	<td class="summary">Get the full config to the config/ directory.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#nmready.config.app.dataDir">nmready.config.app.dataDir()</a></td>
+	<td class="summary">Get the full path to the data/ directory.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#nmready.config.app.autoShimConfigDir">nmready.config.app.autoShimConfigDir()</a></td>
+	<td class="summary">Get the full path to the shim/ directory.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#nmready.config.app.shimGradientDir">nmready.config.app.shimGradientDir()</a></td>
+	<td class="summary">Get the full path to the shim/profiles/ directory.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#nmready.config.app.logDir">nmready.config.app.logDir()</a></td>
+	<td class="summary">Get the full path to the logs/ directory.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#nmready.config.app.scriptsDir">nmready.config.app.scriptsDir()</a></td>
+	<td class="summary">Get the full path to the user/scripts/ directory.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#nmready.config.app.autoShimGradientsJson">nmready.config.app.autoShimGradientsJson()</a></td>
+	<td class="summary">Get the auto shim gradient config in json format.</td>
+	</tr>
+</table>
+<h2><a href="#nmready_config_backup">nmready.config.backup</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#nmready.config.backup.backup">nmready.config.backup.backup(configKey)</a></td>
+	<td class="summary">Back up config settings, using a named key.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#nmready.config.backup.restore">nmready.config.backup.restore(configKey)</a></td>
+	<td class="summary">Restore config settings, using a named key.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#nmready.config.backup.erase">nmready.config.backup.erase(configKey)</a></td>
+	<td class="summary">Erase the configuration associated with the given key.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="PhaseCycling"></a>PhaseCycling </h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "PhaseCyclingMode"></a>
+    <strong>PhaseCyclingMode</strong>
+    </dt>
+    <dd>
+    Constants:
+Modes for phase cycling.
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">Off</span>
+         0, No phase cycling.
+        </li>
+        <li><span class="parameter">Paps</span>
+         1, PAPS phase cycling.
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">PhaseCycling.Off</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="DecouplingType"></a>DecouplingType </h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "DecouplingType"></a>
+    <strong>DecouplingType</strong>
+    </dt>
+    <dd>
+    Constants:
+The type of decoupling to apply.
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">Off</span>
+         0, No decoupling.
+        </li>
+        <li><span class="parameter">Waltz16</span>
+         1, Waltz16 Decoupling.
+        </li>
+        <li><span class="parameter">BBWaltz16</span>
+         2, BB-Waltz16 Decoupling.
+        </li>
+        <li><span class="parameter">End</span>
+         , An invalid selection, past the end of the list.
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">DecouplingType.Off</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="DecouplingMode"></a>DecouplingMode </h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "DecouplingMode"></a>
+    <strong>DecouplingMode</strong>
+    </dt>
+    <dd>
+    Constants:
+The decoupling mode.
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">Off</span>
+         0, No decoupling.
+        </li>
+        <li><span class="parameter">Gated</span>
+         1, Decoupling is performed before the pulse sequence.
+        </li>
+        <li><span class="parameter">InverseGated</span>
+         2, Decoupling is performed during the signal acquisition.
+        </li>
+        <li><span class="parameter">On</span>
+         3, Both Gated and InverseGated are used.
+        </li>
+        <li><span class="parameter">End</span>
+         , An invalid selection, past the end of the list.
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">DecouplingMode.Off</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="SuppressionMode"></a>SuppressionMode </h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "SuppressionMode"></a>
+    <strong>SuppressionMode</strong>
+    </dt>
+    <dd>
+    Constants:
+The suppression mode.
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">Off</span>
+         0, Suppression is turned off.
+        </li>
+        <li><span class="parameter">On</span>
+         , Suppression is turned on.
+        </li>
+        <li><span class="parameter">End</span>
+         , An invalid mode, past the end of the list.
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">SuppressionMode.Off</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="SimultaneousLockMode"></a>SimultaneousLockMode </h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "SimultaneousLockMode"></a>
+    <strong>SimultaneousLockMode</strong>
+    </dt>
+    <dd>
+    Constants:
+The type of simultaneous lock to apply.
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">Off</span>
+         0, No simultaneous lock.
+        </li>
+        <li><span class="parameter">Single</span>
+         , Single acquisition mode.
+        </li>
+        <li><span class="parameter">Continuous</span>
+         , Continuous mode (slow frequency lock)
+        </li>
+        <li><span class="parameter">Feedback</span>
+         , Continuous mode (rapid feedback lock)
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">SimultaneousLockMode.Off</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="NucleusSelection"></a>NucleusSelection </h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "NucleusSelection"></a>
+    <strong>NucleusSelection</strong>
+    </dt>
+    <dd>
+    Constants:
+Nucleus specific definitions and methods.
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">NUCLEUS_2H</span>
+         0
+        </li>
+        <li><span class="parameter">NUCLEUS_FIRST</span>
+         0
+        </li>
+        <li><span class="parameter">NUCLEUS_1H</span>
+         1
+        </li>
+        <li><span class="parameter">NUCLEUS_19F</span>
+         2
+        </li>
+        <li><span class="parameter">NUCLEUS_31P</span>
+         3
+        </li>
+        <li><span class="parameter">NUCLEUS_13C</span>
+         4
+        </li>
+        <li><span class="parameter">NUCLEUS_11B</span>
+         5
+        </li>
+        <li><span class="parameter">NUCLEUS_15N</span>
+         6
+        </li>
+        <li><span class="parameter">NUCLEUS_7Li</span>
+         7
+        </li>
+        <li><span class="parameter">NUCLEUS_3H</span>
+         8
+        </li>
+        <li><span class="parameter">NUCLEUS_29Si</span>
+         9
+        </li>
+        <li><span class="parameter">NUCLEUS_207Pb</span>
+         10
+        </li>
+        <li><span class="parameter">NUCLEUS_129Xe</span>
+         11
+        </li>
+        <li><span class="parameter">NUCLEUS_23Na</span>
+         12
+        </li>
+        <li><span class="parameter">NUCLEUS_LAST</span>
+
+
+
+        </li>
+        <li><span class="parameter">NUCLEUS_UNKNOWN</span>
+         99999
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">NucleusSelection.NUCLEUS_2H</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="LockNucleusSelection"></a>LockNucleusSelection </h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "LockNucleusSelection"></a>
+    <strong>LockNucleusSelection</strong>
+    </dt>
+    <dd>
+    Constants:
+Which nucleus should be used for locking <br/>
+LockNucleusSelection
+.
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">Unknown</span>
+         -1
+        </li>
+        <li><span class="parameter">Lock</span>
+         0
+        </li>
+        <li><span class="parameter">AlternateLock</span>
+         1
+        </li>
+        <li><span class="parameter">Signal</span>
+         2
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">LockNucleusSelection.Unknown</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="globals"></a>globals</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "phaseCyclingTable"></a>
+    <strong>phaseCyclingTable(mode)</strong>
+    </dt>
+    <dd>
+    Get a hard-coded phase cycling phase table.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">mode</span>
+            <span class="types"><a class="type" href="../sections/config.html#PhaseCyclingMode">PhaseCyclingMode</a></span>
+         The phase cycling mode implemented using a phase table.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">PhaseTable</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "defaultsUpdated"></a>
+    <strong>defaultsUpdated()</strong>
+    </dt>
+    <dd>
+    If the default value for a ConfigItem changed, call this so the user interface knows that it occurred.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "phaseTable"></a>
+    <strong>phaseTable()</strong>
+    </dt>
+    <dd>
+    Get the phase table in use for the experiment.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">PhaseTable</span></span>
+        The phase table in use for the experiment
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setPhaseTable"></a>
+    <strong>setPhaseTable(phaseTable)</strong>
+    </dt>
+    <dd>
+    Set the phase table in use for the experiment.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">phaseTable</span>
+            <span class="types"><span class="type">PhaseTable</span></span>
+         The phase table to use use for the experiment
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setDecouplingAllowed"></a>
+    <strong>setDecouplingAllowed(decouplingAllowed)</strong>
+    </dt>
+    <dd>
+    Set whether decoupling is allowed or not (regardless of the configuration)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">decouplingAllowed</span>
+            <span class="types"><span class="type">bool</span></span>
+         true: Decoupling is allowed
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setSuppressionAllowed"></a>
+    <strong>setSuppressionAllowed(suppressionAllowed)</strong>
+    </dt>
+    <dd>
+    Set whether suppression is allowed or not (regardless of the configuration)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">suppressionAllowed</span>
+            <span class="types"><span class="type">bool</span></span>
+         true: Suppression is allowed
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setLockRequired"></a>
+    <strong>setLockRequired(lockRequired)</strong>
+    </dt>
+    <dd>
+    Set (override) whether a lock acquisition is required before subsequent signal acquisitions.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">lockRequired</span>
+            <span class="types"><span class="type">bool</span></span>
+         true: Do a lock acquisition before every signal acquisition
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setUseSignalForLock"></a>
+    <strong>setUseSignalForLock(useSignalForLock)</strong>
+    </dt>
+    <dd>
+    Set (override) whether the signal is used to lock the next acquisition.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">useSignalForLock</span>
+            <span class="types"><span class="type">bool</span></span>
+         true: The signal is used to lock every acquisition
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setUseLockForSignal"></a>
+    <strong>setUseLockForSignal(useLockForSignal)</strong>
+    </dt>
+    <dd>
+    Set (override) whether the lock acquisition is used in place of the signal.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">useLockForSignal</span>
+            <span class="types"><span class="type">bool</span></span>
+         true: The lock is used in place of the signal
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setExtraDelay"></a>
+    <strong>setExtraDelay(extraDelay)</strong>
+    </dt>
+    <dd>
+    When calculating the delay between acquisitions, add the given time to the delay without affecting the configuration.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">extraDelay</span>
+            <span class="types"><span class="type">double</span></span>
+         The extra delay to add.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setPreScanDelay"></a>
+    <strong>setPreScanDelay(preScanDelay)</strong>
+    </dt>
+    <dd>
+    Set a minimum amount of time to wait before acquiring transients.
+This is the time from the end of the previous acquisition (or experiment start for first acquisition) to the start of the next. This overlaps with the cluster delay, so if the cluster delay is higher, the wait will be that long instead.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">preScanDelay</span>
+            <span class="types"><span class="type">double</span></span>
+         The amount of pre-scan delay to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setClusterDelay"></a>
+    <strong>setClusterDelay(clusterDelay)</strong>
+    </dt>
+    <dd>
+    Set the amount of time to wait between clusters of transients (start to start)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">clusterDelay</span>
+            <span class="types"><span class="type">double</span></span>
+         The time to wait between clusters
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setDdsFrequencyPhaseErrorCorrection"></a>
+    <strong>setDdsFrequencyPhaseErrorCorrection(ddsFrequencyPhaseErrorCorrection)</strong>
+    </dt>
+    <dd>
+    Set whether a frequency/phase error correction is performed on the received data.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">ddsFrequencyPhaseErrorCorrection</span>
+            <span class="types"><span class="type">bool</span></span>
+         true: Apply the correction
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "setSpectralCenter2"></a>
+    <strong>setSpectralCenter2(spectralCenter2)</strong>
+    </dt>
+    <dd>
+    Set the spectral center for the secondary signal channel.
+This is generally used as the f1 dimension spectral center.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">spectralCenter2</span>
+            <span class="types"><span class="type">double</span></span>
+         The spectral center for the secondary signal channel
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "lockStrategyContext"></a>
+    <strong>lockStrategyContext()</strong>
+    </dt>
+    <dd>
+    Get the lock strategy context instance.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#LockStrategyContext">LockStrategyContext</a></span>
+        The lock strategy context
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_ChannelConfig"></a>Class ChannelConfig </h2>
+
+          <div class="section-description">
+          Config parameters for a signal or lock channel.
+These may be independant of the configuration that is in use in the Core.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "ChannelConfig.toString"></a>
+    <strong>ChannelConfig.toString()</strong>
+    </dt>
+    <dd>
+    Get a description of the object.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        A human readable representation of the object.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.nucleusString"></a>
+    <strong>ChannelConfig.nucleusString()</strong>
+    </dt>
+    <dd>
+    Get the nucleus as a human readable string.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The nucleus name
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.amplitude"></a>
+    <strong>ChannelConfig.amplitude()</strong>
+    </dt>
+    <dd>
+    Get the amplitude setting.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The amplitude setting
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.setAmplitude"></a>
+    <strong>ChannelConfig.setAmplitude(amplitude)</strong>
+    </dt>
+    <dd>
+    Set the amplitude setting.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">amplitude</span>
+            <span class="types"><span class="type">double</span></span>
+         The amplitude setting
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.txBias"></a>
+    <strong>ChannelConfig.txBias()</strong>
+    </dt>
+    <dd>
+    Get the tx bias.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The TX Bias
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.rxPhase"></a>
+    <strong>ChannelConfig.rxPhase()</strong>
+    </dt>
+    <dd>
+    Get the receiver phase.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The receiver phase
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.setRxPhase"></a>
+    <strong>ChannelConfig.setRxPhase(rxPhase)</strong>
+    </dt>
+    <dd>
+    Set the receiver phase.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">rxPhase</span>
+            <span class="types"><span class="type">double</span></span>
+         The receiver phase
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.interscanTime"></a>
+    <strong>ChannelConfig.interscanTime()</strong>
+    </dt>
+    <dd>
+    Get the interscan time.
+See Core:interscanTime() for details.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The interscan time in seconds.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.setInterscanTime"></a>
+    <strong>ChannelConfig.setInterscanTime(time)</strong>
+    </dt>
+    <dd>
+    Set the interscan time.
+See Core:interscanTime() for details. For the lock channel config, this causes a lock acquisition takes less than this amount of time.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">time</span>
+            <span class="types"><span class="type">double</span></span>
+         The new interscan time
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.dampingFactor"></a>
+    <strong>ChannelConfig.dampingFactor()</strong>
+    </dt>
+    <dd>
+    Get the damping factor (exponential apodization).
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">float</span></span>
+        The damping factor.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.setDampingFactor"></a>
+    <strong>ChannelConfig.setDampingFactor(damping)</strong>
+    </dt>
+    <dd>
+    Set the damping factor (exponential apodization).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">damping</span>
+            <span class="types"><span class="type">float</span></span>
+         The damping factor.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.zeroingFactor"></a>
+    <strong>ChannelConfig.zeroingFactor()</strong>
+    </dt>
+    <dd>
+    Get the active zeroing factor.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">float</span></span>
+        the zeroing factor.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.setZeroingFactor"></a>
+    <strong>ChannelConfig.setZeroingFactor(zeroing)</strong>
+    </dt>
+    <dd>
+    Set the configured and active zeroing factors.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">zeroing</span>
+            <span class="types"><span class="type">float</span></span>
+         The zeroing factor.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.getDampedWavePars"></a>
+    <strong>ChannelConfig.getDampedWavePars()</strong>
+    </dt>
+    <dd>
+    Get the Damped Wave Parameters.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        The damped wave parameters
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.setDampedWavePars"></a>
+    <strong>ChannelConfig.setDampedWavePars(pars)</strong>
+    </dt>
+    <dd>
+    Set the Damped Wave Parameters.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pars</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         The damped wave parameters
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.set90PulseSeconds"></a>
+    <strong>ChannelConfig.set90PulseSeconds(pulseTime)</strong>
+    </dt>
+    <dd>
+    Set the 90 pulse time (in seconds)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pulseTime</span>
+            <span class="types"><span class="type">double</span></span>
+         The 90 pulse time in seconds.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.get90PulseSeconds"></a>
+    <strong>ChannelConfig.get90PulseSeconds()</strong>
+    </dt>
+    <dd>
+    Get the 90 pulse time (in seconds)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The 90 pulse time in seconds.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.set180PulseSeconds"></a>
+    <strong>ChannelConfig.set180PulseSeconds(pulseTime)</strong>
+    </dt>
+    <dd>
+    Set the 180 pulse time (in seconds)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pulseTime</span>
+            <span class="types"><span class="type">double</span></span>
+         The 180 pulse time in seconds.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.get180PulseSeconds"></a>
+    <strong>ChannelConfig.get180PulseSeconds()</strong>
+    </dt>
+    <dd>
+    Get the 180 pulse time (in seconds)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The 180 pulse time in seconds.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.pulseTimeForAngle"></a>
+    <strong>ChannelConfig.pulseTimeForAngle(angle)</strong>
+    </dt>
+    <dd>
+    Get the pulse time (in seconds) for the given angle (in degrees) using the configured 90 (and later, 180) pulse time(s).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">angle</span>
+            <span class="types"><span class="type">double</span></span>
+         The angle to get a pulse time for.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The calculated pulse time for the given angle.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.pulseAngleForTimeSeconds"></a>
+    <strong>ChannelConfig.pulseAngleForTimeSeconds(time)</strong>
+    </dt>
+    <dd>
+    Get the angle (in degrees) for the given pulse time (in seconds)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">time</span>
+            <span class="types"><span class="type">double</span></span>
+         The time in seconds to get a angle for.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The calculated pulse angle for the given time
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.pulseTimeUsForAngle"></a>
+    <strong>ChannelConfig.pulseTimeUsForAngle(angle)</strong>
+    </dt>
+    <dd>
+    Get the pulse time (in microseconds) for the given angle (in degrees) using the configured 90 (and later, 180) pulse time(s).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">angle</span>
+            <span class="types"><span class="type">double</span></span>
+         The angle to get a pulse time for.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The calculated pulse time for the given angle.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.pulseAngleForTimeUs"></a>
+    <strong>ChannelConfig.pulseAngleForTimeUs(time)</strong>
+    </dt>
+    <dd>
+    Get the angle (in degrees) for the given pulse time (in microseconds)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">time</span>
+            <span class="types"><span class="type">double</span></span>
+         The time in microseconds to get a angle for.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The calcylated pulse angle for the given time
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.pulseTimeSeconds"></a>
+    <strong>ChannelConfig.pulseTimeSeconds()</strong>
+    </dt>
+    <dd>
+    Get the time (in seconds) for the pulse.
+NOTE: This is not related to the pulse sequence! It is the default (optimized) value that is used when the nucleus is changed.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        the pulse time (in seconds)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.setPulseTimeSeconds"></a>
+    <strong>ChannelConfig.setPulseTimeSeconds(pulseTime)</strong>
+    </dt>
+    <dd>
+    Set the time (in seconds) for the pulse.
+NOTE: This does not affect normal pulse sequence! It is the default (optimized) value that is used when the nucleus is changed.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pulseTime</span>
+            <span class="types"><span class="type">double</span></span>
+         The pulse time, in seconds
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.sweepWidth"></a>
+    <strong>ChannelConfig.sweepWidth()</strong>
+    </dt>
+    <dd>
+    Get the sweep width.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The Sweep Width
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ChannelConfig.setSweepWidth"></a>
+    <strong>ChannelConfig.setSweepWidth(sweepWidth)</strong>
+    </dt>
+    <dd>
+    Set the sweep width.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">sweepWidth</span>
+            <span class="types"><span class="type">double</span></span>
+         The Sweep Width
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_Config"></a>Class Config </h2>
+
+          <div class="section-description">
+          An instance of this object named "config" is provided to each script.
+You can use it to add config widgets to the GUI.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "Config.add"></a>
+    <strong>Config.add(item)</strong>
+    </dt>
+    <dd>
+    Add a widget to the GUI.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">item</span>
+            <span class="types"><span class="type">shared_ptr<_ConfigItem_></span></span>
+         The ConfigItem that contains information about the widget.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">shared_ptr<_ConfigItem_></span></span>
+        The item passed in (for convenience)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Config.numItems"></a>
+    <strong>Config.numItems()</strong>
+    </dt>
+    <dd>
+    Get the number of config items added so far.
+This can be used with config:item() to loop through config items.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">unsigned_int</span></span>
+        The number of config items
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Config.item"></a>
+    <strong>Config.item(index)</strong>
+    </dt>
+    <dd>
+    Get a config item by number.
+See numItems().
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">shared_ptr<_ConfigItem_></span></span>
+        The config item at the given index.
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_ConfigItem"></a>Class ConfigItem </h2>
+
+          <div class="section-description">
+          The base class for all configuration items displayed in the GUI.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "ConfigItem.ConfigItem"></a>
+    <strong>ConfigItem.ConfigItem(name, mArgs)</strong>
+    </dt>
+    <dd>
+
+<p>This can not be used by itself.
+The optional arguments (mArgs) are used by derived classes: </p>
+
+<ul>
+    <li>widget: The widget to use for configuration. The default is set by the derived class and currently only the default or "None" is supported. </li>
+    <li>label: If specified, this will be shown instead of the name. </li>
+    <li>changed: Getter only, check if the widget was last changed. </li>
+    <li>enabled: Enable the widget. It is enabled if not specified </li>
+    <li>visible: Show the widget. It is shown if not specified</li>
+</ul>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the item
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         Optional arguments used to create the item.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ConfigItem.typeName"></a>
+    <strong>ConfigItem.typeName()</strong>
+    </dt>
+    <dd>
+    Get the name of the type of this configuration item.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The type name
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ConfigItem.name"></a>
+    <strong>ConfigItem.name()</strong>
+    </dt>
+    <dd>
+    The config item's name.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The config item's name.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ConfigItem.changed"></a>
+    <strong>ConfigItem.changed()</strong>
+    </dt>
+    <dd>
+    Whether this item was changed externally or not.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        Whether this item was changed externally or not
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ConfigItem.setEnabled"></a>
+    <strong>ConfigItem.setEnabled(enabled)</strong>
+    </dt>
+    <dd>
+    Set if the widget is enabled.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">enabled</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         Enabled setting for the item
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ConfigItem.setVisible"></a>
+    <strong>ConfigItem.setVisible(visible)</strong>
+    </dt>
+    <dd>
+    Set if the widget is Visible.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">visible</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         Visible setting for the item
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ConfigItem.__tostring"></a>
+    <strong>ConfigItem.__tostring()</strong>
+    </dt>
+    <dd>
+    Get a string representation of the object.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        A string representation of the object
+    </ol>
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">numScansString = <span class="global">tostring</span>(numScans)</pre>
+    </ul>
+
+</dd>
+    <dt>
+    <a name = "ConfigItem.__call"></a>
+    <strong>ConfigItem.__call()</strong>
+    </dt>
+    <dd>
+    The same as tostring().
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        A string representation of the object
+    </ol>
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">numScansString = numScans()</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_ConfigItemButton"></a>Class ConfigItemButton </h2>
+
+          <div class="section-description">
+          A ConfigItem that is a button.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "ConfigItemButton.ConfigItemButton"></a>
+    <strong>ConfigItemButton.ConfigItemButton(name, on, off, mArgs)</strong>
+    </dt>
+    <dd>
+
+<p>Create a new config item (button type).
+In addition to those provided by ConfigItem, the following core arugments need to be specified: </p>
+
+<ul>
+    <li><p>onValue: Text value for the on value of the button </p></li>
+    <li><p>offValue: Text value for the off value of the button The following optional arguments can be specified in mArgs: </p></li>
+    <li><p>checked: The default state for the button, True/False </p></li>
+</ul>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the item
+        </li>
+        <li><span class="parameter">on</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The text to show when the button is checked
+        </li>
+        <li><span class="parameter">off</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The text to show when the button is not checked
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         Optional arguments used to create the item
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">ConfigItemButton(<span class="string">"Channel"</span>, <span class="string">"Lock"</span>, <span class="string">"Signal"</span>, {checked=<span class="string">"True"</span>})</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_ConfigItemComboList"></a>Class ConfigItemComboList </h2>
+
+          <div class="section-description">
+          A ConfigItem that is a button that cycles through a list of values.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "ConfigItemComboList.ConfigItemComboList"></a>
+    <strong>ConfigItemComboList.ConfigItemComboList(name, mArgs)</strong>
+    </dt>
+    <dd>
+
+<p>Create a new config item (combo list type).
+In addition to those provided by ConfigItem, the following optional arguments can be specified in mArgs: </p>
+
+<ul>
+    <li>type: Type of data you want to use, String, Double, or Integer. </li>
+    <li>precision: The number of digits after the decimal to allow </li>
+    <li>max: The maximum value to allow </li>
+    <li>min: The minimum value to allow </li>
+    <li>enabled: If the widget is enabled or not </li>
+</ul>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the item
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         Optional arguments used to create the item
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">ConfigItemComboList(<span class="string">"WaitTimes"</span>, {<span class="global">type</span>=<span class="string">"Double"</span>, precision=<span class="string">"2"</span>, min=<span class="string">"0.00"</span>, max=<span class="string">"1000.00"</span>})</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_ConfigItemContextDropdown"></a>Class ConfigItemContextDropdown </h2>
+
+          <div class="section-description">
+          A ConfigItem that is a dropdown that cycles through a list of values with context.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "ConfigItemContextDropdown.ConfigItemContextDropdown"></a>
+    <strong>ConfigItemContextDropdown.ConfigItemContextDropdown(name, values, dropdownTexts, mArgs)</strong>
+    </dt>
+    <dd>
+
+<p>Create a new config item (dropdown type).
+In addition to those provided by ConfigItem, the following core arugments need to be specified: </p>
+
+<ul>
+    <li><p>dropdown texts: Text values for the dropdowns </p></li>
+    <li><p>default values: Number values for default The following optional arguments can be specified in mArgs: </p></li>
+    <li><p>precision: The number of digits after the decimal to allow </p></li>
+    <li><p>max: The maximum value to allow </p></li>
+    <li><p>min: The minimum value to allow </p></li>
+    <li><p>enabled: Whether the textbox is enabled for writing provded </p></li>
+</ul>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the item
+        </li>
+        <li><span class="parameter">values</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         The list of values the button cycles through
+        </li>
+        <li><span class="parameter">dropdownTexts</span>
+            <span class="types"><span class="type">vector<_string_></span></span>
+
+
+
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         Optional arguments used to create the item
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">ConfigItemContextDropdown(<span class="string">"UnitType"</span>, {<span class="string">"seconds"</span>, <span class="string">"minutes"</span>}, {<span class="number">1.0</span>, <span class="number">60.0</span>}, { precision=<span class="string">"2"</span>, min=<span class="string">"0.00"</span>, max=<span class="string">"1000.00"</span>})</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_ConfigItemDropdown"></a>Class ConfigItemDropdown </h2>
+
+          <div class="section-description">
+          A ConfigItem that is a dropdown that cycles through a list of values.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "ConfigItemDropdown.ConfigItemDropdown"></a>
+    <strong>ConfigItemDropdown.ConfigItemDropdown(name, values, mArgs)</strong>
+    </dt>
+    <dd>
+
+<p>Create a new config item (dropdown type).
+In addition to those provided by ConfigItem, the following core arugments need to be specified: </p>
+
+<ul>
+    <li><p>values: Text values for the dropdowns The following optional arguments can be specified in mArgs: </p></li>
+    <li><p>default: The default state for the dropdown from the list provded </p></li>
+</ul>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the item
+        </li>
+        <li><span class="parameter">values</span>
+            <span class="types"><span class="type">vector<_string_></span></span>
+         The list of values the button cycles through
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         Optional arguments used to create the item
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">ConfigItemDropdown(<span class="string">"UnitType"</span>, {<span class="string">"seconds"</span>, <span class="string">"minutes"</span>, <span class="string">"hours"</span>},</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_ConfigItemFunctionButton"></a>Class ConfigItemFunctionButton </h2>
+
+          <div class="section-description">
+          A ConfigItem that is a button that runs a lua function.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "ConfigItemFunctionButton.ConfigItemFunctionButton"></a>
+    <strong>ConfigItemFunctionButton.ConfigItemFunctionButton(name, mArgs)</strong>
+    </dt>
+    <dd>
+
+<p>Create a new config item (fucntion button type).
+In addition to those provided by ConfigItem, the following core arugments need to be specified: </p>
+
+<ul>
+    <li>functionName: Name of the lua function to run </li>
+</ul>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the item
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         Optional arguments used to create the item
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">ConfigItemFunctionButton(<span class="string">"Function"</span>, { functionName=<span class="string">"doFunction"</span>})</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_ConfigItemLabel"></a>Class ConfigItemLabel </h2>
+
+          <div class="section-description">
+          A ConfigItem that is a label.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "ConfigItemLabel.ConfigItemLabel"></a>
+    <strong>ConfigItemLabel.ConfigItemLabel(name, value, mArgs)</strong>
+    </dt>
+    <dd>
+
+<p>Create a new config item (label type).
+In addition to those provided by ConfigItem, there following core arguments need to be specified: </p>
+
+<ul>
+    <li>value: The value which the label displays </li>
+</ul>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the item
+        </li>
+        <li><span class="parameter">value</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+
+
+
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         Optional arguments used to create the item.
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">ConfigItemLabel(<span class="string">"NumPoints"</span>, <span class="string">"16"</span>, {})</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_ConfigItemMultiButton"></a>Class ConfigItemMultiButton </h2>
+
+          <div class="section-description">
+          A ConfigItem that is a button that cycles through a list of values.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "ConfigItemMultiButton.ConfigItemMultiButton"></a>
+    <strong>ConfigItemMultiButton.ConfigItemMultiButton(name, values, mArgs)</strong>
+    </dt>
+    <dd>
+
+<p>Create a new config item (multi button type).
+In addition to those provided by ConfigItem, the following optional arguments can be specified in mArgs: </p>
+
+<ul>
+    <li>default: The default state for the button from the list provded </li>
+</ul>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the item
+        </li>
+        <li><span class="parameter">values</span>
+            <span class="types"><span class="type">vector<_string_></span></span>
+         The list of values the button cycles through
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         Optional arguments used to create the item
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">ConfigItemMultiButton(<span class="string">"UnitType"</span>, {<span class="string">"seconds"</span>, <span class="string">"minutes"</span>, <span class="string">"hours"</span>}, {default=<span class="string">"seconds"</span>})</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_ConfigItemNumber"></a>Class ConfigItemNumber </h2>
+
+          <div class="section-description">
+          A ConfigItem that is a number.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "ConfigItemNumber.ConfigItemNumber"></a>
+    <strong>ConfigItemNumber.ConfigItemNumber(name, mArgs)</strong>
+    </dt>
+    <dd>
+
+<p>Create a new config item (number type).
+In addition to those provided by ConfigItem, there following optional arguments can be specified in mArgs: </p>
+
+<ul>
+    <li>precision: The number of digits after the decimal to allow </li>
+    <li>default: The default value </li>
+    <li>max: The maximum value to allow </li>
+    <li>min: The minimum value to allow </li>
+    <li>otherRules: Other input rules that will be enfored (text) </li>
+</ul>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the item
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         Optional arguments used to create the item.
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">ConfigItemNumber(<span class="string">"NumScans"</span>, {default=<span class="string">"1"</span>, min=<span class="string">"2"</span>, max=<span class="string">"1024"</span>})</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_ConfigItemString"></a>Class ConfigItemString </h2>
+
+          <div class="section-description">
+          A ConfigItem that is a string.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "ConfigItemString.ConfigItemString"></a>
+    <strong>ConfigItemString.ConfigItemString(name, mArgs)</strong>
+    </dt>
+    <dd>
+
+<p>Create a new config item (string type).
+In addition to those provided by ConfigItem, the following optional arguments can be specified in mArgs: </p>
+
+<ul>
+    <li>default: The default value </li>
+</ul>
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the item
+        </li>
+        <li><span class="parameter">mArgs</span>
+            <span class="types"><span class="type">map<_string,_string_></span></span>
+         Optional arguments used to create the item.
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">ConfigItemString(<span class="string">"Export Filename"</span>, {default=<span class="string">"My_results"</span>})</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_Core"></a>Class Core </h2>
+
+          <div class="section-description">
+          The Core class maintains the system's active configuration as well as provides access to hardware.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "Core.interscanTime"></a>
+    <strong>Core.interscanTime()</strong>
+    </dt>
+    <dd>
+    Return the interscan time for the signal channel.
+This is the time from the start of a signal acquisition to the start of the next signal acquisition.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The interscsan time
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setInterscanTime"></a>
+    <strong>Core.setInterscanTime(time)</strong>
+    </dt>
+    <dd>
+    Set the interscan time for the signal channel.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">time</span>
+            <span class="types"><span class="type">double</span></span>
+         The new interscan time
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.userDelay"></a>
+    <strong>Core.userDelay()</strong>
+    </dt>
+    <dd>
+    Get the user delay.
+This is the time between the end of a signal acquisition and the start of the next signal acquisition.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The current user delay
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setUserDelay"></a>
+    <strong>Core.setUserDelay(userDelay)</strong>
+    </dt>
+    <dd>
+    Set the user delay.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">userDelay</span>
+            <span class="types"><span class="type">double</span></span>
+         The user delay to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.lockOffset"></a>
+    <strong>Core.lockOffset()</strong>
+    </dt>
+    <dd>
+    Get the lock offset.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setLockOffset"></a>
+    <strong>Core.setLockOffset(offset)</strong>
+    </dt>
+    <dd>
+    Set the lock offset.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">offset</span>
+            <span class="types"><span class="type">double</span></span>
+         LockOffset parameter
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.spectralCenter"></a>
+    <strong>Core.spectralCenter()</strong>
+    </dt>
+    <dd>
+    Get the spectral center in PPM.
+This is for the signal channel.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The spectral center (in PPM)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setSpectralCenter"></a>
+    <strong>Core.setSpectralCenter(spectralCenter)</strong>
+    </dt>
+    <dd>
+    Set the spectral center in PPM.
+Sets the spectral center for the signal config and the pulse sequence.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">spectralCenter</span>
+            <span class="types"><span class="type">float</span></span>
+         The new spectral center (in PPM)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.solventNumberOfPeaks"></a>
+    <strong>Core.solventNumberOfPeaks()</strong>
+    </dt>
+    <dd>
+    Get the number of lock peaks for this solvent.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">unsigned_int</span></span>
+        The number of lock peaks for this solvent
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setSolventNumberOfPeaks"></a>
+    <strong>Core.setSolventNumberOfPeaks(solventNumberOfPeaks)</strong>
+    </dt>
+    <dd>
+    Set the number of lock peaks for this solvent.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">solventNumberOfPeaks</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The number of lock peaks for this solvent
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.solventPeakSelection"></a>
+    <strong>Core.solventPeakSelection()</strong>
+    </dt>
+    <dd>
+    Get the index of the lock peak to use for the current solvent.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">unsigned_int</span></span>
+        The index of the lock peak to use for the current solvent
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setSolventPeakSelection"></a>
+    <strong>Core.setSolventPeakSelection(setSolventPeakSelection)</strong>
+    </dt>
+    <dd>
+    Set the index of the lock peak to use for the current solvent.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">setSolventPeakSelection</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The index of the lock peak to use for the current solvent
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.acquisitionParameters"></a>
+    <strong>Core.acquisitionParameters()</strong>
+    </dt>
+    <dd>
+    Returns the acquisition parameters: sweepWidth, userDelay, spectralCenter, numPoints, numScans, dummyScans.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#AcquisitionParameters">AcquisitionParameters</a></span>
+        the acquisition parameters
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setAcquisitionParameters"></a>
+    <strong>Core.setAcquisitionParameters(acquisitionParameters)</strong>
+    </dt>
+    <dd>
+    Set the acquisition parameters: sweepWidth, userDelay, spectralCenter, numPoints, numScans, dummyScans.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">acquisitionParameters</span>
+            <span class="types"><a class="type" href="../sections/config.html#AcquisitionParameters">AcquisitionParameters</a></span>
+         the acquisition parameters
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.channelConfigSignal"></a>
+    <strong>Core.channelConfigSignal()</strong>
+    </dt>
+    <dd>
+    Returns the channel config for a signal acquisition.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#ChannelConfig">ChannelConfig</a></span>
+        The signal channel config.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.channelConfigSignal2"></a>
+    <strong>Core.channelConfigSignal2()</strong>
+    </dt>
+    <dd>
+    Returns the channel config for a the signal2 channel.
+This is the secondary channel for simultaneous pulses and decoupling.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#ChannelConfig">ChannelConfig</a></span>
+        The secondary channel config.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.frequencyResolutionHz"></a>
+    <strong>Core.frequencyResolutionHz()</strong>
+    </dt>
+    <dd>
+    Get the frequency resolution in Hz.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        Frequency resolution in Hz
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.activeScanTime"></a>
+    <strong>Core.activeScanTime()</strong>
+    </dt>
+    <dd>
+    Get the time it takes to acquire a signal and lock transient, including the estimated overhead to process each.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        Time in seconds
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.frequencyAgilityLockScanTime"></a>
+    <strong>Core.frequencyAgilityLockScanTime()</strong>
+    </dt>
+    <dd>
+    Get the time it takes to acquire and process data for frequency agility lock.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        Time in seconds
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.totalScanTime"></a>
+    <strong>Core.totalScanTime()</strong>
+    </dt>
+    <dd>
+    The estimated time between each transient, factoring in processing overhead.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        Time in seconds
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.estimateAcquisitionQueueDuration"></a>
+    <strong>Core.estimateAcquisitionQueueDuration(pulseSequences, numScans)</strong>
+    </dt>
+    <dd>
+    Get an estimate of how long it would take to acquire the given pulse sequences using the current config.
+Assumes the acquisitions would be done with the AcquisitionQueue.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pulseSequences</span>
+            <span class="types"><span class="type">vector<__PulseSequence__></span></span>
+         The pulse sequences that will be used (one per 2D t1 point)
+        </li>
+        <li><span class="parameter">numScans</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The number of scans that will be used
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.dwellTime"></a>
+    <strong>Core.dwellTime(channel)</strong>
+    </dt>
+    <dd>
+    Get the dwell time for the given channel config.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">channel</span>
+            <span class="types"><a class="type" href="../sections/config.html#ChannelConfig">ChannelConfig</a></span>
+         The channel config to use
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The dwell time for the given channel config (in seconds)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setDwellTime"></a>
+    <strong>Core.setDwellTime(channel, dwellTime)</strong>
+    </dt>
+    <dd>
+    Set the dwell time for the given channel config.
+This rounds to a multiple of the sampling rate.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">channel</span>
+            <span class="types"><a class="type" href="../sections/config.html#ChannelConfig">ChannelConfig</a></span>
+         The channel config to use
+        </li>
+        <li><span class="parameter">dwellTime</span>
+            <span class="types"><span class="type">double</span></span>
+         The dwell time for the given channel config (in seconds)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.samplingRate"></a>
+    <strong>Core.samplingRate(channel)</strong>
+    </dt>
+    <dd>
+    Get the sampling rate for the given channel config.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">channel</span>
+            <span class="types"><a class="type" href="../sections/config.html#ChannelConfig">ChannelConfig</a></span>
+         The channel config to get the sampling rate for
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The sampling rate, in seconds
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.receiverGain"></a>
+    <strong>Core.receiverGain()</strong>
+    </dt>
+    <dd>
+    Get the signal channel's receiver gain setting.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The gain value.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setReceiverGain"></a>
+    <strong>Core.setReceiverGain(gain)</strong>
+    </dt>
+    <dd>
+    Set the receiver gain in the signal channel config.
+Also updates the pulse sequence used for the signal channel.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">gain</span>
+            <span class="types"><span class="type">double</span></span>
+         The new gain value
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.lockReceiverGain"></a>
+    <strong>Core.lockReceiverGain()</strong>
+    </dt>
+    <dd>
+    Get the lock channel's receiver gain setting.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The gain value.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setLockReceiverGain"></a>
+    <strong>Core.setLockReceiverGain(gain)</strong>
+    </dt>
+    <dd>
+    Set the receiver gain in the lock channel config.
+Also updates the pulse sequence used for the lock channel.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">gain</span>
+            <span class="types"><span class="type">double</span></span>
+         The new gain value
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setSmallBandwidth"></a>
+    <strong>Core.setSmallBandwidth()</strong>
+    </dt>
+    <dd>
+    Set the bandwidth setting to small (narrow).
+Sweep width can be set in this mode.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setLargeBandwidth"></a>
+    <strong>Core.setLargeBandwidth()</strong>
+    </dt>
+    <dd>
+    Set the bandwidth setting to large (wide).
+Sweep width setting is ignored in this mode.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.checkNucleus"></a>
+    <strong>Core.checkNucleus(nuclei)</strong>
+    </dt>
+    <dd>
+    See if the current nucleus is in the list of nuclei.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">nuclei</span>
+            <span class="types"><span class="type">vector<_NucleusSelection_></span></span>
+         A list of NucleusSelection
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        true if the current nucleus is in the list
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.checkNucleus2"></a>
+    <strong>Core.checkNucleus2(nuclei)</strong>
+    </dt>
+    <dd>
+    See if the current secondary nucleus is in the list of nuclei.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">nuclei</span>
+            <span class="types"><span class="type">vector<_NucleusSelection_></span></span>
+         A list of NucleusSelection
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        true if the current nucleus is in the list
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.applyConfig"></a>
+    <strong>Core.applyConfig()</strong>
+    </dt>
+    <dd>
+    Apply config parameters immediately.
+Some parameters do not take effect until the acquisition starts. If you are logging formattedAcquisitionParameters(), call this first in order to see how the parameters will look during the acquisition.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.saveSignalConfig"></a>
+    <strong>Core.saveSignalConfig()</strong>
+    </dt>
+    <dd>
+    Save the signal channel config.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.saveLockConfig"></a>
+    <strong>Core.saveLockConfig()</strong>
+    </dt>
+    <dd>
+    Save the lock channel config.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.savePulseTimes"></a>
+    <strong>Core.savePulseTimes()</strong>
+    </dt>
+    <dd>
+    Save the pulse times in the signal and lock channel config files.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.savePulseSequence"></a>
+    <strong>Core.savePulseSequence()</strong>
+    </dt>
+    <dd>
+    Save the pulse sequence in the signal and lock channel config files.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setActiveSolventByName"></a>
+    <strong>Core.setActiveSolventByName(solventName)</strong>
+    </dt>
+    <dd>
+    Select the active solvent by name (case insensitive).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">solventName</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         A solvent name that is in the list returned by solventNames().
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        false The solvent was not found. The active solvent is unchanged.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.solventNames"></a>
+    <strong>Core.solventNames()</strong>
+    </dt>
+    <dd>
+    Get a list of available solvents for the current nucleus selection.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_string_></span></span>
+        List of solvent names
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.configGroupSolventNames"></a>
+    <strong>Core.configGroupSolventNames(lockNucleusSelection, configGroupName)</strong>
+    </dt>
+    <dd>
+    Get a list of available solvents for the given config group name and lock mode.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">lockNucleusSelection</span>
+            <span class="types"><a class="type" href="../sections/config.html#LockNucleusSelection">LockNucleusSelection</a></span>
+         The lock mode
+        </li>
+        <li><span class="parameter">configGroupName</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The config group to get solvent names for
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_string_></span></span>
+        List of solvent names
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.shortNames"></a>
+    <strong>Core.shortNames()</strong>
+    </dt>
+    <dd>
+    Get a list of available short names for the nucleus selection.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_string_></span></span>
+        List of short nucleus names available
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.activeSolventName"></a>
+    <strong>Core.activeSolventName()</strong>
+    </dt>
+    <dd>
+    Returns the active solvent name.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        a string with the active solvent name
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setConfigGroupByName"></a>
+    <strong>Core.setConfigGroupByName(name)</strong>
+    </dt>
+    <dd>
+    Set the current config group (nucleus).
+Names are matched in this order: Display name, long name, short name. For example: "(1H) Hydrogen", "Hydrogen", "1H". Not case sensitive. If the active solvent is in the new config group, it is used as the new active solvent. Otherwise the default solvent is used. false The group name was not found and is unchanged
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the config group to use.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        true The group name was found and was changed
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setLockNucleusByShortName"></a>
+    <strong>Core.setLockNucleusByShortName(name)</strong>
+    </dt>
+    <dd>
+    Set the current lock nucelus.
+Names are matched in short name only. If the lock nucelus is available for the config group, it is used as the new lock nucelus. Otherwise the default lock nucelus is used. false The group name was not found and is unchanged
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The name of the config group to use.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        true The group name was found and was changed
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.configGroupNames"></a>
+    <strong>Core.configGroupNames()</strong>
+    </dt>
+    <dd>
+    Get a list of the config group (nucleus) names.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_string_></span></span>
+        List of names.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.activeConfigGroupName"></a>
+    <strong>Core.activeConfigGroupName()</strong>
+    </dt>
+    <dd>
+    Get the active config group (nucleus) names.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        String with active config group name.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.formattedAcquisitionParameters"></a>
+    <strong>Core.formattedAcquisitionParameters()</strong>
+    </dt>
+    <dd>
+    Get a human readable representation of the acquisition parameters that are in use.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The formatted acquisition parameters
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.useSignalForLockConfigured"></a>
+    <strong>Core.useSignalForLockConfigured()</strong>
+    </dt>
+    <dd>
+    Get whether useSignalForLock is used by the current config group.
+This does not take experiment-specific settings into account.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        Whether the Core is configured to use the signal for lock.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.decouplingSettings"></a>
+    <strong>Core.decouplingSettings()</strong>
+    </dt>
+    <dd>
+    Get the current decoupling settings (read/write)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#DecouplingSettings">DecouplingSettings</a></span>
+        The current decoupling settings
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.deptNutationFactor"></a>
+    <strong>Core.deptNutationFactor()</strong>
+    </dt>
+    <dd>
+    Hidden calibration setting for Dept that should only be used my manufacturing, but lua needs it.
+Pretty hacky, keep this in mind for re-arch
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        nutation factor for Dept
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.suppressionSettings"></a>
+    <strong>Core.suppressionSettings()</strong>
+    </dt>
+    <dd>
+    Get the current suppression settings (read/write)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#SuppressionSettings">SuppressionSettings</a></span>
+        The current suppression settings
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_DecouplingSettings"></a>Class DecouplingSettings </h2>
+
+          <div class="section-description">
+          Decoupling settings.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "DecouplingSettings.setDecouplingType"></a>
+    <strong>DecouplingSettings.setDecouplingType(type)</strong>
+    </dt>
+    <dd>
+    Set the decoupling type.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">type</span>
+            <span class="types"><a class="type" href="../sections/config.html#DecouplingType">DecouplingType</a></span>
+         The decoupling type to use.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DecouplingSettings.decouplingType"></a>
+    <strong>DecouplingSettings.decouplingType()</strong>
+    </dt>
+    <dd>
+    Get the configured decoupling type.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#DecouplingType">DecouplingType</a></span>
+        The configured decoupling type.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DecouplingSettings.setDecouplingMode"></a>
+    <strong>DecouplingSettings.setDecouplingMode(mode)</strong>
+    </dt>
+    <dd>
+    Set the decoupling mode.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">mode</span>
+            <span class="types"><a class="type" href="../sections/config.html#DecouplingMode">DecouplingMode</a></span>
+         The mode to use.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DecouplingSettings.decouplingMode"></a>
+    <strong>DecouplingSettings.decouplingMode()</strong>
+    </dt>
+    <dd>
+    Get the configured decoupling mode.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#DecouplingMode">DecouplingMode</a></span>
+        The configured decoupling mode.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DecouplingSettings.enabled"></a>
+    <strong>DecouplingSettings.enabled()</strong>
+    </dt>
+    <dd>
+    Get whether decoupling is enabled or not.
+It may not be available for the currently selected nucleus, or if the hardware does not support it.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        Whether decoupling is enabled or not.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DecouplingSettings.setAmplitude"></a>
+    <strong>DecouplingSettings.setAmplitude(amplitude)</strong>
+    </dt>
+    <dd>
+    Set the amplitude to use for decoupling.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">amplitude</span>
+            <span class="types"><span class="type">double</span></span>
+         The new amplitude
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DecouplingSettings.amplitude"></a>
+    <strong>DecouplingSettings.amplitude()</strong>
+    </dt>
+    <dd>
+    Get the amplitude to use for decoupling.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The current amplitude
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DecouplingSettings.setTime"></a>
+    <strong>DecouplingSettings.setTime(time)</strong>
+    </dt>
+    <dd>
+    Set the time (in seconds) to apply decoupling for during receive.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">time</span>
+            <span class="types"><span class="type">double</span></span>
+         The time to apply decoupling during receive
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DecouplingSettings.time"></a>
+    <strong>DecouplingSettings.time()</strong>
+    </dt>
+    <dd>
+    Get the time decoupling will be applied for in the receive location.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The time decoupling will be applied for
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DecouplingSettings.setPresatTime"></a>
+    <strong>DecouplingSettings.setPresatTime(time)</strong>
+    </dt>
+    <dd>
+    Set the time (in seconds) to apply decoupling for (presaturation)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">time</span>
+            <span class="types"><span class="type">double</span></span>
+         The time to apply decoupling during presaturation
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DecouplingSettings.presatTime"></a>
+    <strong>DecouplingSettings.presatTime()</strong>
+    </dt>
+    <dd>
+    Get the time decoupling will be applied for in the presaturation location.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The time presat. decoupling will be applied for
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DecouplingSettings.bbWaltz16PulseLengths"></a>
+    <strong>DecouplingSettings.bbWaltz16PulseLengths()</strong>
+    </dt>
+    <dd>
+    Get the pulse times to use for BBWaltz16 decoupling (in seconds)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        The pulse times to use for BBWaltz16 decoupling
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DecouplingSettings.setBbWaltz16PulseLengths"></a>
+    <strong>DecouplingSettings.setBbWaltz16PulseLengths(bbWaltz16PulseLengths)</strong>
+    </dt>
+    <dd>
+    Set the pulse times to use for BBWaltz16 decoupling (in seconds)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">bbWaltz16PulseLengths</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         The pulse times to use for BBWaltz16 decoupling
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "DecouplingSettings.getDriveStrengthInt"></a>
+    <strong>DecouplingSettings.getDriveStrengthInt()</strong>
+    </dt>
+    <dd>
+    Get the DDS Drive Strength as an Integer.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">int</span></span>
+        The DDS Drive Strength cast as an Integer
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_FeedbackFilter"></a>Class FeedbackFilter </h2>
+
+          <div class="section-description">
+          A filter for LockStrategyFeedback.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "FeedbackFilter.repRate"></a>
+    <strong>FeedbackFilter.repRate()</strong>
+    </dt>
+    <dd>
+    Get the amount of time between filter updates (in seconds)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The time between filter updates
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilter.setResetEnabled"></a>
+    <strong>FeedbackFilter.setResetEnabled(resetEnabled)</strong>
+    </dt>
+    <dd>
+    Set whether the filter parameters are reset between acquisitions.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">resetEnabled</span>
+            <span class="types"><span class="type">bool</span></span>
+         Whether the filter parameters are reset between acquisitions.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilter.imaginaryHistory"></a>
+    <strong>FeedbackFilter.imaginaryHistory()</strong>
+    </dt>
+    <dd>
+    Get the history of the imaginary signal values.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        All values collected during the previous acquisition
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilter.realHistory"></a>
+    <strong>FeedbackFilter.realHistory()</strong>
+    </dt>
+    <dd>
+    Get the history of the real signal values.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        All values collected during the previous acquisition
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilter.filteredImaginaryHistory"></a>
+    <strong>FeedbackFilter.filteredImaginaryHistory()</strong>
+    </dt>
+    <dd>
+    Get the history of the imaginary signal values (prefiltered)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        All values collected during the previous acquisition
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilter.filteredRealHistory"></a>
+    <strong>FeedbackFilter.filteredRealHistory()</strong>
+    </dt>
+    <dd>
+    Get the history of the real signal values (prefiltered)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        All values collected during the previous acquisition
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilter.b0History"></a>
+    <strong>FeedbackFilter.b0History()</strong>
+    </dt>
+    <dd>
+    Get the history of the b0 adjustments.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        All b0 adjustments made during the previous acquisition
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilter.history"></a>
+    <strong>FeedbackFilter.history()</strong>
+    </dt>
+    <dd>
+    Get a copy of the filter's history as a data table (for plotting or export)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">DataTable</span></span>
+        the history as a data table
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilter.phaseHistory"></a>
+    <strong>FeedbackFilter.phaseHistory()</strong>
+    </dt>
+    <dd>
+    Get the history of the phase information.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">DataTable</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_FeedbackFilterGarett"></a>Class FeedbackFilterGarett </h2>
+
+          <div class="section-description">
+          The original filter for LockStrategyFeedback.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "FeedbackFilterGarett.filterHistory1"></a>
+    <strong>FeedbackFilterGarett.filterHistory1()</strong>
+    </dt>
+    <dd>
+    Get part 1 of the history of the filter.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        All values collected during the previous acquisition
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilterGarett.filterHistory2"></a>
+    <strong>FeedbackFilterGarett.filterHistory2()</strong>
+    </dt>
+    <dd>
+    Get part 2 of the history of the filter.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        All values collected during the previous acquisition
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilterGarett.lockHistory"></a>
+    <strong>FeedbackFilterGarett.lockHistory()</strong>
+    </dt>
+    <dd>
+    Get the history of the lock level values.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        All values collected during the previous acquisition
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_FeedbackFilterModel"></a>Class FeedbackFilterModel </h2>
+
+          <div class="section-description">
+          A filter for LockStrategyFeedback - Model based.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "FeedbackFilterModel.ks"></a>
+    <strong>FeedbackFilterModel.ks()</strong>
+    </dt>
+    <dd>
+    Get K parameters.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        The K parameters
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilterModel.setKs"></a>
+    <strong>FeedbackFilterModel.setKs(ks)</strong>
+    </dt>
+    <dd>
+    Set K parameters.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">ks</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         The K parameters
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilterModel.xHistory"></a>
+    <strong>FeedbackFilterModel.xHistory()</strong>
+    </dt>
+    <dd>
+    Get the X history of the filter.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        X history
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilterModel.x2History"></a>
+    <strong>FeedbackFilterModel.x2History()</strong>
+    </dt>
+    <dd>
+    Get the X2 history of the filter.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        X2 history
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilterModel.x3History"></a>
+    <strong>FeedbackFilterModel.x3History()</strong>
+    </dt>
+    <dd>
+    Get the X3 history of the filter.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        X3 history
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilterModel.x4History"></a>
+    <strong>FeedbackFilterModel.x4History()</strong>
+    </dt>
+    <dd>
+    Get the X4 history of the filter.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        X4 history
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilterModel.x5History"></a>
+    <strong>FeedbackFilterModel.x5History()</strong>
+    </dt>
+    <dd>
+    Get the X5 history of the filter.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        X5 history
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilterModel.x7History"></a>
+    <strong>FeedbackFilterModel.x7History()</strong>
+    </dt>
+    <dd>
+    Get the X7 history of the filter.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        X7 history
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilterModel.errorCurrentHistory"></a>
+    <strong>FeedbackFilterModel.errorCurrentHistory()</strong>
+    </dt>
+    <dd>
+    Get the error current history of the filter.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        Error current history
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_FeedbackFilterPid"></a>Class FeedbackFilterPid </h2>
+
+          <div class="section-description">
+          A filter for LockStrategyFeedback - PID based.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "FeedbackFilterPid.pidn"></a>
+    <strong>FeedbackFilterPid.pidn()</strong>
+    </dt>
+    <dd>
+    Get P, I, D, and N parameters.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        p The P parameter</li>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        i The I parameter</li>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        d The D parameter</li>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        n The N parameter</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilterPid.setPidn"></a>
+    <strong>FeedbackFilterPid.setPidn(p, i, d, n)</strong>
+    </dt>
+    <dd>
+    Set P, I, D, and N parameters.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">p</span>
+            <span class="types"><span class="type">double</span></span>
+         The P parameter
+        </li>
+        <li><span class="parameter">i</span>
+            <span class="types"><span class="type">double</span></span>
+         The I parameter
+        </li>
+        <li><span class="parameter">d</span>
+            <span class="types"><span class="type">double</span></span>
+         The D parameter
+        </li>
+        <li><span class="parameter">n</span>
+            <span class="types"><span class="type">double</span></span>
+         The N parameter
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilterPid.pHistory"></a>
+    <strong>FeedbackFilterPid.pHistory()</strong>
+    </dt>
+    <dd>
+    Get the P history of the filter.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        P history
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilterPid.iHistory"></a>
+    <strong>FeedbackFilterPid.iHistory()</strong>
+    </dt>
+    <dd>
+    Get the I history of the filter.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        I history
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilterPid.dHistory"></a>
+    <strong>FeedbackFilterPid.dHistory()</strong>
+    </dt>
+    <dd>
+    Get the D history of the filter.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        D history
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackFilterPid.errorCurrentHistory"></a>
+    <strong>FeedbackFilterPid.errorCurrentHistory()</strong>
+    </dt>
+    <dd>
+    Get the error current history of the filter.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        Error current history
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_FeedbackLockSettings"></a>Class FeedbackLockSettings </h2>
+
+          <div class="section-description">
+          Settings for LockStrategyFeedback.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "FeedbackLockSettings.pulseTimeSeconds"></a>
+    <strong>FeedbackLockSettings.pulseTimeSeconds()</strong>
+    </dt>
+    <dd>
+    Get the pulse time in seconds.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The length of the lock pulse
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.setPulseTimeSeconds"></a>
+    <strong>FeedbackLockSettings.setPulseTimeSeconds(pulseTimeSeconds)</strong>
+    </dt>
+    <dd>
+    Set the pulse time in seconds.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">pulseTimeSeconds</span>
+            <span class="types"><span class="type">double</span></span>
+         The length of the lock pulse
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.preSignalTime"></a>
+    <strong>FeedbackLockSettings.preSignalTime()</strong>
+    </dt>
+    <dd>
+    Get the amount of time to lock before the signal is acquired.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The amount of time to lock before the signal is acquired
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.setPreSignalTime"></a>
+    <strong>FeedbackLockSettings.setPreSignalTime(preSignalTime)</strong>
+    </dt>
+    <dd>
+    Set the amount of time to lock before the signal is acquired.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">preSignalTime</span>
+            <span class="types"><span class="type">double</span></span>
+         The amount of time to lock before the signal is acquired
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.correctionStabilizationTime"></a>
+    <strong>FeedbackLockSettings.correctionStabilizationTime()</strong>
+    </dt>
+    <dd>
+    Get the correction stabilization time.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The correction stabilization time
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.setCorrectionStabilizationTime"></a>
+    <strong>FeedbackLockSettings.setCorrectionStabilizationTime(correctionStabilizationTime)</strong>
+    </dt>
+    <dd>
+    Set the correction stabilization time.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">correctionStabilizationTime</span>
+            <span class="types"><span class="type">double</span></span>
+         The correction stabilization time
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.lockLevelThreshold"></a>
+    <strong>FeedbackLockSettings.lockLevelThreshold()</strong>
+    </dt>
+    <dd>
+    Get the threshold at which the lock level is considered too low.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The lock level threshold
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.setLockLevelThreshold"></a>
+    <strong>FeedbackLockSettings.setLockLevelThreshold(threshold)</strong>
+    </dt>
+    <dd>
+    Set the threshold at which the lock level is considered too low.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">threshold</span>
+            <span class="types"><span class="type">double</span></span>
+         The lock level threshold
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.lockPhaseThreshold"></a>
+    <strong>FeedbackLockSettings.lockPhaseThreshold()</strong>
+    </dt>
+    <dd>
+    Get the threshold at which the lock phase is considered too far out of range.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The threshold at which the lock phase is considered too far out of range.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.setLockPhaseThreshold"></a>
+    <strong>FeedbackLockSettings.setLockPhaseThreshold(lockPhaseThreshold)</strong>
+    </dt>
+    <dd>
+    Set the threshold at which the lock phase is considered too far out of range.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">lockPhaseThreshold</span>
+            <span class="types"><span class="type">double</span></span>
+         The threshold at which the lock phase is considered too far out of range.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.maxShimValue"></a>
+    <strong>FeedbackLockSettings.maxShimValue()</strong>
+    </dt>
+    <dd>
+    Get the maximum allowable shim value.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">int</span></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.setMaxShimValue"></a>
+    <strong>FeedbackLockSettings.setMaxShimValue(maxShimValue)</strong>
+    </dt>
+    <dd>
+    Set the maximum allowable shim value.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">maxShimValue</span>
+            <span class="types"><span class="type">int</span></span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.filterFactor"></a>
+    <strong>FeedbackLockSettings.filterFactor()</strong>
+    </dt>
+    <dd>
+    Get the filter factor.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The filter factor
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.setFilterFactor"></a>
+    <strong>FeedbackLockSettings.setFilterFactor(filterFactor)</strong>
+    </dt>
+    <dd>
+    Set the filter factor.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">filterFactor</span>
+            <span class="types"><span class="type">double</span></span>
+         The filter factor
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.proportionalFactor"></a>
+    <strong>FeedbackLockSettings.proportionalFactor()</strong>
+    </dt>
+    <dd>
+    Get the Proportional factor.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The Proportional factor
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.setProportionalFactor"></a>
+    <strong>FeedbackLockSettings.setProportionalFactor(proportionalFactor)</strong>
+    </dt>
+    <dd>
+    Set the Proportional factor.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">proportionalFactor</span>
+            <span class="types"><span class="type">double</span></span>
+         The proportional factor
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.integralFactor"></a>
+    <strong>FeedbackLockSettings.integralFactor()</strong>
+    </dt>
+    <dd>
+    Get the Integral factor.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The Integral factor
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.setIntegralFactor"></a>
+    <strong>FeedbackLockSettings.setIntegralFactor(integralFactor)</strong>
+    </dt>
+    <dd>
+    Set the Integral factor.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">integralFactor</span>
+            <span class="types"><span class="type">double</span></span>
+         The integral factor
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.transferFactors"></a>
+    <strong>FeedbackLockSettings.transferFactors()</strong>
+    </dt>
+    <dd>
+    Get the transfer factors (imaginary.) Deprecated.
+Use transferFactorsImaginary() instead.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        The transfer factors
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.transferFactorsImaginary"></a>
+    <strong>FeedbackLockSettings.transferFactorsImaginary()</strong>
+    </dt>
+    <dd>
+    Get the transfer factors (imaginary.) Deprecated.
+Use transferFactorsImaginary() instead.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        The transfer factors
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.transferFactorsReal"></a>
+    <strong>FeedbackLockSettings.transferFactorsReal()</strong>
+    </dt>
+    <dd>
+    Get the transfer factors (real)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">vector<_double_></span></span>
+        The transfer factors
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.setTransferFactors"></a>
+    <strong>FeedbackLockSettings.setTransferFactors(transferFactors)</strong>
+    </dt>
+    <dd>
+    Set the transfer factors.
+Sets both the real and imaginary transfer factors to be the same.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">transferFactors</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         The transfer factors
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.setTransferFactors"></a>
+    <strong>FeedbackLockSettings.setTransferFactors(real, imaginary)</strong>
+    </dt>
+    <dd>
+    Set the transfer factors (real and imaginary).
+They must be the same length or they will be ignored.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">real</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         The transfer factors (real)
+        </li>
+        <li><span class="parameter">imaginary</span>
+            <span class="types"><span class="type">vector<_double_></span></span>
+         The transfer factors (imaginary)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.gainValue"></a>
+    <strong>FeedbackLockSettings.gainValue()</strong>
+    </dt>
+    <dd>
+    Get the gain value.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The level filter factor
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.setGainValue"></a>
+    <strong>FeedbackLockSettings.setGainValue(gainValue)</strong>
+    </dt>
+    <dd>
+    Set the gain value.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">gainValue</span>
+            <span class="types"><span class="type">double</span></span>
+         The gain value
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.setB0Adjustments"></a>
+    <strong>FeedbackLockSettings.setB0Adjustments(adjustments)</strong>
+    </dt>
+    <dd>
+    Set timed adjustments of the B0 gradient offset.
+The format is: ((feedback index, gradient offset), ...)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">adjustments</span>
+            <span class="types"><span class="type">vector<_vector<_double_>></span></span>
+         The adjustments to make.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.setGradientAdjustments"></a>
+    <strong>FeedbackLockSettings.setGradientAdjustments(adjustments)</strong>
+    </dt>
+    <dd>
+    Set timed adjustments of the non-B0 gradient.
+The format is: ((feedback index, gradient offset), ...)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">adjustments</span>
+            <span class="types"><span class="type">vector<_vector<_double_>></span></span>
+         The adjustments to make.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "FeedbackLockSettings.setAutoShimGradientId"></a>
+    <strong>FeedbackLockSettings.setAutoShimGradientId(autoShimGradientId)</strong>
+    </dt>
+    <dd>
+    Set the id of the gradient to use for feedback auto shimming.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">autoShimGradientId</span>
+            <span class="types"><span class="type">int</span></span>
+         The id of the gradient to use for feedback auto shimming.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_LockStrategy"></a>Class LockStrategy </h2>
+
+          <div class="section-description">
+          The interface for all lock strategies.
+Each strategy takes an event list and adds lock acquisitions to it.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "LockStrategy.name"></a>
+    <strong>LockStrategy.name()</strong>
+    </dt>
+    <dd>
+    The name of this strategy.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The name of this strategy
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "LockStrategy.toLockStrategyFeedback"></a>
+    <strong>LockStrategy.toLockStrategyFeedback()</strong>
+    </dt>
+    <dd>
+    Downcast this object to a LockStrategyFeedback (if it is an instance of that type.)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#LockStrategyFeedback">LockStrategyFeedback</a></span>
+        the downcasted version (or nil, if it was not that type)
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_LockStrategyContext"></a>Class LockStrategyContext </h2>
+
+          <div class="section-description">
+          A context that allows the use of lock strategies.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "LockStrategyContext.setStrategy"></a>
+    <strong>LockStrategyContext.setStrategy(mode)</strong>
+    </dt>
+    <dd>
+    Set the strategy to use.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">mode</span>
+            <span class="types"><a class="type" href="../sections/config.html#SimultaneousLockMode">SimultaneousLockMode</a></span>
+         The Mode to switch to
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "LockStrategyContext.strategy"></a>
+    <strong>LockStrategyContext.strategy()</strong>
+    </dt>
+    <dd>
+    Get the strategy in use (NULL if it has never been set)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#LockStrategy">LockStrategy</a></span>
+        The strategy
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_LockStrategyFeedback"></a>Class LockStrategyFeedback </h2>
+
+          <div class="section-description">
+          A lock strategy that has many short lock acquisitions per signal transient.
+After each acquisition, an error signal is calculated and a shim correction is applied.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "LockStrategyFeedback.settings"></a>
+    <strong>LockStrategyFeedback.settings()</strong>
+    </dt>
+    <dd>
+    Get the current feedback lock settings.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">shared_ptr<_FeedbackLockSettings_></span></span>
+        The current feedback lock settings
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "LockStrategyFeedback.channelConfig"></a>
+    <strong>LockStrategyFeedback.channelConfig()</strong>
+    </dt>
+    <dd>
+    Get the channel configuration for the feedback lock acquisitions.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#ChannelConfig">ChannelConfig</a></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "LockStrategyFeedback.feedbackFilter"></a>
+    <strong>LockStrategyFeedback.feedbackFilter()</strong>
+    </dt>
+    <dd>
+    Get the current feedback filter.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#FeedbackFilter">FeedbackFilter</a></span>
+        The current feedback filter
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "LockStrategyFeedback.feedbackFilterGarett"></a>
+    <strong>LockStrategyFeedback.feedbackFilterGarett()</strong>
+    </dt>
+    <dd>
+    Get the feedback filter (Garett method) if it is configured.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#FeedbackFilterGarett">FeedbackFilterGarett</a></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "LockStrategyFeedback.feedbackFilterPid"></a>
+    <strong>LockStrategyFeedback.feedbackFilterPid()</strong>
+    </dt>
+    <dd>
+    Get the feedback filter (PID method) if it is configured.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#FeedbackFilterPid">FeedbackFilterPid</a></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "LockStrategyFeedback.feedbackFilterModel"></a>
+    <strong>LockStrategyFeedback.feedbackFilterModel()</strong>
+    </dt>
+    <dd>
+    Get the feedback filter (Model method) if it is configured.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#FeedbackFilterModel">FeedbackFilterModel</a></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "LockStrategyFeedback.setModeGarett"></a>
+    <strong>LockStrategyFeedback.setModeGarett()</strong>
+    </dt>
+    <dd>
+    Use FeedbackFilterGarett.
+This will reset the filter.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "LockStrategyFeedback.setModePid"></a>
+    <strong>LockStrategyFeedback.setModePid(index)</strong>
+    </dt>
+    <dd>
+    Use FeedbackFilterPid.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The index of the parameters to use in the channel config file. This will reset the filter.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "LockStrategyFeedback.setModeModel"></a>
+    <strong>LockStrategyFeedback.setModeModel(index)</strong>
+    </dt>
+    <dd>
+    Use FeedbackFilterModel.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">index</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The index of the parameters to use in the channel config file. This will reset the filter.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_ProcessingSettings"></a>Class ProcessingSettings </h2>
+
+          <div class="section-description">
+          Signal processing settings.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "ProcessingSettings.phaseFromDataset"></a>
+    <strong>ProcessingSettings.phaseFromDataset(dataSet)</strong>
+    </dt>
+    <dd>
+    Use the phase correction values from the given dataset.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataSet</span>
+            <span class="types"><span class="type">DataSet1D</span></span>
+         The DataSet1D to get the phase correction values from.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ProcessingSettings.setZeroOrderPhaseCorrection"></a>
+    <strong>ProcessingSettings.setZeroOrderPhaseCorrection(zeroOrderPhaseCorrection)</strong>
+    </dt>
+    <dd>
+    Get the zero order phase correction.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">zeroOrderPhaseCorrection</span>
+            <span class="types"><span class="type">double</span></span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ProcessingSettings.setZeroOrderPhaseCorrection"></a>
+    <strong>ProcessingSettings.setZeroOrderPhaseCorrection(zeroOrderPhaseCorrection, nucleus)</strong>
+    </dt>
+    <dd>
+    Set the zero order phase correction.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">zeroOrderPhaseCorrection</span>
+            <span class="types"><span class="type">double</span></span>
+         The zero order phase correction
+        </li>
+        <li><span class="parameter">nucleus</span>
+            <span class="types"><a class="type" href="../sections/config.html#NucleusSelection">NucleusSelection</a></span>
+         The nucleus
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ProcessingSettings.zeroOrderPhaseCorrection"></a>
+    <strong>ProcessingSettings.zeroOrderPhaseCorrection()</strong>
+    </dt>
+    <dd>
+    Get the zero order phase correction.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The zero order phase correction.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ProcessingSettings.zeroOrderPhaseCorrection"></a>
+    <strong>ProcessingSettings.zeroOrderPhaseCorrection(nucleus)</strong>
+    </dt>
+    <dd>
+    Get the zero order phase correction.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">nucleus</span>
+            <span class="types"><a class="type" href="../sections/config.html#NucleusSelection">NucleusSelection</a></span>
+         The nucleus
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The zero order phase correction.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ProcessingSettings.setFirstOrderPhaseCorrection"></a>
+    <strong>ProcessingSettings.setFirstOrderPhaseCorrection(firstOrderPhaseCorrection)</strong>
+    </dt>
+    <dd>
+    Set the first order phase correction.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">firstOrderPhaseCorrection</span>
+            <span class="types"><span class="type">double</span></span>
+         The First Order Phase Correction.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ProcessingSettings.setFirstOrderPhaseCorrection"></a>
+    <strong>ProcessingSettings.setFirstOrderPhaseCorrection(firstOrderPhaseCorrection, nucleus)</strong>
+    </dt>
+    <dd>
+    Set the first order phase correction.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">firstOrderPhaseCorrection</span>
+            <span class="types"><span class="type">double</span></span>
+         The First Order Phase Correction.
+        </li>
+        <li><span class="parameter">nucleus</span>
+            <span class="types"><a class="type" href="../sections/config.html#NucleusSelection">NucleusSelection</a></span>
+         The nucleus
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ProcessingSettings.firstOrderPhaseCorrection"></a>
+    <strong>ProcessingSettings.firstOrderPhaseCorrection()</strong>
+    </dt>
+    <dd>
+    Get the first order phase correction.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The First Order Phase Correction.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ProcessingSettings.firstOrderPhaseCorrection"></a>
+    <strong>ProcessingSettings.firstOrderPhaseCorrection(nucleus)</strong>
+    </dt>
+    <dd>
+    Get the first order phase correction.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">nucleus</span>
+            <span class="types"><a class="type" href="../sections/config.html#NucleusSelection">NucleusSelection</a></span>
+         The nucleus
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The First Order Phase Correction.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ProcessingSettings.firstOrderPivot"></a>
+    <strong>ProcessingSettings.firstOrderPivot()</strong>
+    </dt>
+    <dd>
+    Get the first order pivot.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The First Order Pivot.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ProcessingSettings.firstOrderPivot"></a>
+    <strong>ProcessingSettings.firstOrderPivot(nucleus)</strong>
+    </dt>
+    <dd>
+    Get the first order pivot.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">nucleus</span>
+            <span class="types"><a class="type" href="../sections/config.html#NucleusSelection">NucleusSelection</a></span>
+         The nucleus
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The First Order Pivot.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ProcessingSettings.setFirstOrderPivot"></a>
+    <strong>ProcessingSettings.setFirstOrderPivot(firstOrderPivot)</strong>
+    </dt>
+    <dd>
+    Set the first order pivot.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">firstOrderPivot</span>
+            <span class="types"><span class="type">double</span></span>
+         The First Order Pivot.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ProcessingSettings.setFirstOrderPivot"></a>
+    <strong>ProcessingSettings.setFirstOrderPivot(firstOrderPivot, nucleus)</strong>
+    </dt>
+    <dd>
+    Set the first order pivot.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">firstOrderPivot</span>
+            <span class="types"><span class="type">double</span></span>
+         The First Order Pivot.
+        </li>
+        <li><span class="parameter">nucleus</span>
+            <span class="types"><a class="type" href="../sections/config.html#NucleusSelection">NucleusSelection</a></span>
+         The nucleus
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_SuppressionSettings"></a>Class SuppressionSettings </h2>
+
+          <div class="section-description">
+          Settings for suppression (link/core/decorators/Suppression.hpp)
+Solvent suppression settings
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "SuppressionSettings.setSuppressionMode"></a>
+    <strong>SuppressionSettings.setSuppressionMode(mode)</strong>
+    </dt>
+    <dd>
+    Set the suppression mode.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">mode</span>
+            <span class="types"><a class="type" href="../sections/config.html#SuppressionMode">SuppressionMode</a></span>
+         The mode to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "SuppressionSettings.suppressionMode"></a>
+    <strong>SuppressionSettings.suppressionMode()</strong>
+    </dt>
+    <dd>
+    Get the suppression mode.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/config.html#SuppressionMode">SuppressionMode</a></span>
+        The suppression mode
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "SuppressionSettings.enabled"></a>
+    <strong>SuppressionSettings.enabled()</strong>
+    </dt>
+    <dd>
+    Get whether suppression is enabled or not.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        Whether suppression is enabled or not
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "SuppressionSettings.configured"></a>
+    <strong>SuppressionSettings.configured()</strong>
+    </dt>
+    <dd>
+    Get whether suppression is configured or not (enabled and not off)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        Whether suppression is configured or not (enabled and not off)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "SuppressionSettings.phase"></a>
+    <strong>SuppressionSettings.phase()</strong>
+    </dt>
+    <dd>
+    Get the phase to use for suppression.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        the phase of the supperssion pulse
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "SuppressionSettings.amplitude"></a>
+    <strong>SuppressionSettings.amplitude()</strong>
+    </dt>
+    <dd>
+    Get the amplitude to use for suppression.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        the amplitude of the supperssion pulse
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "SuppressionSettings.length"></a>
+    <strong>SuppressionSettings.length()</strong>
+    </dt>
+    <dd>
+    Get Length.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        the length of the suppression pulse (in seconds)
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "SuppressionSettings.setLength"></a>
+    <strong>SuppressionSettings.setLength(length)</strong>
+    </dt>
+    <dd>
+    Set the length of the suppression pulse.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">length</span>
+            <span class="types"><span class="type">double</span></span>
+         The length of the suppression pulse (in seconds)
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "SuppressionSettings.txBias"></a>
+    <strong>SuppressionSettings.txBias()</strong>
+    </dt>
+    <dd>
+    Get TX Bias.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        the TX Bias
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "SuppressionSettings.driveStrength"></a>
+    <strong>SuppressionSettings.driveStrength()</strong>
+    </dt>
+    <dd>
+    Get the suppression drive strength.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">DdsDriveStrength</span></span>
+        The suppression drive strength
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="nmready"></a>nmready</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "nmready.fakeMode"></a>
+    <strong>nmready.fakeMode()</strong>
+    </dt>
+    <dd>
+    Get whether fake mode is set or not.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">bool</span></span>
+        Whether fake mode is set or not
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "nmready.softwareVersion"></a>
+    <strong>nmready.softwareVersion()</strong>
+    </dt>
+    <dd>
+    Gets the software version.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The software version
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "nmready.firmwareVersion"></a>
+    <strong>nmready.firmwareVersion()</strong>
+    </dt>
+    <dd>
+    Gets the firmware version.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The firmware version
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "nmready.svnVersion"></a>
+    <strong>nmready.svnVersion()</strong>
+    </dt>
+    <dd>
+    Gets the SVN version.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The svn version
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="nmready_config_app"></a>nmready.config.app</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "nmready.config.app.configDir"></a>
+    <strong>nmready.config.app.configDir()</strong>
+    </dt>
+    <dd>
+    Get the full config to the config/ directory.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The full path to the config/ directory
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "nmready.config.app.dataDir"></a>
+    <strong>nmready.config.app.dataDir()</strong>
+    </dt>
+    <dd>
+    Get the full path to the data/ directory.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The full path to the data/ directory
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "nmready.config.app.autoShimConfigDir"></a>
+    <strong>nmready.config.app.autoShimConfigDir()</strong>
+    </dt>
+    <dd>
+    Get the full path to the shim/ directory.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The full path to the shim/ directory
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "nmready.config.app.shimGradientDir"></a>
+    <strong>nmready.config.app.shimGradientDir()</strong>
+    </dt>
+    <dd>
+    Get the full path to the shim/profiles/ directory.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The full path to the shim/profiles/ directory
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "nmready.config.app.logDir"></a>
+    <strong>nmready.config.app.logDir()</strong>
+    </dt>
+    <dd>
+    Get the full path to the logs/ directory.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The full path to the logs/ directory
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "nmready.config.app.scriptsDir"></a>
+    <strong>nmready.config.app.scriptsDir()</strong>
+    </dt>
+    <dd>
+    Get the full path to the user/scripts/ directory.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The full path to the user/scripts/ directory
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "nmready.config.app.autoShimGradientsJson"></a>
+    <strong>nmready.config.app.autoShimGradientsJson()</strong>
+    </dt>
+    <dd>
+    Get the auto shim gradient config in json format.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+        The the auto shim gradient config in json format
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="nmready_config_backup"></a>nmready.config.backup</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "nmready.config.backup.backup"></a>
+    <strong>nmready.config.backup.backup(configKey)</strong>
+    </dt>
+    <dd>
+    Back up config settings, using a named key.
+Config Settings: PulseSequence cPulseSequence, PulseSequenceLock, PhaseTable, SignalChannel, LockChannel, SolventConfig, ProcessingSettings, ExperimentSettings, CoreSettings
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">configKey</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The key to use when restoring config.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "nmready.config.backup.restore"></a>
+    <strong>nmready.config.backup.restore(configKey)</strong>
+    </dt>
+    <dd>
+    Restore config settings, using a named key.
+Config Settings: PulseSequence cPulseSequence, PulseSequenceLock, PhaseTable, SignalChannel, LockChannel, SolventConfig, ProcessingSettings, ExperimentSettings, CoreSettings
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">configKey</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The key that was used when backing up the config.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "nmready.config.backup.erase"></a>
+    <strong>nmready.config.backup.erase(configKey)</strong>
+    </dt>
+    <dd>
+    Erase the configuration associated with the given key.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">configKey</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         The key that was used when backing up the config.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2023-09-22 17:06:42 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

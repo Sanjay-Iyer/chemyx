@@ -1,0 +1,168 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>NMReady Experiment Designer Documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Experiment Designer</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Configuration">Configuration </a></li>
+<li><a href="#Setup__Display">Setup: Display </a></li>
+<li><a href="#Setup__Acquisition_parameters_and_pulse_sequences">Setup: Acquisition parameters and pulse sequences </a></li>
+<li><a href="#Acquisitions">Acquisitions </a></li>
+<li><a href="#Exporting_and_or_displaying_results">Exporting and/or displaying results </a></li>
+</ul>
+
+
+<h2>Manual</h2>
+<ul class="nowrap">
+  <li><strong>01_Overview</strong></li>
+  <li><a href="../manual/02_Phase_Tables.md.html">02_Phase_Tables</a></li>
+  <li><a href="../manual/03_Language_Reference.md.html">03_Language_Reference</a></li>
+  <li><a href="../manual/04_Saving_Results.md.html">04_Saving_Results</a></li>
+  <li><a href="../manual/05_Special_Functions.md.html">05_Special_Functions</a></li>
+</ul>
+<h2>Sections</h2>
+<ul class="nowrap">
+  <li><a href="../sections/config.html">config</a></li>
+  <li><a href="../sections/core.html">core</a></li>
+  <li><a href="../sections/data.html">data</a></li>
+  <li><a href="../sections/display.html">display</a></li>
+  <li><a href="../sections/integrals.html">integrals</a></li>
+  <li><a href="../sections/pulses.html">pulses</a></li>
+</ul>
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><a href="../examples/1d.lua.html">1d.lua</a></li>
+  <li><a href="../examples/cosy.lua.html">cosy.lua</a></li>
+  <li><a href="../examples/t1.lua.html">t1.lua</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+
+<h1>Experiment Structure Overview</h1>
+
+<p>Custom experiments are divided into several sections.</p>
+
+<p>Two objects are provided to every experiment.</p>
+
+<ul>
+    <li>core, which is an instance of <a href="../sections/core.html#Core">core.Core</a>.</li>
+    <li>config, which is an instance of Config.</li>
+</ul>
+
+<p><a name="Configuration"></a></p>
+<h2>Configuration</h2>
+
+<p>If graphical configuration is desired, this must be the first section in the script. To provide this functionality, the script is executed (with limited functionality) when the selected in the "Settings" section of the GUI. Available NMReady extensions are:</p>
+
+<ul>
+    <li>config:add()</li>
+    <li>ConfigItemNumber()</li>
+</ul>
+
+<p>If any other NMReady extension is found, the configuration section is considered to be finished, so be sure to keep calls to config:add() at the top of your script.</p>
+
+
+<pre>
+firstTau = config:add(ConfigItemNumber(<span class="string">"Tau Start: (ms)"</span>, {min=<span class="string">"0.1"</span>, max=<span class="string">"30000.0"</span>, default=<span class="string">"1000"</span>, precision=<span class="string">"2"</span>}))
+</pre>
+
+<p>See <a href="../sections/config.html#">config</a> for more information</p>
+
+<p><a name="Setup__Display"></a></p>
+<h2>Setup: Display</h2>
+
+<p>See <a href="../examples/t1.lua.html#">t1.lua</a> for an example.</p>
+
+<p><a name="Setup__Acquisition_parameters_and_pulse_sequences"></a></p>
+<h2>Setup: Acquisition parameters and pulse sequences</h2>
+
+<p>Setup must be performed before acquisitions. This includes setup of <a href="../sections/core.html#">core</a> parameters as well as the creation of <a href="../sections/pulses.html#">custom pulse sequences</a>. This can be done at any time after the configuration section. If the pulse sequence or any parameters are left unchanged, the defaults are equivalent to the 1D acquisition parameters currently set in the GUI.</p>
+
+
+<pre>
+pulse90 = core:channelConfigSignal():get90PulseSeconds()
+pulse180 = pulse90 * <span class="number">2</span>
+p = PulseSequence(core:channelConfigSignal())
+p:add(newPulseSingle(core:channelConfigSignal()))
+p:add(newPulseSingle(core:channelConfigSignal()))
+p:setPulseTime(<span class="number">0</span>, pulse180)
+p:setPulseTime(<span class="number">1</span>, pulse90)
+core:usePulseSequence(p)
+</pre>
+
+<p>See <a href="../sections/core.html#">core</a> and <a href="../sections/pulses.html#">pulses</a> for more information.</p>
+
+<p><a name="Acquisitions"></a></p>
+<h2>Acquisitions</h2>
+
+<p>When the interpreter reaches the acquire() statement, a 1D acquisition is performed using the current pulse sequece and acquisition parameters (including the configured number of transients.)</p>
+
+<p>The signal data is available as a <a href="../sections/data.html#DataSet1D">DataSet1D</a> object using Core:dataSetSignal().</p>
+
+<p><a name="Exporting_and_or_displaying_results"></a></p>
+<h2>Exporting and/or displaying results</h2>
+
+<p>After the acquire() statement, data is available for export and/or display.</p>
+
+<p>If the display setup has already been done (see above), you can copy the recently acquired signal data to the location that will be used for the display. You will also have to let the GUI know that it should be updated immediately.</p>
+
+
+<pre>
+<span class="comment">-- Set the data in displayResult
+</span>displayResult:set(core:dataSetSignal())
+<span class="comment">-- Send the data in displayResult to the GUI
+</span>updateDisplay(currentResult)
+</pre>
+
+<p>See <a href="../sections/display.html#">display</a> for more information.</p>
+
+<p>If you would like to export 1D data, you can do so with the exportResults1D function:</p>
+
+
+<pre>
+exportResults1D(core:dataSetSignal(), <span class="string">"my_filename"</span>)
+</pre>
+
+<p>See <a href="../sections/data.html#">data</a> for more information, including how to store and export 2D results.</p>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2023-09-22 17:06:42 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

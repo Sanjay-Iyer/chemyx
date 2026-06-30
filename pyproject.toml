@@ -1,0 +1,13 @@
+[project]
+name = "chemyx-lab"
+version = "0.1.0"
+description = "Chemyx Fusion 4000X pump and NMR workflow helpers"
+requires-python = ">=3.10"
+dependencies = [
+    "pyserial>=3.5",
+    "numpy>=1.24",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

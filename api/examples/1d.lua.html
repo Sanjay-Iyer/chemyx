@@ -1,0 +1,169 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>NMReady Experiment Designer Documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Experiment Designer</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+
+
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><strong>1d.lua</strong></li>
+  <li><a href="../examples/cosy.lua.html">cosy.lua</a></li>
+  <li><a href="../examples/t1.lua.html">t1.lua</a></li>
+</ul>
+<h2>Sections</h2>
+<ul class="nowrap">
+  <li><a href="../sections/config.html">config</a></li>
+  <li><a href="../sections/core.html">core</a></li>
+  <li><a href="../sections/data.html">data</a></li>
+  <li><a href="../sections/display.html">display</a></li>
+  <li><a href="../sections/integrals.html">integrals</a></li>
+  <li><a href="../sections/pulses.html">pulses</a></li>
+</ul>
+<h2>Manual</h2>
+<ul class="nowrap">
+  <li><a href="../manual/01_Overview.md.html">01_Overview</a></li>
+  <li><a href="../manual/02_Phase_Tables.md.html">02_Phase_Tables</a></li>
+  <li><a href="../manual/03_Language_Reference.md.html">03_Language_Reference</a></li>
+  <li><a href="../manual/04_Saving_Results.md.html">04_Saving_Results</a></li>
+  <li><a href="../manual/05_Special_Functions.md.html">05_Special_Functions</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+    <h2>1d.lua</h2>
+<pre>
+<span class="comment">---------------------------
+</span><span class="comment">-- NMReady 1D experiment --
+</span><span class="comment">---------------------------
+</span>
+<span class="comment">--------------------------
+</span><span class="comment">-- Required api modules --
+</span><span class="comment">--------------------------
+</span><span class="keyword">local</span> api = <span class="global">require</span>(<span class="string">"api"</span>)
+<span class="keyword">local</span> savehelper = api.operations.callbacks.savehelper
+<span class="keyword">local</span> designerui = api.ui.designer
+<span class="keyword">local</span> transientCallbackHelper =
+    api.operations.callbacks.transientcallbackhelper
+<span class="keyword">local</span> superoned = api.operations.superoned
+<span class="keyword">local</span> common = api.operations.common
+
+<span class="comment">----------------------------------------
+</span><span class="comment">-- Define the GUI and get dummy scans --
+</span><span class="comment">----------------------------------------
+</span><span class="keyword">local</span> pulseAngle = designerui.number(<span class="string">"Pulse Angle"</span>, <span class="number">2</span>, <span class="number">90</span>, <span class="number">0</span>, <span class="number">360</span>)
+<span class="keyword">local</span> dummyScans = core:dummyScans()
+
+<span class="comment">-------------------------------------------------------
+</span><span class="comment">-- Create variable for data storage and register it, --
+</span><span class="comment">-- so data is saved if the <code>save</code> button is pressed  --
+</span><span class="comment">-------------------------------------------------------
+</span><span class="keyword">local</span> dataset1d = newDataSet1D(<span class="string">"1D DataSet"</span>)
+savehelper.saveDataOnSaveButton(<span class="keyword">nil</span>, <span class="string">"1D Data"</span>, dataset1d)
+
+<span class="comment">---------------------------------------------------------
+</span><span class="comment">-- Create displays and pages where data will be viewed --
+</span><span class="comment">---------------------------------------------------------
+</span><span class="keyword">local</span> page = DisplayPage{name = <span class="string">"Data Page"</span>}
+<span class="keyword">local</span> display = Display1D(page, {name = <span class="string">"Data Display"</span>,
+    datasetName = <span class="string">"1D DataSet"</span>, grid = <span class="string">"off"</span>})
+
+<span class="comment">--------------------
+</span><span class="comment">-- Pulse sequence --
+</span><span class="comment">--------------------
+</span><span class="keyword">local</span> chan1 = core:channelConfigSignal()
+<span class="keyword">local</span> p0 = chan1:pulseTimeForAngle(pulseAngle)
+
+<span class="keyword">local</span> p = PulseSequence()
+p:add(newPulseSingle())
+
+p:setPulseTime(<span class="number">0</span>, p0)
+
+<span class="comment">-----------------
+</span><span class="comment">-- Phase cycle --
+</span><span class="comment">-----------------
+</span><span class="keyword">local</span> phaseTable = PhaseTable()
+phaseTable:addEntries({
+    {<span class="number">0</span>, <span class="number">0</span>},
+    {<span class="number">180</span>, <span class="number">180</span>}
+})
+
+phaseTable:setAccumulates(<span class="keyword">true</span>)
+
+<span class="comment">---------------------------------
+</span><span class="comment">-- Transient callback function --
+</span><span class="comment">---------------------------------
+</span><span class="keyword">local</span> <span class="keyword">function</span> transientCallback(currTransient, totalTransients)
+    <span class="keyword">local</span> progress = (<span class="number">100.0</span> * currTransient) / totalTransients
+    <span class="keyword">local</span> msg = <span class="global">string</span>.format(<span class="string">"1D: Running scan #%d of %d"</span>,
+        currTransient, totalTransients)
+    setProgressMessage(msg)
+    setStatusMessage(msg)
+    setProgress(progress)
+
+    <span class="comment">-- Update the display
+</span>    dataset1d:set(core:dataSetSignal())
+    updateDisplay(dataset1d)
+<span class="keyword">end</span>
+
+transientCallbackHelper.registerExperimentCallback(transientCallback)
+
+<span class="comment">-------------------------------------
+</span><span class="comment">-- The main body of the experiment --
+</span><span class="comment">-------------------------------------
+</span>core:usePulseSequence(p)
+setPhaseTable(phaseTable)
+setCalculateIntermediateResults(<span class="keyword">true</span>)
+
+setProgress(<span class="number">0</span>)
+
+common.runDummyScans{dummyScans=dummyScans}
+
+superoned.acquireSingle1D()
+
+setProgress(<span class="number">100</span>)
+setProgressMessage(<span class="string">"Complete"</span>)
+
+dataset1d:set(core:dataSetSignal())
+
+updateDisplay(dataset1d)</pre>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2023-09-22 17:06:42 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

@@ -1,0 +1,752 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>NMReady Experiment Designer Documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Experiment Designer</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Class_Core">Class Core </a></li>
+<li><a href="#IntegralMode">IntegralMode </a></li>
+<li><a href="#Class_Integrals">Class Integrals </a></li>
+</ul>
+
+
+<h2>Sections</h2>
+<ul class="nowrap">
+  <li><a href="../sections/config.html">config</a></li>
+  <li><a href="../sections/core.html">core</a></li>
+  <li><a href="../sections/data.html">data</a></li>
+  <li><a href="../sections/display.html">display</a></li>
+  <li><strong>integrals</strong></li>
+  <li><a href="../sections/pulses.html">pulses</a></li>
+</ul>
+<h2>Manual</h2>
+<ul class="nowrap">
+  <li><a href="../manual/01_Overview.md.html">01_Overview</a></li>
+  <li><a href="../manual/02_Phase_Tables.md.html">02_Phase_Tables</a></li>
+  <li><a href="../manual/03_Language_Reference.md.html">03_Language_Reference</a></li>
+  <li><a href="../manual/04_Saving_Results.md.html">04_Saving_Results</a></li>
+  <li><a href="../manual/05_Special_Functions.md.html">05_Special_Functions</a></li>
+</ul>
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><a href="../examples/1d.lua.html">1d.lua</a></li>
+  <li><a href="../examples/cosy.lua.html">cosy.lua</a></li>
+  <li><a href="../examples/t1.lua.html">t1.lua</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>integrals</code></h1>
+<p>Retrieve integral information from DataSet1D objects.</p>
+<p>
+
+
+</p>
+
+
+<h2><a href="#Class_Core">Class Core </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#Core.copyIntegrals">Core.copyIntegrals()</a></td>
+	<td class="summary">Get a copy of the integrals instance in use by the Core.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.copyIntegrals">Core.copyIntegrals(nucleus)</a></td>
+	<td class="summary">Get a copy of the integrals instance associated with a certain nucleus.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setCurrentIntegrals">Core.setCurrentIntegrals(integrals)</a></td>
+	<td class="summary">Change the Core's copy of the integrals for the current nucleus.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Core.setIntegrals">Core.setIntegrals(nucleus, integrals)</a></td>
+	<td class="summary">Change the Core's copy of the integrals for a specific nucleus.</td>
+	</tr>
+</table>
+<h2><a href="#IntegralMode">IntegralMode </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#IntegralMode">IntegralMode</a></td>
+	<td class="summary">Constants:
+Integration modes.</td>
+	</tr>
+</table>
+<h2><a href="#Class_Integrals">Class Integrals </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" ><a href="#Integrals.integralMode">Integrals.integralMode()</a></td>
+	<td class="summary">Returns the integralMode, see IntegralMode enum class.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.setIntegralModeAutomatic">Integrals.setIntegralModeAutomatic()</a></td>
+	<td class="summary">The next time integrals are calculated, manual mode will be used.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.setIntegralModeManual">Integrals.setIntegralModeManual()</a></td>
+	<td class="summary">The next time integrals are calculated, automatic mode will be used.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.integralThresholdMultiplier">Integrals.integralThresholdMultiplier()</a></td>
+	<td class="summary">Get the integral threshold multiplier.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.setIntegralThresholdMultiplier">Integrals.setIntegralThresholdMultiplier(multiplier)</a></td>
+	<td class="summary">Set the integral threshold multiplier.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.integralThreshold">Integrals.integralThreshold()</a></td>
+	<td class="summary">
+
+</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.integrate">Integrals.integrate(dataSet, type)</a></td>
+	<td class="summary">Use the given dataset and current configuration to calculate integrals.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.integrate">Integrals.integrate(dataSet)</a></td>
+	<td class="summary">Use the given dataset and current configuration to calculate integrals.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.calculateMinMaxIntegralsPpm">Integrals.calculateMinMaxIntegralsPpm(dataSet, type)</a></td>
+	<td class="summary">Find left and right basins of each peak and return two vectors in ppm with the left and right values.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.addManualIntegral">Integrals.addManualIntegral(integralStartPpm, integralEndPpm)</a></td>
+	<td class="summary">Add a manual integral using the specified start and end points.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.removeManualIntegral">Integrals.removeManualIntegral(integralId)</a></td>
+	<td class="summary">Remove a manual integral with the specified integral ID.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.removeAllManualIntegrals">Integrals.removeAllManualIntegrals()</a></td>
+	<td class="summary">Remove all manual integrals.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.setReferenceEnergy">Integrals.setReferenceEnergy(referenceEnergy)</a></td>
+	<td class="summary">Set the reference energy for the currently selected integral mode.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.referenceEnergy">Integrals.referenceEnergy()</a></td>
+	<td class="summary">Get the reference energy for the currently selected integral mode.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.integralRange">Integrals.integralRange(id)</a></td>
+	<td class="summary">Get the range of an integral.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.numIntegrals">Integrals.numIntegrals()</a></td>
+	<td class="summary">Get the number of integrals (automatic or manual, whichever is the current configuration)</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.integralPeakInfo">Integrals.integralPeakInfo(id)</a></td>
+	<td class="summary">Get info for the maximum value in an integral area.</td>
+	</tr>
+	<tr>
+	<td class="name" ><a href="#Integrals.integralEnergy">Integrals.integralEnergy(id)</a></td>
+	<td class="summary">The energy of an integral (its area)</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header has-description"><a name="Class_Core"></a>Class Core </h2>
+
+          <div class="section-description">
+          The Core class maintains the system's active configuration as well as provides access to hardware.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "Core.copyIntegrals"></a>
+    <strong>Core.copyIntegrals()</strong>
+    </dt>
+    <dd>
+    Get a copy of the integrals instance in use by the Core.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/integrals.html#Integrals">Integrals</a></span>
+        A copy of the integrals
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.copyIntegrals"></a>
+    <strong>Core.copyIntegrals(nucleus)</strong>
+    </dt>
+    <dd>
+    Get a copy of the integrals instance associated with a certain nucleus.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">nucleus</span>
+            <span class="types"><span class="type">NucleusSelection</span></span>
+
+
+
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/integrals.html#Integrals">Integrals</a></span>
+        A copy of the integrals
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setCurrentIntegrals"></a>
+    <strong>Core.setCurrentIntegrals(integrals)</strong>
+    </dt>
+    <dd>
+    Change the Core's copy of the integrals for the current nucleus.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">integrals</span>
+            <span class="types"><a class="type" href="../sections/integrals.html#Integrals">Integrals</a></span>
+         The integrals to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Core.setIntegrals"></a>
+    <strong>Core.setIntegrals(nucleus, integrals)</strong>
+    </dt>
+    <dd>
+    Change the Core's copy of the integrals for a specific nucleus.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">nucleus</span>
+            <span class="types"><span class="type">NucleusSelection</span></span>
+         The nucleus to set the integrals for
+        </li>
+        <li><span class="parameter">integrals</span>
+            <span class="types"><a class="type" href="../sections/integrals.html#Integrals">Integrals</a></span>
+         The integrals to use
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="IntegralMode"></a>IntegralMode </h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "IntegralMode"></a>
+    <strong>IntegralMode</strong>
+    </dt>
+    <dd>
+    Constants:
+Integration modes.
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">AUTO</span>
+         0
+        </li>
+        <li><span class="parameter">MANUAL</span>
+         1
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">IntegralMode.AUTO</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header has-description"><a name="Class_Integrals"></a>Class Integrals </h2>
+
+          <div class="section-description">
+          A class that can calculate and store integral information from a DataSet1D object.
+The configuration is stored in this class. The default is to do an automatic integral calculation.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "Integrals.integralMode"></a>
+    <strong>Integrals.integralMode()</strong>
+    </dt>
+    <dd>
+    Returns the integralMode, see IntegralMode enum class.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../sections/integrals.html#IntegralMode">IntegralMode</a></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.setIntegralModeAutomatic"></a>
+    <strong>Integrals.setIntegralModeAutomatic()</strong>
+    </dt>
+    <dd>
+    The next time integrals are calculated, manual mode will be used.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.setIntegralModeManual"></a>
+    <strong>Integrals.setIntegralModeManual()</strong>
+    </dt>
+    <dd>
+    The next time integrals are calculated, automatic mode will be used.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.integralThresholdMultiplier"></a>
+    <strong>Integrals.integralThresholdMultiplier()</strong>
+    </dt>
+    <dd>
+    Get the integral threshold multiplier.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The threshold multiplier
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.setIntegralThresholdMultiplier"></a>
+    <strong>Integrals.setIntegralThresholdMultiplier(multiplier)</strong>
+    </dt>
+    <dd>
+    Set the integral threshold multiplier.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">multiplier</span>
+            <span class="types"><span class="type">double</span></span>
+         The threshold multiplier
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.integralThreshold"></a>
+    <strong>Integrals.integralThreshold()</strong>
+    </dt>
+    <dd>
+
+
+
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The threshold used when the integrals were last calculated
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.integrate"></a>
+    <strong>Integrals.integrate(dataSet, type)</strong>
+    </dt>
+    <dd>
+    Use the given dataset and current configuration to calculate integrals.
+The intergrals are stored in this object. If the TD SNR is higher than 2.0, the integral threshold is increased to try to ignore noise in the FD data. This is an overloaded function. The integrals can be computed on the real, imaginary, magnitude or power of an spectrum.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataSet</span>
+            <span class="types"><span class="type">DataSet1D</span></span>
+         The dataset to use for integration
+        </li>
+        <li><span class="parameter">type</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         is a string possible values: real imag mag power
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.integrate"></a>
+    <strong>Integrals.integrate(dataSet)</strong>
+    </dt>
+    <dd>
+    Use the given dataset and current configuration to calculate integrals.
+The intergrals are stored in this object. If the TD SNR is higher than 2.0, the integral threshold is increased to try to ignore noise in the FD data. This is an overloaded function. The integrals will be computed on the real part of an spectrum.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataSet</span>
+            <span class="types"><span class="type">DataSet1D</span></span>
+         The dataset to use for integration
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.calculateMinMaxIntegralsPpm"></a>
+    <strong>Integrals.calculateMinMaxIntegralsPpm(dataSet, type)</strong>
+    </dt>
+    <dd>
+    Find left and right basins of each peak and return two vectors in ppm with the left and right values.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dataSet</span>
+            <span class="types"><span class="type">DataSet1D</span></span>
+         (input) The pointer to a DataSet1D object
+        </li>
+        <li><span class="parameter">type</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></span>
+         (input) The type of data (real, imag, mag or power) to process
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">vector<_double_></span></span>
+        minInt The left basin of each peak found</li>
+        <li>
+           <span class="types"><span class="type">vector<_double_></span></span>
+        maxInt The right basin of each peak found</li>
+        <li>
+           <span class="types"><span class="type">vector<_double_></span></span>
+        peak The peak in between basins</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.addManualIntegral"></a>
+    <strong>Integrals.addManualIntegral(integralStartPpm, integralEndPpm)</strong>
+    </dt>
+    <dd>
+    Add a manual integral using the specified start and end points.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">integralStartPpm</span>
+            <span class="types"><span class="type">double</span></span>
+         The start value in PPM
+        </li>
+        <li><span class="parameter">integralEndPpm</span>
+            <span class="types"><span class="type">double</span></span>
+         The end value in PPM
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">int</span></span>
+        The integral id
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.removeManualIntegral"></a>
+    <strong>Integrals.removeManualIntegral(integralId)</strong>
+    </dt>
+    <dd>
+    Remove a manual integral with the specified integral ID.
+Integrals with an ID higher than this will be adjusted by -1.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">integralId</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The ID of the integral to remove.
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.removeAllManualIntegrals"></a>
+    <strong>Integrals.removeAllManualIntegrals()</strong>
+    </dt>
+    <dd>
+    Remove all manual integrals.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.setReferenceEnergy"></a>
+    <strong>Integrals.setReferenceEnergy(referenceEnergy)</strong>
+    </dt>
+    <dd>
+    Set the reference energy for the currently selected integral mode.
+If you change the integral mode, you will need to re-set the reference energy.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">referenceEnergy</span>
+            <span class="types"><span class="type">double</span></span>
+         When calculated, all integrals will be scaled so that this is considered a value of 1.0
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.referenceEnergy"></a>
+    <strong>Integrals.referenceEnergy()</strong>
+    </dt>
+    <dd>
+    Get the reference energy for the currently selected integral mode.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The value that is considered 1.0 after scaling
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.integralRange"></a>
+    <strong>Integrals.integralRange(id)</strong>
+    </dt>
+    <dd>
+    Get the range of an integral.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">id</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The integral number (from 0 to numIntegrals() - 1)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        xStart The start value (in PPM)</li>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        xEnd The end value (in PPM)</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.numIntegrals"></a>
+    <strong>Integrals.numIntegrals()</strong>
+    </dt>
+    <dd>
+    Get the number of integrals (automatic or manual, whichever is the current configuration)
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">unsigned_int</span></span>
+        The number of integrals.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.integralPeakInfo"></a>
+    <strong>Integrals.integralPeakInfo(id)</strong>
+    </dt>
+    <dd>
+    Get info for the maximum value in an integral area.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">id</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The integral number (from 0 to numIntegrals() - 1)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        peakLocation Location of the peak (in PPM)</li>
+        <li>
+           <span class="types"><span class="type">double</span></span>
+        peakIntensity Absolute intensity of the peak</li>
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "Integrals.integralEnergy"></a>
+    <strong>Integrals.integralEnergy(id)</strong>
+    </dt>
+    <dd>
+    The energy of an integral (its area)
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">id</span>
+            <span class="types"><span class="type">unsigned_int</span></span>
+         The integral number (from 0 to numIntegrals() - 1)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">double</span></span>
+        The area of the integral
+    </ol>
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2023-09-22 17:06:42 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

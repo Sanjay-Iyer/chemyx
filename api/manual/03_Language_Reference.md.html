@@ -1,0 +1,174 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>NMReady Experiment Designer Documentation</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Experiment Designer</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+
+
+<h2>Manual</h2>
+<ul class="nowrap">
+  <li><a href="../manual/01_Overview.md.html">01_Overview</a></li>
+  <li><a href="../manual/02_Phase_Tables.md.html">02_Phase_Tables</a></li>
+  <li><strong>03_Language_Reference</strong></li>
+  <li><a href="../manual/04_Saving_Results.md.html">04_Saving_Results</a></li>
+  <li><a href="../manual/05_Special_Functions.md.html">05_Special_Functions</a></li>
+</ul>
+<h2>Sections</h2>
+<ul class="nowrap">
+  <li><a href="../sections/config.html">config</a></li>
+  <li><a href="../sections/core.html">core</a></li>
+  <li><a href="../sections/data.html">data</a></li>
+  <li><a href="../sections/display.html">display</a></li>
+  <li><a href="../sections/integrals.html">integrals</a></li>
+  <li><a href="../sections/pulses.html">pulses</a></li>
+</ul>
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><a href="../examples/1d.lua.html">1d.lua</a></li>
+  <li><a href="../examples/cosy.lua.html">cosy.lua</a></li>
+  <li><a href="../examples/t1.lua.html">t1.lua</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+
+<h1>Language reference</h1>
+
+<p>The Experiment Designer uses the Lua 5.1 interpreter.</p>
+
+<p>You can create your own modules if you would like to share
+functionality between multiple experiments.</p>
+
+<h1>Available Lua libraries</h1>
+
+<p>The available libraries are:</p>
+
+<ul>
+    <li><a href="https://www.lua.org/manual/5.1/manual.html#5.5">table</a></li>
+    <li><a href="https://www.lua.org/manual/5.1/manual.html#5.4">string</a></li>
+    <li><a href="https://www.lua.org/manual/5.1/manual.html#5.6">math</a></li>
+    <li><a href="https://www.lua.org/manual/5.1/manual.html#5.9">debug</a></li>
+    <li><a href="https://www.lua.org/manual/5.1/manual.html#5.3">package</a></li>
+</ul>
+
+<p>The "io" and "os" libraries are not available.</p>
+
+<h1>When do I use a colon and when do I use a dot?</h1>
+
+<p>Most access to the NMReady software is through objects. To call
+methods on an object, you use a single colon.</p>
+
+
+<pre>
+pulse90 = core:channelConfigSignal():get90PulseSeconds()
+</pre>
+
+<p>An exception to this is tables of constants. These are accessed using
+a dot.</p>
+
+
+<pre>
+decouplingSettings:setDecouplingModeSelection(DecouplingMode.On)
+</pre>
+
+<p>Other Lua functionality is provided by the Lua libraries. To access a
+function from one of the libraries, use a dot.</p>
+
+
+<pre>
+s = <span class="global">string</span>.format(<span class="string">"Linewidth: %.2f"</span>, linewidth)
+</pre>
+
+<h1>Making copies of complex objects</h1>
+
+<p>In Lua, objects are referenced by a handle. When you use the assignment
+operator (=) to give an object a new name, it does not copy the
+object. The object just has two different variable names that refer to
+it. For example, this will result in one DataSet1D object that has two
+names, "original" and "notACopy":</p>
+
+
+<pre>
+original = core:dataSetSignal()
+notACopy = original
+</pre>
+
+<p>Anything done to original after this still affects notACopy. To create
+a copy, either the set() or clone() method must be used on that
+object. Some objects support one or the other, so check the
+documentation first. Using DataSet1D as an example:</p>
+
+
+<pre>
+original = core:dataSetSignal()
+copy = newDataSet1D(<span class="string">"My copy"</span>)
+copy:set(original)
+</pre>
+
+<p>Now operations can be performed on "original" or "copy" and they will
+not interfere with each other. This results in additional memory
+usage.</p>
+
+<h1>Long running experiments and memory usage</h1>
+
+<p>If you are collecting a lot of data into a Results2D, you will
+eventually run out of memory to store the data. Try to limit the
+number of points and reduce 1D zero filling. You will also be able to
+acquire much more data if it is not displayed in the GUI.</p>
+
+<p>If you are running an experiment where many DataSet1D or Results2D are
+exported, consider deleting the data from memory after they are
+exported to disk. <a href="https://www.lua.org/manual/5.1/manual.html#pdf-collectgarbage">collectgarbage</a> can be used to force memory to
+be freed for objects that no longer have a reference.</p>
+
+
+<pre>
+<span class="comment">-- After export, the data is no longer required to be in memory.
+</span>exportResults2D(myResults2D, <span class="string">"my_experiment_results_1"</span>)
+<span class="comment">-- Remove the reference to the object:
+</span>myResults2D = <span class="keyword">nil</span>
+<span class="comment">-- The object will be deleted here, allowing much more data to be
+</span><span class="comment">-- collected before the experiment is finished.
+</span><span class="global">collectgarbage</span>()
+</pre>
+
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2023-09-22 17:06:42 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

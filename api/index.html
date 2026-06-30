@@ -1,0 +1,175 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>NMReady Experiment Designer Documentation</title>
+    <link rel="stylesheet" href="ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Experiment Designer</h1>
+
+
+
+
+<h2>Sections</h2>
+<ul class="nowrap">
+  <li><a href="sections/config.html">config</a></li>
+  <li><a href="sections/core.html">core</a></li>
+  <li><a href="sections/data.html">data</a></li>
+  <li><a href="sections/display.html">display</a></li>
+  <li><a href="sections/integrals.html">integrals</a></li>
+  <li><a href="sections/pulses.html">pulses</a></li>
+</ul>
+<h2>Manual</h2>
+<ul class="nowrap">
+  <li><a href="manual/01_Overview.md.html">01_Overview</a></li>
+  <li><a href="manual/02_Phase_Tables.md.html">02_Phase_Tables</a></li>
+  <li><a href="manual/03_Language_Reference.md.html">03_Language_Reference</a></li>
+  <li><a href="manual/04_Saving_Results.md.html">04_Saving_Results</a></li>
+  <li><a href="manual/05_Special_Functions.md.html">05_Special_Functions</a></li>
+</ul>
+<h2>Examples</h2>
+<ul class="nowrap">
+  <li><a href="examples/1d.lua.html">1d.lua</a></li>
+  <li><a href="examples/cosy.lua.html">cosy.lua</a></li>
+  <li><a href="examples/t1.lua.html">t1.lua</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+
+  <p>
+
+<h1>NMReady Experiment Designer</h1>
+
+<p>The documentation is divided into several sections that cover different aspects of the Experiment Designer.</p>
+
+<p>The script interpreter is Lua 5.1. <a href="https://www.lua.org/manual/5.1/manual.html#pdf-assert">The reference manual is available here</a>.</p>
+
+<p>NMReady functionality is provided by a mixture of class and method wrappers. Some classes have many methods and are documented across multiple sections. In that sense, this documentation is organized by topic and not by the classes themselves.</p>
+
+<p>The manuals cover topics in more detail and reference the class and method documentation.</p>
+
+<p>See the examples for ideas of how an experiment can be designed. Some examples are large and cover everything from configuration widgets in the GUI to displaying and exporting results. Others focus on one aspect at a time.</p>
+
+<h1>Parameter and Return types</h1>
+
+<p>The underylying code is written in C++ and the documentation sections are generated from it automatically. There are a few differences in types between C++ and Lua, but the translation is fairly straightforward.</p>
+
+<p>Some type conversions from documentation (C++) to how it will appear in the Experiment Programmer (Lua.)</p>
+
+<ul>
+    <li><p>If the documentation mentions <code>vector&lt;_string_&gt;</code>, it means the Lua type is an array where each element of the array is a string.</p>
+
+<pre><code>-- Documentation:
+vector&lt;_string_&gt;
+-- Experiment code:
+{ "element1", "element2", "element3" }
+</code></pre></li>
+    <li><p>If the documentation mentions <code>map&lt;_string,_string_&gt;</code>, the Lua type is a dictionary where all of the keys are strings and all of the values are strings.</p>
+
+<pre><code>-- Documentation:
+map&lt;_string,_string_&gt;
+-- Experiment code:
+{ key1 = "value1", key2 = "value2", key3 = "value3" }
+</code></pre></li>
+</ul>
+
+
+</p>
+
+<h2>Sections</h2>
+<table class="module_list">
+	<tr>
+		<td class="name"  ><a href="sections/config.html">config</a></td>
+		<td class="summary">Acquisition parameters and other configuration items.</td>
+	</tr>
+	<tr>
+		<td class="name"  ><a href="sections/core.html">core</a></td>
+		<td class="summary">The primary interface to the NMReady hardware.</td>
+	</tr>
+	<tr>
+		<td class="name"  ><a href="sections/data.html">data</a></td>
+		<td class="summary">1D and 2D data analysis and export.</td>
+	</tr>
+	<tr>
+		<td class="name"  ><a href="sections/display.html">display</a></td>
+		<td class="summary">Display, logging, and GUI configuration.</td>
+	</tr>
+	<tr>
+		<td class="name"  ><a href="sections/integrals.html">integrals</a></td>
+		<td class="summary">Retrieve integral information from DataSet1D objects.</td>
+	</tr>
+	<tr>
+		<td class="name"  ><a href="sections/pulses.html">pulses</a></td>
+		<td class="summary">Classes and methods related to pulse sequences.</td>
+	</tr>
+</table>
+<h2>Manual</h2>
+<table class="module_list">
+	<tr>
+		<td class="name"  ><a href="manual/01_Overview.md.html">01_Overview.md</a></td>
+		<td class="summary"></td>
+	</tr>
+	<tr>
+		<td class="name"  ><a href="manual/02_Phase_Tables.md.html">02_Phase_Tables.md</a></td>
+		<td class="summary"></td>
+	</tr>
+	<tr>
+		<td class="name"  ><a href="manual/03_Language_Reference.md.html">03_Language_Reference.md</a></td>
+		<td class="summary"></td>
+	</tr>
+	<tr>
+		<td class="name"  ><a href="manual/04_Saving_Results.md.html">04_Saving_Results.md</a></td>
+		<td class="summary"></td>
+	</tr>
+	<tr>
+		<td class="name"  ><a href="manual/05_Special_Functions.md.html">05_Special_Functions.md</a></td>
+		<td class="summary"></td>
+	</tr>
+</table>
+<h2>Examples</h2>
+<table class="module_list">
+	<tr>
+		<td class="name"  ><a href="examples/1d.lua.html">1d.lua</a></td>
+		<td class="summary"></td>
+	</tr>
+	<tr>
+		<td class="name"  ><a href="examples/cosy.lua.html">cosy.lua</a></td>
+		<td class="summary"></td>
+	</tr>
+	<tr>
+		<td class="name"  ><a href="examples/t1.lua.html">t1.lua</a></td>
+		<td class="summary"></td>
+	</tr>
+</table>
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2023-09-22 17:06:42 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>
