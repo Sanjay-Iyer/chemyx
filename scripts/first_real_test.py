@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -34,6 +36,12 @@ DEFAULT_RATE_ML_MIN = 2.0
 DEFAULT_VOLUME_ML = 5.0
 DEFAULT_SAVE_DIR = Path("runs") / "nmr" / "first_real_test"
 DEFAULT_WORKFLOW_CONFIG = config.REPO_ROOT / "configs" / "first_real_test.local.json"
+
+
+@dataclass(frozen=True)
+class WorkflowEvent:
+    kind: str
+    volume_ml: float | None = None
 
 
 PUMP_CONFIG_KEYS = {
@@ -420,20 +428,29 @@ def format_seconds(seconds: float) -> str:
     return f"{rem} s"
 
 
-def normalize_sequence(sequence) -> list[str]:
+def normalize_sequence(sequence) -> list[WorkflowEvent]:
     if sequence in (None, ""):
-        return ["W", "N", "I"]
+        return [WorkflowEvent("W"), WorkflowEvent("N"), WorkflowEvent("I")]
     if isinstance(sequence, str):
-        text = sequence.strip().upper().replace(",", " ")
+        text = sequence.strip().replace(",", " ")
         if any(char.isspace() for char in text):
             tokens = [token for token in text.split() if token]
-        else:
+        elif re.fullmatch(r"[WwIiNn]+", text):
             tokens = list(text)
+        else:
+            tokens = [text]
     elif isinstance(sequence, list):
-        tokens = [str(item).strip().upper() for item in sequence]
+        tokens = sequence
     else:
         raise ValueError("Workflow sequence must be a string or list")
 
+    events = [_parse_sequence_item(token) for token in tokens]
+    if not events:
+        raise ValueError("Workflow sequence cannot be empty")
+    return events
+
+
+def _parse_sequence_item(item) -> WorkflowEvent:
     aliases = {
         "W": "W",
         "WITHDRAW": "W",
@@ -442,21 +459,90 @@ def normalize_sequence(sequence) -> list[str]:
         "N": "N",
         "NMR": "N",
     }
-    events = []
-    for token in tokens:
-        if token not in aliases:
+    if isinstance(item, dict):
+        allowed = {"event", "kind", "type", "action", "volume", "volume_ml", "ml"}
+        unknown = sorted(set(item) - allowed)
+        if unknown:
             raise ValueError(
-                f"Unknown workflow event {token!r}; use W, I, or N"
+                "Unknown sequence event key(s): " + ", ".join(unknown)
             )
-        events.append(aliases[token])
-    if not events:
-        raise ValueError("Workflow sequence cannot be empty")
-    return events
+        raw_kind = None
+        for key in ("event", "kind", "type", "action"):
+            if key in item:
+                raw_kind = item[key]
+                break
+        if raw_kind in (None, ""):
+            raise ValueError("Sequence event object must include 'event'")
+        volume = None
+        for key in ("volume_ml", "volume", "ml"):
+            if key in item and item[key] not in (None, ""):
+                volume = _parse_volume(item[key])
+                break
+        kind = aliases.get(str(raw_kind).strip().upper())
+    else:
+        token = str(item).strip()
+        if not token:
+            raise ValueError("Sequence event cannot be blank")
+        event_text = token
+        volume = None
+        if ":" in token or "=" in token:
+            event_text, raw_volume = re.split(r"[:=]", token, maxsplit=1)
+            volume = _parse_volume(raw_volume)
+        else:
+            match = re.fullmatch(
+                r"([A-Za-z]+|[WINwin])(?:\s*([0-9]+(?:\.[0-9]+)?)(?:\s*mL)?)?",
+                token,
+            )
+            if not match:
+                raise ValueError(
+                    f"Unknown workflow event {token!r}; use W, I, N, or W:5"
+                )
+            event_text = match.group(1)
+            if match.group(2) is not None:
+                volume = _parse_volume(match.group(2))
+        kind = aliases.get(str(event_text).strip().upper())
+
+    if kind is None:
+        raise ValueError(f"Unknown workflow event {item!r}; use W, I, or N")
+    if kind == "N" and volume is not None:
+        raise ValueError("NMR events cannot have a pump volume")
+    if kind in {"W", "I"} and volume is not None and volume <= 0:
+        raise ValueError("Pump event volumes must be positive")
+    return WorkflowEvent(kind, volume)
 
 
-def format_sequence(events: list[str]) -> str:
-    names = {"W": "withdraw", "I": "infuse", "N": "NMR"}
-    return " -> ".join(f"{event}({names[event]})" for event in events)
+def _parse_volume(value) -> float:
+    text = str(value).strip().lower().replace("ml", "").strip()
+    try:
+        return float(text)
+    except ValueError as exc:
+        raise ValueError(f"Could not parse pump event volume {value!r}") from exc
+
+
+def format_sequence(
+    events: list[WorkflowEvent],
+    withdraw_default: float | None = None,
+    infuse_default: float | None = None,
+) -> str:
+    parts = []
+    for event in events:
+        if event.kind == "N":
+            parts.append("N(NMR)")
+            continue
+        if event.kind == "W":
+            volume = event.volume_ml if event.volume_ml is not None else withdraw_default
+            parts.append(f"W(withdraw {_format_volume(volume)} mL)")
+            continue
+        if event.kind == "I":
+            volume = event.volume_ml if event.volume_ml is not None else infuse_default
+            parts.append(f"I(infuse {_format_volume(volume)} mL)")
+    return " -> ".join(parts)
+
+
+def _format_volume(volume: float | None) -> str:
+    if volume is None:
+        return "default"
+    return f"{float(volume):g}"
 
 
 def effective_move_volumes(args) -> tuple[float, float]:
@@ -471,6 +557,18 @@ def effective_move_volumes(args) -> tuple[float, float]:
     if infuse_volume <= 0:
         raise ValueError("Infuse volume must be positive")
     return float(withdraw_volume), float(infuse_volume)
+
+
+def event_volume(
+    event: WorkflowEvent,
+    withdraw_default: float,
+    infuse_default: float,
+) -> float:
+    if event.kind == "W":
+        return float(event.volume_ml if event.volume_ml is not None else withdraw_default)
+    if event.kind == "I":
+        return float(event.volume_ml if event.volume_ml is not None else infuse_default)
+    raise ValueError("NMR events do not have a pump volume")
 
 
 def sleep_with_progress(label: str, seconds: float, mock: bool = False) -> None:
@@ -494,18 +592,26 @@ def confirm_run(args, pump_cfg: config.PumpConfig, nmr_settings: config.NmrSetti
 
     events = normalize_sequence(args.sequence)
     withdraw_volume, infuse_volume = effective_move_volumes(args)
+    pump_event_volumes = [
+        event_volume(event, withdraw_volume, infuse_volume)
+        for event in events
+        if event.kind in {"W", "I"}
+    ]
     longest_move = max(
-        move_seconds(withdraw_volume, pump_cfg.rate, pump_cfg.units),
-        move_seconds(infuse_volume, pump_cfg.rate, pump_cfg.units),
+        (
+            move_seconds(volume, pump_cfg.rate, pump_cfg.units)
+            for volume in pump_event_volumes
+        ),
+        default=0.0,
     )
     print("This will physically move the Chemyx pump and run the NMR.")
     print(
         f"Pump: {pump_cfg.port} @ {pump_cfg.baud_rate}, channel {pump_cfg.channel}, "
-        f"W={withdraw_volume} mL, I={infuse_volume} mL at "
+        f"default W={withdraw_volume} mL, default I={infuse_volume} mL at "
         f"{pump_cfg.rate} {config.UNITS[pump_cfg.units]}."
     )
     print(
-        f"Sequence: {format_sequence(events)}. "
+        f"Sequence: {format_sequence(events, withdraw_volume, infuse_volume)}. "
         f"Longest pump move is about {format_seconds(longest_move)}."
     )
     print(
@@ -663,8 +769,18 @@ def run_nmr_acquisition(
 def print_plan(args, pump_cfg: config.PumpConfig, nmr_settings: config.NmrSettings) -> None:
     events = normalize_sequence(args.sequence)
     withdraw_volume, infuse_volume = effective_move_volumes(args)
-    withdraw_seconds = move_seconds(withdraw_volume, pump_cfg.rate, pump_cfg.units)
-    infuse_seconds = move_seconds(infuse_volume, pump_cfg.rate, pump_cfg.units)
+    pump_event_volumes = [
+        event_volume(event, withdraw_volume, infuse_volume)
+        for event in events
+        if event.kind in {"W", "I"}
+    ]
+    longest_move = max(
+        (
+            move_seconds(volume, pump_cfg.rate, pump_cfg.units)
+            for volume in pump_event_volumes
+        ),
+        default=0.0,
+    )
     print("=" * 72)
     print("First real Chemyx + NMR test")
     print("=" * 72)
@@ -672,14 +788,11 @@ def print_plan(args, pump_cfg: config.PumpConfig, nmr_settings: config.NmrSettin
     print(f"Pump port      : {pump_cfg.port} @ {pump_cfg.baud_rate}")
     print(f"Pump channel   : {pump_cfg.channel}")
     print(f"Syringe ID     : {pump_cfg.diameter} mm")
-    print(f"Sequence       : {format_sequence(events)}")
-    print(f"Pump W volume  : {withdraw_volume} mL")
-    print(f"Pump I volume  : {infuse_volume} mL")
+    print(f"Sequence       : {format_sequence(events, withdraw_volume, infuse_volume)}")
+    print(f"Default W vol  : {withdraw_volume} mL")
+    print(f"Default I vol  : {infuse_volume} mL")
     print(f"Pump rate      : {pump_cfg.rate} {config.UNITS[pump_cfg.units]}")
-    print(
-        "Move estimate  : "
-        f"W {format_seconds(withdraw_seconds)}, I {format_seconds(infuse_seconds)}"
-    )
+    print(f"Move estimate  : longest pump event {format_seconds(longest_move)}")
     print(f"NMR RPC        : {nmr_settings.scheme}://{nmr_settings.host}:{nmr_settings.port}")
     print(f"NMR settings   : route={nmr_settings.route}, scans={nmr_settings.scans}")
     print(
@@ -728,29 +841,31 @@ def main() -> int:
             net_withdrawn = 0.0
             nmr_count = 0
             for index, event in enumerate(events, start=1):
-                if event == "W":
+                if event.kind == "W":
+                    volume = event_volume(event, withdraw_volume, infuse_volume)
                     print(f"\n[{index}] Withdraw sample")
                     run_metered_move(
                         pump,
                         pump_cfg,
                         "withdraw",
-                        withdraw_volume,
+                        volume,
                         extra_seconds=args.pump_extra_seconds,
                         mock=args.mock_pump,
                     )
-                    net_withdrawn += withdraw_volume
-                elif event == "I":
+                    net_withdrawn += volume
+                elif event.kind == "I":
+                    volume = event_volume(event, withdraw_volume, infuse_volume)
                     print(f"\n[{index}] Infuse sample")
                     run_metered_move(
                         pump,
                         pump_cfg,
                         "infuse",
-                        infuse_volume,
+                        volume,
                         extra_seconds=args.pump_extra_seconds,
                         mock=args.mock_pump,
                     )
-                    net_withdrawn = max(0.0, net_withdrawn - infuse_volume)
-                elif event == "N":
+                    net_withdrawn = max(0.0, net_withdrawn - volume)
+                elif event.kind == "N":
                     print(f"\n[{index}] NMR acquisition")
                     nmr_count += 1
                     try:

@@ -8,7 +8,19 @@
     "rate": 2.0
   },
   "workflow": {
-    "sequence": ["W", "N", "I"],
+    "sequence": [
+      {
+        "event": "W",
+        "volume_ml": 5.0
+      },
+      {
+        "event": "N"
+      },
+      {
+        "event": "I",
+        "volume_ml": 5.0
+      }
+    ],
     "volume_ml": 5.0,
     "pump_extra_seconds": 2.0,
     "settle_before_nmr_seconds": 0.0

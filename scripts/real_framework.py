@@ -21,7 +21,7 @@ DEFAULT_WORKFLOW_CONFIG = config.REPO_ROOT / "configs" / "real_framework.local.j
 @dataclass(frozen=True)
 class FrameworkSettings:
     cycles: int
-    sequence: list[str]
+    sequence: list[first_real_test.WorkflowEvent]
     withdraw_volume_ml: float
     infuse_volume_ml: float
     settle_before_nmr_seconds: float
@@ -78,31 +78,38 @@ def print_plan(
     nmr_settings: config.NmrSettings,
     framework: FrameworkSettings,
 ) -> None:
-    withdraw_seconds = first_real_test.move_seconds(
-        framework.withdraw_volume_ml, pump_cfg.rate, pump_cfg.units
-    )
-    infuse_seconds = first_real_test.move_seconds(
-        framework.infuse_volume_ml, pump_cfg.rate, pump_cfg.units
+    pump_event_volumes = [
+        first_real_test.event_volume(
+            event,
+            framework.withdraw_volume_ml,
+            framework.infuse_volume_ml,
+        )
+        for event in framework.sequence
+        if event.kind in {"W", "I"}
+    ]
+    longest_move = max(
+        (
+            first_real_test.move_seconds(volume, pump_cfg.rate, pump_cfg.units)
+            for volume in pump_event_volumes
+        ),
+        default=0.0,
     )
     print("=" * 72)
     print("Real Chemyx + NMR framework")
     print("=" * 72)
     print(f"Config file    : {args.workflow_config}")
     print(f"Cycles         : {framework.cycles}")
-    print(f"Sequence       : {first_real_test.format_sequence(framework.sequence)}")
+    print(
+        "Sequence       : "
+        f"{first_real_test.format_sequence(framework.sequence, framework.withdraw_volume_ml, framework.infuse_volume_ml)}"
+    )
     print(f"Pump port      : {pump_cfg.port} @ {pump_cfg.baud_rate}")
     print(f"Pump channel   : {pump_cfg.channel}")
     print(f"Syringe ID     : {pump_cfg.diameter} mm")
-    print(
-        f"Pump moves     : withdraw {framework.withdraw_volume_ml} mL, "
-        f"infuse {framework.infuse_volume_ml} mL"
-    )
+    print(f"Default W vol  : {framework.withdraw_volume_ml} mL")
+    print(f"Default I vol  : {framework.infuse_volume_ml} mL")
     print(f"Pump rate      : {pump_cfg.rate} {config.UNITS[pump_cfg.units]}")
-    print(
-        "Move estimate  : "
-        f"withdraw {first_real_test.format_seconds(withdraw_seconds)}, "
-        f"infuse {first_real_test.format_seconds(infuse_seconds)}"
-    )
+    print(f"Move estimate  : longest pump event {first_real_test.format_seconds(longest_move)}")
     print(f"Pre-NMR pause  : {first_real_test.format_seconds(framework.settle_before_nmr_seconds)}")
     print(f"Cycle interval : {framework.between_cycles_minutes} min after each completed cycle")
     print(f"NMR RPC        : {nmr_settings.scheme}://{nmr_settings.host}:{nmr_settings.port}")
@@ -162,29 +169,39 @@ def main() -> int:
                 net_withdrawn = 0.0
                 nmr_count = 0
                 for index, event in enumerate(framework.sequence, start=1):
-                    if event == "W":
+                    if event.kind == "W":
+                        volume = first_real_test.event_volume(
+                            event,
+                            framework.withdraw_volume_ml,
+                            framework.infuse_volume_ml,
+                        )
                         print(f"[{index}] Withdraw")
                         first_real_test.run_metered_move(
                             pump,
                             pump_cfg,
                             "withdraw",
-                            framework.withdraw_volume_ml,
+                            volume,
                             extra_seconds=args.pump_extra_seconds,
                             mock=args.mock_pump,
                         )
-                        net_withdrawn += framework.withdraw_volume_ml
-                    elif event == "I":
+                        net_withdrawn += volume
+                    elif event.kind == "I":
+                        volume = first_real_test.event_volume(
+                            event,
+                            framework.withdraw_volume_ml,
+                            framework.infuse_volume_ml,
+                        )
                         print(f"[{index}] Infuse")
                         first_real_test.run_metered_move(
                             pump,
                             pump_cfg,
                             "infuse",
-                            framework.infuse_volume_ml,
+                            volume,
                             extra_seconds=args.pump_extra_seconds,
                             mock=args.mock_pump,
                         )
-                        net_withdrawn = max(0.0, net_withdrawn - framework.infuse_volume_ml)
-                    elif event == "N":
+                        net_withdrawn = max(0.0, net_withdrawn - volume)
+                    elif event.kind == "N":
                         print(f"[{index}] NMR")
                         nmr_count += 1
                         try:
