@@ -1,0 +1,197 @@
+"""Configurable real Chemyx + NMR workflow framework."""
+
+from __future__ import annotations
+
+import argparse
+from dataclasses import dataclass
+from pathlib import Path
+
+import _bootstrap  # noqa: F401
+
+import first_real_test
+from chemyx_lab import config
+from chemyx_lab.nmr_rpc import NmrRpcError
+from chemyx_lab.pump import EchoMismatchError, Pump, PumpConnectionError
+
+
+DEFAULT_SAVE_DIR = Path("runs") / "nmr" / "real_framework"
+
+
+@dataclass(frozen=True)
+class FrameworkSettings:
+    cycles: int
+    withdraw_volume_ml: float
+    infuse_volume_ml: float
+    settle_before_nmr_seconds: float
+    between_cycles_minutes: float
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = first_real_test.build_parser()
+    parser.description = (
+        "Framework workflow: repeat withdraw -> optional pause -> NMR -> infuse."
+    )
+    parser.set_defaults(nmr_save_dir=DEFAULT_SAVE_DIR)
+    parser.add_argument("--cycles", type=int, default=1)
+    parser.add_argument("--withdraw-volume", type=float, default=5.0)
+    parser.add_argument("--infuse-volume", type=float, default=5.0)
+    parser.add_argument(
+        "--between-cycles-minutes",
+        type=float,
+        default=0.0,
+        help="pause after each cycle except the last",
+    )
+    return parser
+
+
+def load_framework_settings(args) -> FrameworkSettings:
+    if args.cycles < 1:
+        raise ValueError("cycles must be at least 1")
+    withdraw_volume = args.withdraw_volume
+    infuse_volume = args.infuse_volume
+    if args.volume != first_real_test.DEFAULT_VOLUME_ML:
+        if withdraw_volume == 5.0:
+            withdraw_volume = args.volume
+        if infuse_volume == 5.0:
+            infuse_volume = args.volume
+    return FrameworkSettings(
+        cycles=args.cycles,
+        withdraw_volume_ml=withdraw_volume,
+        infuse_volume_ml=infuse_volume,
+        settle_before_nmr_seconds=args.settle_before_nmr_seconds,
+        between_cycles_minutes=args.between_cycles_minutes,
+    )
+
+
+def print_plan(
+    args,
+    pump_cfg: config.PumpConfig,
+    nmr_settings: config.NmrSettings,
+    framework: FrameworkSettings,
+) -> None:
+    withdraw_seconds = first_real_test.move_seconds(
+        framework.withdraw_volume_ml, pump_cfg.rate, pump_cfg.units
+    )
+    infuse_seconds = first_real_test.move_seconds(
+        framework.infuse_volume_ml, pump_cfg.rate, pump_cfg.units
+    )
+    print("=" * 72)
+    print("Real Chemyx + NMR framework")
+    print("=" * 72)
+    print(f"Cycles         : {framework.cycles}")
+    print(f"Pump port      : {pump_cfg.port} @ {pump_cfg.baud_rate}")
+    print(f"Pump channel   : {pump_cfg.channel}")
+    print(f"Syringe ID     : {pump_cfg.diameter} mm")
+    print(
+        f"Pump moves     : withdraw {framework.withdraw_volume_ml} mL, "
+        f"infuse {framework.infuse_volume_ml} mL"
+    )
+    print(f"Pump rate      : {pump_cfg.rate} {config.UNITS[pump_cfg.units]}")
+    print(
+        "Move estimate  : "
+        f"withdraw {first_real_test.format_seconds(withdraw_seconds)}, "
+        f"infuse {first_real_test.format_seconds(infuse_seconds)}"
+    )
+    print(f"Pre-NMR pause  : {first_real_test.format_seconds(framework.settle_before_nmr_seconds)}")
+    print(f"Cycle interval : {framework.between_cycles_minutes} min after each completed cycle")
+    print(f"NMR RPC        : {nmr_settings.scheme}://{nmr_settings.host}:{nmr_settings.port}")
+    print(
+        f"NMR settings   : route={nmr_settings.route}, scans={nmr_settings.scans}, "
+        f"receiver_gain={nmr_settings.receiver_gain}, auto_gain={nmr_settings.auto_gain}"
+    )
+    print(f"NMR save dir   : {nmr_settings.save_dir}")
+    print("=" * 72)
+
+
+def confirm_framework(args, pump_cfg, nmr_settings, framework: FrameworkSettings) -> bool:
+    args_for_prompt = argparse.Namespace(**vars(args))
+    args_for_prompt.volume = max(
+        framework.withdraw_volume_ml,
+        framework.infuse_volume_ml,
+    )
+    return first_real_test.confirm_run(args_for_prompt, pump_cfg, nmr_settings)
+
+
+def main() -> int:
+    args = build_parser().parse_args()
+    try:
+        framework = load_framework_settings(args)
+        pump_cfg = first_real_test.load_pump_settings(args)
+        nmr_settings = first_real_test.load_nmr_settings(args, save_dir=args.nmr_save_dir)
+        print_plan(args, pump_cfg, nmr_settings, framework)
+    except ValueError as exc:
+        print(f"FAILED: {exc}")
+        return 1
+
+    if args.dry_run:
+        print("Dry run only. No pump movement or NMR acquisition started.")
+        return 0
+
+    if not confirm_framework(args, pump_cfg, nmr_settings, framework):
+        print("Aborted before connecting.")
+        return 1
+
+    try:
+        with Pump(
+            port=pump_cfg.port,
+            baud_rate=pump_cfg.baud_rate,
+            channel=pump_cfg.channel,
+            units=pump_cfg.units,
+            timeout=pump_cfg.timeout,
+            response_delay=pump_cfg.response_delay,
+            mock=args.mock_pump,
+        ) as pump:
+            first_real_test.configure_pump(pump, pump_cfg)
+            for cycle in range(1, framework.cycles + 1):
+                print(f"\n=== Cycle {cycle} of {framework.cycles} ===")
+                print("[A] Withdraw")
+                first_real_test.run_metered_move(
+                    pump,
+                    pump_cfg,
+                    "withdraw",
+                    framework.withdraw_volume_ml,
+                    extra_seconds=args.pump_extra_seconds,
+                    mock=args.mock_pump,
+                )
+                cycle_error = None
+                try:
+                    first_real_test.sleep_with_progress(
+                        "settle before NMR",
+                        framework.settle_before_nmr_seconds,
+                        mock=args.mock_pump,
+                    )
+                    first_real_test.run_nmr_acquisition(
+                        nmr_settings,
+                        nmr_settings.save_dir,
+                        label=f"framework_cycle{cycle:03d}",
+                    )
+                except Exception as exc:
+                    cycle_error = exc
+                    print("\nNMR step failed; attempting to infuse the withdrawn volume back.")
+                print("[C] Infuse")
+                first_real_test.run_metered_move(
+                    pump,
+                    pump_cfg,
+                    "infuse",
+                    framework.infuse_volume_ml,
+                    extra_seconds=args.pump_extra_seconds,
+                    mock=args.mock_pump,
+                )
+                if cycle_error is not None:
+                    raise cycle_error
+                if cycle < framework.cycles:
+                    first_real_test.sleep_with_progress(
+                        "between cycles",
+                        framework.between_cycles_minutes * 60.0,
+                        mock=args.mock_pump,
+                    )
+    except (PumpConnectionError, EchoMismatchError, ValueError, NmrRpcError) as exc:
+        print(f"\nFAILED: {exc}")
+        return 1
+
+    print("\nSUCCESS: framework run completed.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
