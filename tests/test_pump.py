@@ -111,6 +111,19 @@ class BadEchoSerial(_BaseFake):
             self._reply(line)
 
 
+class NumericUnitsSerial(GoodSerial):
+    """Some real Chemyx firmware echoes units as a code instead of a label."""
+
+    def _on_command(self, line):
+        parts = line.split()
+        if parts and len(parts[0]) == 1 and parts[0] in "1234":
+            parts = parts[1:]
+        if len(parts) >= 3 and parts[0] == "set" and parts[1] == "units":
+            self._reply(f"units = {parts[2]}")
+        else:
+            super()._on_command(line)
+
+
 class SilentSerial(_BaseFake):
     """Never replies -> no echo found -> EchoMismatchError."""
 
@@ -151,6 +164,13 @@ def test_set_units_command_bytes_and_echo():
     resp = p.set_units("mL/min")  # accepts a human string
     assert p.ser.raw_writes[-1] == b"set units 0\r"
     assert "ml/min" in resp.lower()
+
+
+def test_set_units_accepts_numeric_echo_seen_on_real_pump():
+    p = make_pump(NumericUnitsSerial)
+    resp = p.set_units("mL/min")
+    assert p.ser.raw_writes[-1] == b"set units 0\r"
+    assert "units = 0" in resp.lower()
 
 
 def test_every_command_is_cr_terminated():

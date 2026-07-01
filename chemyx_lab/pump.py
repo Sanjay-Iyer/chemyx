@@ -234,7 +234,9 @@ class Pump:
         self.units = code
         if self.verify:
             name = config.UNITS[code].lower()
-            if name not in response.lower():
+            match = re.search(r"units\s*=\s*([^\s\r\n>]+)", response, re.I)
+            echoed = match.group(1).strip().lower() if match else ""
+            if name not in response.lower() and echoed != str(code):
                 raise EchoMismatchError(
                     f"units: sent {config.UNITS[code]} but response was {response!r}"
                 )
