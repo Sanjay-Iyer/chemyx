@@ -95,6 +95,10 @@ NMR_CONFIG_KEYS = {
 }
 
 WORKFLOW_CONFIG_KEYS = {
+    "sequence": "sequence",
+    "event_sequence": "sequence",
+    "events": "sequence",
+    "order": "sequence",
     "volume": "volume",
     "volume_ml": "volume",
     "pump_extra_seconds": "pump_extra_seconds",
@@ -121,6 +125,7 @@ def default_arg_values(
         "units": "mL/min",
         "rate": DEFAULT_RATE_ML_MIN,
         "volume": DEFAULT_VOLUME_ML,
+        "sequence": ["W", "N", "I"],
         "pump_extra_seconds": 2.0,
         "settle_before_nmr_seconds": 0.0,
         "nmr_host": None,
@@ -142,8 +147,8 @@ def default_arg_values(
         "nmr_save_dir": Path(save_dir),
         "target": None,
         "cycles": 1,
-        "withdraw_volume": DEFAULT_VOLUME_ML,
-        "infuse_volume": DEFAULT_VOLUME_ML,
+        "withdraw_volume": None,
+        "infuse_volume": None,
         "between_cycles_minutes": 0.0,
     }
 
@@ -178,9 +183,27 @@ def load_workflow_defaults(config_path: Path, defaults: dict | None = None) -> d
         for key, value in raw.items()
         if key not in {"pump", "nmr", "workflow"}
     }
-    _apply_config_section(values, flat_raw, PUMP_CONFIG_KEYS, path, "top level")
-    _apply_config_section(values, flat_raw, NMR_CONFIG_KEYS, path, "top level")
-    _apply_config_section(values, flat_raw, WORKFLOW_CONFIG_KEYS, path, "top level")
+    _apply_config_section(
+        values,
+        {key: value for key, value in flat_raw.items() if key in PUMP_CONFIG_KEYS},
+        PUMP_CONFIG_KEYS,
+        path,
+        "top level",
+    )
+    _apply_config_section(
+        values,
+        {key: value for key, value in flat_raw.items() if key in NMR_CONFIG_KEYS},
+        NMR_CONFIG_KEYS,
+        path,
+        "top level",
+    )
+    _apply_config_section(
+        values,
+        {key: value for key, value in flat_raw.items() if key in WORKFLOW_CONFIG_KEYS},
+        WORKFLOW_CONFIG_KEYS,
+        path,
+        "top level",
+    )
     _apply_config_section(values, raw.get("pump", {}), PUMP_CONFIG_KEYS, path, "pump")
     _apply_config_section(values, raw.get("nmr", {}), NMR_CONFIG_KEYS, path, "nmr")
     _apply_config_section(
@@ -251,6 +274,23 @@ def build_parser(defaults: dict | None = None) -> argparse.ArgumentParser:
     parser.add_argument("--units", default=defaults["units"])
     parser.add_argument("--rate", type=float, default=defaults["rate"])
     parser.add_argument("--volume", type=float, default=defaults["volume"])
+    parser.add_argument(
+        "--sequence",
+        default=defaults["sequence"],
+        help="event order using W=withdraw, N=NMR, I=infuse; examples: 'W N I' or 'W I W I N W I'",
+    )
+    parser.add_argument(
+        "--withdraw-volume",
+        type=float,
+        default=defaults["withdraw_volume"],
+        help="volume for each W event; defaults to --volume",
+    )
+    parser.add_argument(
+        "--infuse-volume",
+        type=float,
+        default=defaults["infuse_volume"],
+        help="volume for each I event; defaults to --volume",
+    )
     parser.add_argument(
         "--pump-extra-seconds",
         type=float,
@@ -380,6 +420,59 @@ def format_seconds(seconds: float) -> str:
     return f"{rem} s"
 
 
+def normalize_sequence(sequence) -> list[str]:
+    if sequence in (None, ""):
+        return ["W", "N", "I"]
+    if isinstance(sequence, str):
+        text = sequence.strip().upper().replace(",", " ")
+        if any(char.isspace() for char in text):
+            tokens = [token for token in text.split() if token]
+        else:
+            tokens = list(text)
+    elif isinstance(sequence, list):
+        tokens = [str(item).strip().upper() for item in sequence]
+    else:
+        raise ValueError("Workflow sequence must be a string or list")
+
+    aliases = {
+        "W": "W",
+        "WITHDRAW": "W",
+        "I": "I",
+        "INFUSE": "I",
+        "N": "N",
+        "NMR": "N",
+    }
+    events = []
+    for token in tokens:
+        if token not in aliases:
+            raise ValueError(
+                f"Unknown workflow event {token!r}; use W, I, or N"
+            )
+        events.append(aliases[token])
+    if not events:
+        raise ValueError("Workflow sequence cannot be empty")
+    return events
+
+
+def format_sequence(events: list[str]) -> str:
+    names = {"W": "withdraw", "I": "infuse", "N": "NMR"}
+    return " -> ".join(f"{event}({names[event]})" for event in events)
+
+
+def effective_move_volumes(args) -> tuple[float, float]:
+    withdraw_volume = args.withdraw_volume
+    if withdraw_volume is None:
+        withdraw_volume = args.volume
+    infuse_volume = args.infuse_volume
+    if infuse_volume is None:
+        infuse_volume = args.volume
+    if withdraw_volume <= 0:
+        raise ValueError("Withdraw volume must be positive")
+    if infuse_volume <= 0:
+        raise ValueError("Infuse volume must be positive")
+    return float(withdraw_volume), float(infuse_volume)
+
+
 def sleep_with_progress(label: str, seconds: float, mock: bool = False) -> None:
     if mock or seconds <= 0:
         return
@@ -399,16 +492,21 @@ def confirm_run(args, pump_cfg: config.PumpConfig, nmr_settings: config.NmrSetti
         print("Refusing real pump movement without interactive confirmation.")
         return False
 
-    one_move = move_seconds(args.volume, pump_cfg.rate, pump_cfg.units)
+    events = normalize_sequence(args.sequence)
+    withdraw_volume, infuse_volume = effective_move_volumes(args)
+    longest_move = max(
+        move_seconds(withdraw_volume, pump_cfg.rate, pump_cfg.units),
+        move_seconds(infuse_volume, pump_cfg.rate, pump_cfg.units),
+    )
     print("This will physically move the Chemyx pump and run the NMR.")
     print(
         f"Pump: {pump_cfg.port} @ {pump_cfg.baud_rate}, channel {pump_cfg.channel}, "
-        f"{args.volume} mL withdraw then {args.volume} mL infuse at "
+        f"W={withdraw_volume} mL, I={infuse_volume} mL at "
         f"{pump_cfg.rate} {config.UNITS[pump_cfg.units]}."
     )
     print(
-        f"Pump timing: about {format_seconds(one_move)} per move "
-        f"({format_seconds(one_move * 2)} total pump motion)."
+        f"Sequence: {format_sequence(events)}. "
+        f"Longest pump move is about {format_seconds(longest_move)}."
     )
     print(
         f"NMR: {nmr_settings.scheme}://{nmr_settings.host}:{nmr_settings.port}, "
@@ -563,7 +661,10 @@ def run_nmr_acquisition(
 
 
 def print_plan(args, pump_cfg: config.PumpConfig, nmr_settings: config.NmrSettings) -> None:
-    one_move = move_seconds(args.volume, pump_cfg.rate, pump_cfg.units)
+    events = normalize_sequence(args.sequence)
+    withdraw_volume, infuse_volume = effective_move_volumes(args)
+    withdraw_seconds = move_seconds(withdraw_volume, pump_cfg.rate, pump_cfg.units)
+    infuse_seconds = move_seconds(infuse_volume, pump_cfg.rate, pump_cfg.units)
     print("=" * 72)
     print("First real Chemyx + NMR test")
     print("=" * 72)
@@ -571,9 +672,14 @@ def print_plan(args, pump_cfg: config.PumpConfig, nmr_settings: config.NmrSettin
     print(f"Pump port      : {pump_cfg.port} @ {pump_cfg.baud_rate}")
     print(f"Pump channel   : {pump_cfg.channel}")
     print(f"Syringe ID     : {pump_cfg.diameter} mm")
-    print(f"Pump move      : withdraw {args.volume} mL, then infuse {args.volume} mL")
+    print(f"Sequence       : {format_sequence(events)}")
+    print(f"Pump W volume  : {withdraw_volume} mL")
+    print(f"Pump I volume  : {infuse_volume} mL")
     print(f"Pump rate      : {pump_cfg.rate} {config.UNITS[pump_cfg.units]}")
-    print(f"Move estimate  : {format_seconds(one_move)} per pump move")
+    print(
+        "Move estimate  : "
+        f"W {format_seconds(withdraw_seconds)}, I {format_seconds(infuse_seconds)}"
+    )
     print(f"NMR RPC        : {nmr_settings.scheme}://{nmr_settings.host}:{nmr_settings.port}")
     print(f"NMR settings   : route={nmr_settings.route}, scans={nmr_settings.scans}")
     print(
@@ -593,6 +699,8 @@ def main() -> int:
     try:
         pump_cfg = load_pump_settings(args)
         nmr_settings = load_nmr_settings(args)
+        events = normalize_sequence(args.sequence)
+        withdraw_volume, infuse_volume = effective_move_volumes(args)
         print_plan(args, pump_cfg, nmr_settings)
     except ValueError as exc:
         print(f"FAILED: {exc}")
@@ -617,37 +725,60 @@ def main() -> int:
             mock=args.mock_pump,
         ) as pump:
             configure_pump(pump, pump_cfg)
-            print("\n[2] Withdraw sample")
-            run_metered_move(
-                pump,
-                pump_cfg,
-                "withdraw",
-                args.volume,
-                extra_seconds=args.pump_extra_seconds,
-                mock=args.mock_pump,
-            )
-            nmr_error = None
-            try:
-                sleep_with_progress(
-                    "settle before NMR",
-                    args.settle_before_nmr_seconds,
-                    mock=args.mock_pump,
-                )
-                run_nmr_acquisition(nmr_settings, nmr_settings.save_dir)
-            except Exception as exc:
-                nmr_error = exc
-                print("\nNMR step failed; attempting to infuse the withdrawn volume back.")
-            print("\n[4] Infuse sample back")
-            run_metered_move(
-                pump,
-                pump_cfg,
-                "infuse",
-                args.volume,
-                extra_seconds=args.pump_extra_seconds,
-                mock=args.mock_pump,
-            )
-            if nmr_error is not None:
-                raise nmr_error
+            net_withdrawn = 0.0
+            nmr_count = 0
+            for index, event in enumerate(events, start=1):
+                if event == "W":
+                    print(f"\n[{index}] Withdraw sample")
+                    run_metered_move(
+                        pump,
+                        pump_cfg,
+                        "withdraw",
+                        withdraw_volume,
+                        extra_seconds=args.pump_extra_seconds,
+                        mock=args.mock_pump,
+                    )
+                    net_withdrawn += withdraw_volume
+                elif event == "I":
+                    print(f"\n[{index}] Infuse sample")
+                    run_metered_move(
+                        pump,
+                        pump_cfg,
+                        "infuse",
+                        infuse_volume,
+                        extra_seconds=args.pump_extra_seconds,
+                        mock=args.mock_pump,
+                    )
+                    net_withdrawn = max(0.0, net_withdrawn - infuse_volume)
+                elif event == "N":
+                    print(f"\n[{index}] NMR acquisition")
+                    nmr_count += 1
+                    try:
+                        sleep_with_progress(
+                            "settle before NMR",
+                            args.settle_before_nmr_seconds,
+                            mock=args.mock_pump,
+                        )
+                        run_nmr_acquisition(
+                            nmr_settings,
+                            nmr_settings.save_dir,
+                            label=f"first_real_test_nmr{nmr_count:02d}",
+                        )
+                    except Exception:
+                        if net_withdrawn > 0:
+                            print(
+                                "\nNMR step failed; attempting to infuse "
+                                f"{net_withdrawn:.4g} mL back."
+                            )
+                            run_metered_move(
+                                pump,
+                                pump_cfg,
+                                "infuse",
+                                net_withdrawn,
+                                extra_seconds=args.pump_extra_seconds,
+                                mock=args.mock_pump,
+                            )
+                        raise
     except (PumpConnectionError, EchoMismatchError, ValueError, NmrRpcError) as exc:
         print(f"\nFAILED: {exc}")
         return 1

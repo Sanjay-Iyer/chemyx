@@ -21,6 +21,7 @@ DEFAULT_WORKFLOW_CONFIG = config.REPO_ROOT / "configs" / "real_framework.local.j
 @dataclass(frozen=True)
 class FrameworkSettings:
     cycles: int
+    sequence: list[str]
     withdraw_volume_ml: float
     infuse_volume_ml: float
     settle_before_nmr_seconds: float
@@ -37,12 +38,6 @@ def build_parser(defaults: dict | None = None) -> argparse.ArgumentParser:
         DEFAULT_SAVE_DIR,
     )
     parser.add_argument("--cycles", type=int, default=defaults["cycles"])
-    parser.add_argument(
-        "--withdraw-volume",
-        type=float,
-        default=defaults["withdraw_volume"],
-    )
-    parser.add_argument("--infuse-volume", type=float, default=defaults["infuse_volume"])
     parser.add_argument(
         "--between-cycles-minutes",
         type=float,
@@ -66,15 +61,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def load_framework_settings(args) -> FrameworkSettings:
     if args.cycles < 1:
         raise ValueError("cycles must be at least 1")
-    withdraw_volume = args.withdraw_volume
-    infuse_volume = args.infuse_volume
-    if args.volume != first_real_test.DEFAULT_VOLUME_ML:
-        if withdraw_volume == 5.0:
-            withdraw_volume = args.volume
-        if infuse_volume == 5.0:
-            infuse_volume = args.volume
+    withdraw_volume, infuse_volume = first_real_test.effective_move_volumes(args)
     return FrameworkSettings(
         cycles=args.cycles,
+        sequence=first_real_test.normalize_sequence(args.sequence),
         withdraw_volume_ml=withdraw_volume,
         infuse_volume_ml=infuse_volume,
         settle_before_nmr_seconds=args.settle_before_nmr_seconds,
@@ -99,6 +89,7 @@ def print_plan(
     print("=" * 72)
     print(f"Config file    : {args.workflow_config}")
     print(f"Cycles         : {framework.cycles}")
+    print(f"Sequence       : {first_real_test.format_sequence(framework.sequence)}")
     print(f"Pump port      : {pump_cfg.port} @ {pump_cfg.baud_rate}")
     print(f"Pump channel   : {pump_cfg.channel}")
     print(f"Syringe ID     : {pump_cfg.diameter} mm")
@@ -168,41 +159,60 @@ def main() -> int:
             first_real_test.configure_pump(pump, pump_cfg)
             for cycle in range(1, framework.cycles + 1):
                 print(f"\n=== Cycle {cycle} of {framework.cycles} ===")
-                print("[A] Withdraw")
-                first_real_test.run_metered_move(
-                    pump,
-                    pump_cfg,
-                    "withdraw",
-                    framework.withdraw_volume_ml,
-                    extra_seconds=args.pump_extra_seconds,
-                    mock=args.mock_pump,
-                )
-                cycle_error = None
-                try:
-                    first_real_test.sleep_with_progress(
-                        "settle before NMR",
-                        framework.settle_before_nmr_seconds,
-                        mock=args.mock_pump,
-                    )
-                    first_real_test.run_nmr_acquisition(
-                        nmr_settings,
-                        nmr_settings.save_dir,
-                        label=f"framework_cycle{cycle:03d}",
-                    )
-                except Exception as exc:
-                    cycle_error = exc
-                    print("\nNMR step failed; attempting to infuse the withdrawn volume back.")
-                print("[C] Infuse")
-                first_real_test.run_metered_move(
-                    pump,
-                    pump_cfg,
-                    "infuse",
-                    framework.infuse_volume_ml,
-                    extra_seconds=args.pump_extra_seconds,
-                    mock=args.mock_pump,
-                )
-                if cycle_error is not None:
-                    raise cycle_error
+                net_withdrawn = 0.0
+                nmr_count = 0
+                for index, event in enumerate(framework.sequence, start=1):
+                    if event == "W":
+                        print(f"[{index}] Withdraw")
+                        first_real_test.run_metered_move(
+                            pump,
+                            pump_cfg,
+                            "withdraw",
+                            framework.withdraw_volume_ml,
+                            extra_seconds=args.pump_extra_seconds,
+                            mock=args.mock_pump,
+                        )
+                        net_withdrawn += framework.withdraw_volume_ml
+                    elif event == "I":
+                        print(f"[{index}] Infuse")
+                        first_real_test.run_metered_move(
+                            pump,
+                            pump_cfg,
+                            "infuse",
+                            framework.infuse_volume_ml,
+                            extra_seconds=args.pump_extra_seconds,
+                            mock=args.mock_pump,
+                        )
+                        net_withdrawn = max(0.0, net_withdrawn - framework.infuse_volume_ml)
+                    elif event == "N":
+                        print(f"[{index}] NMR")
+                        nmr_count += 1
+                        try:
+                            first_real_test.sleep_with_progress(
+                                "settle before NMR",
+                                framework.settle_before_nmr_seconds,
+                                mock=args.mock_pump,
+                            )
+                            first_real_test.run_nmr_acquisition(
+                                nmr_settings,
+                                nmr_settings.save_dir,
+                                label=f"framework_cycle{cycle:03d}_nmr{nmr_count:02d}",
+                            )
+                        except Exception:
+                            if net_withdrawn > 0:
+                                print(
+                                    "\nNMR step failed; attempting to infuse "
+                                    f"{net_withdrawn:.4g} mL back."
+                                )
+                                first_real_test.run_metered_move(
+                                    pump,
+                                    pump_cfg,
+                                    "infuse",
+                                    net_withdrawn,
+                                    extra_seconds=args.pump_extra_seconds,
+                                    mock=args.mock_pump,
+                                )
+                            raise
                 if cycle < framework.cycles:
                     first_real_test.sleep_with_progress(
                         "between cycles",

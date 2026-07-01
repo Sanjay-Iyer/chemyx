@@ -8,6 +8,7 @@
     "rate": 2.0
   },
   "workflow": {
+    "sequence": ["W", "N", "I"],
     "cycles": 1,
     "withdraw_volume_ml": 5.0,
     "infuse_volume_ml": 5.0,

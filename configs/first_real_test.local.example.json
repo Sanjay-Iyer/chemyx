@@ -8,6 +8,7 @@
     "rate": 2.0
   },
   "workflow": {
+    "sequence": ["W", "N", "I"],
     "volume_ml": 5.0,
     "pump_extra_seconds": 2.0,
     "settle_before_nmr_seconds": 0.0
