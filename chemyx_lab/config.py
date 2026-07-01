@@ -1,8 +1,9 @@
 """Portable configuration for Chemyx/NMR workflow scripts.
 
 Committed defaults are safe starting points from known working setups. Real
-hardware settings should come from environment variables, an untracked
-``config_local.py`` file, or an untracked ``configs/nmr.local.json`` file.
+hardware settings should come from environment variables, untracked
+``configs/chemyx.local.json`` or ``configs/nmr.local.json`` files, or a legacy
+untracked ``config_local.py`` file.
 """
 
 from __future__ import annotations
@@ -37,7 +38,8 @@ def _to_bool(value) -> bool:
     raise ValueError(f"Cannot parse {value!r} as a boolean")
 
 
-# Serial port: leave unset in committed code. Set CHEMYX_PORT or config_local.py.
+# Serial port: leave unset in committed code. Set CHEMYX_PORT,
+# configs/chemyx.local.json, or config_local.py.
 PORT = _env("CHEMYX_PORT", "")
 
 # Your successful work-laptop 4000X script used 115200. Still verify this
@@ -97,6 +99,9 @@ PARITY = "N"
 STOPBITS = 1
 TIMEOUT = _env("CHEMYX_TIMEOUT", 2.0, float)
 COMMAND_TERMINATOR = "\r"
+CHEMYX_CONFIG_FILE = _env(
+    "CHEMYX_CONFIG_FILE", str(REPO_ROOT / "configs" / "chemyx.local.json")
+)
 
 # NMR defaults. The archived working NMR scripts used direct ethernet at
 # 169.254.30.54 and the Nanalysis/NMReady RPC server on port 5000.
@@ -158,8 +163,42 @@ class PumpConfig:
     response_delay: float
 
 
-def load_pump_config(**overrides) -> PumpConfig:
-    """Build a typed config object, with optional CLI-level overrides."""
+_PUMP_CONFIG_ALIASES = {
+    "serial_port": "port",
+    "com_port": "port",
+    "pump_port": "port",
+    "chemyx_port": "port",
+    "baud": "baud_rate",
+    "baudrate": "baud_rate",
+    "baudRate": "baud_rate",
+    "pump_baud": "baud_rate",
+    "chemyx_baud": "baud_rate",
+    "pump_channel": "channel",
+    "chemyx_channel": "channel",
+    "default_units": "units",
+    "flow_units": "units",
+    "units_code": "units",
+    "syringe_diameter": "diameter",
+    "syringe_diameter_mm": "diameter",
+    "diameter_mm": "diameter",
+    "default_rate": "rate",
+    "flow_rate": "rate",
+    "rate_ml_min": "rate",
+    "default_volume": "volume",
+    "test_volume": "volume",
+    "volume_ml": "volume",
+    "serial_timeout": "timeout",
+    "read_timeout": "timeout",
+    "command_timeout": "timeout",
+    "read_delay": "response_delay",
+    "command_delay": "response_delay",
+}
+
+
+def load_pump_config(
+    config_path: str | os.PathLike | None = None, **overrides
+) -> PumpConfig:
+    """Load pump defaults, optional local JSON config, then CLI overrides."""
     values = {
         "port": PORT,
         "baud_rate": BAUD_RATE,
@@ -171,11 +210,42 @@ def load_pump_config(**overrides) -> PumpConfig:
         "timeout": TIMEOUT,
         "response_delay": RESPONSE_DELAY,
     }
+
+    path = Path(config_path) if config_path else Path(CHEMYX_CONFIG_FILE)
+    if path.exists():
+        values.update(_read_pump_json_config(path, set(values)))
+
     for key, value in overrides.items():
         if value is not None:
             values[key] = value
-    values["units"] = resolve_units(values["units"])
-    return PumpConfig(**values)
+    return _coerce_pump_config(values)
+
+
+def _read_pump_json_config(path: Path, known_keys: set[str]) -> dict:
+    return _read_local_json_config(
+        path=path,
+        known_keys=known_keys,
+        aliases=_PUMP_CONFIG_ALIASES,
+        label="Chemyx config",
+    )
+
+
+def _coerce_pump_config(values: dict) -> PumpConfig:
+    channel = int(values["channel"])
+    if channel not in (0, 1, 2):
+        raise ValueError("Chemyx channel must be 0 (default), 1, or 2")
+
+    return PumpConfig(
+        port=str(values["port"]).strip(),
+        baud_rate=int(values["baud_rate"]),
+        channel=channel,
+        units=resolve_units(values["units"]),
+        diameter=float(values["diameter"]),
+        rate=float(values["rate"]),
+        volume=float(values["volume"]),
+        timeout=float(values["timeout"]),
+        response_delay=float(values["response_delay"]),
+    )
 
 
 @dataclass(frozen=True)
@@ -279,19 +349,35 @@ def load_nmr_settings(config_path: str | os.PathLike | None = None, **overrides)
 
 
 def _read_nmr_json_config(path: Path, known_keys: set[str]) -> dict:
+    return _read_local_json_config(
+        path=path,
+        known_keys=known_keys,
+        aliases=_NMR_CONFIG_ALIASES,
+        label="NMR config",
+    )
+
+
+def _read_local_json_config(
+    path: Path,
+    known_keys: set[str],
+    aliases: dict[str, str],
+    label: str,
+) -> dict:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise ValueError(f"Could not parse NMR config JSON at {path}: {exc}") from exc
+        raise ValueError(f"Could not parse {label} JSON at {path}: {exc}") from exc
     if not isinstance(raw, dict):
-        raise ValueError(f"NMR config at {path} must be a JSON object")
+        raise ValueError(f"{label} at {path} must be a JSON object")
 
     normalized = {}
     for key, value in raw.items():
-        normalized_key = _NMR_CONFIG_ALIASES.get(key, key)
+        normalized_key = aliases.get(key, key)
         if normalized_key not in known_keys:
-            valid = ", ".join(sorted(known_keys | set(_NMR_CONFIG_ALIASES)))
-            raise ValueError(f"Unknown NMR config key {key!r} in {path}. Valid keys: {valid}")
+            valid = ", ".join(sorted(known_keys | set(aliases)))
+            raise ValueError(
+                f"Unknown {label} key {key!r} in {path}. Valid keys: {valid}"
+            )
         normalized[normalized_key] = value
     return normalized
 

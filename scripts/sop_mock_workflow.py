@@ -46,7 +46,7 @@ def confirm_real_run(args, cfg) -> bool:
     print("This workflow can move the pump multiple times.")
     print(
         f"Port={cfg.port!r}, baud={cfg.baud_rate}, channel={cfg.channel}, "
-        f"rate={args.rate} mL/min, volume_scale={args.volume_scale}."
+        f"rate={cfg.rate} mL/min, volume_scale={args.volume_scale}."
     )
     return input("Type yes to continue: ").strip().lower() == "yes"
 
@@ -56,7 +56,7 @@ def main() -> int:
     parser.add_argument("--real", action="store_true", help="use real pump hardware")
     parser.add_argument("--yes", action="store_true", help="skip real-run prompt")
     parser.add_argument("--cycles", type=int, default=1)
-    parser.add_argument("--rate", type=float, default=config.DEFAULT_RATE)
+    parser.add_argument("--rate", type=float)
     parser.add_argument("--volume-scale", type=float, default=1.0)
     parser.add_argument(
         "--pause-scale",
@@ -64,6 +64,7 @@ def main() -> int:
         default=None,
         help="0 skips waits; 1 uses full SOP waits",
     )
+    parser.add_argument("--pump-config", help="Chemyx JSON config path")
     parser.add_argument("--port")
     parser.add_argument("--baud", type=int)
     parser.add_argument("--channel", type=int, choices=[0, 1, 2])
@@ -123,6 +124,7 @@ def main() -> int:
         pause_scale = 1.0 if args.real else 0.0
 
     cfg = config.load_pump_config(
+        args.pump_config,
         port=args.port,
         baud_rate=args.baud,
         channel=args.channel,
@@ -137,7 +139,7 @@ def main() -> int:
     print(f"Cycles      : {args.cycles}")
     print(f"Port        : {cfg.port or '(unset)'} @ {cfg.baud_rate}")
     print(f"Channel     : {cfg.channel}")
-    print(f"Rate        : {args.rate} mL/min")
+    print(f"Rate        : {cfg.rate} mL/min")
     print(f"Volume scale: {args.volume_scale}")
     print(f"Pause scale : {pause_scale}")
     if args.nmr_rpc:
@@ -249,7 +251,7 @@ def main() -> int:
 
     settings = WorkflowSettings(
         cycles=args.cycles,
-        rate_ml_min=args.rate,
+        rate_ml_min=cfg.rate,
         volume_scale=args.volume_scale,
         pause_scale=pause_scale,
         move_start_delay=0.0,

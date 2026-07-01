@@ -7,6 +7,7 @@ scripts/                 runnable workflows and checks
 chemyx_lab/pump.py       reusable Chemyx serial wrapper
 chemyx_lab/nmr.py        local DX/JDX analysis
 chemyx_lab/nmr_rpc.py    NMReady/Nanalysis RPC client
+configs/chemyx.local.json optional local Chemyx port/baud/channel/syringe settings
 configs/nmr.local.json   optional local NMR IP/scans/gain overrides
 ```
 

@@ -108,6 +108,7 @@ python scripts\pump_infuse_withdraw.py --mock
 Real hardware with local config:
 
 ```powershell
+copy configs\chemyx.local.example.json configs\chemyx.local.json
 python scripts\pump_infuse_withdraw.py
 ```
 
@@ -136,5 +137,5 @@ Wrong direction
 : Check the sign of `set volume`. Positive is infuse, negative is withdraw.
 
 Wrong pump drive moves
-: Set `CHANNEL = 1` or `CHANNEL = 2` in `config_local.py`, or pass
-`--channel 1` / `--channel 2`.
+: Set `"channel": 1` or `"channel": 2` in `configs\chemyx.local.json`, or
+pass `--channel 1` / `--channel 2`.

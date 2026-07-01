@@ -104,7 +104,7 @@ class Pump:
         if not self.mock and self._serial_factory is None and not self.port:
             raise PumpConnectionError(
                 "No Chemyx serial port configured. Set CHEMYX_PORT or create "
-                "config_local.py from config_local.example.py."
+                "configs/chemyx.local.json from configs/chemyx.local.example.json."
             )
 
         try:
@@ -158,7 +158,8 @@ class Pump:
         ):
             return (
                 f"Port {self.port} not found. Check the cable, driver, and "
-                f"CHEMYX_PORT/config_local.py setting. Original error: {exc}"
+                f"CHEMYX_PORT/configs/chemyx.local.json setting. "
+                f"Original error: {exc}"
             )
         return f"Could not open {self.port}: {exc}"
 

@@ -4,8 +4,9 @@ Portable Python control scripts for a Chemyx Fusion 4000X syringe pump, plus a
 first-pass NMR intake workflow for monitoring the small signal near 6.1 ppm.
 
 The repo is organized so laptop-specific settings stay out of git. The work
-laptop can keep its own `config_local.py`, `configs/nmr.local.json`, or
-environment variables, while the same committed scripts run from any clone.
+laptop can keep its own `configs/chemyx.local.json`,
+`configs/nmr.local.json`, legacy `config_local.py`, or environment variables,
+while the same committed scripts run from any clone.
 
 ## Current Structure
 
@@ -54,15 +55,24 @@ python scripts\list_ports.py
 Create an untracked local config:
 
 ```powershell
-copy config_local.example.py config_local.py
+copy configs\chemyx.local.example.json configs\chemyx.local.json
 ```
 
-Edit `config_local.py` for that laptop. Your successful work-laptop test used:
+Edit `configs\chemyx.local.json` for that laptop. Your successful work-laptop
+test used:
 
-```python
-PORT = "COM4"
-BAUD_RATE = 115200
-CHANNEL = 1
+```json
+{
+  "port": "COM4",
+  "baud_rate": 115200,
+  "channel": 1,
+  "units": "mL/min",
+  "diameter": 28.6,
+  "rate": 2.0,
+  "volume": 1.5,
+  "timeout": 2.0,
+  "response_delay": 0.2
+}
 ```
 
 Then run the hardware smoke test:

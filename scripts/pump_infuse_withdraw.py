@@ -18,6 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--mock", action="store_true", help="use the fake pump")
     parser.add_argument("--yes", action="store_true", help="skip movement prompt")
+    parser.add_argument("--pump-config", help="Chemyx JSON config path")
     parser.add_argument("--port", help="serial port, e.g. COM4")
     parser.add_argument("--baud", type=int, help="baud rate shown on pump")
     parser.add_argument("--channel", type=int, choices=[0, 1, 2], help="pump channel")
@@ -52,6 +53,7 @@ def confirm(args, cfg) -> bool:
 def main() -> int:
     args = build_parser().parse_args()
     cfg = config.load_pump_config(
+        args.pump_config,
         port=args.port,
         baud_rate=args.baud,
         channel=args.channel,

@@ -37,25 +37,29 @@ $env:CHEMYX_CHANNEL="1"
 Option B, persistent on that clone:
 
 ```powershell
-copy config_local.example.py config_local.py
+copy configs\chemyx.local.example.json configs\chemyx.local.json
 ```
 
-Then edit `config_local.py`. It is gitignored.
+Then edit `configs\chemyx.local.json`. It is gitignored.
 
 The successful work-laptop script used:
 
-```python
-PORT = "COM4"
-BAUD_RATE = 115200
-CHANNEL = 1
+```json
+{
+  "port": "COM4",
+  "baud_rate": 115200,
+  "channel": 1
+}
 ```
 
 Also set the syringe diameter and default test rate for the physical setup:
 
-```python
-DIAMETER = 28.6
-DEFAULT_RATE = 2.0
-DEFAULT_VOLUME = 1.5
+```json
+{
+  "diameter": 28.6,
+  "rate": 2.0,
+  "volume": 1.5
+}
 ```
 
 For NMR, copy the local JSON template:
@@ -100,7 +104,8 @@ Device Manager -> Ports (COM & LPT)
 ```
 
 Unplug/replug the pump or USB-to-serial adapter and watch which COM port
-appears. That is the value for `CHEMYX_PORT` or `PORT` in `config_local.py`.
+appears. That is the value for `CHEMYX_PORT` or `port` in
+`configs\chemyx.local.json`.
 
 ## 4. Run Order On Hardware
 

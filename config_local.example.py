@@ -1,7 +1,9 @@
-"""Template for local hardware settings.
+"""Legacy Python template for local hardware settings.
 
-Copy this file to config_local.py in the repo root and edit it for the laptop
-connected to the instruments. config_local.py is ignored by git.
+New Chemyx setup should usually use configs/chemyx.local.example.json copied to
+configs/chemyx.local.json. This file remains supported for older local clones:
+copy it to config_local.py in the repo root and edit it for the laptop connected
+to the instruments. config_local.py is ignored by git.
 """
 
 # Work-laptop values from the successful Chemyx Fusion 4000X test.
