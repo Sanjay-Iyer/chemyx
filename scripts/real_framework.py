@@ -15,6 +15,7 @@ from chemyx_lab.pump import EchoMismatchError, Pump, PumpConnectionError
 
 
 DEFAULT_SAVE_DIR = Path("runs") / "nmr" / "real_framework"
+DEFAULT_WORKFLOW_CONFIG = config.REPO_ROOT / "configs" / "real_framework.local.json"
 
 
 @dataclass(frozen=True)
@@ -26,22 +27,40 @@ class FrameworkSettings:
     between_cycles_minutes: float
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = first_real_test.build_parser()
+def build_parser(defaults: dict | None = None) -> argparse.ArgumentParser:
+    parser = first_real_test.build_parser(defaults)
     parser.description = (
         "Framework workflow: repeat withdraw -> optional pause -> NMR -> infuse."
     )
-    parser.set_defaults(nmr_save_dir=DEFAULT_SAVE_DIR)
-    parser.add_argument("--cycles", type=int, default=1)
-    parser.add_argument("--withdraw-volume", type=float, default=5.0)
-    parser.add_argument("--infuse-volume", type=float, default=5.0)
+    defaults = defaults or first_real_test.default_arg_values(
+        DEFAULT_WORKFLOW_CONFIG,
+        DEFAULT_SAVE_DIR,
+    )
+    parser.add_argument("--cycles", type=int, default=defaults["cycles"])
+    parser.add_argument(
+        "--withdraw-volume",
+        type=float,
+        default=defaults["withdraw_volume"],
+    )
+    parser.add_argument("--infuse-volume", type=float, default=defaults["infuse_volume"])
     parser.add_argument(
         "--between-cycles-minutes",
         type=float,
-        default=0.0,
+        default=defaults["between_cycles_minutes"],
         help="pause after each cycle except the last",
     )
     return parser
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    config_path = first_real_test.preparse_workflow_config(argv, DEFAULT_WORKFLOW_CONFIG)
+    defaults = first_real_test.default_arg_values(
+        DEFAULT_WORKFLOW_CONFIG,
+        DEFAULT_SAVE_DIR,
+    )
+    defaults = first_real_test.load_workflow_defaults(config_path, defaults)
+    defaults["workflow_config"] = config_path
+    return build_parser(defaults).parse_args(argv)
 
 
 def load_framework_settings(args) -> FrameworkSettings:
@@ -78,6 +97,7 @@ def print_plan(
     print("=" * 72)
     print("Real Chemyx + NMR framework")
     print("=" * 72)
+    print(f"Config file    : {args.workflow_config}")
     print(f"Cycles         : {framework.cycles}")
     print(f"Pump port      : {pump_cfg.port} @ {pump_cfg.baud_rate}")
     print(f"Pump channel   : {pump_cfg.channel}")
@@ -113,7 +133,11 @@ def confirm_framework(args, pump_cfg, nmr_settings, framework: FrameworkSettings
 
 
 def main() -> int:
-    args = build_parser().parse_args()
+    try:
+        args = parse_args()
+    except ValueError as exc:
+        print(f"FAILED: {exc}")
+        return 1
     try:
         framework = load_framework_settings(args)
         pump_cfg = first_real_test.load_pump_settings(args)

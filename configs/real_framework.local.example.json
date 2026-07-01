@@ -1,0 +1,30 @@
+{
+  "pump": {
+    "port": "COM6",
+    "baud": 115200,
+    "channel": 1,
+    "diameter": 28.6,
+    "units": "mL/min",
+    "rate": 2.0
+  },
+  "workflow": {
+    "cycles": 1,
+    "withdraw_volume_ml": 5.0,
+    "infuse_volume_ml": 5.0,
+    "pump_extra_seconds": 2.0,
+    "settle_before_nmr_seconds": 0.0,
+    "between_cycles_minutes": 0.0
+  },
+  "nmr": {
+    "host": "169.254.30.54",
+    "port": 5000,
+    "route": "iflow",
+    "scans": 2,
+    "receiver_gain": 12.0,
+    "auto_gain": false,
+    "spectral_center": 5.0,
+    "sweep_width": 20.0,
+    "save_dir": "runs/nmr/real_framework",
+    "target": 6.1
+  }
+}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 from datetime import datetime
@@ -32,58 +33,291 @@ DEFAULT_DIAMETER_MM = 28.6
 DEFAULT_RATE_ML_MIN = 2.0
 DEFAULT_VOLUME_ML = 5.0
 DEFAULT_SAVE_DIR = Path("runs") / "nmr" / "first_real_test"
+DEFAULT_WORKFLOW_CONFIG = config.REPO_ROOT / "configs" / "first_real_test.local.json"
 
 
-def build_parser() -> argparse.ArgumentParser:
+PUMP_CONFIG_KEYS = {
+    "port": "port",
+    "pump_port": "port",
+    "baud": "baud",
+    "baud_rate": "baud",
+    "baudrate": "baud",
+    "channel": "channel",
+    "pump_channel": "channel",
+    "diameter": "diameter",
+    "diameter_mm": "diameter",
+    "syringe_diameter_mm": "diameter",
+    "units": "units",
+    "rate": "rate",
+    "pump_rate": "rate",
+    "rate_ml_min": "rate",
+}
+
+NMR_CONFIG_KEYS = {
+    "host": "nmr_host",
+    "ip": "nmr_host",
+    "ip_address": "nmr_host",
+    "nmr_host": "nmr_host",
+    "port": "nmr_port",
+    "nmr_port": "nmr_port",
+    "scheme": "nmr_scheme",
+    "nmr_scheme": "nmr_scheme",
+    "timeout": "nmr_timeout",
+    "nmr_timeout": "nmr_timeout",
+    "poll_seconds": "nmr_poll_seconds",
+    "nmr_poll_seconds": "nmr_poll_seconds",
+    "max_wait_seconds": "nmr_max_wait",
+    "nmr_max_wait": "nmr_max_wait",
+    "route": "nmr_route",
+    "nmr_route": "nmr_route",
+    "experiment": "nmr_experiment",
+    "nmr_experiment": "nmr_experiment",
+    "scans": "nmr_scans",
+    "nmr_scans": "nmr_scans",
+    "receiver_gain": "nmr_receiver_gain",
+    "nmr_receiver_gain": "nmr_receiver_gain",
+    "auto_gain": "nmr_auto_gain",
+    "nmr_auto_gain": "nmr_auto_gain",
+    "solvent": "nmr_solvent",
+    "nmr_solvent": "nmr_solvent",
+    "spectral_center": "nmr_spectral_center",
+    "nmr_spectral_center": "nmr_spectral_center",
+    "sweep_width": "nmr_sweep_width",
+    "nmr_sweep_width": "nmr_sweep_width",
+    "result_name": "nmr_result_name",
+    "nmr_result_name": "nmr_result_name",
+    "result_type": "nmr_result_type",
+    "nmr_result_type": "nmr_result_type",
+    "save_dir": "nmr_save_dir",
+    "nmr_save_dir": "nmr_save_dir",
+    "target": "target",
+    "target_ppm": "target",
+}
+
+WORKFLOW_CONFIG_KEYS = {
+    "volume": "volume",
+    "volume_ml": "volume",
+    "pump_extra_seconds": "pump_extra_seconds",
+    "settle_before_nmr_seconds": "settle_before_nmr_seconds",
+    "cycles": "cycles",
+    "withdraw_volume": "withdraw_volume",
+    "withdraw_volume_ml": "withdraw_volume",
+    "infuse_volume": "infuse_volume",
+    "infuse_volume_ml": "infuse_volume",
+    "between_cycles_minutes": "between_cycles_minutes",
+}
+
+
+def default_arg_values(
+    default_config: Path = DEFAULT_WORKFLOW_CONFIG,
+    save_dir: Path = DEFAULT_SAVE_DIR,
+) -> dict:
+    return {
+        "workflow_config": Path(default_config),
+        "port": DEFAULT_PORT,
+        "baud": DEFAULT_BAUD,
+        "channel": DEFAULT_CHANNEL,
+        "diameter": DEFAULT_DIAMETER_MM,
+        "units": "mL/min",
+        "rate": DEFAULT_RATE_ML_MIN,
+        "volume": DEFAULT_VOLUME_ML,
+        "pump_extra_seconds": 2.0,
+        "settle_before_nmr_seconds": 0.0,
+        "nmr_host": None,
+        "nmr_port": None,
+        "nmr_scheme": None,
+        "nmr_timeout": None,
+        "nmr_poll_seconds": None,
+        "nmr_max_wait": None,
+        "nmr_route": "iflow",
+        "nmr_experiment": None,
+        "nmr_scans": 2,
+        "nmr_receiver_gain": 12.0,
+        "nmr_auto_gain": None,
+        "nmr_solvent": None,
+        "nmr_spectral_center": None,
+        "nmr_sweep_width": None,
+        "nmr_result_name": None,
+        "nmr_result_type": None,
+        "nmr_save_dir": Path(save_dir),
+        "target": None,
+        "cycles": 1,
+        "withdraw_volume": DEFAULT_VOLUME_ML,
+        "infuse_volume": DEFAULT_VOLUME_ML,
+        "between_cycles_minutes": 0.0,
+    }
+
+
+def load_workflow_defaults(config_path: Path, defaults: dict | None = None) -> dict:
+    values = dict(defaults or default_arg_values())
+    path = Path(config_path)
+    if not path.exists():
+        return values
+
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Could not parse workflow config JSON at {path}: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise ValueError(f"Workflow config at {path} must be a JSON object")
+
+    allowed_top = {
+        "pump",
+        "nmr",
+        "workflow",
+        *PUMP_CONFIG_KEYS,
+        *NMR_CONFIG_KEYS,
+        *WORKFLOW_CONFIG_KEYS,
+    }
+    unknown = sorted(set(raw) - allowed_top)
+    if unknown:
+        raise ValueError(f"Unknown workflow config key(s) in {path}: {', '.join(unknown)}")
+
+    flat_raw = {
+        key: value
+        for key, value in raw.items()
+        if key not in {"pump", "nmr", "workflow"}
+    }
+    _apply_config_section(values, flat_raw, PUMP_CONFIG_KEYS, path, "top level")
+    _apply_config_section(values, flat_raw, NMR_CONFIG_KEYS, path, "top level")
+    _apply_config_section(values, flat_raw, WORKFLOW_CONFIG_KEYS, path, "top level")
+    _apply_config_section(values, raw.get("pump", {}), PUMP_CONFIG_KEYS, path, "pump")
+    _apply_config_section(values, raw.get("nmr", {}), NMR_CONFIG_KEYS, path, "nmr")
+    _apply_config_section(
+        values,
+        raw.get("workflow", {}),
+        WORKFLOW_CONFIG_KEYS,
+        path,
+        "workflow",
+    )
+    return values
+
+
+def _apply_config_section(
+    values: dict,
+    section: object,
+    mapping: dict[str, str],
+    path: Path,
+    label: str,
+) -> None:
+    if not section:
+        return
+    if not isinstance(section, dict):
+        raise ValueError(f"Workflow config {label} section in {path} must be an object")
+
+    unknown = sorted(set(section) - set(mapping))
+    if unknown:
+        raise ValueError(
+            f"Unknown workflow config key(s) in {path} [{label}]: {', '.join(unknown)}"
+        )
+
+    for key, value in section.items():
+        dest = mapping[key]
+        if dest == "nmr_save_dir":
+            value = Path(value)
+        values[dest] = value
+
+
+def preparse_workflow_config(
+    argv: list[str] | None = None,
+    default_config: Path = DEFAULT_WORKFLOW_CONFIG,
+) -> Path:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--workflow-config", type=Path, default=default_config)
+    args, _ = parser.parse_known_args(argv)
+    return Path(args.workflow_config)
+
+
+def build_parser(defaults: dict | None = None) -> argparse.ArgumentParser:
+    defaults = defaults or default_arg_values()
     parser = argparse.ArgumentParser(
         description="Run a real first test: withdraw 5 mL, run NMR, infuse 5 mL."
+    )
+    parser.add_argument(
+        "--workflow-config",
+        type=Path,
+        default=defaults["workflow_config"],
+        help="workflow JSON config path",
     )
     parser.add_argument("--yes", action="store_true", help="skip real-run prompt")
     parser.add_argument("--dry-run", action="store_true", help="print the plan only")
     parser.add_argument("--mock-pump", action="store_true", help="use fake pump responses")
 
     parser.add_argument("--pump-config", help="Chemyx JSON config path")
-    parser.add_argument("--port", default=DEFAULT_PORT)
-    parser.add_argument("--baud", type=int, default=DEFAULT_BAUD)
-    parser.add_argument("--channel", type=int, choices=[0, 1, 2], default=DEFAULT_CHANNEL)
-    parser.add_argument("--diameter", type=float, default=DEFAULT_DIAMETER_MM)
-    parser.add_argument("--units", default="mL/min")
-    parser.add_argument("--rate", type=float, default=DEFAULT_RATE_ML_MIN)
-    parser.add_argument("--volume", type=float, default=DEFAULT_VOLUME_ML)
+    parser.add_argument("--port", default=defaults["port"])
+    parser.add_argument("--baud", type=int, default=defaults["baud"])
+    parser.add_argument("--channel", type=int, choices=[0, 1, 2], default=defaults["channel"])
+    parser.add_argument("--diameter", type=float, default=defaults["diameter"])
+    parser.add_argument("--units", default=defaults["units"])
+    parser.add_argument("--rate", type=float, default=defaults["rate"])
+    parser.add_argument("--volume", type=float, default=defaults["volume"])
     parser.add_argument(
         "--pump-extra-seconds",
         type=float,
-        default=2.0,
+        default=defaults["pump_extra_seconds"],
         help="extra wait after calculated pump move time before cleanup stop",
     )
     parser.add_argument(
         "--settle-before-nmr-seconds",
         type=float,
-        default=0.0,
+        default=defaults["settle_before_nmr_seconds"],
         help="optional pause after withdraw before starting NMR",
     )
 
     parser.add_argument("--nmr-config", "--config", dest="nmr_config")
-    parser.add_argument("--nmr-host")
-    parser.add_argument("--nmr-port", type=int)
-    parser.add_argument("--nmr-scheme")
-    parser.add_argument("--nmr-timeout", type=float)
-    parser.add_argument("--nmr-poll-seconds", type=float)
-    parser.add_argument("--nmr-max-wait", type=float)
-    parser.add_argument("--nmr-route", choices=["experiment", "iflow"], default="iflow")
-    parser.add_argument("--nmr-experiment")
-    parser.add_argument("--nmr-scans", type=int, default=2)
-    parser.add_argument("--nmr-receiver-gain", type=float, default=12.0)
-    parser.add_argument("--nmr-auto-gain", dest="nmr_auto_gain", action="store_true", default=None)
-    parser.add_argument("--nmr-manual-gain", dest="nmr_auto_gain", action="store_false")
-    parser.add_argument("--nmr-solvent")
-    parser.add_argument("--nmr-spectral-center", type=float)
-    parser.add_argument("--nmr-sweep-width", type=float)
-    parser.add_argument("--nmr-result-name")
-    parser.add_argument("--nmr-result-type", choices=["fid", "spectrum", "rawfid"])
-    parser.add_argument("--nmr-save-dir", type=Path, default=DEFAULT_SAVE_DIR)
-    parser.add_argument("--target", type=float)
+    parser.add_argument("--nmr-host", default=defaults["nmr_host"])
+    parser.add_argument("--nmr-port", type=int, default=defaults["nmr_port"])
+    parser.add_argument("--nmr-scheme", default=defaults["nmr_scheme"])
+    parser.add_argument("--nmr-timeout", type=float, default=defaults["nmr_timeout"])
+    parser.add_argument("--nmr-poll-seconds", type=float, default=defaults["nmr_poll_seconds"])
+    parser.add_argument("--nmr-max-wait", type=float, default=defaults["nmr_max_wait"])
+    parser.add_argument("--nmr-route", choices=["experiment", "iflow"], default=defaults["nmr_route"])
+    parser.add_argument("--nmr-experiment", default=defaults["nmr_experiment"])
+    parser.add_argument("--nmr-scans", type=int, default=defaults["nmr_scans"])
+    parser.add_argument(
+        "--nmr-receiver-gain",
+        type=float,
+        default=defaults["nmr_receiver_gain"],
+    )
+    parser.add_argument(
+        "--nmr-auto-gain",
+        dest="nmr_auto_gain",
+        action="store_true",
+        default=defaults["nmr_auto_gain"],
+    )
+    parser.add_argument(
+        "--nmr-manual-gain",
+        dest="nmr_auto_gain",
+        action="store_false",
+        default=defaults["nmr_auto_gain"],
+    )
+    parser.add_argument("--nmr-solvent", default=defaults["nmr_solvent"])
+    parser.add_argument(
+        "--nmr-spectral-center",
+        type=float,
+        default=defaults["nmr_spectral_center"],
+    )
+    parser.add_argument("--nmr-sweep-width", type=float, default=defaults["nmr_sweep_width"])
+    parser.add_argument("--nmr-result-name", default=defaults["nmr_result_name"])
+    parser.add_argument(
+        "--nmr-result-type",
+        choices=["fid", "spectrum", "rawfid"],
+        default=defaults["nmr_result_type"],
+    )
+    parser.add_argument("--nmr-save-dir", type=Path, default=defaults["nmr_save_dir"])
+    parser.add_argument("--target", type=float, default=defaults["target"])
     return parser
+
+
+def parse_args(
+    argv: list[str] | None = None,
+    default_config: Path = DEFAULT_WORKFLOW_CONFIG,
+    defaults: dict | None = None,
+) -> argparse.Namespace:
+    config_path = preparse_workflow_config(argv, default_config)
+    values = load_workflow_defaults(config_path, defaults)
+    values["workflow_config"] = config_path
+    return build_parser(values).parse_args(argv)
 
 
 def load_pump_settings(args) -> config.PumpConfig:
@@ -333,6 +567,7 @@ def print_plan(args, pump_cfg: config.PumpConfig, nmr_settings: config.NmrSettin
     print("=" * 72)
     print("First real Chemyx + NMR test")
     print("=" * 72)
+    print(f"Config file    : {args.workflow_config}")
     print(f"Pump port      : {pump_cfg.port} @ {pump_cfg.baud_rate}")
     print(f"Pump channel   : {pump_cfg.channel}")
     print(f"Syringe ID     : {pump_cfg.diameter} mm")
@@ -350,7 +585,11 @@ def print_plan(args, pump_cfg: config.PumpConfig, nmr_settings: config.NmrSettin
 
 
 def main() -> int:
-    args = build_parser().parse_args()
+    try:
+        args = parse_args()
+    except ValueError as exc:
+        print(f"FAILED: {exc}")
+        return 1
     try:
         pump_cfg = load_pump_settings(args)
         nmr_settings = load_nmr_settings(args)
