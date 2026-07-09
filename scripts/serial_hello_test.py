@@ -86,6 +86,18 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="1-12",
         help="move to a numbered valve position, for example 1 or 2",
     )
+    parser.add_argument(
+        "--ports",
+        type=int,
+        choices=range(1, 13),
+        metavar="1-12",
+        default=2,
+        help=(
+            "selectable positions on the attached valve (default 2: the "
+            "MXX777-601 is a 2-position valve; the board silently ignores "
+            "commands to positions it does not have)"
+        ),
+    )
     operation.add_argument(
         "--home",
         action="store_true",
@@ -272,6 +284,17 @@ def parse_hex_command(raw: str) -> bytes:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    # The MX II driver board silently ignores commands to positions the
+    # valve does not have, so refuse them here with a loud error instead.
+    if args.position is not None and args.position > args.ports:
+        print(
+            f"FAILED: valve has only {args.ports} positions, got "
+            f"{args.position}. The board would silently ignore this command. "
+            f"Pass --ports N if the attached valve really has more positions."
+        )
+        return 2
+
     serial, list_ports = import_serial()
     if serial is None:
         return 1

@@ -48,6 +48,17 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="1-12",
         help="move to the requested indexed position",
     )
+    parser.add_argument(
+        "--ports",
+        type=int,
+        choices=range(1, 13),
+        metavar="1-12",
+        default=2,
+        help=(
+            "selectable positions on the attached valve (default 2 for the "
+            "2-position MXX777-601)"
+        ),
+    )
     operation.add_argument(
         "--identify",
         action="store_true",
@@ -76,6 +87,8 @@ def translate_arguments(args: argparse.Namespace) -> list[str]:
         str(args.timeout),
         "--motion-timeout",
         str(args.motion_timeout),
+        "--ports",
+        str(args.ports),
     ]
 
     if args.list_only:

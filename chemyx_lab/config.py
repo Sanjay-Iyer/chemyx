@@ -103,6 +103,27 @@ CHEMYX_CONFIG_FILE = _env(
     "CHEMYX_CONFIG_FILE", str(REPO_ROOT / "configs" / "chemyx.local.json")
 )
 
+# IDEX/Rheodyne MX Series II valve (USB-B -> FTDI FT232R virtual COM port).
+# The physical valve is an MXX777-601: 6 fluidic ports but only TWO selectable
+# positions (1 and 2). "positions" here means selectable positions, not
+# plumbing ports. Leave the port unset in committed code: set MXVALVE_PORT,
+# configs/valve.local.json, or pass --port to the scripts.
+VALVE_PORT = _env("MXVALVE_PORT", "")
+
+# Manufacturer default for MX II modules is 19200 (8N1, no handshaking).
+VALVE_BAUD = _env("MXVALVE_BAUD", 19200, int)
+
+# Number of selectable positions. The MX II board silently ignores position
+# commands beyond what the attached valve supports, so this default keeps
+# every committed code path honest for the 2-position MXX777-601.
+VALVE_POSITIONS = _env("MXVALVE_POSITIONS", 2, int)
+
+VALVE_TIMEOUT = _env("MXVALVE_TIMEOUT", 1.0, float)
+VALVE_MOTION_TIMEOUT = _env("MXVALVE_MOTION_TIMEOUT", 10.0, float)
+VALVE_CONFIG_FILE = _env(
+    "MXVALVE_CONFIG_FILE", str(REPO_ROOT / "configs" / "valve.local.json")
+)
+
 # NMR defaults. The archived working NMR scripts used direct ethernet at
 # 169.254.30.54 and the Nanalysis/NMReady RPC server on port 5000.
 NMR_RPC_SCHEME = _env("NMR_RPC_SCHEME", "http")
@@ -245,6 +266,86 @@ def _coerce_pump_config(values: dict) -> PumpConfig:
         volume=float(values["volume"]),
         timeout=float(values["timeout"]),
         response_delay=float(values["response_delay"]),
+    )
+
+
+@dataclass(frozen=True)
+class ValveConfig:
+    port: str
+    baud: int
+    positions: int
+    timeout: float
+    motion_timeout: float
+
+
+_VALVE_CONFIG_ALIASES = {
+    "serial_port": "port",
+    "com_port": "port",
+    "valve_port": "port",
+    "mxvalve_port": "port",
+    "baud_rate": "baud",
+    "baudrate": "baud",
+    "valve_baud": "baud",
+    # linnarsson-lab MXII_valve calls selectable positions "ports"
+    "ports": "positions",
+    "n_positions": "positions",
+    "num_positions": "positions",
+    "valve_positions": "positions",
+    "serial_timeout": "timeout",
+    "read_timeout": "timeout",
+    "move_timeout": "motion_timeout",
+}
+
+VALVE_SUPPORTED_BAUDS = (9600, 19200, 38400, 57600)
+
+
+def load_valve_config(
+    config_path: str | os.PathLike | None = None, **overrides
+) -> ValveConfig:
+    """Load MX valve defaults, optional local JSON config, then CLI overrides."""
+    values = {
+        "port": VALVE_PORT,
+        "baud": VALVE_BAUD,
+        "positions": VALVE_POSITIONS,
+        "timeout": VALVE_TIMEOUT,
+        "motion_timeout": VALVE_MOTION_TIMEOUT,
+    }
+
+    path = Path(config_path) if config_path else Path(VALVE_CONFIG_FILE)
+    if path.exists():
+        values.update(
+            _read_local_json_config(
+                path=path,
+                known_keys=set(values),
+                aliases=_VALVE_CONFIG_ALIASES,
+                label="valve config",
+            )
+        )
+
+    for key, value in overrides.items():
+        if value is not None:
+            values[key] = value
+    return _coerce_valve_config(values)
+
+
+def _coerce_valve_config(values: dict) -> ValveConfig:
+    positions = int(values["positions"])
+    if not 1 <= positions <= 12:
+        raise ValueError("Valve positions must be between 1 and 12")
+
+    baud = int(values["baud"])
+    if baud not in VALVE_SUPPORTED_BAUDS:
+        raise ValueError(
+            f"Valve baud {baud} is not one of the MX II supported rates "
+            f"{VALVE_SUPPORTED_BAUDS}"
+        )
+
+    return ValveConfig(
+        port=str(values["port"]).strip(),
+        baud=baud,
+        positions=positions,
+        timeout=float(values["timeout"]),
+        motion_timeout=float(values["motion_timeout"]),
     )
 
 

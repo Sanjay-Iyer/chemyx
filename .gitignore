@@ -1,6 +1,8 @@
 # --- Per-machine local config (NEVER commit your real port) ------------------
 config_local.py
 .env
+# Matches valve/chemyx/nmr .local.json but not the committed *.local.example.json
+configs/*.local.json
 
 # --- Local archive / ignored project metadata --------------------------------
 archive/

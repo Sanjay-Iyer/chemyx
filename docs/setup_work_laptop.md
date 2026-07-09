@@ -19,6 +19,7 @@ Run the no-hardware checks:
 python scripts\pump_infuse_withdraw.py --mock
 python scripts\sop_mock_workflow.py --cycles 1
 python scripts\nmr_run_1d.py --dry-run --mock-settings
+python scripts\test_valve.py --mock
 pytest
 ```
 
@@ -106,6 +107,40 @@ Device Manager -> Ports (COM & LPT)
 Unplug/replug the pump or USB-to-serial adapter and watch which COM port
 appears. That is the value for `CHEMYX_PORT` or `port` in
 `configs\chemyx.local.json`.
+
+## 3b. MX Series II Valve (MXX777-601)
+
+The valve enumerates as an FTDI FT232R (vid:pid `0403:6001`). Set its port
+per machine, the same way as the pump:
+
+```powershell
+$env:MXVALVE_PORT="COM7"
+```
+
+or persistently on that clone:
+
+```powershell
+copy configs\valve.local.example.json configs\valve.local.json
+```
+
+The valve is a **2-position** (6-port) MXX777-601: only positions 1 and 2
+exist. Bring-up order:
+
+```powershell
+python scripts\test_valve.py --mock       # sanity check the clone, no hardware
+python scripts\test_valve.py              # full test: status, home, 1<->2 toggles
+```
+
+If home works but the toggles time out, the board's command mode is likely
+not BCD (required for USB control):
+
+```powershell
+python scripts\test_valve.py --set-bcd
+# unplug the 24 V barrel jack, wait a few seconds, plug it back in
+python scripts\test_valve.py
+```
+
+Details and the full wire protocol: `docs/valve_mx2_guide.md`.
 
 ## 4. Run Order On Hardware
 

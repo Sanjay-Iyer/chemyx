@@ -1,12 +1,15 @@
 """Safely send documented position commands to an IDEX/Rheodyne valve.
 
+The connected MXX777-601 is a 2-POSITION valve (6 fluidic ports, but only
+positions 1 and 2 exist), so by default only "P01" and "P02" are allowed.
+The MX II board silently ignores commands to nonexistent positions; pass
+--max-position N only if a different valve is attached.
+
 PowerShell examples:
 
-    conda activate AI
     python scripts\titan_valve_control.py --port COM7 --baud 19200 --command "S"
     python scripts\titan_valve_control.py --port COM7 --baud 19200 --command "P01"
     python scripts\titan_valve_control.py --port COM7 --baud 19200 --command "P02"
-    python scripts\titan_valve_control.py --port COM7 --baud 19200 --command "P03"
 
 This controls valve positions through the controller firmware. It never runs
 the stepper motor continuously or sends arbitrary bytes.
@@ -21,6 +24,7 @@ import time
 
 
 SUPPORTED_BAUD_RATES = (9600, 19200, 38400, 57600)
+# Hard protocol ceiling; the per-valve limit is the --max-position argument.
 MAX_POSITION = 12
 
 
@@ -32,7 +36,6 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""PowerShell examples:
-  conda activate AI
   python scripts\\titan_valve_control.py --port COM7 --baud 19200 --command "S"
   python scripts\\titan_valve_control.py --port COM7 --baud 19200 --command "P01"
   python scripts\\titan_valve_control.py --port COM7 --baud 19200 --command "P02"
@@ -55,6 +58,18 @@ Test supported baud rates without moving the valve:
         "--command",
         default="S",
         help='documented command: "S" or a position such as "P01"',
+    )
+    parser.add_argument(
+        "--max-position",
+        type=int,
+        choices=range(1, MAX_POSITION + 1),
+        metavar=f"1-{MAX_POSITION}",
+        default=2,
+        help=(
+            "highest position that exists on the attached valve (default 2 "
+            "for the 2-position MXX777-601; the board silently ignores "
+            "commands to positions it does not have)"
+        ),
     )
     parser.add_argument(
         "--timeout",
@@ -99,7 +114,7 @@ def list_serial_ports(list_ports) -> list:
     return ports
 
 
-def validate_command(raw_command: str) -> str:
+def validate_command(raw_command: str, max_position: int = 2) -> str:
     command = raw_command.strip().upper()
     if command == "S":
         return command
@@ -109,11 +124,17 @@ def validate_command(raw_command: str) -> str:
             position = int(command[1:], 16)
         except ValueError:
             position = 0
-        if 1 <= position <= MAX_POSITION and command == f"P{position:02X}":
-            return command
+        if command == f"P{position:02X}" and 1 <= position <= MAX_POSITION:
+            if position <= max_position:
+                return command
+            raise ValueError(
+                f"valve has only {max_position} positions, got {position}. "
+                f"The board silently ignores nonexistent positions; pass "
+                f"--max-position N if the attached valve really has more."
+            )
 
     raise ValueError(
-        'command must be "S" or an indexed position from "P01" through "P0C"'
+        'command must be "S" or an indexed position such as "P01" or "P02"'
     )
 
 
@@ -179,7 +200,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
-        command = validate_command(args.command)
+        command = validate_command(args.command, args.max_position)
     except ValueError as exc:
         print(f"FAILED: {exc}")
         return 2

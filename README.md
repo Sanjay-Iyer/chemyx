@@ -14,7 +14,8 @@ while the same committed scripts run from any clone.
 chemyx_lab/              Shared Python package
   config.py              Laptop-agnostic settings and env var handling
   pump.py                Chemyx serial wrapper
-  mock_serial.py         Fake pump for dry runs and tests
+  valve.py               IDEX MX Series II valve driver (2-position MXX777-601)
+  mock_serial.py         Fake pump + fake MX II valve board for dry runs/tests
   nmr.py                 JCAMP-DX parser and 6.1 ppm peak check
   nmr_outputs.py         CSV/plot/manifest output helpers
   workflow.py            First-pass SOP workflow steps
@@ -87,6 +88,30 @@ For a noninteractive checked run:
 python scripts\pump_infuse_withdraw.py --yes
 ```
 
+## MX Series II Valve (MXX777-601)
+
+The switching valve is an IDEX MX Series II with a 2-POSITION, 6-port
+MXX777-601: only positions 1 and 2 exist, and the board silently ignores
+commands to any other position, so the driver validates before sending.
+
+Dry-run without hardware:
+
+```powershell
+python scripts\test_valve.py --mock
+python scripts\test_valve.py --mock --mock-level-logic
+```
+
+On the laptop with the valve (auto-detects the FTDI COM port if unset):
+
+```powershell
+$env:MXVALVE_PORT="COM7"     # or copy configs\valve.local.example.json
+python scripts\test_valve.py
+```
+
+If home works but position moves are ignored, the board's command mode is
+probably not BCD: run `python scripts\test_valve.py --set-bcd`, power-cycle
+the 24 V supply, and test again. Details: [MX II valve guide](docs/valve_mx2_guide.md).
+
 ## NMR Intake
 
 Analyze the example `.dx` files near 6.1 ppm:
@@ -128,6 +153,7 @@ laptop when the IP, scan count, receiver gain, solvent, or timing changes.
 
 - [Laptop setup](docs/setup_work_laptop.md)
 - [Chemyx 4000X guide](docs/chemyx_4000x_guide.md)
+- [MX II valve guide](docs/valve_mx2_guide.md)
 - [NMR guide](docs/nmr_guide.md)
 - [NMR RPC API notes](docs/nmr_rpc_api.md)
 - [SOP workflow plan](docs/sop_workflow.md)
