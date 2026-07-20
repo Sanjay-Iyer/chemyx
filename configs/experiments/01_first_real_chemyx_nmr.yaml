@@ -1,0 +1,30 @@
+workflow:
+  name: first_real_chemyx_nmr
+  description: Withdraw sample, acquire NMR, then infuse sample back.
+  sequence:
+    - event: W
+      volume_ml: 5.0
+    - event: N
+    - event: I
+      volume_ml: 5.0
+  pump_extra_seconds: 2.0
+  settle_before_nmr_seconds: 0.0
+
+pump:
+  channel: 1
+  syringe_diameter_mm: 28.6
+  units: mL/min
+  rate_ml_min: 5.0
+  default_volume_ml: 5.0
+
+nmr:
+  route: iflow
+  scans: 2
+  receiver_gain: 12.0
+  auto_gain: false
+  spectral_center: 5.0
+  sweep_width: 20.0
+  target_ppm: 6.1
+
+output:
+  nmr_save_dir: results/raw/nmr/generated

@@ -31,11 +31,11 @@ _VALVE_EXPORTS = {
 
 def __getattr__(name):
     if name in _PUMP_EXPORTS:
-        from . import pump
+        from .instruments import chemyx as pump
 
         return getattr(pump, name)
     if name in _VALVE_EXPORTS:
-        from . import valve
+        from .instruments import valve
 
         return getattr(valve, name)
     raise AttributeError(name)

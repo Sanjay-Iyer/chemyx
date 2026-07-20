@@ -1,4 +1,7 @@
 import json
+from pathlib import Path
+
+import pytest
 
 from chemyx_lab import config
 
@@ -20,7 +23,7 @@ def test_load_pump_config_merges_local_json_then_overrides(tmp_path):
     cfg.write_text(
         json.dumps(
             {
-                "com_port": "COM7",
+                "com_port": "FAKE_CHEMYX_PORT",
                 "baud": 9600,
                 "pump_channel": 2,
                 "flow_units": "uL/min",
@@ -39,7 +42,7 @@ def test_load_pump_config_merges_local_json_then_overrides(tmp_path):
         rate=0.5,
     )
 
-    assert settings.port == "COM7"
+    assert settings.port == "FAKE_CHEMYX_PORT"
     assert settings.baud_rate == 9600
     assert settings.channel == 1
     assert settings.units == 2
@@ -49,10 +52,10 @@ def test_load_pump_config_merges_local_json_then_overrides(tmp_path):
     assert settings.response_delay == 0.4
 
 
-def test_load_nmr_settings_defaults_to_archived_working_ip():
+def test_load_nmr_settings_defaults_to_unset_host():
     settings = config.load_nmr_settings(config_path="missing-nmr-local.json")
 
-    assert settings.host == "169.254.30.54"
+    assert settings.host == ""
     assert settings.port == 5000
     assert settings.route == "iflow"
     assert settings.scans == 2
@@ -65,7 +68,7 @@ def test_load_nmr_settings_merges_local_json_then_overrides(tmp_path):
     cfg.write_text(
         json.dumps(
             {
-                "ip_address": "10.10.1.50",
+                "ip_address": "nmr-one.example",
                 "NumberOfScans": 16,
                 "ReceiverGain": 14,
                 "autoGain": True,
@@ -80,7 +83,159 @@ def test_load_nmr_settings_merges_local_json_then_overrides(tmp_path):
         receiver_gain=12,
     )
 
-    assert settings.host == "10.10.1.50"
+    assert settings.host == "nmr-one.example"
     assert settings.scans == 8
     assert settings.receiver_gain == 12.0
     assert settings.auto_gain is True
+
+
+def test_load_experiment_config_reads_numbered_yaml():
+    settings = config.load_experiment_config(
+        config.REPO_ROOT / "configs" / "experiments" / "01_first_real_chemyx_nmr.yaml"
+    )
+
+    assert settings.workflow.name == "first_real_chemyx_nmr"
+    assert settings.pump.rate_ml_min == 5.0
+    assert settings.nmr.scans == 2
+    assert settings.output.nmr_save_dir == Path("results/raw/nmr/generated")
+
+
+def test_load_machine_config_reads_yaml(tmp_path):
+    cfg = tmp_path / "machine.yaml"
+    cfg.write_text(
+        "\n".join(
+            [
+                "chemyx:",
+                "  serial_port: FAKE_MACHINE_PORT",
+                "  baud_rate: 115200",
+                "nmr:",
+                "  host: nmr-machine.example",
+                "  port: 5000",
+                "valve:",
+                "  serial_port: FAKE_VALVE_PORT",
+                "  baud_rate: 19200",
+                "  positions: 2",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    settings = config.load_machine_config(cfg)
+
+    assert settings.chemyx.serial_port == "FAKE_MACHINE_PORT"
+    assert settings.nmr.host == "nmr-machine.example"
+    assert settings.valve.serial_port == "FAKE_VALVE_PORT"
+    assert settings.valve.baud_rate == 19200
+    assert settings.valve.positions == 2
+
+
+def test_machine_config_rejects_unknown_nested_key(tmp_path):
+    cfg = tmp_path / "machine.yaml"
+    cfg.write_text(
+        "\n".join(
+            [
+                "chemyx:",
+                "  serial_port: FAKE_MACHINE_PORT",
+                "  mystery: true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(config.ConfigError, match="mystery"):
+        config.load_machine_config(cfg)
+
+
+def test_experiment_config_rejects_bad_field_type(tmp_path):
+    cfg = tmp_path / "experiment.yaml"
+    cfg.write_text(
+        "\n".join(
+            [
+                "workflow:",
+                "  name: bad",
+                "  sequence: W",
+                "  pump_extra_seconds: 2",
+                "  settle_before_nmr_seconds: 0",
+                "pump:",
+                "  channel: 1",
+                "  syringe_diameter_mm: 28.6",
+                "  units: mL/min",
+                "  rate_ml_min: 5",
+                "  default_volume_ml: 5",
+                "nmr:",
+                "  route: iflow",
+                "  scans: 2",
+                "  receiver_gain: 12",
+                "  auto_gain: false",
+                "  spectral_center: 5",
+                "  sweep_width: 20",
+                "  target_ppm: 6.1",
+                "output:",
+                "  nmr_save_dir: results/raw/nmr/generated",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(config.ConfigError, match="sequence"):
+        config.load_experiment_config(cfg)
+
+
+def test_configured_loaders_apply_machine_and_cli_precedence(tmp_path, monkeypatch):
+    experiment = tmp_path / "experiment.yaml"
+    experiment.write_text(
+        "\n".join(
+            [
+                "workflow:",
+                "  name: precedence",
+                "  sequence:",
+                "    - event: W",
+                "  pump_extra_seconds: 2",
+                "  settle_before_nmr_seconds: 0",
+                "pump:",
+                "  channel: 1",
+                "  syringe_diameter_mm: 28.6",
+                "  units: mL/min",
+                "  rate_ml_min: 5",
+                "  default_volume_ml: 5",
+                "nmr:",
+                "  route: iflow",
+                "  scans: 2",
+                "  receiver_gain: 12",
+                "  auto_gain: false",
+                "  spectral_center: 5",
+                "  sweep_width: 20",
+                "  target_ppm: 6.1",
+                "output:",
+                "  nmr_save_dir: results/raw/nmr/generated",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    machine = tmp_path / "machine.yaml"
+    machine.write_text(
+        "\n".join(
+            [
+                "chemyx:",
+                "  serial_port: MACHINE_PORT",
+                "  baud_rate: 9600",
+                "nmr:",
+                "  host: machine-host",
+                "  port: 5001",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("NMR_HOST", "env-host")
+
+    pump = config.load_configured_pump(experiment, machine, port="CLI_PORT")
+    nmr = config.load_configured_nmr(experiment, machine, host="cli-host")
+    nmr_from_env = config.load_configured_nmr(experiment, machine)
+
+    assert pump.port == "CLI_PORT"
+    assert pump.baud_rate == 9600
+    assert pump.rate == 5.0
+    assert nmr.host == "cli-host"
+    assert nmr.port == 5001
+    assert nmr.scans == 2
+    assert nmr_from_env.host == "env-host"

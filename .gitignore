@@ -3,9 +3,12 @@ config_local.py
 .env
 # Matches valve/chemyx/nmr .local.json but not the committed *.local.example.json
 configs/*.local.json
+configs/machines/*.local.yaml
+configs/machines/*.local.yml
 
 # --- Local archive / ignored project metadata --------------------------------
 archive/
+_archive/
 .gitignore
 
 # --- Generated run outputs ---------------------------------------------------

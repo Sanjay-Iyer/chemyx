@@ -15,8 +15,8 @@ Run from the repo root:   pytest
 
 import pytest
 
-from chemyx_lab.mock_serial import MockMXValveSerial
-from chemyx_lab.valve import (
+from chemyx_lab.testing.mock_serial import MockMXValveSerial
+from chemyx_lab.instruments.valve import (
     BCD_MODE,
     MX_valve,
     ValveConnectionError,
@@ -201,22 +201,22 @@ class _FakePortInfo:
 
 def test_find_address_picks_the_single_ftdi_port():
     ports = [
-        _FakePortInfo("COM3", vid=0x1A86, pid=0x7523, description="CH340"),
-        _FakePortInfo("COM7", vid=0x0403, pid=0x6001, description="FT232R"),
+        _FakePortInfo("FAKE_CH340_PORT", vid=0x1A86, pid=0x7523, description="CH340"),
+        _FakePortInfo("FAKE_FTDI_PORT", vid=0x0403, pid=0x6001, description="FT232R"),
     ]
-    assert find_address(ports=ports) == "COM7"
+    assert find_address(ports=ports) == "FAKE_FTDI_PORT"
 
 
 def test_find_address_errors_when_no_ftdi():
-    ports = [_FakePortInfo("COM3", vid=0x1A86, pid=0x7523)]
+    ports = [_FakePortInfo("FAKE_CH340_PORT", vid=0x1A86, pid=0x7523)]
     with pytest.raises(ValveConnectionError, match="0403:6001"):
         find_address(ports=ports)
 
 
 def test_find_address_errors_on_multiple_ftdi():
     ports = [
-        _FakePortInfo("COM7", vid=0x0403, pid=0x6001),
-        _FakePortInfo("COM8", vid=0x0403, pid=0x6001),
+        _FakePortInfo("FAKE_FTDI_A", vid=0x0403, pid=0x6001),
+        _FakePortInfo("FAKE_FTDI_B", vid=0x0403, pid=0x6001),
     ]
     with pytest.raises(ValveConnectionError, match="Multiple FTDI"):
         find_address(ports=ports)
@@ -224,10 +224,10 @@ def test_find_address_errors_on_multiple_ftdi():
 
 def test_find_address_matches_identifier_substring():
     ports = [
-        _FakePortInfo("COM3", description="Chemyx pump"),
-        _FakePortInfo("COM9", hwid="USB VID:PID=0403:6001 SER=A700ABCD"),
+        _FakePortInfo("FAKE_CHEMYX_PORT", description="Chemyx pump"),
+        _FakePortInfo("FAKE_TARGET_PORT", hwid="USB VID:PID=0403:6001 SER=A700ABCD"),
     ]
-    assert find_address("a700abcd", ports=ports) == "COM9"
+    assert find_address("a700abcd", ports=ports) == "FAKE_TARGET_PORT"
 
 
 # =============================================================================

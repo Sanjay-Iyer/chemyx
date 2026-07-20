@@ -1,0 +1,23 @@
+# Copy to 00_machine.local.yaml on the laptop that is connected to instruments.
+# Keep 00_machine.local.yaml out of Git.
+
+chemyx:
+  serial_port: "REPLACE_WITH_COM_PORT"
+  baud_rate: 115200
+  timeout_seconds: 2.0
+  response_delay_seconds: 0.2
+
+nmr:
+  host: "REPLACE_WITH_NMR_IP"
+  port: 5000
+  scheme: http
+  timeout_seconds: 10.0
+  poll_seconds: 2.0
+  max_wait_seconds: 300.0
+
+valve:
+  serial_port: "REPLACE_WITH_VALVE_COM_PORT"
+  baud_rate: 19200
+  positions: 2
+  timeout_seconds: 1.0
+  motion_timeout_seconds: 10.0

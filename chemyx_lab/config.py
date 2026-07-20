@@ -1,9 +1,9 @@
 """Portable configuration for Chemyx/NMR workflow scripts.
 
 Committed defaults are safe starting points from known working setups. Real
-hardware settings should come from environment variables, untracked
-``configs/chemyx.local.json`` or ``configs/nmr.local.json`` files, or a legacy
-untracked ``config_local.py`` file.
+hardware endpoints should come from the ignored
+``configs/machines/00_machine.local.yaml`` file or explicit CLI/environment
+overrides. Legacy JSON loaders remain only for compatibility with old callers.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -38,8 +39,7 @@ def _to_bool(value) -> bool:
     raise ValueError(f"Cannot parse {value!r} as a boolean")
 
 
-# Serial port: leave unset in committed code. Set CHEMYX_PORT,
-# configs/chemyx.local.json, or config_local.py.
+# Serial port: leave unset in committed code. Use machine YAML or CHEMYX_PORT.
 PORT = _env("CHEMYX_PORT", "")
 
 # Your successful work-laptop 4000X script used 115200. Still verify this
@@ -107,7 +107,7 @@ CHEMYX_CONFIG_FILE = _env(
 # The physical valve is an MXX777-601: 6 fluidic ports but only TWO selectable
 # positions (1 and 2). "positions" here means selectable positions, not
 # plumbing ports. Leave the port unset in committed code: set MXVALVE_PORT,
-# configs/valve.local.json, or pass --port to the scripts.
+# machine YAML, or pass --port to the diagnostic scripts.
 VALVE_PORT = _env("MXVALVE_PORT", "")
 
 # Manufacturer default for MX II modules is 19200 (8N1, no handshaking).
@@ -124,10 +124,11 @@ VALVE_CONFIG_FILE = _env(
     "MXVALVE_CONFIG_FILE", str(REPO_ROOT / "configs" / "valve.local.json")
 )
 
-# NMR defaults. The archived working NMR scripts used direct ethernet at
-# 169.254.30.54 and the Nanalysis/NMReady RPC server on port 5000.
+# NMR defaults. Keep the host unset in Python so real endpoints must come from
+# machine config, environment, or CLI; historical endpoint evidence is listed
+# in docs/ARCHIVE_MANIFEST.csv.
 NMR_RPC_SCHEME = _env("NMR_RPC_SCHEME", "http")
-NMR_HOST = _env("NMR_HOST", "169.254.30.54")
+NMR_HOST = _env("NMR_HOST", "")
 NMR_PORT = _env("NMR_PORT", 5000, int)
 NMR_RPC_TIMEOUT = _env("NMR_RPC_TIMEOUT", 10.0, float)
 NMR_RPC_POLL_SECONDS = _env("NMR_RPC_POLL_SECONDS", 2.0, float)
@@ -142,10 +143,26 @@ NMR_DEFAULT_SPECTRAL_CENTER = _env("NMR_DEFAULT_SPECTRAL_CENTER", 5.0, float)
 NMR_DEFAULT_SWEEP_WIDTH = _env("NMR_DEFAULT_SWEEP_WIDTH", 20.0, float)
 NMR_DEFAULT_RESULT_NAME = _env("NMR_RESULT_NAME", "DataSet")
 NMR_DEFAULT_RESULT_TYPE = _env("NMR_RESULT_TYPE", "fid")
-NMR_DEFAULT_SAVE_DIR = _env("NMR_SAVE_DIR", "runs/nmr")
+NMR_DEFAULT_SAVE_DIR = _env("NMR_SAVE_DIR", "results/raw/nmr/generated")
 NMR_CONFIG_FILE = _env("NMR_CONFIG_FILE", str(REPO_ROOT / "configs" / "nmr.local.json"))
 NMR_TARGET_PPM = _env("NMR_TARGET_PPM", 6.1, float)
 NMR_PEAK_WINDOW_PPM = _env("NMR_PEAK_WINDOW_PPM", 0.12, float)
+
+
+class ConfigError(ValueError):
+    """Raised when a configuration file or field is invalid."""
+
+
+@dataclass(frozen=True)
+class ConfigSource:
+    path: Path
+    label: str
+
+    def field(self, name: str, value: Any, expected: str) -> ConfigError:
+        return ConfigError(
+            f"{self.label} field {name!r} in {self.path} has value "
+            f"{value!r}; expected {expected}."
+        )
 
 
 def resolve_units(units) -> int:
@@ -165,12 +182,6 @@ def rate_limits(units) -> tuple[float, float]:
     return RATE_LIMITS[resolve_units(units)]
 
 
-try:
-    from config_local import *  # noqa: F401,F403
-except ImportError:
-    pass
-
-
 @dataclass(frozen=True)
 class PumpConfig:
     port: str
@@ -182,6 +193,508 @@ class PumpConfig:
     volume: float
     timeout: float
     response_delay: float
+
+
+@dataclass(frozen=True)
+class MachineChemyxConfig:
+    serial_port: str | None = None
+    baud_rate: int | None = None
+    timeout_seconds: float | None = None
+    response_delay_seconds: float | None = None
+
+
+@dataclass(frozen=True)
+class MachineNmrConfig:
+    host: str | None = None
+    port: int | None = None
+    scheme: str | None = None
+    timeout_seconds: float | None = None
+    poll_seconds: float | None = None
+    max_wait_seconds: float | None = None
+
+
+@dataclass(frozen=True)
+class MachineValveConfig:
+    serial_port: str | None = None
+    baud_rate: int | None = None
+    positions: int | None = None
+    timeout_seconds: float | None = None
+    motion_timeout_seconds: float | None = None
+
+
+@dataclass(frozen=True)
+class MachineConfig:
+    chemyx: MachineChemyxConfig
+    nmr: MachineNmrConfig
+    valve: MachineValveConfig
+    source: Path | None = None
+
+
+@dataclass(frozen=True)
+class ExperimentWorkflowConfig:
+    name: str
+    description: str
+    sequence: list[Any]
+    pump_extra_seconds: float
+    settle_before_nmr_seconds: float
+
+
+@dataclass(frozen=True)
+class ExperimentPumpConfig:
+    channel: int
+    syringe_diameter_mm: float
+    units: str | int
+    rate_ml_min: float
+    default_volume_ml: float
+
+
+@dataclass(frozen=True)
+class ExperimentNmrConfig:
+    route: str
+    scans: int
+    receiver_gain: float | None
+    auto_gain: bool
+    spectral_center: float
+    sweep_width: float
+    target_ppm: float
+
+
+@dataclass(frozen=True)
+class ExperimentOutputConfig:
+    nmr_save_dir: Path
+
+
+@dataclass(frozen=True)
+class ExperimentConfig:
+    workflow: ExperimentWorkflowConfig
+    pump: ExperimentPumpConfig
+    nmr: ExperimentNmrConfig
+    output: ExperimentOutputConfig
+    source: Path | None = None
+
+
+def read_mapping_config(path: str | os.PathLike, label: str = "config") -> dict[str, Any]:
+    """Read a JSON or YAML mapping config.
+
+    YAML support uses PyYAML. JSON compatibility remains for existing local
+    files while the repository migrates to numbered YAML configs.
+    """
+    config_path = Path(path)
+    try:
+        text = config_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ConfigError(f"Could not read {label} at {config_path}: {exc}") from exc
+
+    suffix = config_path.suffix.lower()
+    try:
+        if suffix in {".yaml", ".yml"}:
+            try:
+                import yaml
+            except ImportError as exc:
+                raise ConfigError(
+                    "PyYAML is required to read YAML configs. Install project "
+                    "dependencies in the Conda 'ai' environment."
+                ) from exc
+            raw = yaml.safe_load(text)
+        else:
+            raw = json.loads(text)
+    except ConfigError:
+        raise
+    except Exception as exc:
+        raise ConfigError(f"Could not parse {label} at {config_path}: {exc}") from exc
+
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, dict):
+        raise ConfigError(f"{label} at {config_path} must be a mapping/object")
+    return raw
+
+
+def load_machine_config(config_path: str | os.PathLike | None = None) -> MachineConfig:
+    """Load machine-specific instrument endpoints from YAML or JSON."""
+    if config_path is None:
+        config_path = REPO_ROOT / "configs" / "machines" / "00_machine.local.yaml"
+    path = Path(config_path)
+    if not path.exists():
+        return MachineConfig(
+            chemyx=MachineChemyxConfig(),
+            nmr=MachineNmrConfig(),
+            valve=MachineValveConfig(),
+            source=path,
+        )
+    raw = read_mapping_config(path, "machine config")
+    unknown = sorted(set(raw) - {"chemyx", "nmr", "valve"})
+    if unknown:
+        raise ConfigError(
+            f"Unknown machine config section(s) in {path}: {', '.join(unknown)}"
+        )
+    source = ConfigSource(path, "machine config")
+    chemyx = _parse_machine_chemyx(
+        _require_mapping(raw.get("chemyx", {}), source, "chemyx"),
+        source,
+    )
+    nmr = _parse_machine_nmr(
+        _require_mapping(raw.get("nmr", {}), source, "nmr"),
+        source,
+    )
+    valve = _parse_machine_valve(
+        _require_mapping(raw.get("valve", {}), source, "valve"),
+        source,
+    )
+    return MachineConfig(chemyx=chemyx, nmr=nmr, valve=valve, source=path)
+
+
+def load_experiment_config(config_path: str | os.PathLike) -> ExperimentConfig:
+    """Load a numbered workflow/experiment config from YAML or JSON."""
+    path = Path(config_path)
+    raw = read_mapping_config(path, "experiment config")
+    unknown = sorted(set(raw) - {"workflow", "pump", "nmr", "output"})
+    if unknown:
+        raise ConfigError(
+            f"Unknown experiment config section(s) in {path}: {', '.join(unknown)}"
+        )
+    source = ConfigSource(path, "experiment config")
+    return ExperimentConfig(
+        workflow=_parse_experiment_workflow(
+            _require_mapping(raw.get("workflow", {}), source, "workflow"),
+            source,
+        ),
+        pump=_parse_experiment_pump(
+            _require_mapping(raw.get("pump", {}), source, "pump"),
+            source,
+        ),
+        nmr=_parse_experiment_nmr(
+            _require_mapping(raw.get("nmr", {}), source, "nmr"),
+            source,
+        ),
+        output=_parse_experiment_output(
+            _require_mapping(raw.get("output", {}), source, "output"),
+            source,
+        ),
+        source=path,
+    )
+
+
+def _require_mapping(value: Any, source: ConfigSource, field: str) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise source.field(field, value, "mapping/object")
+    return dict(value)
+
+
+def _unknown_keys(section: dict[str, Any], allowed: set[str], source: ConfigSource, label: str) -> None:
+    unknown = sorted(set(section) - allowed)
+    if unknown:
+        raise ConfigError(
+            f"Unknown {source.label} key(s) in {source.path} [{label}]: "
+            + ", ".join(unknown)
+        )
+
+
+def _optional_str(section: dict[str, Any], key: str, source: ConfigSource) -> str | None:
+    value = section.get(key)
+    if value in (None, ""):
+        return None
+    if not isinstance(value, str):
+        raise source.field(key, value, "string")
+    return value.strip()
+
+
+def _optional_int(section: dict[str, Any], key: str, source: ConfigSource) -> int | None:
+    value = section.get(key)
+    if value in (None, ""):
+        return None
+    if isinstance(value, bool):
+        raise source.field(key, value, "integer")
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise source.field(key, value, "integer") from exc
+
+
+def _optional_float(section: dict[str, Any], key: str, source: ConfigSource) -> float | None:
+    value = section.get(key)
+    if value in (None, ""):
+        return None
+    if isinstance(value, bool):
+        raise source.field(key, value, "number")
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise source.field(key, value, "number") from exc
+
+
+def _required_float(section: dict[str, Any], key: str, source: ConfigSource) -> float:
+    value = _optional_float(section, key, source)
+    if value is None:
+        raise source.field(key, None, "number")
+    return value
+
+
+def _required_int(section: dict[str, Any], key: str, source: ConfigSource) -> int:
+    value = _optional_int(section, key, source)
+    if value is None:
+        raise source.field(key, None, "integer")
+    return value
+
+
+def _required_str(section: dict[str, Any], key: str, source: ConfigSource) -> str:
+    value = _optional_str(section, key, source)
+    if value is None:
+        raise source.field(key, None, "string")
+    return value
+
+
+def _required_bool(section: dict[str, Any], key: str, source: ConfigSource) -> bool:
+    try:
+        return _to_bool(section.get(key))
+    except ValueError as exc:
+        raise source.field(key, section.get(key), "boolean") from exc
+
+
+def _parse_machine_chemyx(section: dict[str, Any], source: ConfigSource) -> MachineChemyxConfig:
+    allowed = {"serial_port", "port", "baud_rate", "baud", "timeout_seconds", "timeout", "response_delay_seconds", "response_delay"}
+    _unknown_keys(section, allowed, source, "chemyx")
+    mapped = _map_section(section, _PUMP_CONFIG_ALIASES)
+    return MachineChemyxConfig(
+        serial_port=_optional_str(mapped, "port", source),
+        baud_rate=_optional_int(mapped, "baud_rate", source),
+        timeout_seconds=_optional_float(mapped, "timeout", source),
+        response_delay_seconds=_optional_float(mapped, "response_delay", source),
+    )
+
+
+def _parse_machine_nmr(section: dict[str, Any], source: ConfigSource) -> MachineNmrConfig:
+    allowed = {"host", "ip", "ip_address", "port", "scheme", "timeout_seconds", "timeout", "poll_seconds", "max_wait_seconds"}
+    _unknown_keys(section, allowed, source, "nmr")
+    mapped = _map_section(section, _NMR_CONFIG_ALIASES)
+    return MachineNmrConfig(
+        host=_optional_str(mapped, "host", source),
+        port=_optional_int(mapped, "port", source),
+        scheme=_optional_str(mapped, "scheme", source),
+        timeout_seconds=_optional_float(mapped, "timeout", source),
+        poll_seconds=_optional_float(mapped, "poll_seconds", source),
+        max_wait_seconds=_optional_float(mapped, "max_wait_seconds", source),
+    )
+
+
+def _parse_machine_valve(section: dict[str, Any], source: ConfigSource) -> MachineValveConfig:
+    allowed = {
+        "serial_port", "port", "baud_rate", "baud", "positions",
+        "timeout_seconds", "timeout", "motion_timeout_seconds", "motion_timeout",
+    }
+    _unknown_keys(section, allowed, source, "valve")
+    mapped = _map_section(section, _VALVE_CONFIG_ALIASES)
+    return MachineValveConfig(
+        serial_port=_optional_str(mapped, "port", source),
+        baud_rate=_optional_int(mapped, "baud", source),
+        positions=_optional_int(mapped, "positions", source),
+        timeout_seconds=_optional_float(mapped, "timeout", source),
+        motion_timeout_seconds=_optional_float(mapped, "motion_timeout", source),
+    )
+
+
+def _parse_experiment_workflow(section: dict[str, Any], source: ConfigSource) -> ExperimentWorkflowConfig:
+    allowed = {"name", "description", "sequence", "pump_extra_seconds", "settle_before_nmr_seconds"}
+    _unknown_keys(section, allowed, source, "workflow")
+    sequence = section.get("sequence")
+    if not isinstance(sequence, list) or not sequence:
+        raise source.field("sequence", sequence, "non-empty list")
+    return ExperimentWorkflowConfig(
+        name=_required_str(section, "name", source),
+        description=_optional_str(section, "description", source) or "",
+        sequence=sequence,
+        pump_extra_seconds=_required_float(section, "pump_extra_seconds", source),
+        settle_before_nmr_seconds=_required_float(section, "settle_before_nmr_seconds", source),
+    )
+
+
+def _parse_experiment_pump(section: dict[str, Any], source: ConfigSource) -> ExperimentPumpConfig:
+    allowed = {"channel", "syringe_diameter_mm", "diameter_mm", "units", "rate_ml_min", "default_volume_ml"}
+    _unknown_keys(section, allowed, source, "pump")
+    mapped = _map_section(section, _PUMP_CONFIG_ALIASES)
+    channel = _required_int(mapped, "channel", source)
+    if channel not in (0, 1, 2):
+        raise source.field("channel", channel, "0, 1, or 2")
+    diameter = _required_float(mapped, "diameter", source)
+    if not (DIAMETER_MIN <= diameter <= DIAMETER_MAX):
+        raise source.field(
+            "syringe_diameter_mm",
+            diameter,
+            f"number from {DIAMETER_MIN} to {DIAMETER_MAX} mm",
+        )
+    units = mapped.get("units")
+    resolve_units(units)
+    rate = _required_float(mapped, "rate", source)
+    lo, hi = rate_limits(units)
+    if not (lo <= rate <= hi):
+        raise source.field("rate_ml_min", rate, f"number from {lo} to {hi}")
+    volume = _required_float(mapped, "volume", source)
+    if volume <= 0:
+        raise source.field("default_volume_ml", volume, "positive number")
+    return ExperimentPumpConfig(
+        channel=channel,
+        syringe_diameter_mm=diameter,
+        units=units,
+        rate_ml_min=rate,
+        default_volume_ml=volume,
+    )
+
+
+def _parse_experiment_nmr(section: dict[str, Any], source: ConfigSource) -> ExperimentNmrConfig:
+    allowed = {"route", "scans", "receiver_gain", "auto_gain", "spectral_center", "sweep_width", "target_ppm", "target"}
+    _unknown_keys(section, allowed, source, "nmr")
+    mapped = _map_section(section, _NMR_CONFIG_ALIASES)
+    route = _required_str(mapped, "route", source).lower()
+    if route not in {"iflow", "experiment"}:
+        raise source.field("route", route, "'iflow' or 'experiment'")
+    scans = _required_int(mapped, "scans", source)
+    if scans <= 0:
+        raise source.field("scans", scans, "positive integer")
+    return ExperimentNmrConfig(
+        route=route,
+        scans=scans,
+        receiver_gain=_optional_float(mapped, "receiver_gain", source),
+        auto_gain=_required_bool(mapped, "auto_gain", source),
+        spectral_center=_required_float(mapped, "spectral_center", source),
+        sweep_width=_required_float(mapped, "sweep_width", source),
+        target_ppm=_required_float(mapped, "target_ppm", source),
+    )
+
+
+def _parse_experiment_output(section: dict[str, Any], source: ConfigSource) -> ExperimentOutputConfig:
+    allowed = {"nmr_save_dir", "output_dir"}
+    _unknown_keys(section, allowed, source, "output")
+    raw = section.get("nmr_save_dir", section.get("output_dir"))
+    if not isinstance(raw, str) or not raw.strip():
+        raise source.field("nmr_save_dir", raw, "non-empty path string")
+    return ExperimentOutputConfig(nmr_save_dir=Path(raw))
+
+
+def load_configured_pump(
+    experiment_path: str | os.PathLike,
+    machine_path: str | os.PathLike | None = None,
+    **cli_overrides,
+) -> PumpConfig:
+    """Load pump config with precedence: CLI, env, machine, experiment, defaults."""
+    experiment = load_experiment_config(experiment_path)
+    machine = load_machine_config(machine_path)
+    overrides = {}
+    overrides.update(
+        {
+            "channel": experiment.pump.channel,
+            "diameter": experiment.pump.syringe_diameter_mm,
+            "units": experiment.pump.units,
+            "rate": experiment.pump.rate_ml_min,
+            "volume": experiment.pump.default_volume_ml,
+        }
+    )
+    overrides.update(
+        {
+            "port": machine.chemyx.serial_port,
+            "baud_rate": machine.chemyx.baud_rate,
+            "timeout": machine.chemyx.timeout_seconds,
+            "response_delay": machine.chemyx.response_delay_seconds,
+        }
+    )
+    overrides.update(_explicit_env_pump_overrides())
+    overrides.update({key: value for key, value in cli_overrides.items() if value is not None})
+    return load_pump_config(load_local=False, **overrides)
+
+
+def load_configured_nmr(
+    experiment_path: str | os.PathLike,
+    machine_path: str | os.PathLike | None = None,
+    **cli_overrides,
+) -> NmrSettings:
+    """Load NMR config with precedence: CLI, env, machine, experiment, defaults."""
+    experiment = load_experiment_config(experiment_path)
+    machine = load_machine_config(machine_path)
+    overrides = {}
+    overrides.update(
+        {
+            "route": experiment.nmr.route,
+            "scans": experiment.nmr.scans,
+            "receiver_gain": experiment.nmr.receiver_gain,
+            "auto_gain": experiment.nmr.auto_gain,
+            "spectral_center": experiment.nmr.spectral_center,
+            "sweep_width": experiment.nmr.sweep_width,
+            "target_ppm": experiment.nmr.target_ppm,
+            "save_dir": experiment.output.nmr_save_dir,
+        }
+    )
+    overrides.update(
+        {
+            "host": machine.nmr.host,
+            "port": machine.nmr.port,
+            "scheme": machine.nmr.scheme,
+            "timeout": machine.nmr.timeout_seconds,
+            "poll_seconds": machine.nmr.poll_seconds,
+            "max_wait_seconds": machine.nmr.max_wait_seconds,
+        }
+    )
+    overrides.update(_explicit_env_nmr_overrides())
+    overrides.update({key: value for key, value in cli_overrides.items() if value is not None})
+    return load_nmr_settings(load_local=False, **overrides)
+
+
+def _explicit_env_pump_overrides() -> dict[str, Any]:
+    mapping = {
+        "CHEMYX_PORT": ("port", str),
+        "CHEMYX_BAUD": ("baud_rate", int),
+        "CHEMYX_CHANNEL": ("channel", int),
+        "CHEMYX_UNITS": ("units", int),
+        "CHEMYX_DIAMETER": ("diameter", float),
+        "CHEMYX_RATE": ("rate", float),
+        "CHEMYX_VOLUME": ("volume", float),
+        "CHEMYX_TIMEOUT": ("timeout", float),
+        "CHEMYX_RESPONSE_DELAY": ("response_delay", float),
+    }
+    return _explicit_env_overrides(mapping)
+
+
+def _explicit_env_nmr_overrides() -> dict[str, Any]:
+    mapping = {
+        "NMR_HOST": ("host", str),
+        "NMR_PORT": ("port", int),
+        "NMR_RPC_SCHEME": ("scheme", str),
+        "NMR_RPC_TIMEOUT": ("timeout", float),
+        "NMR_RPC_POLL_SECONDS": ("poll_seconds", float),
+        "NMR_RPC_MAX_WAIT_SECONDS": ("max_wait_seconds", float),
+        "NMR_ROUTE": ("route", str),
+        "NMR_DEFAULT_SCANS": ("scans", int),
+        "NMR_RECEIVER_GAIN": ("receiver_gain", float),
+        "NMR_AUTO_GAIN": ("auto_gain", _to_bool),
+        "NMR_DEFAULT_SPECTRAL_CENTER": ("spectral_center", float),
+        "NMR_DEFAULT_SWEEP_WIDTH": ("sweep_width", float),
+        "NMR_SAVE_DIR": ("save_dir", Path),
+        "NMR_TARGET_PPM": ("target_ppm", float),
+    }
+    return _explicit_env_overrides(mapping)
+
+
+def _explicit_env_overrides(mapping: dict[str, tuple[str, Any]]) -> dict[str, Any]:
+    overrides = {}
+    for env_name, (field, cast) in mapping.items():
+        raw = os.environ.get(env_name)
+        if raw is None or raw.strip() == "":
+            continue
+        try:
+            overrides[field] = cast(raw.strip())
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(
+                f"Environment variable {env_name} has value {raw!r}; "
+                f"expected {getattr(cast, '__name__', cast)}."
+            ) from exc
+    return overrides
+
+
+def _map_section(section: dict[str, Any], aliases: dict[str, str]) -> dict[str, Any]:
+    mapped = {}
+    for key, value in section.items():
+        mapped[aliases.get(key, key)] = value
+    return mapped
 
 
 _PUMP_CONFIG_ALIASES = {
@@ -206,18 +719,24 @@ _PUMP_CONFIG_ALIASES = {
     "flow_rate": "rate",
     "rate_ml_min": "rate",
     "default_volume": "volume",
+    "default_volume_ml": "volume",
     "test_volume": "volume",
     "volume_ml": "volume",
+    "timeout_seconds": "timeout",
     "serial_timeout": "timeout",
     "read_timeout": "timeout",
     "command_timeout": "timeout",
+    "response_delay_seconds": "response_delay",
     "read_delay": "response_delay",
     "command_delay": "response_delay",
 }
 
 
 def load_pump_config(
-    config_path: str | os.PathLike | None = None, **overrides
+    config_path: str | os.PathLike | None = None,
+    *,
+    load_local: bool = True,
+    **overrides,
 ) -> PumpConfig:
     """Load pump defaults, optional local JSON config, then CLI overrides."""
     values = {
@@ -232,9 +751,10 @@ def load_pump_config(
         "response_delay": RESPONSE_DELAY,
     }
 
-    path = Path(config_path) if config_path else Path(CHEMYX_CONFIG_FILE)
-    if path.exists():
-        values.update(_read_pump_json_config(path, set(values)))
+    if load_local:
+        path = Path(config_path) if config_path else Path(CHEMYX_CONFIG_FILE)
+        if path.exists():
+            values.update(_read_pump_json_config(path, set(values)))
 
     for key, value in overrides.items():
         if value is not None:
@@ -286,6 +806,8 @@ _VALVE_CONFIG_ALIASES = {
     "baud_rate": "baud",
     "baudrate": "baud",
     "valve_baud": "baud",
+    "timeout_seconds": "timeout",
+    "motion_timeout_seconds": "motion_timeout",
     # linnarsson-lab MXII_valve calls selectable positions "ports"
     "ports": "positions",
     "n_positions": "positions",
@@ -383,6 +905,7 @@ _NMR_CONFIG_ALIASES = {
     "rpc_scheme": "scheme",
     "rpc_timeout": "timeout",
     "nmr_timeout": "timeout",
+    "timeout_seconds": "timeout",
     "nmr_route": "route",
     "nmr_experiment": "experiment",
     "nmr_scans": "scans",
@@ -406,15 +929,21 @@ _NMR_CONFIG_ALIASES = {
     "nmr_result_type": "result_type",
     "target": "target_ppm",
     "nmr_target_ppm": "target_ppm",
+    "poll_seconds": "poll_seconds",
+    "max_wait_seconds": "max_wait_seconds",
 }
 
 
-def load_nmr_settings(config_path: str | os.PathLike | None = None, **overrides) -> NmrSettings:
+def load_nmr_settings(
+    config_path: str | os.PathLike | None = None,
+    *,
+    load_local: bool = True,
+    **overrides,
+) -> NmrSettings:
     """Load NMR defaults, optional local JSON config, then CLI overrides.
 
-    The default JSON path is ``configs/nmr.local.json``. Missing local config is
-    intentional and harmless, so a fresh clone still works from committed
-    defaults.
+    The JSON path is a legacy compatibility input. Active scripts pass
+    ``load_local=False`` and read endpoints from machine YAML.
     """
     values = {
         "host": NMR_HOST,
@@ -438,9 +967,10 @@ def load_nmr_settings(config_path: str | os.PathLike | None = None, **overrides)
         "peak_window_ppm": NMR_PEAK_WINDOW_PPM,
     }
 
-    path = Path(config_path) if config_path else Path(NMR_CONFIG_FILE)
-    if path.exists():
-        values.update(_read_nmr_json_config(path, set(values)))
+    if load_local:
+        path = Path(config_path) if config_path else Path(NMR_CONFIG_FILE)
+        if path.exists():
+            values.update(_read_nmr_json_config(path, set(values)))
 
     for key, value in overrides.items():
         if value is not None:
