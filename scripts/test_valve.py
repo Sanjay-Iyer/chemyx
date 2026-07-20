@@ -178,7 +178,7 @@ def check_command_mode(valve: MX_valve, args) -> bool:
     print("Storing BCD command mode (F03)...")
     stored, stored_name = valve.set_command_mode_bcd()
     print(f"Command mode stored as 0x{stored:02X} ({stored_name}).")
-    if valve.mock:
+    if hasattr(valve.ser, "power_cycle"):  # simulated board (--mock*)
         print("(mock) Simulating a power cycle to apply the stored mode.")
         valve.ser.power_cycle()
         return True
