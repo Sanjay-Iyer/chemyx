@@ -50,6 +50,7 @@ _archive/          Ignored local archive
 - [Repository Map](docs/REPOSITORY_MAP.md)
 - [Configuration](docs/CONFIGURATION.md)
 - [Workflow 01](docs/WORKFLOW_01.md)
+- [Si6 Automated Workflow](docs/SI6_AUTOMATED_WORKFLOW.md)
 - [Instrument Commands](docs/INSTRUMENT_COMMANDS.md)
 - [Chemyx Guide](docs/CHEMYX_GUIDE.md)
 - [NMR Guide](docs/nmr_guide.md)

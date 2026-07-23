@@ -44,6 +44,7 @@ class PeakResult:
     width_ppm: float
     peaks_considered: int
     points_in_window: int
+    peak_area: float = 0.0
 
 
 def read_jcamp_fid(path) -> FidData:
@@ -93,6 +94,7 @@ def analyze_dx_peak(
     line_broadening_hz=0.3,
     min_prominence_snr=0.0,
     min_distance_ppm=0.01,
+    integration_window_ppm=None,
 ):
     """Return a scipy ``find_peaks`` estimate near ``target_ppm``."""
     np = _numpy()
@@ -156,6 +158,21 @@ def analyze_dx_peak(
     snr = (peak_height - baseline) / noise
     width_ppm = float(widths[best_rank] * ppm_step)
     prominence = float(prominences[best_rank])
+    # Integrate baseline-corrected magnitude in a fixed target window. A fixed
+    # window and receiver gain make this suitable for
+    # relative kinetic comparisons across a run.
+    area_window = float(
+        window_ppm if integration_window_ppm is None else integration_window_ppm
+    )
+    area_mask = np.abs(ppm_axis - float(target_ppm)) <= area_window
+    area_ppm = ppm_axis[area_mask]
+    corrected = np.maximum(magnitude[area_mask] - baseline, 0.0)
+    order = np.argsort(area_ppm)
+    area_x = area_ppm[order]
+    area_y = corrected[order]
+    peak_area = float(
+        np.sum((area_y[1:] + area_y[:-1]) * np.diff(area_x) * 0.5)
+    )
 
     return PeakResult(
         source=spectrum.source,
@@ -170,6 +187,7 @@ def analyze_dx_peak(
         width_ppm=width_ppm,
         peaks_considered=int(peaks.size),
         points_in_window=int(peak_indices.size),
+        peak_area=peak_area,
     )
 
 

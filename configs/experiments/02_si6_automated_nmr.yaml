@@ -1,0 +1,99 @@
+workflow:
+  name: si6_automated_nmr
+  description: Si6 sampling cycle with automated NMR kinetics and plateau stopping.
+  # Each cycle starts and ends with the needle raised/out of solution.
+  cycle:
+    - action: withdraw
+      volume_ml: 8.0
+      note: Needle must be out of solution.
+    - action: operator
+      prompt: Lower the needle into the reaction solution, then type yes.
+    - action: withdraw
+      volume_ml: 5.0
+    - action: pause
+      seconds: 300
+      note: Increase this if more NMR scans require a longer equilibration.
+    - action: nmr
+    - action: infuse
+      volume_ml: 13.0
+    - action: operator
+      prompt: Raise the needle out of the reaction solution, then type yes.
+    - action: withdraw
+      volume_ml: 5.0
+    - action: infuse
+      volume_ml: 5.0
+  pump_extra_seconds: 2.0
+
+  # Initial reaction: check hourly for at most 24 hours.
+  initial_stage:
+    name: initial_reaction
+    operator_prompt: Add catalyst and starting reagents, mix under N2, then type yes.
+    interval_minutes: 60
+    measure_immediately: false
+    plateau_stopping_enabled: false
+    max_measurements: 24
+    max_hours: 26
+
+  # First Si-H addition, then repeat the acetone/Si-H pair as desired.
+  first_addition_stage:
+    name: first_diphenyl_silane
+    operator_prompt: Add diphenyl silane, then type yes.
+    interval_minutes: 15
+    measure_immediately: false
+    plateau_stopping_enabled: true
+    max_measurements: 6
+    max_hours: 2
+  repeat_addition_rounds: 1
+  repeating_stages:
+    - name: acetone
+      operator_prompt: Add acetone, then type yes.
+      interval_minutes: 15
+      measure_immediately: false
+      plateau_stopping_enabled: true
+      max_measurements: 6
+      max_hours: 2
+    - name: diphenyl_silane
+      operator_prompt: Add diphenyl silane, then type yes.
+      interval_minutes: 15
+      measure_immediately: false
+      plateau_stopping_enabled: true
+      max_measurements: 6
+      max_hours: 2
+
+pump:
+  channel: 1
+  syringe_diameter_mm: 28.6
+  # Required fail-closed capacity model. The cycle temporarily retains 13 mL.
+  syringe_capacity_ml: 20.0
+  initial_retained_volume_ml: 0.0
+  syringe_safety_margin_ml: 1.0
+  units: mL/min
+  rate_ml_min: 5.0
+  default_volume_ml: 5.0
+
+nmr:
+  route: iflow
+  result_type: fid
+  scans: 2
+  receiver_gain: 12.0
+  auto_gain: false
+  spectral_center: 5.0
+  sweep_width: 20.0
+  target_ppm: 6.1
+
+analysis:
+  detection_window_ppm: 0.12
+  integration_window_ppm: 0.12
+  plot_window_ppm: 0.5
+  line_broadening_hz: 0.3
+  min_peak_snr: 5.0
+  min_prominence_snr: 3.0
+  min_peak_area: 0.0
+  area_epsilon: 1.0e-12
+  plateau_max_growth_percent: 5.0
+  # A decline larger than 2% is not stable and resets the plateau window.
+  plateau_max_decline_percent: 2.0
+  plateau_consecutive_intervals: 3
+
+output:
+  run_root_dir: results/runs/si6
