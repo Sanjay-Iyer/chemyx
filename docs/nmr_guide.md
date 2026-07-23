@@ -17,11 +17,11 @@ nmr:
 ```
 
 Workflow settings such as scans and receiver gain live in
-`configs/experiments/01_first_real_chemyx_nmr.yaml`.
+`configs/experiments/02_si6_automated_nmr.yaml`.
 
 ## Baseline Route
 
-Workflow 01 uses the iFlow route:
+Workflow 02 uses the iFlow route:
 
 ```text
 GET /interfaces/iFlow/Settings/1D

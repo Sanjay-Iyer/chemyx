@@ -41,7 +41,7 @@ from ..runtime_journal import (
     discover_git_commit,
 )
 from ..runtime_state import write_json_atomic
-from .first_real_chemyx_nmr import (
+from .instrument_operations import (
     configure_pump,
     move_seconds,
     run_nmr_acquisition,

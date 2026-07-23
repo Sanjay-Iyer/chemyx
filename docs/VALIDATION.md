@@ -1,69 +1,60 @@
 # Validation
 
-## Home-Laptop Offline Validation
+## Home-laptop offline validation
 
-Validated on 2026-07-20 with Python 3.11.15 from Conda environment `ai`.
-No serial port was opened, no pump moved, and no NMR RPC request was made.
+Validated on 2026-07-22 with Python 3.11.15 from the Conda environment `ai`.
+These checks did not enumerate serial ports, open instrument connections, move
+the pump, contact the NMR RPC service, or send commands to the valve.
+
+The active test suite was run with an isolated temporary directory:
 
 ```powershell
-conda run -n ai python -B -m pytest -p no:cacheprovider --basetemp .test-tmp-final
+conda run -n ai python -B -m pytest -p no:cacheprovider --basetemp C:\code\chemyx_pump\test_tmp_monitoring_cleanup
 ```
 
-Result: 80 tests passed in 20.56 seconds. The temporary test directory was
-removed after the run.
+Result: 194 tests passed in 21.07 seconds. This includes monitoring-mode,
+fixed-schedule, journal replay, failure-policy, configuration-boundary, and
+legacy-workflow isolation coverage. Tests under the Git-tracked legacy archive
+are intentionally outside the active `testpaths` configuration.
 
-The following entry-point checks all exited with status 0:
-
-```powershell
-conda run -n ai python -B scripts\01_first_real_chemyx_nmr.py --help
-conda run -n ai python -B scripts\01_first_real_chemyx_nmr.py --validate-only
-conda run -n ai python -B scripts\01_first_real_chemyx_nmr.py --dry-run
-conda run -n ai python -B scripts\diagnostics\04_run_nmr_1d_acquisition.py --dry-run
-conda run -n ai python -B scripts\diagnostics\06_check_mx_valve.py --mock
-conda run -n ai python -B scripts\diagnostics\07_analyze_nmr_results.py --help
-```
-
-`--validate-only` reported that configuration loaded without opening hardware.
-Workflow `--dry-run` reported that no movement or acquisition started. The NMR
-diagnostic printed payloads from bundled example settings without an RPC fetch,
-and the valve diagnostic used its in-memory mock.
-
-Repository checks also passed:
+The canonical Workflow 02 entry point and offline diagnostics were also checked:
 
 ```powershell
-git diff --check
-```
-
-The active tree has no generated `__pycache__` directory. Concrete legacy COM
-ports, IP addresses, and laptop paths occur only in historical disposition,
-archive, reference, audit, or preserved-result material.
-
-## Work-Laptop Hardware Qualification
-
-Hardware validation remains intentionally pending. On the work laptop, create
-`configs/machines/00_machine.local.yaml` from the committed example and enter
-the actual Chemyx, NMR, and optional valve endpoints. Then run these commands in
-order, stopping at the first unexpected response:
-
-```powershell
-conda run -n ai python -B scripts\01_first_real_chemyx_nmr.py --validate-only
-conda run -n ai python -B scripts\01_first_real_chemyx_nmr.py --dry-run
-conda run -n ai python -B scripts\diagnostics\01_list_serial_ports.py
-conda run -n ai python -B scripts\diagnostics\02_verify_chemyx_movement.py --mock
-conda run -n ai python -B scripts\diagnostics\03_check_nmr_connection.py
+conda run -n ai python -B scripts\02_si6_automated_nmr.py --validate-only
+conda run -n ai python -B scripts\02_si6_automated_nmr.py --dry-run
 conda run -n ai python -B scripts\diagnostics\04_run_nmr_1d_acquisition.py --dry-run
 conda run -n ai python -B scripts\diagnostics\06_check_mx_valve.py --mock
 ```
 
-After checking tubing, syringe limits, valve state, sample placement, endpoint
-values, printed direction, rate, volume, and result path, qualify each real
-instrument separately using the corresponding diagnostic without its mock or
-dry-run flag. Run the integrated workflow last:
+`--validate-only` loads and validates configuration without initializing
+hardware. Workflow `--dry-run` writes an isolated timestamped run record while
+using simulated operations. The NMR diagnostic prints the request without an
+RPC fetch, and the valve diagnostic uses its in-memory mock.
 
-```powershell
-conda run -n ai python -B scripts\01_first_real_chemyx_nmr.py
-```
+Repository-boundary tests verify that Workflow 01 is absent from active entry
+points, active modules do not import its archive, and the retired W/N/I event
+schema is rejected by the active Si6 configuration loader. The archived source
+is preserved under `archive/legacy_workflows/01_first_real_chemyx_nmr/` for
+history only and must not be used for active execution.
 
-The real run must retain its interactive confirmation. Confirm the resulting DX
-file under `results/raw/nmr/generated/` before treating the restructuring as
-hardware-qualified.
+## Work-laptop hardware validation
+
+Hardware validation was not performed during this implementation phase. Passing
+home-laptop checks does not establish instrument compatibility or physical
+safety.
+
+On the instrument-connected work laptop, the intended staged qualification is:
+
+1. Pull and review the two implementation commits.
+2. Rerun the full offline suite and the four safe commands above.
+3. Review the local machine configuration, tubing, syringe limits, valve state,
+   sample placement, endpoint values, direction, rate, volume, and output path.
+4. Only with explicit authorization, qualify each instrument independently with
+   cautious diagnostic actions.
+5. Review the generated journal and artifacts before separately authorizing a
+   short, attended integrated trial.
+6. Run the complete Si6 workflow only after the staged checks are accepted.
+
+Real hardware initialization remains restricted to an explicit real-run or
+explicitly authorized hardware-diagnostic path. Import, inspection, validation,
+dry-run, and test commands must remain hardware-free.

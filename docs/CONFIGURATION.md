@@ -1,203 +1,64 @@
 # Configuration
 
-The refactored workflow separates experiment settings from laptop-specific
-instrument endpoints.
+The canonical experiment configuration is
+`configs/experiments/02_si6_automated_nmr.yaml`. Machine-specific addresses stay
+in ignored `configs/machines/00_machine.local.yaml`, copied from
+`00_machine.example.yaml` on the work laptop.
 
-## Files
+## Workflow 02 vocabulary
 
-Experiment config:
+- `stage`: one reaction-monitoring phase.
+- `cycle`: one sample withdrawal, NMR measurement, and return sequence.
+- `measurement`: one scheduled NMR sampling slot.
+- `operation`: one withdraw, infuse, pause, NMR request, or checkpoint.
+- `plateau`: the full integrated-area stability criterion.
 
-```text
-configs/experiments/01_first_real_chemyx_nmr.yaml
-```
+The active schema uses descriptive `action` values. It does not accept the
+retired Workflow 01 W/N/I event shorthand.
 
-Machine config template:
+## Stage fields
 
-```text
-configs/machines/00_machine.example.yaml
-```
+Every stage explicitly requires:
 
-Local machine config, ignored by Git:
+- `name` and `operator_prompt`;
+- positive `interval_minutes`;
+- Boolean `measure_immediately`;
+- Boolean `plateau_stopping_enabled`;
+- positive integer `max_measurements`;
+- positive `max_hours` extending beyond the last scheduled start.
 
-```text
-configs/machines/00_machine.local.yaml
-```
+When plateau stopping is disabled, all slots run and successful completion is
+`scheduled_monitoring_completed`. Plateau is still analyzed and recorded. When
+enabled, verified plateau stops early; exhausting slots without plateau is a
+non-success outcome. `max_hours` is always a separate hard safety ceiling.
 
-## Precedence
+## Pump safety fields
 
-When a value is available in more than one place, the effective order is:
+- `syringe_capacity_ml`: required physical capacity.
+- `initial_retained_volume_ml`: starting retained-volume estimate.
+- `syringe_safety_margin_ml`: capacity reserve unavailable to automation.
+- `syringe_diameter_mm`, `units`, `rate_ml_min`, and channel settings.
 
-1. Command-line argument.
-2. Explicit environment variable.
-3. Local machine config.
-4. Experiment config.
-5. Safe source default.
+Validation simulates repeated complete cycles and requires maximum cumulative
+retained volume plus margin not to exceed capacity.
 
-Machine-specific endpoints such as the Chemyx serial port and NMR host should
-come from `00_machine.local.yaml`, environment variables, or CLI flags. They
-should not be committed in Python source.
+## NMR and analysis
 
-## Experiment Fields
+The NMR section fixes route, FID result type, scans, receiver gain, acquired
+window, and 6.1 ppm target. Auto-gain must remain disabled for comparable peak
+areas. The analysis section defines ppm tolerance, fixed integration window,
+SNR/prominence/area quality requirements, and the explicit acceptable plateau
+growth band.
 
-`workflow.sequence`
+Unknown top-level, section, stage, and cycle-event fields are rejected before
+hardware construction.
 
-- Type: list of events.
-- Values: `W` withdraw, `N` NMR acquisition, `I` infuse.
-- Default in workflow 01: withdraw 5 mL, NMR, infuse 5 mL.
-
-`workflow.pump_extra_seconds`
-
-- Type: number, seconds.
-- Default in workflow 01: `2.0`.
-- Meaning: extra wait after calculated pump travel time before `stop`.
-
-`workflow.settle_before_nmr_seconds`
-
-- Type: number, seconds.
-- Default in workflow 01: `0.0`.
-- Meaning: optional wait after withdraw before starting NMR.
-
-`pump.channel`
-
-- Type: integer.
-- Allowed values: `0`, `1`, `2`.
-- Default in workflow 01: `1`.
-
-`pump.syringe_diameter_mm`
-
-- Type: number, millimeters.
-- Allowed range from current code: `0.103` to `40.000`.
-- Default in workflow 01: `28.6`.
-
-`pump.units`
-
-- Type: string or unit code.
-- Allowed values: `mL/min`, `mL/hr`, `uL/min`, `uL/hr`, or codes `0` to `3`.
-- Default in workflow 01: `mL/min`.
-
-`pump.rate_ml_min`
-
-- Type: number.
-- Units: mL/min for workflow 01.
-- Default in workflow 01: `5.0`.
-- Validated against the Chemyx unit-specific ranges in code.
-
-`nmr.route`
-
-- Type: string.
-- Allowed values: `iflow`, `experiment`.
-- Default in workflow 01: `iflow`.
-
-`nmr.scans`
-
-- Type: integer.
-- Default in workflow 01: `2`.
-
-`nmr.receiver_gain`
-
-- Type: number or null.
-- Default in workflow 01: `12.0`.
-
-`nmr.auto_gain`
-
-- Type: boolean.
-- Default in workflow 01: `false`.
-
-`nmr.spectral_center`
-
-- Type: number, ppm.
-- Default in workflow 01: `5.0`.
-
-`nmr.sweep_width`
-
-- Type: number, ppm.
-- Default in workflow 01: `20.0`.
-
-`nmr.target_ppm`
-
-- Type: number, ppm.
-- Default in workflow 01: `6.1`.
-
-`output.nmr_save_dir`
-
-- Type: path string.
-- Default in workflow 01: `results/raw/nmr/generated`.
-
-## Machine Fields
-
-`chemyx.serial_port`
-
-- Type: string.
-- Example placeholder: `REPLACE_WITH_COM_PORT` on Windows.
-- Required for real Chemyx hardware runs.
-
-`chemyx.baud_rate`
-
-- Type: integer.
-- Default template value: `115200`.
-
-`chemyx.timeout_seconds`
-
-- Type: number, seconds.
-- Default template value: `2.0`.
-
-`chemyx.response_delay_seconds`
-
-- Type: number, seconds.
-- Default template value: `0.2`.
-- Meaning: delay after writing a command before reading the Chemyx response.
-
-`nmr.host`
-
-- Type: string.
-- Example: the NMR instrument IP address on the work laptop network.
-- Required for real NMR RPC runs.
-
-`nmr.port`
-
-- Type: integer.
-- Default template value: `5000`.
-
-`nmr.scheme`
-
-- Type: string.
-- Default template value: `http`.
-
-`nmr.timeout_seconds`
-
-- Type: number, seconds.
-- Default template value: `10.0`.
-
-`nmr.poll_seconds`
-
-- Type: number, seconds.
-- Default template value: `2.0`.
-
-`nmr.max_wait_seconds`
-
-- Type: number, seconds.
-- Default template value: `300.0`.
-
-`valve.serial_port`, `valve.baud_rate`, and `valve.positions`
-
-- Used only by the numbered MX valve diagnostics, not workflow 01.
-- Default template baud: `19200`; default positions: `2`.
-- The valve serial port remains a machine-specific local value.
-
-## Safe Commands
-
-Home laptop dry-run:
+## Safe commands
 
 ```powershell
-conda run -n ai python scripts\01_first_real_chemyx_nmr.py --dry-run
+conda run -n ai python -B scripts\02_si6_automated_nmr.py --validate-only
+conda run -n ai python -B scripts\02_si6_automated_nmr.py --dry-run
 ```
 
-Work laptop with local machine config:
-
-```powershell
-copy configs\machines\00_machine.example.yaml configs\machines\00_machine.local.yaml
-conda run -n ai python scripts\01_first_real_chemyx_nmr.py --dry-run --machine-config configs\machines\00_machine.local.yaml
-```
-
-Real hardware should only be run on the work laptop after the dry-run plan
-matches the physical setup.
+See `docs/SI6_AUTOMATED_WORKFLOW.md` for the complete scientific, scheduling,
+journal, recovery, and attended-operation semantics.

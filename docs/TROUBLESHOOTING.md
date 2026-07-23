@@ -22,7 +22,7 @@ conda run -n ai python -m pip install -r requirements.txt
 Use validation before hardware:
 
 ```powershell
-conda run -n ai python scripts\01_first_real_chemyx_nmr.py --validate-only
+conda run -n ai python -B scripts\02_si6_automated_nmr.py --validate-only
 ```
 
 Error messages should name the bad field, value, expected type or range, and

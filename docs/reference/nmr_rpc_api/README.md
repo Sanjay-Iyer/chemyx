@@ -5,7 +5,7 @@ The retained vendor/API reference is under `html/`. The active client is
 
 Configure the NMR endpoint in
 `configs/machines/00_machine.local.yaml`. Acquisition settings for workflow 01
-remain in `configs/experiments/01_first_real_chemyx_nmr.yaml`.
+remain in `configs/experiments/02_si6_automated_nmr.yaml`.
 
 Offline payload preview:
 
