@@ -1,0 +1,52 @@
+# NMR peak-analysis parameters.
+#
+# Edit this file to change analysis settings between runs instead of passing
+# command-line flags. Every value here can still be overridden per-run on the
+# command line (e.g. --target 5.8 --no-plots).
+#
+# Precedence (lowest to highest):  built-in default  <  this file  <  CLI flag
+#
+# Each script reads the shared [common] section plus its own named section.
+# Used by:
+#   scripts/nmr/analyze_single.py
+#   scripts/nmr/compare_timeseries.py
+#   scripts/nmr/batch_report.py
+
+# ---------------------------------------------------------------------------
+# Shared by all three scripts.
+# ---------------------------------------------------------------------------
+common:
+  target_ppm: 6.1              # peak position to track, in ppm
+  window_ppm: 0.12            # detection half-window around target_ppm, in ppm
+  output_dir: results/analysis # base dir for timestamped result folders
+  run_name: null              # fixed output-folder name; null = auto timestamp
+  plots: true                 # generate PNG plots
+
+# ---------------------------------------------------------------------------
+# analyze_single.py — one file, deep report + review plot.
+# ---------------------------------------------------------------------------
+analyze_single:
+  plot_window_ppm: 0.5        # ppm half-window shown in the review plot
+
+# ---------------------------------------------------------------------------
+# compare_timeseries.py — a reaction tracked over time (growth + plateau).
+# ---------------------------------------------------------------------------
+compare_timeseries:
+  plateau_threshold_pct: 5.0  # % change below which a step counts as "flat"
+  plateau_consecutive: 2      # consecutive flat steps needed to call plateau
+
+# ---------------------------------------------------------------------------
+# batch_report.py — many files, aggregate stats & rankings.
+# (No parameters beyond the common section.)
+# ---------------------------------------------------------------------------
+batch_report: {}
+
+# ---------------------------------------------------------------------------
+# plot_spectra.py — visualise the actual spectra (intensity vs ppm):
+# per-file plots (full + zoom), an overlay, and a stacked waterfall, each with
+# the scipy-detected ~target_ppm peak marked.
+# ---------------------------------------------------------------------------
+plot_spectra:
+  zoom_window_ppm: 0.5        # ppm half-window for the zoomed target-region plots
+  normalize_overlay: true     # scale each trace to its own max in the overlay
+

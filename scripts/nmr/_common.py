@@ -457,6 +457,30 @@ def _safe_name(value: str) -> str:
     return name or datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
+def derive_run_name(paths: Sequence[str | Path], suffix: str) -> str:
+    """Build a default output-folder name that identifies the input data.
+
+    So an output folder can always be traced back to the data it came from.
+    e.g. input ``results/raw/nmr/06-08-26/`` with suffix ``timeseries`` →
+    ``06-08-26_20260727_143022_timeseries``.
+
+    A directory contributes its own name; a single file contributes its stem.
+    The timestamp keeps repeated runs on the same input from colliding.
+    """
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base = ""
+    if paths:
+        first = Path(paths[0])
+        if first.is_dir():
+            base = first.name
+        elif first.is_file():
+            base = first.stem
+        else:  # path may not exist yet (e.g. in tests) — use a best guess
+            base = first.stem or first.name
+    base = _safe_name(base) if base else suffix
+    return f"{base}_{stamp}_{suffix}"
+
+
 # ---------------------------------------------------------------------------
 # CSV / JSON serialisation
 # ---------------------------------------------------------------------------
@@ -800,3 +824,185 @@ def plot_peak_review(
         detection_window_ppm=window_ppm,
         plot_window_ppm=plot_window_ppm,
     )
+
+
+# ---------------------------------------------------------------------------
+# Full-spectrum plotting (intensity vs ppm)
+# ---------------------------------------------------------------------------
+
+
+def load_spectrum(path: Path):
+    """Return ``(ppm_axis, magnitude)`` numpy arrays for a ``.dx`` file."""
+    from chemyx_lab.analysis.nmr import build_magnitude_spectrum
+
+    spec = build_magnitude_spectrum(path)
+    return spec.ppm_axis, spec.magnitude
+
+
+def _reversed_xlim(ax, ppm, target_ppm=None, zoom_ppm=None):
+    """Apply the NMR convention of high ppm on the left (descending x-axis)."""
+    np = _get_np()
+    if target_ppm is not None and zoom_ppm is not None:
+        ax.set_xlim(float(target_ppm) + float(zoom_ppm), float(target_ppm) - float(zoom_ppm))
+    else:
+        ax.set_xlim(float(np.max(ppm)), float(np.min(ppm)))
+
+
+def plot_spectrum_single(
+    ppm,
+    magnitude,
+    *,
+    label: str,
+    output_path: Path,
+    target_ppm: float | None = None,
+    window_ppm: float | None = None,
+    peak_ppm: float | None = None,
+    zoom_ppm: float | None = None,
+    title: str | None = None,
+) -> Path:
+    """Plot one spectrum (intensity vs ppm), marking the target/detected peak.
+
+    If *zoom_ppm* is given, the x-axis is limited to ``target_ppm ± zoom_ppm``.
+    """
+    plt = _get_plt()
+    fig, ax = plt.subplots(figsize=(10, 5.5), dpi=140)
+    ax.plot(ppm, magnitude, color="#1f77b4", linewidth=0.9)
+
+    if target_ppm is not None and window_ppm is not None:
+        ax.axvspan(
+            float(target_ppm) - float(window_ppm),
+            float(target_ppm) + float(window_ppm),
+            color="#f2c94c", alpha=0.22, label="detection window",
+        )
+        ax.axvline(float(target_ppm), color="#555555", linestyle="--",
+                   linewidth=1.0, label=f"target {float(target_ppm):.3g} ppm")
+    if peak_ppm is not None:
+        ax.axvline(float(peak_ppm), color="#d62728", linewidth=1.3,
+                   label=f"detected {float(peak_ppm):.3f} ppm")
+
+    ax.set_xlabel("Chemical shift (ppm)", fontsize=10)
+    ax.set_ylabel("Magnitude (intensity)", fontsize=10)
+    ax.set_title(title or label, fontsize=11, fontweight="bold")
+    ax.grid(True, alpha=0.25)
+    _reversed_xlim(ax, ppm, target_ppm if zoom_ppm else None, zoom_ppm)
+    ax.legend(loc="best", fontsize=8)
+
+    fig.tight_layout()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path)
+    plt.close(fig)
+    return output_path
+
+
+def plot_spectra_overlay(
+    spectra: list[tuple[str, Any, Any]],
+    *,
+    output_path: Path,
+    target_ppm: float | None = None,
+    window_ppm: float | None = None,
+    zoom_ppm: float | None = None,
+    normalize: bool = False,
+    title: str = "Overlaid spectra",
+) -> Path:
+    """Overlay multiple spectra on one axis.
+
+    *spectra* is a list of ``(label, ppm_axis, magnitude)`` tuples. Colours run
+    along the ``viridis`` map so acquisition order is visible.
+    """
+    plt = _get_plt()
+    np = _get_np()
+    fig, ax = plt.subplots(figsize=(11, 6), dpi=140)
+    cmap = plt.get_cmap("viridis")
+    n = len(spectra)
+
+    for i, (label, ppm, mag) in enumerate(spectra):
+        y = mag
+        if normalize:
+            peak = float(np.max(np.abs(mag))) or 1.0
+            y = mag / peak
+        color = cmap(i / max(1, n - 1))
+        ax.plot(ppm, y, linewidth=0.9, color=color, alpha=0.85, label=label)
+
+    if target_ppm is not None and window_ppm is not None:
+        ax.axvspan(
+            float(target_ppm) - float(window_ppm),
+            float(target_ppm) + float(window_ppm),
+            color="#f2c94c", alpha=0.15,
+        )
+        ax.axvline(float(target_ppm), color="#555555", linestyle="--", linewidth=1.0)
+
+    ax.set_xlabel("Chemical shift (ppm)", fontsize=10)
+    ax.set_ylabel("Normalized magnitude" if normalize else "Magnitude (intensity)", fontsize=10)
+    ax.set_title(title, fontsize=11, fontweight="bold")
+    ax.grid(True, alpha=0.25)
+
+    all_ppm = np.concatenate([s[1] for s in spectra]) if spectra else np.array([0.0, 1.0])
+    _reversed_xlim(ax, all_ppm, target_ppm if zoom_ppm else None, zoom_ppm)
+    if 0 < n <= 12:
+        ax.legend(loc="best", fontsize=7, ncol=2)
+
+    fig.tight_layout()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path)
+    plt.close(fig)
+    return output_path
+
+
+def plot_spectra_stacked(
+    spectra: list[tuple[str, Any, Any]],
+    *,
+    output_path: Path,
+    target_ppm: float | None = None,
+    window_ppm: float | None = None,
+    zoom_ppm: float | None = None,
+    offset_frac: float = 0.6,
+    title: str = "Stacked spectra (waterfall)",
+) -> Path:
+    """Waterfall plot: each spectrum normalized and vertically offset.
+
+    Makes it easy to see how the target peak evolves file-to-file without
+    traces overlapping. Bottom trace is the first (earliest) file.
+    """
+    plt = _get_plt()
+    np = _get_np()
+    fig, ax = plt.subplots(figsize=(11, 7), dpi=140)
+    cmap = plt.get_cmap("viridis")
+    n = len(spectra)
+
+    for i, (label, ppm, mag) in enumerate(spectra):
+        peak = float(np.max(np.abs(mag))) or 1.0
+        y = mag / peak + i * float(offset_frac)
+        color = cmap(i / max(1, n - 1))
+        ax.plot(ppm, y, linewidth=0.9, color=color)
+        # Label each trace at its right-hand (low-ppm) end.
+        ax.text(
+            float(np.min(ppm)), i * float(offset_frac), f" {label}",
+            fontsize=6, va="bottom", ha="left", color=color,
+        )
+
+    if target_ppm is not None:
+        ax.axvline(float(target_ppm), color="#555555", linestyle="--", linewidth=1.0,
+                   label=f"target {float(target_ppm):.3g} ppm")
+        if window_ppm is not None:
+            ax.axvspan(
+                float(target_ppm) - float(window_ppm),
+                float(target_ppm) + float(window_ppm),
+                color="#f2c94c", alpha=0.15,
+            )
+
+    ax.set_xlabel("Chemical shift (ppm)", fontsize=10)
+    ax.set_ylabel("Normalized magnitude (offset per file)", fontsize=10)
+    ax.set_title(title, fontsize=11, fontweight="bold")
+    ax.grid(True, alpha=0.2, axis="x")
+
+    all_ppm = np.concatenate([s[1] for s in spectra]) if spectra else np.array([0.0, 1.0])
+    _reversed_xlim(ax, all_ppm, target_ppm if zoom_ppm else None, zoom_ppm)
+    if target_ppm is not None:
+        ax.legend(loc="upper right", fontsize=8)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    # Edge trace labels can overflow the axes; bbox_inches="tight" handles that
+    # cleanly without matplotlib's tight_layout warning.
+    fig.savefig(output_path, bbox_inches="tight")
+    plt.close(fig)
+    return output_path

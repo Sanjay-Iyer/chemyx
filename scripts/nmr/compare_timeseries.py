@@ -23,11 +23,6 @@ import sys
 from pathlib import Path
 
 from _common import (
-    DEFAULT_OUTPUT_DIR,
-    DEFAULT_PLATEAU_CONSECUTIVE,
-    DEFAULT_PLATEAU_THRESHOLD,
-    DEFAULT_TARGET_PPM,
-    DEFAULT_WINDOW_PPM,
     RESULT_COLUMNS,
     PlateauResult,
     analyze_batch,
@@ -35,6 +30,7 @@ from _common import (
     collect_dx_files,
     compute_deltas,
     create_output_dir,
+    derive_run_name,
     detect_plateau,
     plot_combined_overlay,
     plot_growth_rate,
@@ -43,32 +39,41 @@ from _common import (
     write_csv,
     write_summary,
 )
+from _config import (
+    add_config_argument,
+    apply_cli_overrides,
+    load_config,
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Compare NMR .dx files as a time series."
+        description="Compare NMR .dx files as a time series. Parameters come "
+                    "from configs/nmr/analysis.yaml unless overridden by the "
+                    "flags below."
     )
     parser.add_argument(
         "paths", nargs="+",
         help="one or more .dx files or directories containing .dx files",
     )
-    parser.add_argument("--target", type=float, default=DEFAULT_TARGET_PPM,
-                        help="target peak position in ppm (default: %(default)s)")
-    parser.add_argument("--window", type=float, default=DEFAULT_WINDOW_PPM,
-                        help="detection half-window in ppm (default: %(default)s)")
-    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR,
-                        help="base directory for analysis output")
-    parser.add_argument("--run-name",
+    add_config_argument(parser)
+    # Flags default to None so an unset flag falls back to the config file.
+    parser.add_argument("--target", dest="target_ppm", type=float, default=None,
+                        help="target peak position in ppm (overrides config)")
+    parser.add_argument("--window", dest="window_ppm", type=float, default=None,
+                        help="detection half-window in ppm (overrides config)")
+    parser.add_argument("--output-dir", dest="output_dir", type=Path, default=None,
+                        help="base directory for analysis output (overrides config)")
+    parser.add_argument("--run-name", dest="run_name", default=None,
                         help="custom folder name (default: auto-timestamp)")
-    parser.add_argument("--plateau-threshold", type=float,
-                        default=DEFAULT_PLATEAU_THRESHOLD,
-                        help="percent-change threshold for plateau (default: %(default)s)")
-    parser.add_argument("--plateau-consecutive", type=int,
-                        default=DEFAULT_PLATEAU_CONSECUTIVE,
-                        help="consecutive iterations below threshold to declare plateau (default: %(default)s)")
-    parser.add_argument("--no-plots", action="store_true",
-                        help="skip plot generation")
+    parser.add_argument("--plateau-threshold", dest="plateau_threshold_pct", type=float,
+                        default=None,
+                        help="percent-change threshold for plateau (overrides config)")
+    parser.add_argument("--plateau-consecutive", dest="plateau_consecutive", type=int,
+                        default=None,
+                        help="consecutive iterations below threshold to declare plateau (overrides config)")
+    parser.add_argument("--plots", dest="plots", action=argparse.BooleanOptionalAction,
+                        default=None, help="generate plots (overrides config)")
     return parser
 
 
@@ -85,6 +90,7 @@ def _plateau_dict(pr: PlateauResult) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+    cfg = apply_cli_overrides(load_config("compare_timeseries", args.config), args)
 
     # Collect files
     files = collect_dx_files(args.paths)
@@ -95,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Found {len(files)} .dx file(s)")
 
     # Analyse all (errors handled per-file)
-    results = analyze_batch(files, target_ppm=args.target, window_ppm=args.window)
+    results = analyze_batch(files, target_ppm=cfg.target_ppm, window_ppm=cfg.window_ppm)
 
     # Sort by timestamp
     results = sort_by_timestamp(results)
@@ -106,17 +112,20 @@ def main(argv: list[str] | None = None) -> int:
     # Plateau detection (height and area separately)
     height_plateau = detect_plateau(
         rows, "peak_height", "pct_change_height",
-        threshold_pct=args.plateau_threshold,
-        min_consecutive=args.plateau_consecutive,
+        threshold_pct=cfg.plateau_threshold_pct,
+        min_consecutive=cfg.plateau_consecutive,
     )
     area_plateau = detect_plateau(
         rows, "peak_area", "pct_change_area",
-        threshold_pct=args.plateau_threshold,
-        min_consecutive=args.plateau_consecutive,
+        threshold_pct=cfg.plateau_threshold_pct,
+        min_consecutive=cfg.plateau_consecutive,
     )
 
-    # Create output dir
-    out_dir = create_output_dir(args.output_dir, "timeseries", run_name=args.run_name)
+    # Create output dir (named after the input data when not overridden)
+    out_dir = create_output_dir(
+        cfg.output_dir, "timeseries",
+        run_name=cfg.run_name or derive_run_name(args.paths, "timeseries"),
+    )
     plots_dir = out_dir / "plots"
 
     # Print summary table
@@ -163,11 +172,11 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(f"  [N] {label} plateau NOT reached "
                   f"({plat.consecutive_below} consecutive < {plat.threshold_pct}%, "
-                  f"need {args.plateau_consecutive})")
+                  f"need {cfg.plateau_consecutive})")
 
     # Generate plots
     plot_files: list[str] = []
-    if not args.no_plots:
+    if cfg.plots:
         # Extract data for plots (only successful files)
         ok_labels: list[str] = []
         ok_heights: list[float] = []
@@ -249,11 +258,11 @@ def main(argv: list[str] | None = None) -> int:
         input_paths=[str(p) for p in args.paths],
         results=results,
         parameters={
-            "target_ppm": args.target,
-            "window_ppm": args.window,
-            "plateau_threshold_pct": args.plateau_threshold,
-            "plateau_consecutive": args.plateau_consecutive,
-            "plots_enabled": not args.no_plots,
+            "target_ppm": cfg.target_ppm,
+            "window_ppm": cfg.window_ppm,
+            "plateau_threshold_pct": cfg.plateau_threshold_pct,
+            "plateau_consecutive": cfg.plateau_consecutive,
+            "plots_enabled": cfg.plots,
         },
         extra={
             "plateau_height": _plateau_dict(height_plateau),

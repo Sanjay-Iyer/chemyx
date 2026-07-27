@@ -5,6 +5,7 @@ Run with:  conda activate AI && python -m pytest tests/test_nmr_scripts.py -v
 
 from __future__ import annotations
 
+import argparse
 import csv
 import json
 import os
@@ -29,11 +30,13 @@ sys.path.insert(0, str(SCRIPTS_NMR))
 from _common import (
     DEFAULT_PLATEAU_CONSECUTIVE,
     DEFAULT_PLATEAU_THRESHOLD,
+    DEFAULT_TARGET_PPM,
     FileResult,
     PlateauResult,
     collect_dx_files,
     compute_deltas,
     create_output_dir,
+    derive_run_name,
     detect_plateau,
     parse_acquisition_timestamp,
     sort_by_timestamp,
@@ -41,6 +44,12 @@ from _common import (
     write_summary,
     _safe_name,
 )
+from _config import (
+    AnalysisConfig,
+    apply_cli_overrides,
+    load_config,
+)
+from chemyx_lab.config import ConfigError
 
 # Real test data
 REAL_DATA_DIR = REPO_ROOT / "results" / "raw" / "nmr" / "06-08-26"
@@ -330,6 +339,137 @@ class TestCollectDxFiles:
     def test_empty_directory(self, tmp_path):
         files = collect_dx_files([str(tmp_path)])
         assert files == []
+
+
+# ===================================================================
+# Config-file support (_config.py)
+# ===================================================================
+
+
+def _write_config(tmp_path: Path, body: str) -> Path:
+    cfg = tmp_path / "analysis.yaml"
+    cfg.write_text(textwrap.dedent(body), encoding="utf-8")
+    return cfg
+
+
+class TestLoadConfig:
+    def test_explicit_missing_file_raises(self, tmp_path):
+        with pytest.raises(ConfigError):
+            load_config("compare_timeseries", tmp_path / "nope.yaml")
+
+    def test_common_section_applied(self, tmp_path):
+        path = _write_config(tmp_path, """
+            common:
+              target_ppm: 5.8
+              window_ppm: 0.2
+              plots: false
+        """)
+        cfg = load_config("compare_timeseries", path)
+        assert cfg.target_ppm == 5.8
+        assert cfg.window_ppm == 0.2
+        assert cfg.plots is False
+
+    def test_script_section_applied(self, tmp_path):
+        path = _write_config(tmp_path, """
+            compare_timeseries:
+              plateau_threshold_pct: 3.0
+              plateau_consecutive: 4
+        """)
+        cfg = load_config("compare_timeseries", path)
+        assert cfg.plateau_threshold_pct == 3.0
+        assert cfg.plateau_consecutive == 4
+
+    def test_output_dir_coerced_to_path(self, tmp_path):
+        path = _write_config(tmp_path, """
+            common:
+              output_dir: results/custom
+        """)
+        cfg = load_config("batch_report", path)
+        assert isinstance(cfg.output_dir, Path)
+        assert cfg.output_dir == Path("results/custom")
+
+    def test_unknown_key_rejected(self, tmp_path):
+        path = _write_config(tmp_path, """
+            common:
+              taret_ppm: 6.1
+        """)
+        with pytest.raises(ConfigError):
+            load_config("compare_timeseries", path)
+
+    def test_unknown_section_rejected(self, tmp_path):
+        path = _write_config(tmp_path, """
+            bogus_section:
+              foo: 1
+        """)
+        with pytest.raises(ConfigError):
+            load_config("compare_timeseries", path)
+
+    def test_unknown_script_name_raises(self, tmp_path):
+        path = _write_config(tmp_path, "common: {}\n")
+        with pytest.raises(ValueError):
+            load_config("not_a_script", path)
+
+    def test_plot_spectra_section(self, tmp_path):
+        path = _write_config(tmp_path, """
+            plot_spectra:
+              zoom_window_ppm: 0.3
+              normalize_overlay: false
+        """)
+        cfg = load_config("plot_spectra", path)
+        assert cfg.zoom_window_ppm == 0.3
+        assert cfg.normalize_overlay is False
+
+    def test_repo_default_config_is_valid(self):
+        """The shipped configs/nmr/analysis.yaml must load for every script."""
+        for script in ("analyze_single", "compare_timeseries",
+                       "batch_report", "plot_spectra"):
+            cfg = load_config(script, None)  # default path
+            assert isinstance(cfg, AnalysisConfig)
+            assert cfg.target_ppm == DEFAULT_TARGET_PPM
+
+
+class TestApplyCliOverrides:
+    def test_cli_wins_over_config(self):
+        cfg = AnalysisConfig(target_ppm=6.1)
+        args = argparse.Namespace(target_ppm=5.0, window_ppm=None)
+        apply_cli_overrides(cfg, args)
+        assert cfg.target_ppm == 5.0  # CLI provided
+        assert cfg.window_ppm == cfg.window_ppm  # untouched
+
+    def test_none_leaves_config_value(self):
+        cfg = AnalysisConfig(plateau_consecutive=2)
+        args = argparse.Namespace(plateau_consecutive=None)
+        apply_cli_overrides(cfg, args)
+        assert cfg.plateau_consecutive == 2
+
+    def test_false_boolean_is_applied(self):
+        """--no-plots => plots=False must override a config True."""
+        cfg = AnalysisConfig(plots=True)
+        args = argparse.Namespace(plots=False)
+        apply_cli_overrides(cfg, args)
+        assert cfg.plots is False
+
+
+class TestDeriveRunName:
+    def test_directory_name_used(self, tmp_path):
+        d = tmp_path / "06-08-26"
+        d.mkdir()
+        name = derive_run_name([d], "timeseries")
+        assert name.startswith("06-08-26_")
+        assert name.endswith("_timeseries")
+
+    def test_file_stem_used(self, tmp_path):
+        f = tmp_path / "sample-1115.dx"
+        f.write_text("x")
+        name = derive_run_name([f], "single")
+        assert name.startswith("sample-1115_")
+        assert name.endswith("_single")
+
+    def test_special_chars_sanitized(self, tmp_path):
+        d = tmp_path / "run (a)"
+        d.mkdir()
+        name = derive_run_name([d], "batch")
+        assert "(" not in name and ")" not in name and " " not in name
 
 
 # ===================================================================

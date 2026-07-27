@@ -17,40 +17,49 @@ import sys
 from pathlib import Path
 
 from _common import (
-    DEFAULT_OUTPUT_DIR,
-    DEFAULT_TARGET_PPM,
-    DEFAULT_WINDOW_PPM,
     analyze_file,
     build_summary_payload,
     create_output_dir,
+    derive_run_name,
     plot_peak_review,
     write_csv,
     write_summary,
     RESULT_COLUMNS,
 )
+from _config import (
+    add_config_argument,
+    apply_cli_overrides,
+    load_config,
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Detailed analysis of a single NMR .dx file."
+        description="Detailed analysis of a single NMR .dx file. "
+                    "Parameters come from configs/nmr/analysis.yaml unless "
+                    "overridden by the flags below."
     )
     parser.add_argument("path", help="Path to a .dx file")
-    parser.add_argument("--target", type=float, default=DEFAULT_TARGET_PPM,
-                        help="target peak position in ppm")
-    parser.add_argument("--window", type=float, default=DEFAULT_WINDOW_PPM,
-                        help="detection half-window in ppm")
-    parser.add_argument("--plot-window", type=float, default=0.5,
-                        help="ppm half-window for review plot")
-    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR,
-                        help="base directory for analysis output")
-    parser.add_argument("--run-name", help="custom folder name (default: timestamp)")
-    parser.add_argument("--no-plots", action="store_true",
-                        help="skip review plot generation")
+    add_config_argument(parser)
+    # Flags default to None so an unset flag falls back to the config file.
+    parser.add_argument("--target", dest="target_ppm", type=float, default=None,
+                        help="target peak position in ppm (overrides config)")
+    parser.add_argument("--window", dest="window_ppm", type=float, default=None,
+                        help="detection half-window in ppm (overrides config)")
+    parser.add_argument("--plot-window", dest="plot_window_ppm", type=float, default=None,
+                        help="ppm half-window for review plot (overrides config)")
+    parser.add_argument("--output-dir", dest="output_dir", type=Path, default=None,
+                        help="base directory for analysis output (overrides config)")
+    parser.add_argument("--run-name", dest="run_name", default=None,
+                        help="custom folder name (default: timestamp)")
+    parser.add_argument("--plots", dest="plots", action=argparse.BooleanOptionalAction,
+                        default=None, help="generate review plot (overrides config)")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+    cfg = apply_cli_overrides(load_config("analyze_single", args.config), args)
     dx_path = Path(args.path)
 
     if not dx_path.is_file():
@@ -58,10 +67,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     # Analyse
-    fr = analyze_file(dx_path, target_ppm=args.target, window_ppm=args.window)
+    fr = analyze_file(dx_path, target_ppm=cfg.target_ppm, window_ppm=cfg.window_ppm)
 
-    # Create output directory
-    out_dir = create_output_dir(args.output_dir, "single", run_name=args.run_name)
+    # Create output directory (named after the input file when not overridden)
+    out_dir = create_output_dir(
+        cfg.output_dir, "single",
+        run_name=cfg.run_name or derive_run_name([dx_path], "single"),
+    )
     plots_dir = out_dir / "plots"
     plots_dir.mkdir(parents=True, exist_ok=True)
 
@@ -120,13 +132,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"    Points in window    : {peak.points_in_window}")
 
         # Generate plot
-        if not args.no_plots:
+        if cfg.plots:
             try:
                 plot_file = str(plot_peak_review(
                     dx_path, peak, plots_dir,
-                    target_ppm=args.target,
-                    window_ppm=args.window,
-                    plot_window_ppm=args.plot_window,
+                    target_ppm=cfg.target_ppm,
+                    window_ppm=cfg.window_ppm,
+                    plot_window_ppm=cfg.plot_window_ppm,
                 ))
                 print(f"\n  Plot saved: {plot_file}")
             except Exception as exc:
@@ -165,10 +177,10 @@ def main(argv: list[str] | None = None) -> int:
         input_paths=[str(dx_path)],
         results=[fr],
         parameters={
-            "target_ppm": args.target,
-            "window_ppm": args.window,
-            "plot_window_ppm": args.plot_window,
-            "plots_enabled": not args.no_plots,
+            "target_ppm": cfg.target_ppm,
+            "window_ppm": cfg.window_ppm,
+            "plot_window_ppm": cfg.plot_window_ppm,
+            "plots_enabled": cfg.plots,
         },
         extra={"plot_file": plot_file},
     )

@@ -17,39 +17,46 @@ import sys
 from pathlib import Path
 
 from _common import (
-    DEFAULT_OUTPUT_DIR,
-    DEFAULT_TARGET_PPM,
-    DEFAULT_WINDOW_PPM,
     RESULT_COLUMNS,
     analyze_batch,
     build_summary_payload,
     collect_dx_files,
     create_output_dir,
+    derive_run_name,
     plot_bar_comparison,
     plot_scatter_correlation,
     write_csv,
     write_summary,
 )
+from _config import (
+    add_config_argument,
+    apply_cli_overrides,
+    load_config,
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Batch NMR analysis report for multiple .dx files."
+        description="Batch NMR analysis report for multiple .dx files. "
+                    "Parameters come from configs/nmr/analysis.yaml unless "
+                    "overridden by the flags below."
     )
     parser.add_argument(
         "paths", nargs="+",
         help="one or more .dx files or directories containing .dx files",
     )
-    parser.add_argument("--target", type=float, default=DEFAULT_TARGET_PPM,
-                        help="target peak position in ppm (default: %(default)s)")
-    parser.add_argument("--window", type=float, default=DEFAULT_WINDOW_PPM,
-                        help="detection half-window in ppm (default: %(default)s)")
-    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR,
-                        help="base directory for analysis output")
-    parser.add_argument("--run-name",
+    add_config_argument(parser)
+    # Flags default to None so an unset flag falls back to the config file.
+    parser.add_argument("--target", dest="target_ppm", type=float, default=None,
+                        help="target peak position in ppm (overrides config)")
+    parser.add_argument("--window", dest="window_ppm", type=float, default=None,
+                        help="detection half-window in ppm (overrides config)")
+    parser.add_argument("--output-dir", dest="output_dir", type=Path, default=None,
+                        help="base directory for analysis output (overrides config)")
+    parser.add_argument("--run-name", dest="run_name", default=None,
                         help="custom folder name (default: auto-timestamp)")
-    parser.add_argument("--no-plots", action="store_true",
-                        help="skip plot generation")
+    parser.add_argument("--plots", dest="plots", action=argparse.BooleanOptionalAction,
+                        default=None, help="generate plots (overrides config)")
     return parser
 
 
@@ -70,6 +77,7 @@ def _stats(values: list[float]) -> dict[str, float]:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+    cfg = apply_cli_overrides(load_config("batch_report", args.config), args)
 
     # Collect files
     files = collect_dx_files(args.paths)
@@ -80,10 +88,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Found {len(files)} .dx file(s)")
 
     # Analyse all (per-file error handling)
-    results = analyze_batch(files, target_ppm=args.target, window_ppm=args.window)
+    results = analyze_batch(files, target_ppm=cfg.target_ppm, window_ppm=cfg.window_ppm)
 
-    # Create output dir
-    out_dir = create_output_dir(args.output_dir, "batch", run_name=args.run_name)
+    # Create output dir (named after the input data when not overridden)
+    out_dir = create_output_dir(
+        cfg.output_dir, "batch",
+        run_name=cfg.run_name or derive_run_name(args.paths, "batch"),
+    )
     plots_dir = out_dir / "plots"
 
     # Build rows for CSV
@@ -177,7 +188,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Plots
     plot_files: list[str] = []
-    if not args.no_plots and len(ok_labels) >= 2:
+    if cfg.plots and len(ok_labels) >= 2:
         try:
             p = plot_bar_comparison(
                 ok_labels, ok_heights, ok_areas,
@@ -205,9 +216,9 @@ def main(argv: list[str] | None = None) -> int:
         input_paths=[str(p) for p in args.paths],
         results=results,
         parameters={
-            "target_ppm": args.target,
-            "window_ppm": args.window,
-            "plots_enabled": not args.no_plots,
+            "target_ppm": cfg.target_ppm,
+            "window_ppm": cfg.window_ppm,
+            "plots_enabled": cfg.plots,
         },
         extra={
             "statistics": {
