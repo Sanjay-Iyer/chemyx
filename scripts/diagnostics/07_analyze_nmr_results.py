@@ -130,7 +130,8 @@ def main() -> int:
             f"{result.peak_ppm:.4f}, {result.snr:.2f}, "
             f"{result.prominence_snr:.2f}, {result.prominence:.6g}, "
             f"{result.width_ppm:.4f}, {result.peaks_considered}, "
-            f"{result.peak_height:.6g}, {result.baseline:.6g}, {result.noise:.6g}, "
+            f"{result.peak_height:.6g}, {result.peak_area:.6g}, "
+            f"{result.baseline:.6g}, {result.noise:.6g}, "
             f"{plot_file}"
         )
 

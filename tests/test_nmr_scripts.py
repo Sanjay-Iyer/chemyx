@@ -1,0 +1,507 @@
+"""Unit and CLI integration tests for the NMR analysis scripts.
+
+Run with:  conda activate AI && python -m pytest tests/test_nmr_scripts.py -v
+"""
+
+from __future__ import annotations
+
+import csv
+import json
+import os
+import subprocess
+import sys
+import textwrap
+from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+# ---------------------------------------------------------------------------
+# Ensure the repo root and scripts/nmr are importable
+# ---------------------------------------------------------------------------
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS_NMR = REPO_ROOT / "scripts" / "nmr"
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(SCRIPTS_NMR))
+
+# Now we can import from _common (the bootstrap is already handled above)
+from _common import (
+    DEFAULT_PLATEAU_CONSECUTIVE,
+    DEFAULT_PLATEAU_THRESHOLD,
+    FileResult,
+    PlateauResult,
+    collect_dx_files,
+    compute_deltas,
+    create_output_dir,
+    detect_plateau,
+    parse_acquisition_timestamp,
+    sort_by_timestamp,
+    write_csv,
+    write_summary,
+    _safe_name,
+)
+
+# Real test data
+REAL_DATA_DIR = REPO_ROOT / "results" / "raw" / "nmr" / "06-08-26"
+HAS_REAL_DATA = REAL_DATA_DIR.is_dir() and any(REAL_DATA_DIR.glob("*.dx"))
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_mock_peak(**overrides):
+    """Create a mock PeakResult with sensible defaults."""
+    defaults = dict(
+        source=Path("test.dx"),
+        target_ppm=6.1,
+        peak_ppm=6.15,
+        peak_height=1000.0,
+        peak_area=50.0,
+        snr=5.0,
+        prominence=200.0,
+        prominence_snr=2.0,
+        width_ppm=0.03,
+        peaks_considered=3,
+        points_in_window=96,
+        baseline=800.0,
+        noise=40.0,
+    )
+    defaults.update(overrides)
+    mock = MagicMock()
+    for k, v in defaults.items():
+        setattr(mock, k, v)
+    return mock
+
+
+def _make_file_result(
+    filename: str,
+    height: float = 1000.0,
+    area: float = 50.0,
+    ts: datetime | None = None,
+    error: str | None = None,
+    ts_source: str = "LONG DATE header",
+) -> FileResult:
+    peak = None if error else _make_mock_peak(
+        source=Path(filename), peak_height=height, peak_area=area
+    )
+    return FileResult(
+        path=Path(filename),
+        peak=peak,
+        error=error,
+        timestamp=ts,
+        timestamp_source=ts_source,
+    )
+
+
+# ===================================================================
+# Unit tests: _common.py functions
+# ===================================================================
+
+
+class TestParseAcquisitionTimestamp:
+    def test_long_date_header(self):
+        meta = {"LONG DATE": "2026/06/08 14:21:24-0400"}
+        dt, source = parse_acquisition_timestamp(meta)
+        assert dt == datetime(2026, 6, 8, 14, 21, 24)
+        assert "LONG DATE" in source
+
+    def test_epoch_header(self):
+        meta = {"$DATE": "1780942884"}
+        dt, source = parse_acquisition_timestamp(meta)
+        assert dt is not None
+        assert "$DATE" in source
+
+    def test_filename_fallback_hhmm(self):
+        meta = {}
+        fp = Path("CEC-PhSi2-flow(sequence-1415)-06-08-26.dx")
+        dt, source = parse_acquisition_timestamp(meta, fp)
+        assert dt is not None
+        assert "filename" in source
+        assert dt.hour == 14 and dt.minute == 15
+
+    def test_no_timestamp_available(self):
+        meta = {}
+        dt, source = parse_acquisition_timestamp(meta)
+        assert dt is None
+        assert source == "none"
+
+    def test_malformed_long_date(self):
+        meta = {"LONG DATE": "not-a-date"}
+        dt, source = parse_acquisition_timestamp(meta)
+        # Should fall through, not crash
+        assert dt is None or source != "LONG DATE header"
+
+
+class TestSortByTimestamp:
+    def test_sorts_by_timestamp(self):
+        r1 = _make_file_result("b.dx", ts=datetime(2026, 1, 1, 12, 0))
+        r2 = _make_file_result("a.dx", ts=datetime(2026, 1, 1, 11, 0))
+        r3 = _make_file_result("c.dx", ts=datetime(2026, 1, 1, 13, 0))
+        sorted_results = sort_by_timestamp([r1, r2, r3])
+        assert [r.path.name for r in sorted_results] == ["a.dx", "b.dx", "c.dx"]
+
+    def test_no_timestamp_falls_back_to_filename(self):
+        r1 = _make_file_result("b.dx")
+        r2 = _make_file_result("a.dx")
+        sorted_results = sort_by_timestamp([r1, r2])
+        assert [r.path.name for r in sorted_results] == ["a.dx", "b.dx"]
+
+    def test_mixed_timestamp_and_no_timestamp(self):
+        r1 = _make_file_result("b.dx", ts=datetime(2026, 1, 1, 12, 0))
+        r2 = _make_file_result("z.dx")  # no timestamp
+        sorted_results = sort_by_timestamp([r1, r2])
+        # timestamped files come first (sort key 0), then non-timestamped (1)
+        assert sorted_results[0].path.name == "b.dx"
+        assert sorted_results[1].path.name == "z.dx"
+
+
+class TestComputeDeltas:
+    def test_first_row_has_no_delta(self):
+        results = [_make_file_result("a.dx", height=100, area=10)]
+        rows = compute_deltas(results)
+        assert rows[0]["delta_height"] == ""
+        assert rows[0]["delta_area"] == ""
+
+    def test_second_row_has_delta(self):
+        results = [
+            _make_file_result("a.dx", height=100, area=10),
+            _make_file_result("b.dx", height=150, area=15),
+        ]
+        rows = compute_deltas(results)
+        assert rows[1]["delta_height"] == 50.0
+        assert rows[1]["delta_area"] == 5.0
+        assert rows[1]["pct_change_height"] == pytest.approx(50.0)
+        assert rows[1]["pct_change_area"] == pytest.approx(50.0)
+
+    def test_zero_value_growth(self):
+        """When previous value is 0, percent change should be 0 (not crash)."""
+        results = [
+            _make_file_result("a.dx", height=0, area=0),
+            _make_file_result("b.dx", height=100, area=10),
+        ]
+        rows = compute_deltas(results)
+        assert rows[1]["pct_change_height"] == 0.0
+        assert rows[1]["pct_change_area"] == 0.0
+
+    def test_error_file_doesnt_break_deltas(self):
+        results = [
+            _make_file_result("a.dx", height=100, area=10),
+            _make_file_result("bad.dx", error="parse failed"),
+            _make_file_result("c.dx", height=200, area=20),
+        ]
+        rows = compute_deltas(results)
+        assert rows[1].get("error") == "parse failed"
+        # c.dx should delta from a.dx since bad.dx was skipped
+        assert rows[2]["delta_height"] == 100.0
+
+    def test_elapsed_seconds_computed(self):
+        t0 = datetime(2026, 1, 1, 10, 0, 0)
+        t1 = datetime(2026, 1, 1, 11, 0, 0)
+        results = [
+            _make_file_result("a.dx", ts=t0),
+            _make_file_result("b.dx", ts=t1),
+        ]
+        rows = compute_deltas(results)
+        assert rows[0]["elapsed_seconds"] == 0.0
+        assert rows[1]["elapsed_seconds"] == 3600.0
+
+
+class TestDetectPlateau:
+    def test_plateau_reached(self):
+        rows = [
+            {"file": "a.dx", "pct_change_height": ""},
+            {"file": "b.dx", "pct_change_height": 50.0},
+            {"file": "c.dx", "pct_change_height": 3.0},
+            {"file": "d.dx", "pct_change_height": 2.0},
+            {"file": "e.dx", "pct_change_height": 1.0},
+        ]
+        result = detect_plateau(
+            rows, "peak_height", "pct_change_height",
+            threshold_pct=5.0, min_consecutive=2,
+        )
+        assert result.reached is True
+        assert result.plateau_file == "c.dx"
+        assert result.consecutive_below >= 2
+
+    def test_plateau_not_reached_single_below(self):
+        """Only one change below threshold — not enough."""
+        rows = [
+            {"file": "a.dx", "pct_change_height": ""},
+            {"file": "b.dx", "pct_change_height": 50.0},
+            {"file": "c.dx", "pct_change_height": 3.0},
+            {"file": "d.dx", "pct_change_height": 20.0},
+        ]
+        result = detect_plateau(
+            rows, "peak_height", "pct_change_height",
+            threshold_pct=5.0, min_consecutive=2,
+        )
+        assert result.reached is False
+
+    def test_plateau_resets_on_spike(self):
+        rows = [
+            {"file": "a.dx", "pct_change_height": ""},
+            {"file": "b.dx", "pct_change_height": 2.0},
+            {"file": "c.dx", "pct_change_height": 30.0},  # spike resets
+            {"file": "d.dx", "pct_change_height": 2.0},
+        ]
+        result = detect_plateau(
+            rows, "peak_height", "pct_change_height",
+            threshold_pct=5.0, min_consecutive=2,
+        )
+        assert result.reached is False
+        assert result.consecutive_below == 1
+
+    def test_empty_rows(self):
+        result = detect_plateau(
+            [], "peak_height", "pct_change_height",
+            threshold_pct=5.0, min_consecutive=2,
+        )
+        assert result.reached is False
+
+    def test_height_and_area_independent(self):
+        """Plateau can be reached for area but not height."""
+        rows = [
+            {"file": "a.dx", "pct_change_height": "", "pct_change_area": ""},
+            {"file": "b.dx", "pct_change_height": 20.0, "pct_change_area": 3.0},
+            {"file": "c.dx", "pct_change_height": 15.0, "pct_change_area": 2.0},
+        ]
+        h = detect_plateau(rows, "peak_height", "pct_change_height", 5.0, 2)
+        a = detect_plateau(rows, "peak_area", "pct_change_area", 5.0, 2)
+        assert h.reached is False
+        assert a.reached is True
+
+
+class TestCreateOutputDir:
+    def test_creates_directory(self, tmp_path):
+        out = create_output_dir(tmp_path, "test")
+        assert out.is_dir()
+        assert "test" in out.name
+
+    def test_collision_handling(self, tmp_path):
+        out1 = create_output_dir(tmp_path, "test", run_name="myrun")
+        out2 = create_output_dir(tmp_path, "test", run_name="myrun")
+        assert out1 != out2
+        assert out1.is_dir()
+        assert out2.is_dir()
+
+
+class TestSafeName:
+    def test_preserves_alnum(self):
+        assert _safe_name("abc123") == "abc123"
+
+    def test_replaces_special_chars(self):
+        assert _safe_name("my file (1)") == "my_file__1"
+
+    def test_empty_string_fallback(self):
+        result = _safe_name("")
+        assert len(result) > 0  # should get timestamp
+
+
+class TestWriteCsv:
+    def test_writes_csv(self, tmp_path):
+        rows = [{"file": "a.dx", "peak_height": 100, "peak_area": 50}]
+        path = write_csv(tmp_path / "out.csv", rows, columns=["file", "peak_height", "peak_area"])
+        assert path.exists()
+        with path.open() as f:
+            reader = csv.DictReader(f)
+            data = list(reader)
+        assert len(data) == 1
+        assert data[0]["file"] == "a.dx"
+
+
+class TestWriteSummary:
+    def test_writes_json(self, tmp_path):
+        path = write_summary(tmp_path / "summary.json", {"key": "value"})
+        assert path.exists()
+        payload = json.loads(path.read_text())
+        assert payload["key"] == "value"
+
+
+class TestCollectDxFiles:
+    def test_deduplicates_and_sorts(self, tmp_path):
+        (tmp_path / "b.dx").write_text("fake")
+        (tmp_path / "a.dx").write_text("fake")
+        files = collect_dx_files([str(tmp_path), str(tmp_path / "a.dx")])
+        names = [f.name for f in files]
+        assert names == ["a.dx", "b.dx"]
+
+    def test_empty_directory(self, tmp_path):
+        files = collect_dx_files([str(tmp_path)])
+        assert files == []
+
+
+# ===================================================================
+# CLI integration tests (run actual scripts via subprocess)
+# ===================================================================
+
+PYTHON = sys.executable
+
+
+def _run_script(script_name: str, args: list[str], cwd: str | None = None) -> subprocess.CompletedProcess:
+    cmd = [PYTHON, str(SCRIPTS_NMR / script_name)] + args
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        cwd=cwd or str(REPO_ROOT),
+        timeout=120,
+    )
+
+
+@pytest.mark.skipif(not HAS_REAL_DATA, reason="No real NMR data in results/raw/nmr/06-08-26/")
+class TestAnalyzeSingleCLI:
+    def test_basic_run(self, tmp_path):
+        dx_file = next(REAL_DATA_DIR.glob("*.dx"))
+        result = _run_script("analyze_single.py", [
+            str(dx_file),
+            "--output-dir", str(tmp_path),
+        ])
+        assert result.returncode == 0, f"STDERR:\n{result.stderr}"
+        # Check outputs
+        run_dirs = list(tmp_path.iterdir())
+        assert len(run_dirs) >= 1
+        run_dir = run_dirs[0]
+        assert (run_dir / "results.csv").exists()
+        assert (run_dir / "summary.json").exists()
+
+    def test_no_plots_flag(self, tmp_path):
+        dx_file = next(REAL_DATA_DIR.glob("*.dx"))
+        result = _run_script("analyze_single.py", [
+            str(dx_file),
+            "--output-dir", str(tmp_path),
+            "--no-plots",
+        ])
+        assert result.returncode == 0, f"STDERR:\n{result.stderr}"
+        run_dir = list(tmp_path.iterdir())[0]
+        plots = list((run_dir / "plots").glob("*.png"))
+        assert len(plots) == 0
+
+    def test_nonexistent_file(self, tmp_path):
+        result = _run_script("analyze_single.py", [
+            str(tmp_path / "nonexistent.dx"),
+            "--output-dir", str(tmp_path),
+        ])
+        assert result.returncode != 0
+
+
+@pytest.mark.skipif(not HAS_REAL_DATA, reason="No real NMR data in results/raw/nmr/06-08-26/")
+class TestCompareTimeseriesCLI:
+    def test_directory_input(self, tmp_path):
+        result = _run_script("compare_timeseries.py", [
+            str(REAL_DATA_DIR),
+            "--output-dir", str(tmp_path),
+        ])
+        assert result.returncode == 0, f"STDERR:\n{result.stderr}"
+        run_dirs = list(tmp_path.iterdir())
+        assert len(run_dirs) >= 1
+        run_dir = run_dirs[0]
+        assert (run_dir / "results.csv").exists()
+        assert (run_dir / "summary.json").exists()
+
+        # Check CSV has expected columns
+        with (run_dir / "results.csv").open() as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames
+            assert "peak_height" in fieldnames
+            assert "peak_area" in fieldnames
+            assert "delta_height" in fieldnames
+            assert "pct_change_height" in fieldnames
+
+        # Check summary has plateau results
+        summary = json.loads((run_dir / "summary.json").read_text())
+        assert "plateau_height" in summary
+        assert "plateau_area" in summary
+        assert summary["plateau_height"]["metric"] == "peak_height"
+        assert summary["plateau_area"]["metric"] == "peak_area"
+
+    def test_no_plots_skips_png(self, tmp_path):
+        result = _run_script("compare_timeseries.py", [
+            str(REAL_DATA_DIR),
+            "--output-dir", str(tmp_path),
+            "--no-plots",
+        ])
+        assert result.returncode == 0, f"STDERR:\n{result.stderr}"
+        run_dir = list(tmp_path.iterdir())[0]
+        plots = list((run_dir / "plots").glob("*.png")) if (run_dir / "plots").exists() else []
+        assert len(plots) == 0
+
+    def test_custom_plateau_threshold(self, tmp_path):
+        result = _run_script("compare_timeseries.py", [
+            str(REAL_DATA_DIR),
+            "--output-dir", str(tmp_path),
+            "--plateau-threshold", "50",
+            "--plateau-consecutive", "3",
+            "--no-plots",
+        ])
+        assert result.returncode == 0, f"STDERR:\n{result.stderr}"
+
+
+@pytest.mark.skipif(not HAS_REAL_DATA, reason="No real NMR data in results/raw/nmr/06-08-26/")
+class TestBatchReportCLI:
+    def test_directory_input(self, tmp_path):
+        result = _run_script("batch_report.py", [
+            str(REAL_DATA_DIR),
+            "--output-dir", str(tmp_path),
+        ])
+        assert result.returncode == 0, f"STDERR:\n{result.stderr}"
+        run_dirs = list(tmp_path.iterdir())
+        assert len(run_dirs) >= 1
+        run_dir = run_dirs[0]
+        assert (run_dir / "results.csv").exists()
+        assert (run_dir / "summary.json").exists()
+
+        # Check summary has statistics
+        summary = json.loads((run_dir / "summary.json").read_text())
+        assert "statistics" in summary
+        assert "height" in summary["statistics"]
+        assert "area" in summary["statistics"]
+
+    def test_multiple_file_inputs(self, tmp_path):
+        dx_files = sorted(REAL_DATA_DIR.glob("*.dx"))[:3]
+        result = _run_script("batch_report.py", [
+            *[str(f) for f in dx_files],
+            "--output-dir", str(tmp_path),
+            "--no-plots",
+        ])
+        assert result.returncode == 0, f"STDERR:\n{result.stderr}"
+
+
+# ===================================================================
+# Edge-case tests
+# ===================================================================
+
+
+class TestEdgeCases:
+    def test_output_dir_collision(self, tmp_path):
+        """Creating two runs with the same name should not overwrite."""
+        d1 = create_output_dir(tmp_path, "single", run_name="run1")
+        (d1 / "marker.txt").write_text("original")
+        d2 = create_output_dir(tmp_path, "single", run_name="run1")
+        assert d1 != d2
+        assert (d1 / "marker.txt").read_text() == "original"
+
+    def test_compute_deltas_single_file(self):
+        """Single file should produce a row with no deltas."""
+        results = [_make_file_result("a.dx", height=100, area=10)]
+        rows = compute_deltas(results)
+        assert len(rows) == 1
+        assert rows[0]["delta_height"] == ""
+
+    def test_compute_deltas_all_errors(self):
+        results = [
+            _make_file_result("a.dx", error="fail1"),
+            _make_file_result("b.dx", error="fail2"),
+        ]
+        rows = compute_deltas(results)
+        assert len(rows) == 2
+        assert all(r.get("error") for r in rows)
+
+    def test_plateau_all_missing_pct(self):
+        rows = [
+            {"file": "a.dx", "pct_change_height": ""},
+            {"file": "b.dx", "pct_change_height": ""},
+        ]
+        result = detect_plateau(rows, "peak_height", "pct_change_height", 5.0, 2)
+        assert result.reached is False
