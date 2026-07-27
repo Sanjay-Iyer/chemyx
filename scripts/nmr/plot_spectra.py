@@ -131,7 +131,8 @@ def main(argv: list[str] | None = None) -> int:
         cfg.output_dir, "spectra",
         run_name=cfg.run_name or derive_run_name(args.paths, "spectra"),
     )
-    individual_dir = out_dir / "plots" / "individual"
+    zoom_dir = out_dir / "plots" / "zoom"
+    full_dir = out_dir / "plots" / "full"
 
     # Load spectra (in timestamp order) and draw per-file plots.
     spectra: list[tuple[str, object, object]] = []
@@ -153,24 +154,11 @@ def main(argv: list[str] | None = None) -> int:
         spectra.append((label, ppm, magnitude))
         safe = _safe_name(label)
 
-        # Full spectrum
+        # Zoomed to target region (the primary view) — plots/zoom/<file>.png
         try:
             p = plot_spectrum_single(
                 ppm, magnitude, label=label,
-                output_path=individual_dir / f"{safe}_full.png",
-                target_ppm=cfg.target_ppm, window_ppm=cfg.window_ppm,
-                peak_ppm=peak_ppm,
-                title=f"{fr.path.name} — full spectrum",
-            )
-            plot_files.append(str(p))
-        except Exception as exc:
-            print(f"  WARNING: full plot failed for {fr.path.name}: {exc}")
-
-        # Zoomed to target region
-        try:
-            p = plot_spectrum_single(
-                ppm, magnitude, label=label,
-                output_path=individual_dir / f"{safe}_zoom.png",
+                output_path=zoom_dir / f"{safe}.png",
                 target_ppm=cfg.target_ppm, window_ppm=cfg.window_ppm,
                 peak_ppm=peak_ppm, zoom_ppm=cfg.zoom_window_ppm,
                 title=f"{fr.path.name} — {cfg.target_ppm:g} ppm region",
@@ -178,6 +166,19 @@ def main(argv: list[str] | None = None) -> int:
             plot_files.append(str(p))
         except Exception as exc:
             print(f"  WARNING: zoom plot failed for {fr.path.name}: {exc}")
+
+        # Full spectrum (kept for later) — plots/full/<file>.png
+        try:
+            p = plot_spectrum_single(
+                ppm, magnitude, label=label,
+                output_path=full_dir / f"{safe}.png",
+                target_ppm=cfg.target_ppm, window_ppm=cfg.window_ppm,
+                peak_ppm=peak_ppm,
+                title=f"{fr.path.name} — full spectrum",
+            )
+            plot_files.append(str(p))
+        except Exception as exc:
+            print(f"  WARNING: full plot failed for {fr.path.name}: {exc}")
 
         status = "ok" if fr.peak is not None else f"no peak ({fr.error})"
         print(f"  {fr.path.name:<55s} {status}")
@@ -225,7 +226,8 @@ def main(argv: list[str] | None = None) -> int:
     summary_path = write_summary(out_dir / "summary.json", summary)
 
     print()
-    print(f"  Individual plots : {individual_dir}")
+    print(f"  Zoom plots       : {zoom_dir}")
+    print(f"  Full plots       : {full_dir}")
     print(f"  Overlay/stacked  : {out_dir / 'plots'}")
     print(f"  Results CSV      : {csv_path}")
     print(f"  Summary JSON     : {summary_path}")

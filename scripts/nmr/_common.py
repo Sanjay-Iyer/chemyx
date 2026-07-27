@@ -848,6 +848,31 @@ def _reversed_xlim(ax, ppm, target_ppm=None, zoom_ppm=None):
         ax.set_xlim(float(np.max(ppm)), float(np.min(ppm)))
 
 
+def _apply_window_ylim(ax, series, target_ppm, zoom_ppm, pad_frac=0.08):
+    """Scale the y-axis to the data inside the visible ppm window.
+
+    Without this, matplotlib autoscales y to the whole spectrum, so a zoomed-in
+    peak that is small relative to the global maximum looks flat. *series* is a
+    list of ``(ppm_axis, y_values)`` for every trace actually plotted.
+    """
+    np = _get_np()
+    lo = float(target_ppm) - float(zoom_ppm)
+    hi = float(target_ppm) + float(zoom_ppm)
+    chunks = []
+    for ppm, y in series:
+        mask = (ppm >= lo) & (ppm <= hi)
+        if np.any(mask):
+            chunks.append(np.asarray(y)[mask])
+    if not chunks:
+        return
+    values = np.concatenate(chunks)
+    ymin = float(np.min(values))
+    ymax = float(np.max(values))
+    span = ymax - ymin
+    pad = span * pad_frac if span > 0 else (abs(ymax) * 0.05 or 1.0)
+    ax.set_ylim(ymin - pad, ymax + pad)
+
+
 def plot_spectrum_single(
     ppm,
     magnitude,
@@ -885,6 +910,8 @@ def plot_spectrum_single(
     ax.set_title(title or label, fontsize=11, fontweight="bold")
     ax.grid(True, alpha=0.25)
     _reversed_xlim(ax, ppm, target_ppm if zoom_ppm else None, zoom_ppm)
+    if zoom_ppm is not None and target_ppm is not None:
+        _apply_window_ylim(ax, [(ppm, magnitude)], target_ppm, zoom_ppm)
     ax.legend(loc="best", fontsize=8)
 
     fig.tight_layout()
@@ -915,6 +942,7 @@ def plot_spectra_overlay(
     cmap = plt.get_cmap("viridis")
     n = len(spectra)
 
+    plotted: list[tuple[Any, Any]] = []
     for i, (label, ppm, mag) in enumerate(spectra):
         y = mag
         if normalize:
@@ -922,6 +950,7 @@ def plot_spectra_overlay(
             y = mag / peak
         color = cmap(i / max(1, n - 1))
         ax.plot(ppm, y, linewidth=0.9, color=color, alpha=0.85, label=label)
+        plotted.append((ppm, y))
 
     if target_ppm is not None and window_ppm is not None:
         ax.axvspan(
@@ -938,6 +967,8 @@ def plot_spectra_overlay(
 
     all_ppm = np.concatenate([s[1] for s in spectra]) if spectra else np.array([0.0, 1.0])
     _reversed_xlim(ax, all_ppm, target_ppm if zoom_ppm else None, zoom_ppm)
+    if zoom_ppm is not None and target_ppm is not None:
+        _apply_window_ylim(ax, plotted, target_ppm, zoom_ppm)
     if 0 < n <= 12:
         ax.legend(loc="best", fontsize=7, ncol=2)
 
@@ -969,14 +1000,34 @@ def plot_spectra_stacked(
     cmap = plt.get_cmap("viridis")
     n = len(spectra)
 
+    # When zoomed, normalize each trace to its in-window max (scaled to ~90% of
+    # the offset gap) so the target peak fills its band; otherwise normalize to
+    # the whole-spectrum max.
+    zoom_lo = zoom_hi = None
+    trace_scale = 1.0
+    if zoom_ppm is not None and target_ppm is not None:
+        zoom_lo = float(target_ppm) - float(zoom_ppm)
+        zoom_hi = float(target_ppm) + float(zoom_ppm)
+        trace_scale = float(offset_frac) * 0.9
+
+    plotted: list[tuple[Any, Any]] = []
     for i, (label, ppm, mag) in enumerate(spectra):
-        peak = float(np.max(np.abs(mag))) or 1.0
-        y = mag / peak + i * float(offset_frac)
+        if zoom_lo is not None:
+            mask = (ppm >= zoom_lo) & (ppm <= zoom_hi)
+            denom = float(np.max(np.abs(mag[mask]))) if np.any(mask) else 0.0
+            denom = denom or (float(np.max(np.abs(mag))) or 1.0)
+            y = mag / denom * trace_scale + i * float(offset_frac)
+        else:
+            peak = float(np.max(np.abs(mag))) or 1.0
+            y = mag / peak + i * float(offset_frac)
         color = cmap(i / max(1, n - 1))
         ax.plot(ppm, y, linewidth=0.9, color=color)
-        # Label each trace at its right-hand (low-ppm) end.
+        plotted.append((ppm, y))
+        # Label each trace at the left (high-ppm) edge of the *visible* range,
+        # so labels stay inside the axes even when zoomed.
+        label_x = zoom_hi if zoom_hi is not None else float(np.max(ppm))
         ax.text(
-            float(np.min(ppm)), i * float(offset_frac), f" {label}",
+            label_x, i * float(offset_frac), f" {label}",
             fontsize=6, va="bottom", ha="left", color=color,
         )
 
@@ -997,6 +1048,8 @@ def plot_spectra_stacked(
 
     all_ppm = np.concatenate([s[1] for s in spectra]) if spectra else np.array([0.0, 1.0])
     _reversed_xlim(ax, all_ppm, target_ppm if zoom_ppm else None, zoom_ppm)
+    if zoom_ppm is not None and target_ppm is not None:
+        _apply_window_ylim(ax, plotted, target_ppm, zoom_ppm)
     if target_ppm is not None:
         ax.legend(loc="upper right", fontsize=8)
 

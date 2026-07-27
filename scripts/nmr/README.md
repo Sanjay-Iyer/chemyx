@@ -47,8 +47,9 @@ Use `--config path/to/other.yaml` to load a different config entirely.
 python scripts/nmr/plot_spectra.py results/raw/nmr/06-08-26/
 ```
 
-`plot_spectra.py` writes per-file plots under `plots/individual/`
-(`<file>_full.png`, `<file>_zoom.png`) plus `overlay_full.png`,
+`plot_spectra.py` writes per-file plots split into `plots/zoom/<file>.png`
+(the target region, y-axis scaled to the in-window peak) and
+`plots/full/<file>.png` (whole spectrum), plus `overlay_full.png`,
 `overlay_target.png`, and `stacked_target.png`.
 
 ## Common parameters (`common:`)
