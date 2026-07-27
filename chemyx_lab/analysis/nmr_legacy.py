@@ -140,7 +140,8 @@ def legacy_local_integral_sum(
     baseline = np.linspace(y[0], y[-1], y.size)
     corrected = y - baseline
     order = np.argsort(x)
-    signed_ppm = float(np.trapezoid(corrected[order], x[order]))
+    _trapezoid = getattr(np, "trapezoid", None) or np.trapz
+    signed_ppm = float(_trapezoid(corrected[order], x[order]))
     return {
         "area_sum_points": float(np.sum(corrected)),
         "area_trapezoid_ppm": signed_ppm,

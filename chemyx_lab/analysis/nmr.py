@@ -593,8 +593,8 @@ def integrate_above_local_baseline(
     return LocalIntegral(
         left_ppm=lo,
         right_ppm=hi,
-        signed_area=float(np.trapezoid(corrected, x)),
-        positive_area=float(np.trapezoid(np.maximum(corrected, 0.0), x)),
+        signed_area=float(_trapezoid(np, corrected, x)),
+        positive_area=float(_trapezoid(np, np.maximum(corrected, 0.0), x)),
         left_intensity=left_intensity,
         right_intensity=right_intensity,
         points=int(x.size),
@@ -1476,9 +1476,9 @@ def pick_spectrum_region(
         area_x = local_ppm[integration_mask]
         area_y = quantitative_corrected[integration_mask]
         order = np.argsort(area_x)
-        signed_area = float(np.trapezoid(area_y[order], area_x[order]))
+        signed_area = float(_trapezoid(np, area_y[order], area_x[order]))
         positive_area = float(
-            np.trapezoid(np.maximum(area_y[order], 0.0), area_x[order])
+            _trapezoid(np, np.maximum(area_y[order], 0.0), area_x[order])
         )
         classification = (
             "resolved_peak"
@@ -2044,6 +2044,18 @@ def _numpy():
             "python -m pip install -r requirements.txt."
         ) from exc
     return numpy
+
+
+def _trapezoid(np, y, x):
+    """Trapezoidal integral, portable across NumPy versions.
+
+    NumPy >= 2.0 exposes ``np.trapezoid``; older releases only have
+    ``np.trapz``. Prefer the new name and fall back so the code runs on both.
+    """
+    fn = getattr(np, "trapezoid", None)
+    if fn is None:
+        fn = np.trapz
+    return fn(y, x)
 
 
 def _nmrglue():

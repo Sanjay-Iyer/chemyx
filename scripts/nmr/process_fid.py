@@ -12,6 +12,7 @@ import csv
 import hashlib
 import importlib.metadata
 import json
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -36,10 +37,17 @@ from chemyx_lab.analysis.nmr import (
 from _common import (
     _safe_name,
     collect_dx_files,
-    create_output_dir,
-    derive_run_name,
     parse_acquisition_timestamp,
 )
+
+
+def _default_run_name(paths) -> str:
+    """Output-folder name defaults to the input's own name (e.g. 06-09-26).
+
+    A directory contributes its own name; a single file contributes its stem.
+    """
+    first = Path(paths[0])
+    return first.name if first.is_dir() else first.stem
 from _config import DEFAULT_CONFIG_PATH
 
 
@@ -462,11 +470,15 @@ def main(argv: list[str] | None = None) -> int:
     if message := _error(args):
         print(f"ERROR: {message}.", file=sys.stderr)
         return 2
-    out_dir = create_output_dir(
-        args.output_dir,
-        "region-peaks",
-        run_name=args.run_name or derive_run_name(args.paths, "region-peaks"),
-    )
+    # Output folder is named after the input (e.g. 06-09-26 -> 06-09-26),
+    # unless --run-name overrides it. Re-running refreshes the folder in place
+    # instead of piling up 06-09-26_2, _3, ... copies.
+    run_name = args.run_name or _default_run_name(args.paths)
+    out_dir = Path(args.output_dir) / _safe_name(run_name)
+    if out_dir.exists():
+        print(f"  (refreshing existing output: {out_dir})")
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
     manual_reference_shift = (
         0.0
         if args.reference_method != "manual_shift"

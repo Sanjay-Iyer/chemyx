@@ -5,7 +5,7 @@ description = "Chemyx Fusion 4000X pump and NMR workflow helpers"
 requires-python = ">=3.10"
 dependencies = [
     "pyserial>=3.5",
-    "numpy>=1.24",
+    "numpy>=1.24,<2.5",  # <2.5: nmrglue 0.11 uses the 'a8' dtype removed in newer NumPy
     "scipy>=1.10",
     "matplotlib>=3.7",
     "nmrglue>=0.11,<1",
