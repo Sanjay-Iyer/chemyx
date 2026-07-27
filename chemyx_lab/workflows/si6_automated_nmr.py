@@ -24,7 +24,6 @@ from typing import Any, Callable
 from .. import config
 from ..analysis.nmr import (
     NmrProcessingError,
-    PeakResult,
     analyze_dx_peak,
     build_magnitude_spectrum,
     plot_peak_region,
@@ -713,16 +712,21 @@ def update_summary_plots(rows: list[dict], paths: RunPaths, spectra_path: Path) 
             target = float(successful[-1]["target_ppm"])
             if abs(ppm - target) <= 0.5:
                 xs, ys = grouped.setdefault(item["iteration"], ([], []))
-                xs.append(ppm); ys.append(float(item["magnitude"]))
+                xs.append(ppm)
+                ys.append(float(item["magnitude"]))
     fig, ax = plt.subplots(figsize=(9, 5.2), dpi=140)
     for iteration, (xs, ys) in grouped.items():
         scale = max(ys) or 1.0
         ax.plot(xs, [value / scale for value in ys], alpha=0.7, label=f"iteration {iteration}")
-    ax.set_xlabel("ppm"); ax.set_ylabel("Normalized magnitude")
-    ax.invert_xaxis(); ax.grid(True, alpha=0.2)
+    ax.set_xlabel("ppm")
+    ax.set_ylabel("Normalized magnitude")
+    ax.invert_xaxis()
+    ax.grid(True, alpha=0.2)
     if len(grouped) <= 12:
         ax.legend(fontsize=7)
-    fig.tight_layout(); fig.savefig(paths.plots_dir / "target_region_overlay.png"); plt.close(fig)
+    fig.tight_layout()
+    fig.savefig(paths.plots_dir / "target_region_overlay.png")
+    plt.close(fig)
 
 
 def attempt_emergency_stop(

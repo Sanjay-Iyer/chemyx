@@ -1,0 +1,31 @@
+{
+  "created_at": "2026-07-27T17:28:55",
+  "raw_files": 8,
+  "detected_target_family_members": 7,
+  "production_reference": "metadata (no additional shift)",
+  "all_candidate_models_fail_closed": true,
+  "outputs": [
+    "01_original_metadata_axis.png",
+    "02_current_fail_closed_axis.png",
+    "03_protonated_toluene_low_field_neat_diagnostic.png",
+    "04_protonated_toluene_dilute_cdcl3_diagnostic.png",
+    "05_toluene_d8_residual_diagnostic.png",
+    "06_pdf_aligned_diagnostic.png",
+    "07_target_region_overlay.png",
+    "08_methyl_region_overlay.png",
+    "09_aromatic_region_overlay.png",
+    "10_proposed_vs_applied_shift.png",
+    "11_reference_region_disagreement.png",
+    "12_target_before_after_models.png",
+    "13_relative_frequency_separations.png",
+    "14_ringing_window_sensitivity.png",
+    "15_fid_endpoint.png",
+    "REVISED_REFERENCE_AUDIT.md",
+    "metadata.csv",
+    "pdf_comparison.csv",
+    "reference_models.csv",
+    "reference_region_fits.csv",
+    "relative_frequency.csv",
+    "supplied_processed_spectra.png"
+  ]
+}

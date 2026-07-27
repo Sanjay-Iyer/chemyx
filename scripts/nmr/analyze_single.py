@@ -20,6 +20,7 @@ from _common import (
     analyze_file,
     build_summary_payload,
     create_output_dir,
+    derive_group,
     derive_run_name,
     plot_peak_review,
     write_csv,
@@ -30,6 +31,7 @@ from _config import (
     add_config_argument,
     apply_cli_overrides,
     load_config,
+    peak_analysis_kwargs,
 )
 
 
@@ -52,6 +54,8 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="base directory for analysis output (overrides config)")
     parser.add_argument("--run-name", dest="run_name", default=None,
                         help="custom folder name (default: timestamp)")
+    parser.add_argument("--group", dest="group", default=None,
+                        help="output sub-folder, e.g. sample type (overrides config)")
     parser.add_argument("--plots", dest="plots", action=argparse.BooleanOptionalAction,
                         default=None, help="generate review plot (overrides config)")
     return parser
@@ -67,11 +71,18 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     # Analyse
-    fr = analyze_file(dx_path, target_ppm=cfg.target_ppm, window_ppm=cfg.window_ppm)
+    fr = analyze_file(
+        dx_path,
+        target_ppm=cfg.target_ppm,
+        window_ppm=cfg.window_ppm,
+        **peak_analysis_kwargs(cfg),
+    )
 
-    # Create output directory (named after the input file when not overridden)
+    # Create output directory: <output_dir>/[group/]<input>_<timestamp>_single
+    group = derive_group([dx_path.name], cfg.group_tokens, cfg.group)
+    base_out = cfg.output_dir / group if group else cfg.output_dir
     out_dir = create_output_dir(
-        cfg.output_dir, "single",
+        base_out, "single",
         run_name=cfg.run_name or derive_run_name([dx_path], "single"),
     )
     plots_dir = out_dir / "plots"
@@ -139,6 +150,8 @@ def main(argv: list[str] | None = None) -> int:
                     target_ppm=cfg.target_ppm,
                     window_ppm=cfg.window_ppm,
                     plot_window_ppm=cfg.plot_window_ppm,
+                    line_broadening_hz=cfg.line_broadening_hz,
+                    zero_fill_points=cfg.zero_fill_points,
                 ))
                 print(f"\n  Plot saved: {plot_file}")
             except Exception as exc:
@@ -152,6 +165,7 @@ def main(argv: list[str] | None = None) -> int:
             "target_ppm": peak.target_ppm,
             "peak_ppm": peak.peak_ppm,
             "peak_height": peak.peak_height,
+            "raw_peak_height": peak.raw_peak_height,
             "peak_area": peak.peak_area,
             "snr": peak.snr,
             "prominence_snr": peak.prominence_snr,

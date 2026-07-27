@@ -16,11 +16,29 @@
 # Shared by all three scripts.
 # ---------------------------------------------------------------------------
 common:
-  target_ppm: 6.1              # peak position to track, in ppm
+  target_ppm: 6.1              # fixed-target scripts only; regional search ignores it
   window_ppm: 0.12            # detection half-window around target_ppm, in ppm
+  # null reproduces the processing stored in each DX file ($LB and $SI).
+  line_broadening_hz: null
+  zero_fill_points: null
+  # Target detection uses a clipped polynomial baseline, then requires a
+  # prominence at least this many robust-noise standard deviations above it.
+  min_prominence_snr: 3.0
+  baseline_window_ppm: 0.5
+  baseline_polynomial_order: 2
   output_dir: results/analysis # base dir for timestamped result folders
   run_name: null              # fixed output-folder name; null = auto timestamp
   plots: true                 # generate PNG plots
+
+  # Group runs into a sub-folder of output_dir, e.g. by sample type, giving
+  #   results/analysis/<group>/<input>_<timestamp>_<script>/
+  # `group_tokens` is auto-detection: the first token found (case-insensitive)
+  # in the input file names picks the sub-folder — so files named
+  # CEC-PhSi2-flow(...).dx land under a "PhSi2" folder. Add/remove tokens here.
+  # `group` forces a fixed sub-folder and overrides auto-detection.
+  # Both empty / no match → no sub-folder (straight under output_dir).
+  group: null
+  group_tokens: [PhSi2, PhSi4, PhSi6]
 
 # ---------------------------------------------------------------------------
 # analyze_single.py — one file, deep report + review plot.
@@ -47,6 +65,61 @@ batch_report: {}
 # the scipy-detected ~target_ppm peak marked.
 # ---------------------------------------------------------------------------
 plot_spectra:
-  zoom_window_ppm: 0.5        # ppm half-window for the zoomed target-region plots
+  zoom_window_ppm: 0.5        # narrow zoom: target_ppm +/- this (plots/zoom/)
+  # Second, wider per-file zoom over an absolute ppm range (plots/zoom_wide/).
+  zoom_wide_min_ppm: 5.0
+  zoom_wide_max_ppm: 7.0
   normalize_overlay: true     # scale each trace to its own max in the overlay
 
+# Production FID processing. The regional processor searches the full interval
+# and does not assume either 5.79 or 6.10 ppm. Reference correction remains
+# disabled unless a candidate is explicitly declared and passes every QC gate.
+processing:
+  phase_method: stored
+  baseline_method: polynomial
+  reference_method: metadata
+  zero_fill_points: 65536
+  line_broadening_hz: 0.03
+  normalization: none
+
+regional_analysis:
+  ppm_min: 5.0
+  ppm_max: 6.5
+  detect_all_peaks: true
+
+reference:
+  enabled: false
+  method: metadata
+  solvent_identity: unknown
+  solvent_isotopic_form: unknown
+  internal_standard: null
+  preserve_original_axis: true
+  require_multiple_reference_regions: true
+  expected_ppm: null
+  search_window_ppm: null
+  minimum_snr: null
+  minimum_prominence_snr: null
+  minimum_width_ppm: 0.002
+  maximum_width_ppm: 0.30
+  maximum_allowed_shift_ppm: 0.50
+  maximum_reference_disagreement_ppm: 0.05
+
+# Expected values are source-qualified in
+# chemyx_lab.analysis.nmr.REFERENCE_MODEL_DEFINITIONS. Models remain disabled
+# until the actual sample solvent/isotopic form or an internal standard is
+# experimentally confirmed.
+reference_models:
+  protonated_toluene_low_field_neat:
+    enabled: false
+    methyl_search_window_ppm: [1.75, 2.55]
+    aromatic_search_window_ppm: [6.60, 7.50]
+
+  protonated_toluene_dilute_cdcl3:
+    enabled: false
+    methyl_search_window_ppm: [1.75, 2.65]
+    aromatic_search_window_ppm: [6.60, 7.60]
+
+  toluene_d8_residual:
+    enabled: false
+    methyl_search_window_ppm: [1.75, 2.40]
+    aromatic_search_window_ppm: [6.60, 7.40]

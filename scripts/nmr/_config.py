@@ -27,7 +27,7 @@ error handling and PyYAML usage stay consistent with the rest of the project.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
@@ -49,17 +49,28 @@ DEFAULT_PLOT_WINDOW_PPM = 0.5
 # Defaults for plot_spectra.py (full-spectrum visualisation).
 DEFAULT_ZOOM_WINDOW_PPM = 0.5
 DEFAULT_NORMALIZE_OVERLAY = True
+# Second, wider per-file zoom window (absolute ppm range).
+DEFAULT_ZOOM_WIDE_MIN_PPM = 5.0
+DEFAULT_ZOOM_WIDE_MAX_PPM = 7.0
 
 # Where scripts look for the config when ``--config`` is not given.
 DEFAULT_CONFIG_PATH = REPO_ROOT / "configs" / "nmr" / "analysis.yaml"
 
 # Which config keys are valid in the shared section and each script section.
-_COMMON_KEYS = {"target_ppm", "window_ppm", "output_dir", "run_name", "plots"}
+_COMMON_KEYS = {
+    "target_ppm", "window_ppm", "output_dir", "run_name", "plots",
+    "group", "group_tokens", "line_broadening_hz", "zero_fill_points",
+    "min_prominence_snr", "baseline_window_ppm",
+    "baseline_polynomial_order",
+}
 _SCRIPT_KEYS: dict[str, set[str]] = {
     "analyze_single": {"plot_window_ppm"},
     "compare_timeseries": {"plateau_threshold_pct", "plateau_consecutive"},
     "batch_report": set(),
-    "plot_spectra": {"zoom_window_ppm", "normalize_overlay"},
+    "plot_spectra": {
+        "zoom_window_ppm", "normalize_overlay",
+        "zoom_wide_min_ppm", "zoom_wide_max_ppm",
+    },
 }
 
 # Keys that must be coerced to a Path when read from YAML.
@@ -81,6 +92,18 @@ class AnalysisConfig:
     output_dir: Path = DEFAULT_OUTPUT_DIR
     run_name: str | None = None
     plots: bool = True
+    # Group runs into a sub-folder of output_dir (e.g. by sample type). ``group``
+    # forces a fixed name; otherwise the first token in ``group_tokens`` found in
+    # the input file names is used. No match / both empty → no grouping.
+    group: str | None = None
+    group_tokens: list[str] = field(default_factory=list)
+    # Processing defaults reproduce each DX file's metadata when null.
+    line_broadening_hz: float | None = None
+    zero_fill_points: int | None = None
+    # Reject noise wiggles and model the sloped local solvent background.
+    min_prominence_snr: float = 3.0
+    baseline_window_ppm: float = 0.5
+    baseline_polynomial_order: int = 2
     # analyze_single
     plot_window_ppm: float = DEFAULT_PLOT_WINDOW_PPM
     # compare_timeseries
@@ -89,6 +112,8 @@ class AnalysisConfig:
     # plot_spectra
     zoom_window_ppm: float = DEFAULT_ZOOM_WINDOW_PPM
     normalize_overlay: bool = DEFAULT_NORMALIZE_OVERLAY
+    zoom_wide_min_ppm: float = DEFAULT_ZOOM_WIDE_MIN_PPM
+    zoom_wide_max_ppm: float = DEFAULT_ZOOM_WIDE_MAX_PPM
 
 
 def _apply_section(
@@ -115,6 +140,14 @@ def _apply_section(
     for key, value in section.items():
         if key in _PATH_KEYS and value is not None:
             value = Path(value)
+        elif key == "group_tokens" and value is not None:
+            if isinstance(value, str):
+                value = [value]
+            if not isinstance(value, (list, tuple)):
+                raise ConfigError(
+                    f"'group_tokens' in {path} must be a list of strings"
+                )
+            value = [str(v) for v in value]
         setattr(cfg, key, value)
 
 
@@ -147,7 +180,16 @@ def load_config(
 
     raw = read_mapping_config(path, "NMR analysis config")
 
-    allowed_sections = {"common"} | set(_SCRIPT_KEYS)
+    # ``processing``, ``regional_analysis``, and ``reference`` configure the
+    # newer full-FID regional processor. The fixed-target scripts intentionally
+    # ignore them while sharing this repository-level YAML file.
+    allowed_sections = {
+        "common",
+        "processing",
+        "regional_analysis",
+        "reference",
+        "reference_models",
+    } | set(_SCRIPT_KEYS)
     unknown_sections = sorted(set(raw) - allowed_sections)
     if unknown_sections:
         raise ConfigError(
@@ -172,6 +214,17 @@ def apply_cli_overrides(cfg: AnalysisConfig, args: argparse.Namespace) -> Analys
         if value is not None:
             setattr(cfg, f.name, value)
     return cfg
+
+
+def peak_analysis_kwargs(cfg: AnalysisConfig) -> dict[str, Any]:
+    """Build the shared keyword arguments for core target-peak analysis."""
+    return {
+        "line_broadening_hz": cfg.line_broadening_hz,
+        "zero_fill_points": cfg.zero_fill_points,
+        "min_prominence_snr": cfg.min_prominence_snr,
+        "baseline_window_ppm": cfg.baseline_window_ppm,
+        "baseline_polynomial_order": cfg.baseline_polynomial_order,
+    }
 
 
 def add_config_argument(parser: argparse.ArgumentParser) -> None:

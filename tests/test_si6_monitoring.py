@@ -9,7 +9,6 @@ from chemyx_lab.runtime_journal import OperationJournal, RunRecorder
 from chemyx_lab.runtime_state import replay_journal
 from chemyx_lab.workflows.si6_automated_nmr import (
     MeasurementObservation,
-    RunOutcome,
     Stage,
     StageOutcome,
     TerminalStatus,

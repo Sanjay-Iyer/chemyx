@@ -1,0 +1,41 @@
+filepaths:
+#closed loop processing of nmr files 
+  NMRdata: 'C:/Users/baldwila/Documents/baldwin_subgroup/LUCI_photochem_flow_nmr/NanalysisData' #THIS HAS TO BE PUT IN when you deploy
+  #EDBOdata: 'C:/Users/baldwila/Documents/FlowChemAutomation/EDBOdata' #THIS HAS TO BE PUT IN when you deploy
+  #EDBOarchives: 'C:/Users/baldwila/Documents/FlowChemAutomation/EDBOarchives' #THIS HAS TO BE PUT IN when you deploy
+  NMRresults: 'C:/Users/baldwila/Documents/baldwin_subgroup/LUCI_photochem_flow_nmr/NMRresults'
+  
+  
+  #offline batch processing of nmr files 
+  ##NMRdata: 'C:/Users/baldwila/Documents/FlowChemAutomation/raw_data'
+  #NMRdata: 'C:/Users/volkaa/Documents/CL/TEST_NMR/FlowChemAutomation/FC_12_6_23/RawData'
+   #THIS HAS TO BE PUT IN when you deploy
+  #NMRresults: 'C:/Users/baldwila/Documents/FlowChemAutomation/results_processed'
+
+nmr_values:
+  ##change to populate with display script/interface script? 
+  ##update for 3 parameter phasing 
+  xe_ppm: [7.5, 9.5] #range for ph1 phasing 
+  xe: [13,-1] #range for plotting 
+  ##change to automatic baseline correction? 
+  ##polynm fit to baseline dif? 
+  yieldpk_num: 4.85
+  yieldpk_den: 6.5
+  #bsl_ppm: [11., 10.5, 10, 9.5, 8.4, 6.0, 5.5, 4.7, 3.8, -0.5, -1.0] #selected points for baseline correction
+  bsl_ppm: [11., 10.5, 10, 9.5, 8.4,7.8, 6.2, 6.0, 
+  5.9, 5.7, 5.9, 4.2, 4.0, 3.8, 2.0, -0.5, -1.0]
+  xpk: [4.85, 6.5] #peaks
+  int_width: 0.6 #integration area ##change later to if not automatic be specified for each peak.. area or radius
+  ref_int: 6.5 #reference integration
+  ref_peak: 1. #reference peak
+  #stnd_conc: #for calculating production rate using known standard conc 
+reactor_values:
+  rct_vol: 5 #units?#reactor volume
+campaign_values:
+  numrxns: 5
+
+
+
+
+
+

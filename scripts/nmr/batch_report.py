@@ -22,6 +22,7 @@ from _common import (
     build_summary_payload,
     collect_dx_files,
     create_output_dir,
+    derive_group,
     derive_run_name,
     plot_bar_comparison,
     plot_scatter_correlation,
@@ -32,6 +33,7 @@ from _config import (
     add_config_argument,
     apply_cli_overrides,
     load_config,
+    peak_analysis_kwargs,
 )
 
 
@@ -55,6 +57,8 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="base directory for analysis output (overrides config)")
     parser.add_argument("--run-name", dest="run_name", default=None,
                         help="custom folder name (default: auto-timestamp)")
+    parser.add_argument("--group", dest="group", default=None,
+                        help="output sub-folder, e.g. sample type (overrides config)")
     parser.add_argument("--plots", dest="plots", action=argparse.BooleanOptionalAction,
                         default=None, help="generate plots (overrides config)")
     return parser
@@ -88,11 +92,18 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Found {len(files)} .dx file(s)")
 
     # Analyse all (per-file error handling)
-    results = analyze_batch(files, target_ppm=cfg.target_ppm, window_ppm=cfg.window_ppm)
+    results = analyze_batch(
+        files,
+        target_ppm=cfg.target_ppm,
+        window_ppm=cfg.window_ppm,
+        **peak_analysis_kwargs(cfg),
+    )
 
-    # Create output dir (named after the input data when not overridden)
+    # Create output dir: <output_dir>/[group/]<input>_<timestamp>_batch
+    group = derive_group([f.name for f in files], cfg.group_tokens, cfg.group)
+    base_out = cfg.output_dir / group if group else cfg.output_dir
     out_dir = create_output_dir(
-        cfg.output_dir, "batch",
+        base_out, "batch",
         run_name=cfg.run_name or derive_run_name(args.paths, "batch"),
     )
     plots_dir = out_dir / "plots"
@@ -125,6 +136,7 @@ def main(argv: list[str] | None = None) -> int:
             "target_ppm": peak.target_ppm,
             "peak_ppm": peak.peak_ppm,
             "peak_height": peak.peak_height,
+            "raw_peak_height": peak.raw_peak_height,
             "peak_area": peak.peak_area,
             "snr": peak.snr,
             "prominence_snr": peak.prominence_snr,

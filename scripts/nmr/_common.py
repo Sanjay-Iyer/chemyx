@@ -10,8 +10,7 @@ from __future__ import annotations
 import csv
 import json
 import re
-import warnings
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Sequence
@@ -23,6 +22,7 @@ from chemyx_lab.analysis.nmr import (
     PeakResult,
     analyze_dx_peak,
     build_magnitude_spectrum,
+    estimate_local_baseline,
     iter_dx_files,
     read_jcamp_fid,
 )
@@ -45,6 +45,7 @@ RESULT_COLUMNS = [
     "target_ppm",
     "peak_ppm",
     "peak_height",
+    "raw_peak_height",
     "peak_area",
     "snr",
     "prominence_snr",
@@ -328,6 +329,7 @@ def compute_deltas(
                 "target_ppm": peak.target_ppm,
                 "peak_ppm": peak.peak_ppm,
                 "peak_height": peak.peak_height,
+                "raw_peak_height": peak.raw_peak_height,
                 "peak_area": peak.peak_area,
                 "snr": peak.snr,
                 "prominence_snr": peak.prominence_snr,
@@ -455,6 +457,29 @@ def _safe_name(value: str) -> str:
         cleaned.append(char if char.isalnum() or char in {"-", "_"} else "_")
     name = "".join(cleaned).strip("_")
     return name or datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+def derive_group(
+    names: Sequence[str | Path],
+    tokens: Sequence[str],
+    explicit: str | None = None,
+) -> str | None:
+    """Pick an output sub-folder (e.g. sample type) for a set of inputs.
+
+    If *explicit* is given it wins. Otherwise the first token in *tokens* that
+    appears (case-insensitively) in any of the input *names* is used, so files
+    like ``CEC-PhSi2-flow(...).dx`` land under a ``PhSi2`` group. Returns
+    ``None`` when nothing matches, meaning "no grouping".
+    """
+    if explicit:
+        return _safe_name(str(explicit))
+    if not tokens:
+        return None
+    haystack = " ".join(str(n) for n in names).lower()
+    for token in tokens:
+        if str(token).lower() in haystack:
+            return _safe_name(str(token))
+    return None
 
 
 def derive_run_name(paths: Sequence[str | Path], suffix: str) -> str:
@@ -641,12 +666,12 @@ def plot_growth_rate(
     da = [v if v is not None else 0.0 for v in delta_area]
 
     fig, ax1 = plt.subplots(figsize=(10, 5.5), dpi=140)
-    bars1 = ax1.bar(x - width / 2, dh, width, label="Δ Height", color="#2196F3", alpha=0.8)
+    ax1.bar(x - width / 2, dh, width, label="Δ Height", color="#2196F3", alpha=0.8)
     ax1.set_ylabel("Δ Peak Height", fontsize=10, color="#2196F3")
     ax1.tick_params(axis="y", labelcolor="#2196F3")
 
     ax2 = ax1.twinx()
-    bars2 = ax2.bar(x + width / 2, da, width, label="Δ Area", color="#FF9800", alpha=0.8)
+    ax2.bar(x + width / 2, da, width, label="Δ Area", color="#FF9800", alpha=0.8)
     ax2.set_ylabel("Δ Peak Area", fontsize=10, color="#FF9800")
     ax2.tick_params(axis="y", labelcolor="#FF9800")
 
@@ -812,6 +837,8 @@ def plot_peak_review(
     target_ppm: float = DEFAULT_TARGET_PPM,
     window_ppm: float = DEFAULT_WINDOW_PPM,
     plot_window_ppm: float = 0.5,
+    line_broadening_hz: float | None = None,
+    zero_fill_points: int | None = None,
 ) -> Path:
     """Generate a detailed review plot for a single file's peak."""
     from chemyx_lab.analysis.nmr import plot_peak_region
@@ -823,6 +850,8 @@ def plot_peak_review(
         target_ppm=target_ppm,
         detection_window_ppm=window_ppm,
         plot_window_ppm=plot_window_ppm,
+        line_broadening_hz=line_broadening_hz,
+        zero_fill_points=zero_fill_points,
     )
 
 
@@ -831,12 +860,40 @@ def plot_peak_review(
 # ---------------------------------------------------------------------------
 
 
-def load_spectrum(path: Path):
+def load_spectrum(
+    path: Path,
+    *,
+    line_broadening_hz: float | None = None,
+    zero_fill_points: int | None = None,
+):
     """Return ``(ppm_axis, magnitude)`` numpy arrays for a ``.dx`` file."""
-    from chemyx_lab.analysis.nmr import build_magnitude_spectrum
-
-    spec = build_magnitude_spectrum(path)
+    spec = build_magnitude_spectrum(
+        path,
+        line_broadening_hz=line_broadening_hz,
+        zero_fill_points=zero_fill_points,
+    )
     return spec.ppm_axis, spec.magnitude
+
+
+def baseline_correct_spectrum(
+    ppm,
+    intensity,
+    *,
+    target_ppm: float,
+    window_ppm: float,
+    baseline_window_ppm: float,
+    baseline_polynomial_order: int,
+):
+    """Return a locally baseline-corrected spectrum and noise estimate."""
+    baseline, noise = estimate_local_baseline(
+        ppm,
+        intensity,
+        target_ppm=target_ppm,
+        detection_window_ppm=window_ppm,
+        baseline_window_ppm=baseline_window_ppm,
+        polynomial_order=baseline_polynomial_order,
+    )
+    return intensity - baseline, noise
 
 
 def _reversed_xlim(ax, ppm, target_ppm=None, zoom_ppm=None):
@@ -848,16 +905,15 @@ def _reversed_xlim(ax, ppm, target_ppm=None, zoom_ppm=None):
         ax.set_xlim(float(np.max(ppm)), float(np.min(ppm)))
 
 
-def _apply_window_ylim(ax, series, target_ppm, zoom_ppm, pad_frac=0.08):
-    """Scale the y-axis to the data inside the visible ppm window.
+def _apply_range_ylim(ax, series, lo, hi, pad_frac=0.08):
+    """Scale the y-axis to the data whose ppm falls in ``[lo, hi]``.
 
     Without this, matplotlib autoscales y to the whole spectrum, so a zoomed-in
     peak that is small relative to the global maximum looks flat. *series* is a
     list of ``(ppm_axis, y_values)`` for every trace actually plotted.
     """
     np = _get_np()
-    lo = float(target_ppm) - float(zoom_ppm)
-    hi = float(target_ppm) + float(zoom_ppm)
+    lo, hi = float(min(lo, hi)), float(max(lo, hi))
     chunks = []
     for ppm, y in series:
         mask = (ppm >= lo) & (ppm <= hi)
@@ -873,6 +929,16 @@ def _apply_window_ylim(ax, series, target_ppm, zoom_ppm, pad_frac=0.08):
     ax.set_ylim(ymin - pad, ymax + pad)
 
 
+def _apply_window_ylim(ax, series, target_ppm, zoom_ppm, pad_frac=0.08):
+    """Scale the y-axis to ``target_ppm ± zoom_ppm`` (see _apply_range_ylim)."""
+    _apply_range_ylim(
+        ax, series,
+        float(target_ppm) - float(zoom_ppm),
+        float(target_ppm) + float(zoom_ppm),
+        pad_frac,
+    )
+
+
 def plot_spectrum_single(
     ppm,
     magnitude,
@@ -883,11 +949,17 @@ def plot_spectrum_single(
     window_ppm: float | None = None,
     peak_ppm: float | None = None,
     zoom_ppm: float | None = None,
+    range_ppm: tuple[float, float] | None = None,
     title: str | None = None,
+    ylabel: str = "Magnitude (intensity)",
 ) -> Path:
     """Plot one spectrum (intensity vs ppm), marking the target/detected peak.
 
-    If *zoom_ppm* is given, the x-axis is limited to ``target_ppm ± zoom_ppm``.
+    X-axis limits, in priority order:
+      * *range_ppm* ``(lo, hi)`` — an explicit ppm window (e.g. 5–7 ppm), or
+      * *zoom_ppm* — limits to ``target_ppm ± zoom_ppm``, or
+      * neither — the full spectrum.
+    In the zoomed/ranged cases the y-axis is rescaled to the visible data.
     """
     plt = _get_plt()
     fig, ax = plt.subplots(figsize=(10, 5.5), dpi=140)
@@ -906,12 +978,18 @@ def plot_spectrum_single(
                    label=f"detected {float(peak_ppm):.3f} ppm")
 
     ax.set_xlabel("Chemical shift (ppm)", fontsize=10)
-    ax.set_ylabel("Magnitude (intensity)", fontsize=10)
+    ax.set_ylabel(ylabel, fontsize=10)
     ax.set_title(title or label, fontsize=11, fontweight="bold")
     ax.grid(True, alpha=0.25)
-    _reversed_xlim(ax, ppm, target_ppm if zoom_ppm else None, zoom_ppm)
-    if zoom_ppm is not None and target_ppm is not None:
+    if range_ppm is not None:
+        lo, hi = float(min(range_ppm)), float(max(range_ppm))
+        ax.set_xlim(hi, lo)  # NMR convention: high ppm on the left
+        _apply_range_ylim(ax, [(ppm, magnitude)], lo, hi)
+    elif zoom_ppm is not None and target_ppm is not None:
+        _reversed_xlim(ax, ppm, target_ppm, zoom_ppm)
         _apply_window_ylim(ax, [(ppm, magnitude)], target_ppm, zoom_ppm)
+    else:
+        _reversed_xlim(ax, ppm)
     ax.legend(loc="best", fontsize=8)
 
     fig.tight_layout()

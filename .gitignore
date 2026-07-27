@@ -9,6 +9,12 @@ configs/machines/*.local.yml
 # --- Local archive / ignored project metadata --------------------------------
 archive/
 _archive/
+# Ignore archive holding directories at every repository depth.
+**/archive/
+**/_archive/
+# Local holding areas for raw/processed runs that should never be committed.
+results/archive/
+results/processed/archive/
 .gitignore
 
 # --- Generated run outputs ---------------------------------------------------

@@ -1,6 +1,5 @@
 import json
 from datetime import datetime, timezone
-from pathlib import Path
 
 import pytest
 
@@ -15,10 +14,7 @@ from chemyx_lab.runtime_journal import (
     RunRecorder,
     TerminalJournalError,
 )
-from chemyx_lab.runtime_state import (
-    JOURNAL_SCHEMA_VERSION,
-    replay_journal,
-)
+from chemyx_lab.runtime_state import replay_journal
 
 
 def make_journal(tmp_path, *, ids=None):

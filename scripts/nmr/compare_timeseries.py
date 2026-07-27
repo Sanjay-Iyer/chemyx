@@ -30,6 +30,7 @@ from _common import (
     collect_dx_files,
     compute_deltas,
     create_output_dir,
+    derive_group,
     derive_run_name,
     detect_plateau,
     plot_combined_overlay,
@@ -43,6 +44,7 @@ from _config import (
     add_config_argument,
     apply_cli_overrides,
     load_config,
+    peak_analysis_kwargs,
 )
 
 
@@ -66,6 +68,8 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="base directory for analysis output (overrides config)")
     parser.add_argument("--run-name", dest="run_name", default=None,
                         help="custom folder name (default: auto-timestamp)")
+    parser.add_argument("--group", dest="group", default=None,
+                        help="output sub-folder, e.g. sample type (overrides config)")
     parser.add_argument("--plateau-threshold", dest="plateau_threshold_pct", type=float,
                         default=None,
                         help="percent-change threshold for plateau (overrides config)")
@@ -101,7 +105,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Found {len(files)} .dx file(s)")
 
     # Analyse all (errors handled per-file)
-    results = analyze_batch(files, target_ppm=cfg.target_ppm, window_ppm=cfg.window_ppm)
+    results = analyze_batch(
+        files,
+        target_ppm=cfg.target_ppm,
+        window_ppm=cfg.window_ppm,
+        **peak_analysis_kwargs(cfg),
+    )
 
     # Sort by timestamp
     results = sort_by_timestamp(results)
@@ -121,9 +130,11 @@ def main(argv: list[str] | None = None) -> int:
         min_consecutive=cfg.plateau_consecutive,
     )
 
-    # Create output dir (named after the input data when not overridden)
+    # Create output dir: <output_dir>/[group/]<input>_<timestamp>_timeseries
+    group = derive_group([f.name for f in files], cfg.group_tokens, cfg.group)
+    base_out = cfg.output_dir / group if group else cfg.output_dir
     out_dir = create_output_dir(
-        cfg.output_dir, "timeseries",
+        base_out, "timeseries",
         run_name=cfg.run_name or derive_run_name(args.paths, "timeseries"),
     )
     plots_dir = out_dir / "plots"

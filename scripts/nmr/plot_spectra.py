@@ -3,8 +3,10 @@
 For every ``.dx`` file this produces:
 
 * a **full-spectrum** plot (whole ppm range) with the scipy-detected peak near
-  ``target_ppm`` marked, and
-* a **zoomed** plot around the target region.
+  ``target_ppm`` marked,
+* a **narrow zoom** around the target region (``target_ppm ± zoom_window_ppm``), and
+* a **wide zoom** over an absolute ppm range (``zoom_wide_min_ppm``..``zoom_wide_max_ppm``,
+  default 5–7 ppm).
 
 Across all files it produces:
 
@@ -36,6 +38,7 @@ from _common import (
     build_summary_payload,
     collect_dx_files,
     create_output_dir,
+    derive_group,
     derive_run_name,
     load_spectrum,
     plot_spectra_overlay,
@@ -50,6 +53,7 @@ from _config import (
     add_config_argument,
     apply_cli_overrides,
     load_config,
+    peak_analysis_kwargs,
 )
 
 
@@ -78,6 +82,8 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="base directory for analysis output (overrides config)")
     parser.add_argument("--run-name", dest="run_name", default=None,
                         help="custom folder name (default: named after input)")
+    parser.add_argument("--group", dest="group", default=None,
+                        help="output sub-folder, e.g. sample type (overrides config)")
     return parser
 
 
@@ -95,6 +101,7 @@ def _row_for(fr) -> dict:
         "target_ppm": peak.target_ppm,
         "peak_ppm": peak.peak_ppm,
         "peak_height": peak.peak_height,
+        "raw_peak_height": peak.raw_peak_height,
         "peak_area": peak.peak_area,
         "snr": peak.snr,
         "prominence_snr": peak.prominence_snr,
@@ -122,17 +129,28 @@ def main(argv: list[str] | None = None) -> int:
 
     # Peak analysis (for the detected-peak marker + CSV) with error handling.
     results = [
-        analyze_file(f, target_ppm=cfg.target_ppm, window_ppm=cfg.window_ppm)
+        analyze_file(
+            f,
+            target_ppm=cfg.target_ppm,
+            window_ppm=cfg.window_ppm,
+            **peak_analysis_kwargs(cfg),
+        )
         for f in files
     ]
     results = sort_by_timestamp(results)
 
+    # Output dir: <output_dir>/[group/]<input>_<timestamp>_spectra
+    group = derive_group([f.name for f in files], cfg.group_tokens, cfg.group)
+    base_out = cfg.output_dir / group if group else cfg.output_dir
     out_dir = create_output_dir(
-        cfg.output_dir, "spectra",
+        base_out, "spectra",
         run_name=cfg.run_name or derive_run_name(args.paths, "spectra"),
     )
     zoom_dir = out_dir / "plots" / "zoom"
+    zoom_wide_dir = out_dir / "plots" / "zoom_wide"
     full_dir = out_dir / "plots" / "full"
+    wide_lo = min(cfg.zoom_wide_min_ppm, cfg.zoom_wide_max_ppm)
+    wide_hi = max(cfg.zoom_wide_min_ppm, cfg.zoom_wide_max_ppm)
 
     # Load spectra (in timestamp order) and draw per-file plots.
     spectra: list[tuple[str, object, object]] = []
@@ -144,7 +162,11 @@ def main(argv: list[str] | None = None) -> int:
         label = fr.path.stem
         peak_ppm = fr.peak.peak_ppm if fr.peak is not None else None
         try:
-            ppm, magnitude = load_spectrum(fr.path)
+            ppm, magnitude = load_spectrum(
+                fr.path,
+                line_broadening_hz=cfg.line_broadening_hz,
+                zero_fill_points=cfg.zero_fill_points,
+            )
         except Exception as exc:
             failures += 1
             print(f"  ** {fr.path.name}: could not load spectrum: {exc}")
@@ -166,6 +188,19 @@ def main(argv: list[str] | None = None) -> int:
             plot_files.append(str(p))
         except Exception as exc:
             print(f"  WARNING: zoom plot failed for {fr.path.name}: {exc}")
+
+        # Wide zoom over an absolute ppm range — plots/zoom_wide/<file>.png
+        try:
+            p = plot_spectrum_single(
+                ppm, magnitude, label=label,
+                output_path=zoom_wide_dir / f"{safe}.png",
+                target_ppm=cfg.target_ppm, window_ppm=cfg.window_ppm,
+                peak_ppm=peak_ppm, range_ppm=(wide_lo, wide_hi),
+                title=f"{fr.path.name} — {wide_lo:g}-{wide_hi:g} ppm",
+            )
+            plot_files.append(str(p))
+        except Exception as exc:
+            print(f"  WARNING: wide-zoom plot failed for {fr.path.name}: {exc}")
 
         # Full spectrum (kept for later) — plots/full/<file>.png
         try:
@@ -219,6 +254,7 @@ def main(argv: list[str] | None = None) -> int:
             "target_ppm": cfg.target_ppm,
             "window_ppm": cfg.window_ppm,
             "zoom_window_ppm": cfg.zoom_window_ppm,
+            "zoom_wide_ppm": [wide_lo, wide_hi],
             "normalize_overlay": cfg.normalize_overlay,
         },
         extra={"plot_files": plot_files},
@@ -227,6 +263,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print()
     print(f"  Zoom plots       : {zoom_dir}")
+    print(f"  Wide-zoom plots  : {zoom_wide_dir}")
     print(f"  Full plots       : {full_dir}")
     print(f"  Overlay/stacked  : {out_dir / 'plots'}")
     print(f"  Results CSV      : {csv_path}")

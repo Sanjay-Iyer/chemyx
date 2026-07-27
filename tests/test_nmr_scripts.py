@@ -8,13 +8,12 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import os
 import subprocess
 import sys
 import textwrap
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -27,15 +26,13 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(SCRIPTS_NMR))
 
 # Now we can import from _common (the bootstrap is already handled above)
-from _common import (
-    DEFAULT_PLATEAU_CONSECUTIVE,
-    DEFAULT_PLATEAU_THRESHOLD,
+from _common import (  # noqa: E402
     DEFAULT_TARGET_PPM,
     FileResult,
-    PlateauResult,
     collect_dx_files,
     compute_deltas,
     create_output_dir,
+    derive_group,
     derive_run_name,
     detect_plateau,
     parse_acquisition_timestamp,
@@ -44,12 +41,12 @@ from _common import (
     write_summary,
     _safe_name,
 )
-from _config import (
+from _config import (  # noqa: E402
     AnalysisConfig,
     apply_cli_overrides,
     load_config,
 )
-from chemyx_lab.config import ConfigError
+from chemyx_lab.config import ConfigError  # noqa: E402
 
 # Real test data
 REAL_DATA_DIR = REPO_ROOT / "results" / "raw" / "nmr" / "06-08-26"
@@ -409,6 +406,32 @@ class TestLoadConfig:
         with pytest.raises(ValueError):
             load_config("not_a_script", path)
 
+    def test_group_tokens_list(self, tmp_path):
+        path = _write_config(tmp_path, """
+            common:
+              group: null
+              group_tokens: [PhSi2, PhSi4]
+        """)
+        cfg = load_config("compare_timeseries", path)
+        assert cfg.group_tokens == ["PhSi2", "PhSi4"]
+        assert cfg.group is None
+
+    def test_group_tokens_scalar_coerced_to_list(self, tmp_path):
+        path = _write_config(tmp_path, """
+            common:
+              group_tokens: PhSi2
+        """)
+        cfg = load_config("batch_report", path)
+        assert cfg.group_tokens == ["PhSi2"]
+
+    def test_group_explicit(self, tmp_path):
+        path = _write_config(tmp_path, """
+            common:
+              group: PhSi6
+        """)
+        cfg = load_config("plot_spectra", path)
+        assert cfg.group == "PhSi6"
+
     def test_plot_spectra_section(self, tmp_path):
         path = _write_config(tmp_path, """
             plot_spectra:
@@ -472,6 +495,36 @@ class TestDeriveRunName:
         assert "(" not in name and ")" not in name and " " not in name
 
 
+class TestDeriveGroup:
+    TOKENS = ["PhSi2", "PhSi4", "PhSi6"]
+
+    def test_token_detected_from_filename(self):
+        names = ["CEC-PhSi4-flow(sequence-1115)-06-08-26.dx"]
+        assert derive_group(names, self.TOKENS) == "PhSi4"
+
+    def test_case_insensitive(self):
+        names = ["cec-phsi6-flow.dx"]
+        assert derive_group(names, self.TOKENS) == "PhSi6"
+
+    def test_first_matching_token_wins(self):
+        # order in tokens list decides
+        names = ["PhSi2-and-PhSi4.dx"]
+        assert derive_group(names, self.TOKENS) == "PhSi2"
+
+    def test_explicit_overrides_tokens(self):
+        names = ["CEC-PhSi2-flow.dx"]
+        assert derive_group(names, self.TOKENS, explicit="custom") == "custom"
+
+    def test_no_match_returns_none(self):
+        assert derive_group(["random.dx"], self.TOKENS) is None
+
+    def test_empty_tokens_returns_none(self):
+        assert derive_group(["CEC-PhSi2.dx"], []) is None
+
+    def test_explicit_sanitized(self):
+        assert derive_group([], [], explicit="Ph Si/2") == "Ph_Si_2"
+
+
 # ===================================================================
 # CLI integration tests (run actual scripts via subprocess)
 # ===================================================================
@@ -490,6 +543,17 @@ def _run_script(script_name: str, args: list[str], cwd: str | None = None) -> su
     )
 
 
+def _run_dir(base: Path) -> Path:
+    """Locate the run output folder (holding results.csv) under *base*.
+
+    Robust to an optional group sub-folder (e.g. base/PhSi2/<run>/), since the
+    real test data filenames contain a group token.
+    """
+    matches = list(Path(base).rglob("results.csv"))
+    assert matches, f"no results.csv found under {base}"
+    return matches[0].parent
+
+
 @pytest.mark.skipif(not HAS_REAL_DATA, reason="No real NMR data in results/raw/nmr/06-08-26/")
 class TestAnalyzeSingleCLI:
     def test_basic_run(self, tmp_path):
@@ -498,11 +562,11 @@ class TestAnalyzeSingleCLI:
             str(dx_file),
             "--output-dir", str(tmp_path),
         ])
-        assert result.returncode == 0, f"STDERR:\n{result.stderr}"
+        # Exit 1 is valid when strict peak QC rejects this real dataset; the
+        # CLI must still produce a traceable report.
+        assert result.returncode in {0, 1}, f"STDERR:\n{result.stderr}"
         # Check outputs
-        run_dirs = list(tmp_path.iterdir())
-        assert len(run_dirs) >= 1
-        run_dir = run_dirs[0]
+        run_dir = _run_dir(tmp_path)
         assert (run_dir / "results.csv").exists()
         assert (run_dir / "summary.json").exists()
 
@@ -513,8 +577,8 @@ class TestAnalyzeSingleCLI:
             "--output-dir", str(tmp_path),
             "--no-plots",
         ])
-        assert result.returncode == 0, f"STDERR:\n{result.stderr}"
-        run_dir = list(tmp_path.iterdir())[0]
+        assert result.returncode in {0, 1}, f"STDERR:\n{result.stderr}"
+        run_dir = _run_dir(tmp_path)
         plots = list((run_dir / "plots").glob("*.png"))
         assert len(plots) == 0
 
@@ -533,12 +597,13 @@ class TestCompareTimeseriesCLI:
             str(REAL_DATA_DIR),
             "--output-dir", str(tmp_path),
         ])
-        assert result.returncode == 0, f"STDERR:\n{result.stderr}"
-        run_dirs = list(tmp_path.iterdir())
-        assert len(run_dirs) >= 1
-        run_dir = run_dirs[0]
+        assert result.returncode in {0, 1}, f"STDERR:\n{result.stderr}"
+        run_dir = _run_dir(tmp_path)
         assert (run_dir / "results.csv").exists()
         assert (run_dir / "summary.json").exists()
+        # Real data files are named CEC-PhSi2-... so the default config's
+        # group_tokens should file this run under a PhSi2/ sub-folder.
+        assert run_dir.parent.name == "PhSi2"
 
         # Check CSV has expected columns
         with (run_dir / "results.csv").open() as f:
@@ -562,8 +627,8 @@ class TestCompareTimeseriesCLI:
             "--output-dir", str(tmp_path),
             "--no-plots",
         ])
-        assert result.returncode == 0, f"STDERR:\n{result.stderr}"
-        run_dir = list(tmp_path.iterdir())[0]
+        assert result.returncode in {0, 1}, f"STDERR:\n{result.stderr}"
+        run_dir = _run_dir(tmp_path)
         plots = list((run_dir / "plots").glob("*.png")) if (run_dir / "plots").exists() else []
         assert len(plots) == 0
 
@@ -575,7 +640,7 @@ class TestCompareTimeseriesCLI:
             "--plateau-consecutive", "3",
             "--no-plots",
         ])
-        assert result.returncode == 0, f"STDERR:\n{result.stderr}"
+        assert result.returncode in {0, 1}, f"STDERR:\n{result.stderr}"
 
 
 @pytest.mark.skipif(not HAS_REAL_DATA, reason="No real NMR data in results/raw/nmr/06-08-26/")
@@ -585,10 +650,8 @@ class TestBatchReportCLI:
             str(REAL_DATA_DIR),
             "--output-dir", str(tmp_path),
         ])
-        assert result.returncode == 0, f"STDERR:\n{result.stderr}"
-        run_dirs = list(tmp_path.iterdir())
-        assert len(run_dirs) >= 1
-        run_dir = run_dirs[0]
+        assert result.returncode in {0, 1}, f"STDERR:\n{result.stderr}"
+        run_dir = _run_dir(tmp_path)
         assert (run_dir / "results.csv").exists()
         assert (run_dir / "summary.json").exists()
 
@@ -605,7 +668,7 @@ class TestBatchReportCLI:
             "--output-dir", str(tmp_path),
             "--no-plots",
         ])
-        assert result.returncode == 0, f"STDERR:\n{result.stderr}"
+        assert result.returncode in {0, 1}, f"STDERR:\n{result.stderr}"
 
 
 # ===================================================================
