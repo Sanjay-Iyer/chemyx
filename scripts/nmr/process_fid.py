@@ -91,6 +91,12 @@ def _parser(config_defaults=None) -> argparse.ArgumentParser:
     )
     parser.add_argument("--region-min", type=float, default=5.0)
     parser.add_argument("--region-max", type=float, default=6.5)
+    # Wider ppm window shown in the region plot for context (peaks are still
+    # only detected within --region-min/--region-max). The y-axis is scaled to
+    # the detected peak, so a taller neighbour (e.g. toluene ~7 ppm) is allowed
+    # to clip off the top rather than flatten the target peak.
+    parser.add_argument("--display-min", type=float, default=4.0)
+    parser.add_argument("--display-max", type=float, default=7.0)
     parser.add_argument("--min-prominence-snr", type=float, default=5.0)
     parser.add_argument("--min-peak-distance-ppm", type=float, default=0.04)
     parser.add_argument("--min-peak-width-ppm", type=float, default=0.015)
@@ -252,22 +258,39 @@ def _plot_real(
     peaks: tuple[float, ...],
     *,
     zoom: bool,
+    display: tuple[float, float] | None = None,
 ) -> Path:
     import numpy as np
 
     plt = _get_plotting()
+    ppm = np.asarray(ppm)
+    real = np.asarray(real)
     fig, ax = plt.subplots(figsize=(10.5, 5.8), dpi=180)
     ax.plot(ppm, real, color="#173f5f", linewidth=0.85)
     ax.axhline(0, color="#777777", linewidth=0.7)
     lo, hi = sorted(region)
     ax.axvspan(lo, hi, color="#f4d35e", alpha=0.08, label="search region")
     if zoom:
-        visible = (ppm >= lo) & (ppm <= hi)
-        y = np.asarray(real)[visible]
-        ymin, ymax = float(np.min(y)), float(np.max(y))
-        pad = 0.08 * (ymax - ymin) if ymax > ymin else 1.0
-        ax.set_xlim(hi, lo)
-        ax.set_ylim(ymin - pad, ymax + pad)
+        # x-axis: wider display window for context (default 4-7 ppm).
+        dlo, dhi = sorted(display) if display else (lo, hi)
+        ax.set_xlim(dhi, dlo)
+        # y-axis: scale to the detected peak so a taller neighbour (e.g. the
+        # toluene aromatic peak near 7 ppm) clips off the top instead of
+        # flattening the target peak. Baseline floor comes from the search
+        # region so the local slope stays visible.
+        in_region = (ppm >= lo) & (ppm <= hi)
+        region_y = real[in_region]
+        if peaks:
+            ymax = max(
+                float(real[int(np.argmin(np.abs(ppm - p)))]) for p in peaks
+            )
+        elif region_y.size:
+            ymax = float(np.max(region_y))
+        else:
+            ymax = 1.0
+        ymin = float(np.min(region_y)) if region_y.size else -1.0
+        span = (ymax - ymin) if ymax > ymin else 1.0
+        ax.set_ylim(ymin - 0.08 * span, ymax + 0.15 * span)
     else:
         ax.set_xlim(float(np.max(ppm)), float(np.min(ppm)))
     for index, peak_ppm in enumerate(peaks):
@@ -669,6 +692,7 @@ def main(argv: list[str] | None = None) -> int:
                 (args.region_min, args.region_max),
                 positions,
                 zoom=True,
+                display=(args.display_min, args.display_max),
             )
             spectrum_csv = ""
             if args.export_csv:

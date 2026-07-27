@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-07-27T18:16:57",
+  "created_at": "2026-07-27T18:39:12",
   "dependencies": {
     "matplotlib": "3.10.9",
     "nmrglue": "0.11",
@@ -10,7 +10,7 @@
   "files_failed": 0,
   "files_found": 8,
   "files_succeeded": 8,
-  "git_commit": "69bfed06994e271321c3c32fdba7db0d427d274e",
+  "git_commit": "272c3e81f2c77c412712ac7a51c3af8e102b27ab",
   "inputs": [
     "results/raw/nmr/06-09-26"
   ],
@@ -23,6 +23,8 @@
     "baseline_order": 3,
     "config": null,
     "direct_phase": false,
+    "display_max": 7.0,
+    "display_min": 4.0,
     "export_csv": false,
     "line_broadening_hz": 0.03,
     "maximum_reference_disagreement_ppm": 0.05,
