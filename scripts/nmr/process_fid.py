@@ -110,7 +110,11 @@ def _parser(config_defaults=None) -> argparse.ArgumentParser:
             "regional-polynomial",
             "abd-linear",
         ),
-        default="polynomial",
+        # ALS follows a rolling solvent background (e.g. the toluene tail the
+        # ~5.8 peak sits on) and removes it, giving a flat baseline like the
+        # legacy/vendor plots. The polynomial/abd methods leave that tail as a
+        # negative bowl. See the legacy nmr_template baseline handling.
+        default="asymmetric_least_squares",
     )
     parser.add_argument("--abd-sections", type=int, default=128)
     parser.add_argument("--abd-noise-factor", type=float, default=3.0)
@@ -637,12 +641,17 @@ def main(argv: list[str] | None = None) -> int:
                 )
             quantitative_real = spectrum.real
             if args.baseline_method in {"abd-linear", "polynomial"}:
+                # "abd-linear" keeps the conservative straight-line baseline;
+                # "polynomial" follows the curved solvent tail (e.g. toluene's
+                # wing under the ~5.8 peak) with the configured order so the
+                # displayed baseline sits near zero instead of bowing negative.
+                display_order = 1 if args.baseline_method == "abd-linear" else args.baseline_order
                 quantitative_real, _, _, _ = subtract_abd_polynomial_baseline(
                     spectrum.real,
                     sections=args.abd_sections,
                     noise_factor=args.abd_noise_factor,
                     window_points=args.abd_window_points,
-                    polynomial_order=1,
+                    polynomial_order=display_order,
                 )
             elif args.baseline_method == "asymmetric_least_squares":
                 quantitative_real = (

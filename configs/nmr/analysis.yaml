@@ -76,7 +76,10 @@ plot_spectra:
 # disabled unless a candidate is explicitly declared and passes every QC gate.
 processing:
   phase_method: stored
-  baseline_method: polynomial
+  # ALS follows and removes the rolling solvent background (the toluene tail the
+  # ~5.8 peak sits on), giving a flat baseline near zero like the legacy/vendor
+  # plots. 'polynomial' leaves that tail as a negative bowl.
+  baseline_method: asymmetric_least_squares
   reference_method: metadata
   zero_fill_points: 65536
   line_broadening_hz: 0.03
