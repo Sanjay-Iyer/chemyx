@@ -110,6 +110,11 @@ class RegionPeakPickingResult:
     corrected: object
     smoothed: object
     peaks: tuple[RegionPeak, ...]
+    # Baseline-corrected *quantitative* trace (real spectrum) over the region,
+    # from which reported peak heights/areas are measured. Exposed (additively,
+    # defaulting to None) so downstream uncertainty estimation can bootstrap on
+    # the same intensities the peak table reports, not the magnitude diagnostic.
+    quantitative_corrected: object | None = None
 
 
 @dataclass(frozen=True)
@@ -1518,6 +1523,7 @@ def pick_spectrum_region(
         corrected=local_corrected,
         smoothed=local_smoothed,
         peaks=tuple(peaks),
+        quantitative_corrected=quantitative_corrected,
     )
 
 

@@ -31,6 +31,14 @@ PUT /interfaces/iFlow/RunExperiment
 GET /interfaces/iFlow/ExperimentStatus
 ```
 
+## Statistics pipeline (optional)
+
+`process_fid.py --statistics` additionally writes per-peak bootstrap
+uncertainty, robust family statistics, run-level QC, fixed-window time series,
+rates, statistical plateau, kinetics, and spectral-similarity tables. It is off
+by default and fully backward-compatible. See [nmr_statistics.md](nmr_statistics.md)
+for every metric's definition, equations, assumptions, and failure modes.
+
 ## Troubleshooting
 
 - Cannot connect: verify network interface, NMR host, port, and RPC setting.

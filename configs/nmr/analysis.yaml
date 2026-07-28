@@ -111,6 +111,64 @@ reference:
 # chemyx_lab.analysis.nmr.REFERENCE_MODEL_DEFINITIONS. Models remain disabled
 # until the actual sample solvent/isotopic form or an internal standard is
 # experimentally confirmed.
+# ---------------------------------------------------------------------------
+# Optional publication-statistics pipeline (process_fid.py --statistics).
+#
+# OFF by default: with `enabled: false` (or this section absent) process_fid.py
+# produces exactly the same outputs as before. When enabled it additionally
+# writes peak uncertainty, robust family statistics, run QC, fixed-window
+# time-series, rates, statistical plateau, kinetics, and spectral-similarity
+# tables. See docs/nmr_statistics.md for every metric's definition and caveats.
+# ---------------------------------------------------------------------------
+statistics:
+  enabled: false
+
+  bootstrap:                    # per-peak uncertainty (residual bootstrap of a fit)
+    enabled: true
+    iterations: 500             # resamples per peak; deterministic given random_seed
+    confidence_level: 0.95
+    random_seed: 12345
+    model: pseudo_voigt         # gaussian | lorentzian | pseudo_voigt
+
+  internal_standard:            # optional relative-quantitation reference
+    enabled: false
+    expected_ppm: null          # find the standard near this ppm, or ...
+    tolerance_ppm: 0.03
+    integration_window_ppm: null  # ... integrate a fixed window, or ...
+    peak_family_id: null        # ... reuse an existing peak family as the standard
+
+  fixed_regions:                # chemically-defined windows integrated every spectrum
+    - name: candidate_5p79
+      left_ppm: 5.70
+      right_ppm: 5.90
+    - name: candidate_6p10
+      left_ppm: 6.00
+      right_ppm: 6.20
+
+  outliers:
+    enabled: true
+    robust_z_threshold: 3.5     # |modified z| above this flags (never deletes) a value
+
+  plateau:
+    method: statistical_slope   # slope-CI equivalence test (supersedes %-change rule)
+    minimum_points: 4
+    equivalence_percent_per_hour: 1.0   # margin as % of mean area per hour
+    persistence_points: 3
+    allow_declining_plateau: false      # a sustained decline is not "complete"
+
+  kinetics:
+    enabled: true
+    models:
+      - zero_order
+      - first_order_decay
+      - first_order_formation
+      - first_order_formation_lag
+
+  multivariate:
+    spectral_similarity: true
+    pca: true
+    pca_components: 3
+
 reference_models:
   protonated_toluene_low_field_neat:
     enabled: false

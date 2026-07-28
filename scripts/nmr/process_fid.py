@@ -34,6 +34,11 @@ from chemyx_lab.analysis.nmr import (
     track_peak_families,
 )
 
+from chemyx_lab.analysis.analysis_config import (
+    ConfigError as StatisticsConfigError,
+    load_statistics_config,
+)
+
 from _common import (
     _safe_name,
     collect_dx_files,
@@ -168,9 +173,39 @@ def _parser(config_defaults=None) -> argparse.ArgumentParser:
     )
     parser.add_argument("--solvent-resonance", default=None)
     parser.add_argument("--solvent-validation-resonance", default=None)
+    parser.add_argument(
+        "--statistics",
+        action="store_true",
+        default=False,
+        help=(
+            "additionally compute the publication-statistics tables (per-peak "
+            "bootstrap uncertainty, run QC, fixed-window time series, rates, "
+            "statistical plateau, kinetics, spectral similarity). Off by "
+            "default; also enabled by statistics.enabled in the config. "
+            "See docs/nmr_statistics.md."
+        ),
+    )
+    parser.add_argument(
+        "--bootstrap-iterations",
+        type=int,
+        default=None,
+        help="override statistics.bootstrap.iterations for a faster/fuller run",
+    )
     if config_defaults:
         parser.set_defaults(**config_defaults)
     return parser
+
+
+def _statistics_config(argv):
+    """Load and validate the ``statistics`` config section for this run."""
+    preliminary = argparse.ArgumentParser(add_help=False)
+    preliminary.add_argument("--config", type=Path)
+    known, _ = preliminary.parse_known_args(argv)
+    path = DEFAULT_CONFIG_PATH if known.config is None else known.config
+    if not path.exists():
+        return load_statistics_config(None)
+    raw = read_mapping_config(path, "NMR processing config")
+    return load_statistics_config(raw.get("statistics"))
 
 
 def _config_defaults(argv):
@@ -482,6 +517,111 @@ def _error(args) -> str | None:
     return None
 
 
+def _run_statistics(stat_spectra_raw, assignments, stats_config, out_dir: Path) -> dict:
+    """Build and write the optional statistics tables/plots for this run.
+
+    Consumes the per-spectrum data collected during processing plus the peak
+    family assignments, delegates every calculation to
+    :mod:`chemyx_lab.analysis.statistics_report`, and writes the returned tables
+    under ``<out_dir>/statistics/`` and plots under ``<out_dir>/plots/statistics/``.
+    All heavy lifting lives in the library; this function is only glue + I/O.
+    """
+    import numpy as np
+
+    from chemyx_lab.analysis.statistics_report import (
+        PeakObservation,
+        SpectrumStat,
+        build_statistics_report,
+    )
+    from chemyx_lab.analysis.statistics_plots import render_plots
+
+    spectra = []
+    for index, raw in enumerate(stat_spectra_raw):
+        picked = raw["picked"]
+        family_ids = assignments[index] if index < len(assignments) else ()
+        observe = float(raw["observe_frequency_mhz"] or 0.0)
+        peaks = []
+        for peak_number, peak in enumerate(picked.peaks, 1):
+            fid = (
+                family_ids[peak_number - 1]
+                if peak_number - 1 < len(family_ids)
+                else ""
+            )
+            peaks.append(
+                PeakObservation(
+                    peak_number=peak_number,
+                    peak_family_id=fid,
+                    center_ppm=peak.peak_ppm,
+                    height=peak.peak_height,
+                    width_ppm=peak.width_ppm,
+                    width_hz=peak.width_ppm * observe,
+                    signed_area=peak.signed_area,
+                    positive_area=peak.positive_area,
+                    snr=peak.snr,
+                    prominence_snr=peak.prominence_snr,
+                    classification=peak.classification,
+                )
+            )
+        quant = picked.quantitative_corrected
+        spectra.append(
+            SpectrumStat(
+                file=raw["file"],
+                source_path=raw["source_path"],
+                spectrum_index=index,
+                timestamp=raw["timestamp"],
+                observe_frequency_mhz=observe,
+                region_noise=float(picked.noise),
+                reference_shift_ppm=float(raw["reference_shift_ppm"]),
+                reference_qc_pass=bool(raw["reference_qc_pass"]),
+                phase0_deg=raw["phase0_deg"],
+                phase1_deg=raw["phase1_deg"],
+                peaks=peaks,
+                region_ppm=np.asarray(picked.ppm_axis, dtype=float),
+                region_quant_corrected=(
+                    np.asarray(quant, dtype=float) if quant is not None else None
+                ),
+                full_ppm=np.asarray(raw["full_ppm"], dtype=float),
+                full_intensity=np.asarray(raw["full_intensity"], dtype=float),
+            )
+        )
+
+    report = build_statistics_report(spectra, stats_config)
+
+    stats_dir = out_dir / "statistics"
+    stats_dir.mkdir(parents=True, exist_ok=True)
+    written: list[str] = []
+    for filename, (columns, rows) in report.tables.items():
+        path = stats_dir / filename
+        with path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=columns, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(rows)
+        written.append(str(path))
+
+    plots_written = render_plots(report, out_dir / "plots")
+
+    (stats_dir / "statistics_summary.json").write_text(
+        json.dumps(
+            {
+                "provenance": report.provenance,
+                "warnings": report.warnings,
+                "tables": [Path(p).name for p in written],
+                "plots": [Path(p).name for p in plots_written],
+            },
+            indent=2,
+            sort_keys=True,
+            default=str,
+        ),
+        encoding="utf-8",
+    )
+    return {
+        "tables_written": written,
+        "plots_written": plots_written,
+        "warnings": report.warnings,
+        "provenance": report.provenance,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     effective_argv = sys.argv[1:] if argv is None else argv
     try:
@@ -490,6 +630,23 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     args = _parser(defaults).parse_args(effective_argv)
+    try:
+        stats_config = _statistics_config(effective_argv)
+    except (ConfigError, StatisticsConfigError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    from dataclasses import replace
+
+    if args.bootstrap_iterations is not None:
+        stats_config = replace(
+            stats_config,
+            bootstrap=replace(
+                stats_config.bootstrap, iterations=int(args.bootstrap_iterations)
+            ),
+        )
+    statistics_enabled = bool(args.statistics or stats_config.enabled)
+    # Keep the recorded provenance consistent when enabled via the CLI flag.
+    stats_config = replace(stats_config, enabled=statistics_enabled)
     files = collect_dx_files(args.paths)
     if not files:
         print("ERROR: no .dx files found.", file=sys.stderr)
@@ -514,6 +671,9 @@ def main(argv: list[str] | None = None) -> int:
     records: list[dict] = []
     peak_rows: list[dict] = []
     plot_results: list[tuple[str, RegionPeakPickingResult]] = []
+    # Per-spectrum inputs for the optional statistics pipeline, appended in
+    # lock-step with plot_results so their order matches the family assignment.
+    stat_spectra_raw: list[dict] = []
 
     for spectrum_index, path in enumerate(files):
         try:
@@ -809,6 +969,23 @@ def main(argv: list[str] | None = None) -> int:
                 }
             )
             plot_results.append((path.stem, picked))
+            if statistics_enabled:
+                stat_spectra_raw.append(
+                    {
+                        "file": path.name,
+                        "source_path": str(path),
+                        "timestamp": timestamp,
+                        "observe_frequency_mhz": spectrum.observe_frequency_mhz,
+                        "region_noise": picked.noise,
+                        "reference_shift_ppm": reference_shift,
+                        "reference_qc_pass": reference_qc_pass,
+                        "phase0_deg": spectrum.phase0_deg,
+                        "phase1_deg": spectrum.phase1_deg,
+                        "picked": picked,
+                        "full_ppm": analysis_ppm,
+                        "full_intensity": quantitative_real,
+                    }
+                )
             text = ", ".join(f"{ppm:.3f}" for ppm in positions)
             print(
                 f"  processed {path.name}: {len(positions)} peak(s)"
@@ -822,6 +999,7 @@ def main(argv: list[str] | None = None) -> int:
 
     overlay = stacked = ""
     family_rows: list[dict] = []
+    statistics_info: dict | None = None
     if plot_results:
         assignments, families = track_peak_families(
             [result.peaks for _, result in plot_results]
@@ -862,6 +1040,22 @@ def main(argv: list[str] | None = None) -> int:
                 stacked=True,
             )
         )
+        if statistics_enabled and stat_spectra_raw:
+            try:
+                statistics_info = _run_statistics(
+                    stat_spectra_raw, assignments, stats_config, out_dir
+                )
+                n_tables = len(statistics_info["tables_written"])
+                print(
+                    f"  statistics: wrote {n_tables} table(s) and "
+                    f"{len(statistics_info['plots_written'])} plot(s) to "
+                    f"{out_dir / 'statistics'}"
+                )
+                for warning in statistics_info["warnings"]:
+                    print(f"    statistics warning: {warning}", file=sys.stderr)
+            except Exception as exc:  # never fail the core run on statistics
+                print(f"  WARNING: statistics pipeline failed: {exc}", file=sys.stderr)
+                statistics_info = {"error": str(exc), "warnings": [str(exc)]}
 
     result_columns = [
         "file", "source_path", "raw_sha256", "timestamp", "timestamp_source",
@@ -931,6 +1125,20 @@ def main(argv: list[str] | None = None) -> int:
         "stacked_region_corrected": stacked,
         "records": records,
     }
+    if statistics_info is not None:
+        stats_block = {"enabled": True, **statistics_info.get("provenance", {})}
+        stats_block["warnings"] = statistics_info.get("warnings", [])
+        stats_block["tables"] = [
+            Path(p).name for p in statistics_info.get("tables_written", [])
+        ]
+        stats_block["plots"] = [
+            Path(p).name for p in statistics_info.get("plots_written", [])
+        ]
+        if "error" in statistics_info:
+            stats_block["error"] = statistics_info["error"]
+        summary["statistics"] = stats_block
+    else:
+        summary["statistics"] = {"enabled": statistics_enabled}
     (out_dir / "summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True, default=str), encoding="utf-8"
     )

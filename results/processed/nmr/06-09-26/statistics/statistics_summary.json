@@ -1,0 +1,49 @@
+{
+  "plots": [
+    "noise_vs_time.png",
+    "linewidth_vs_time.png",
+    "reference_drift_vs_time.png",
+    "qc_pass_rate_vs_time.png",
+    "phase_vs_time.png",
+    "spectral_similarity_vs_time.png",
+    "area_with_ci_vs_time.png",
+    "rate_vs_time.png",
+    "kinetic_model_comparison.png"
+  ],
+  "provenance": {
+    "bootstrap_confidence_level": 0.95,
+    "bootstrap_enabled": true,
+    "bootstrap_iterations": 500,
+    "bootstrap_model": "pseudo_voigt",
+    "bootstrap_random_seed": 12345,
+    "fixed_regions": [
+      "candidate_5p79",
+      "candidate_6p10"
+    ],
+    "internal_standard_enabled": false,
+    "kinetic_models_tested": [
+      "zero_order",
+      "first_order_decay",
+      "first_order_formation",
+      "first_order_formation_lag"
+    ],
+    "n_spectra": 8,
+    "pca_enabled": true,
+    "plateau_method": "statistical_slope",
+    "spectral_similarity_enabled": true,
+    "statistics_enabled": true
+  },
+  "tables": [
+    "peak_uncertainty.csv",
+    "peak_overlap.csv",
+    "peak_family_statistics.csv",
+    "peak_outliers.csv",
+    "spectral_similarity.csv",
+    "time_series_regions.csv",
+    "run_qc.csv",
+    "time_series_rates.csv",
+    "plateau_analysis.csv",
+    "kinetic_fits.csv"
+  ],
+  "warnings": []
+}

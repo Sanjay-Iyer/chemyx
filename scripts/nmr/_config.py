@@ -189,6 +189,9 @@ def load_config(
         "regional_analysis",
         "reference",
         "reference_models",
+        # Consumed only by process_fid.py's regional processor; the fixed-target
+        # scripts share this file and must tolerate (ignore) the section.
+        "statistics",
     } | set(_SCRIPT_KEYS)
     unknown_sections = sorted(set(raw) - allowed_sections)
     if unknown_sections:
