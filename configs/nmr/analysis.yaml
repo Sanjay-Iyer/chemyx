@@ -194,8 +194,15 @@ peak_qc:
 # Spectra with nothing in the window are zero-filled at target_ppm, so the
 # series stays continuous.
 #
-# This affects ONLY peaks_simple.csv. peaks.csv keeps every detection, so
-# nothing is lost -- narrow the window freely.
+# Three files come out of this, all sharing the same ppm window:
+#   peaks_simple.csv              QC-passing peaks only -- the one to plot
+#   peaks_simple_nothreshold.csv  same window, QC gates ignored -- what the
+#                                 thresholds are removing
+#   peak_qc_log.csv               every detection with each gate's verdict
+#                                 separately, so a rejection is diagnosable
+#
+# This affects ONLY those files. peaks.csv keeps every detection, so nothing is
+# lost -- narrow the window freely.
 #
 # window_ppm is a HALF-width, so the span is target_ppm +/- window_ppm. Keep it
 # tight: 0.5 would span 5.3-6.3, i.e. most of the analysed region, which lets

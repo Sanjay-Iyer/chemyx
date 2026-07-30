@@ -503,6 +503,8 @@ def test_process_fid_cli_writes_phase_corrected_artifacts(tmp_path):
     assert (run_dir / "smoke_results.csv").is_file()
     assert (run_dir / "smoke_peaks.csv").is_file()
     assert (run_dir / "smoke_peaks_simple.csv").is_file()
+    assert (run_dir / "smoke_peaks_simple_nothreshold.csv").is_file()
+    assert (run_dir / "smoke_peak_qc_log.csv").is_file()
     assert (run_dir / "smoke_peak_families.csv").is_file()
     assert (run_dir / "smoke_summary.json").is_file()
     assert (run_dir / "plots" / "smoke_overlay_region_corrected.png").is_file()
@@ -648,19 +650,24 @@ _CONFIRMED_NOISE = [
 
 @pytest.mark.parametrize("snr, prominence_snr, width_hz", _CONFIRMED_PEAKS)
 def test_peak_qc_accepts_every_confirmed_peak(snr, prominence_snr, width_hz):
-    passed, reasons = _peak_qc_fn()(
+    passed, reasons, checks = _peak_qc_fn()(
         _QcPeak(snr=snr, prominence_snr=prominence_snr), width_hz, _QcArgs()
     )
     assert passed is True, reasons
+    assert all(checks.values())
 
 
 @pytest.mark.parametrize("snr, prominence_snr, width_hz", _CONFIRMED_NOISE)
 def test_peak_qc_rejects_every_confirmed_noise_feature(snr, prominence_snr, width_hz):
-    passed, reasons = _peak_qc_fn()(
+    passed, reasons, checks = _peak_qc_fn()(
         _QcPeak(snr=snr, prominence_snr=prominence_snr), width_hz, _QcArgs()
     )
     assert passed is False
     assert "snr" in reasons
+    # Every one of these is an SNR rejection specifically, not a width or
+    # prominence one -- that distinction is what the QC log exists to show.
+    assert checks["snr_ok"] is False
+    assert checks["width_ok"] is True
 
 
 def test_peak_qc_threshold_sits_inside_the_signal_to_noise_gap():
@@ -674,13 +681,17 @@ def test_peak_qc_threshold_sits_inside_the_signal_to_noise_gap():
 
 def test_peak_qc_rejects_negative_area_and_spikes():
     qc = _peak_qc_fn()
-    passed, reasons = qc(
+    passed, reasons, checks = qc(
         _QcPeak(snr=20.0, prominence_snr=20.0, positive_area=0.0), 5.0, _QcArgs()
     )
     assert passed is False and "positive_area" in reasons
+    assert checks["positive_area_ok"] is False and checks["snr_ok"] is True
 
-    passed, reasons = qc(_QcPeak(snr=20.0, prominence_snr=20.0), 0.4, _QcArgs())
+    passed, reasons, checks = qc(
+        _QcPeak(snr=20.0, prominence_snr=20.0), 0.4, _QcArgs()
+    )
     assert passed is False and "width" in reasons
+    assert checks["width_ok"] is False
 
 
 def test_peak_qc_thresholds_are_configurable():

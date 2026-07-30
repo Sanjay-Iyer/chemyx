@@ -1,0 +1,9 @@
+file,timestamp,peak_ppm,qc_pass,qc_failure_reasons,in_simple_window,snr,min_snr,snr_ok,prominence_snr,min_prominence_snr,prominence_ok,width_hz,min_width_hz,max_width_hz,width_ok,integrated_area,positive_area_ok,intensity
+CEC-PhSi2-flow(sequence-1115)-06-08-26.dx,2026-06-08T11:23:25,5.7947,True,,True,29.40,8,True,31.41,3,True,2.67,1,10,True,20.35,True,508.37
+CEC-PhSi2-flow(sequence-1215)-06-08-26.dx,2026-06-08T12:24:16,5.8471,True,,True,12.39,8,True,14.17,3,True,1.52,1,10,True,4.51,True,212.09
+CEC-PhSi2-flow(sequence-1315)-06-08-26.dx,2026-06-08T13:25:11,5.8454,False,snr 4.83 < 8,True,4.83,8,False,6.57,3,True,1.91,1,10,True,2.19,True,89.26
+CEC-PhSi2-flow(sequence-1415)-06-08-26.dx,2026-06-08T14:21:24,5.6967,False,snr 3.10 < 8,False,3.10,8,False,5.14,3,True,2.57,1,10,True,1.89,True,56.93
+CEC-PhSi2-flow(sequence-1515)-06-08-26.dx,2026-06-08T15:17:54,6.0985,False,snr 3.27 < 8,False,3.27,8,False,5.22,3,True,2.04,1,10,True,1.30,True,52.77
+CEC-PhSi2-flow(sequence-1515)-06-08-26.dx,2026-06-08T15:17:54,5.8367,False,snr 4.15 < 8,True,4.15,8,False,6.14,3,True,2.02,1,10,True,1.66,True,66.88
+CEC-PhSi2-flow(sequence-1515)-06-08-26.dx,2026-06-08T15:17:54,5.2179,False,snr 3.85 < 8,False,3.85,8,False,5.82,3,True,1.24,1,10,True,0.86,True,62.13
+CEC-PhSi2-flow(sequence-1700)-06-08-26.dx,2026-06-08T17:04:45,5.2892,False,snr 3.37 < 8,False,3.37,8,False,5.14,3,True,1.04,1,10,True,0.73,True,57.92

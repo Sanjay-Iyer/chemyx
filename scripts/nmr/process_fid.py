@@ -12,6 +12,7 @@ import csv
 import hashlib
 import importlib.metadata
 import json
+import math
 import shutil
 import statistics
 import subprocess
@@ -699,12 +700,26 @@ def _peak_qc(peak, width_hz: float, args) -> tuple[bool, str]:
     * positive area -- an absorption peak integrates positive. A negative area
       means the "peak" is a phasing or baseline artefact.
 
-    Returns ``(passed, "; ".join(reasons))``.
+    Returns ``(passed, "; ".join(reasons), per_gate_flags)``. The per-gate
+    flags are what make a rejection diagnosable: "it failed" is not actionable,
+    "it failed on prominence but cleared SNR" is.
     """
     reasons: list[str] = []
-    if peak.snr < float(args.qc_min_snr):
+    checks = {
+        "snr_ok": peak.snr >= float(args.qc_min_snr),
+        "prominence_ok": (
+            peak.prominence_snr >= float(args.qc_min_prominence_snr)
+        ),
+        "width_ok": (
+            float(args.qc_min_width_hz) <= width_hz <= float(args.qc_max_width_hz)
+        ),
+        "positive_area_ok": (
+            not args.qc_require_positive_area or peak.positive_area > 0
+        ),
+    }
+    if not checks["snr_ok"]:
         reasons.append(f"snr {peak.snr:.2f} < {float(args.qc_min_snr):g}")
-    if peak.prominence_snr < float(args.qc_min_prominence_snr):
+    if not checks["prominence_ok"]:
         reasons.append(
             f"prominence_snr {peak.prominence_snr:.2f} < "
             f"{float(args.qc_min_prominence_snr):g}"
@@ -713,13 +728,129 @@ def _peak_qc(peak, width_hz: float, args) -> tuple[bool, str]:
         reasons.append(
             f"width {width_hz:.2f} Hz < {float(args.qc_min_width_hz):g} Hz"
         )
-    if width_hz > float(args.qc_max_width_hz):
+    elif width_hz > float(args.qc_max_width_hz):
         reasons.append(
             f"width {width_hz:.2f} Hz > {float(args.qc_max_width_hz):g} Hz"
         )
-    if args.qc_require_positive_area and peak.positive_area <= 0:
+    if not checks["positive_area_ok"]:
         reasons.append(f"positive_area {peak.positive_area:.3f} <= 0")
-    return (not reasons), "; ".join(reasons)
+    return all(checks.values()), "; ".join(reasons), checks
+
+
+QC_LOG_COLUMNS = [
+    "file", "timestamp", "peak_ppm", "qc_pass", "qc_failure_reasons",
+    "in_simple_window",
+    "snr", "min_snr", "snr_ok",
+    "prominence_snr", "min_prominence_snr", "prominence_ok",
+    "width_hz", "min_width_hz", "max_width_hz", "width_ok",
+    "integrated_area", "positive_area_ok",
+    "intensity",
+]
+
+
+def _write_peak_qc_log(peak_rows, path: Path, args):
+    """One row per detected peak, showing each gate's verdict separately.
+
+    ``peaks.csv`` records *that* a peak failed; this records *which gate* it
+    failed and by how much, with the threshold in force printed beside the
+    measured value. That is the difference between "rejected" and a decision
+    you can check -- and, if a gate is wrong, the number to change.
+    """
+    restrict = bool(getattr(args, "simple_restrict_to_window", False))
+    target_ppm = float(getattr(args, "simple_target_ppm", 5.8))
+    window_ppm = abs(float(getattr(args, "simple_window_ppm", 0.5)))
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=QC_LOG_COLUMNS)
+        writer.writeheader()
+        for row in peak_rows:
+            ppm = float(row["interpolated_ppm"])
+            in_window = (
+                abs(ppm - target_ppm) <= window_ppm if restrict else True
+            )
+            writer.writerow(
+                {
+                    "file": row["file"],
+                    "timestamp": row.get("timestamp", ""),
+                    "peak_ppm": f"{ppm:.4f}",
+                    "qc_pass": row.get("qc_pass"),
+                    "qc_failure_reasons": row.get("qc_failure_reasons", ""),
+                    "in_simple_window": in_window,
+                    "snr": f"{float(row['snr']):.2f}",
+                    "min_snr": f"{float(args.qc_min_snr):g}",
+                    "snr_ok": row.get("snr_ok"),
+                    "prominence_snr": f"{float(row['prominence_snr']):.2f}",
+                    "min_prominence_snr": f"{float(args.qc_min_prominence_snr):g}",
+                    "prominence_ok": row.get("prominence_ok"),
+                    "width_hz": f"{float(row['width_hz']):.2f}",
+                    "min_width_hz": f"{float(args.qc_min_width_hz):g}",
+                    "max_width_hz": f"{float(args.qc_max_width_hz):g}",
+                    "width_ok": row.get("width_ok"),
+                    "integrated_area": f"{float(row['positive_area']):.2f}",
+                    "positive_area_ok": row.get("positive_area_ok"),
+                    "intensity": f"{float(row['height']):.2f}",
+                }
+            )
+    return path
+
+
+def _format_csv_number(text: str, column: str) -> str:
+    """Shorten one CSV field to a readable number of digits.
+
+    Raw float repr runs to 15+ digits (``5.777108100819875``), which is noise
+    dressed as precision. Rules, in order:
+
+    * integers and non-numeric text are left exactly as they are;
+    * ppm columns keep 4 decimals -- the digitisation is ~0.0003 ppm, so fewer
+      would throw away real resolution and flatten the peak drift;
+    * everything else at or above 1 gets 2 decimals;
+    * values below 1 get 4 significant figures instead, so p-values, rate
+      constants, and correlations near 1 do not collapse to 0.00 or 1.00.
+    """
+    try:
+        int(text)
+        return text
+    except ValueError:
+        pass
+    try:
+        value = float(text)
+    except ValueError:
+        return text
+    if not math.isfinite(value):
+        return text
+    if "ppm" in column.lower():
+        return f"{value:.4f}"
+    if abs(value) >= 1.0:
+        return f"{value:.2f}"
+    return f"{value:.4g}"
+
+
+def _round_csv_numbers(out_dir: Path, skip: set[str]) -> None:
+    """Rewrite every CSV under *out_dir* with readable number formatting.
+
+    Done as a pass over the finished files so the statistics tables, written by
+    the library rather than this script, are covered too. Files in *skip* are
+    already deliberately formatted and are left alone.
+    """
+    for path in sorted(out_dir.rglob("*.csv")):
+        if path.name in skip:
+            continue
+        with path.open(newline="", encoding="utf-8") as handle:
+            rows = list(csv.reader(handle))
+        if not rows:
+            continue
+        header, *body = rows
+        with path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(header)
+            for row in body:
+                writer.writerow(
+                    [
+                        _format_csv_number(cell, header[i] if i < len(header) else "")
+                        for i, cell in enumerate(row)
+                    ]
+                )
 
 
 def _prefix_output_files(out_dir: Path) -> dict[str, str]:
@@ -759,7 +890,7 @@ SIMPLE_PEAK_COLUMNS = [
 ]
 
 
-def _write_simple_peaks(records, peak_rows, path: Path, args=None):
+def _write_simple_peaks(records, peak_rows, path: Path, args=None, apply_qc=True):
     """Minimal per-peak table: which file, where the peak is, how big it is.
 
     Ordered by acquisition timestamp rather than filename, and every processed
@@ -768,10 +899,17 @@ def _write_simple_peaks(records, peak_rows, path: Path, args=None):
     Values are the same baseline-corrected quantities written to ``peaks.csv``,
     only rounded for reading.
 
-    Only QC-passing peaks are reported. A detection that failed the reality
-    gates in :func:`_peak_qc` is noise, so it is zero-filled exactly like a
-    non-detection rather than contributing a fictitious area to the series.
-    ``peaks.csv`` still carries every detection with its failure reasons.
+    With *apply_qc* (the default) only QC-passing peaks are reported: a
+    detection that failed the reality gates in :func:`_peak_qc` is noise, so it
+    is zero-filled exactly like a non-detection rather than contributing a
+    fictitious area to the series. ``peaks.csv`` still carries every detection
+    with its failure reasons.
+
+    With ``apply_qc=False`` the thresholds are ignored and whatever was
+    detected in the window is reported as-is. That is the "no threshold"
+    companion table: same window, same columns, no judgement -- useful for
+    seeing what the gates are actually removing, and for deciding where to set
+    them. Its rows are not trustworthy peaks by construction.
 
     With ``simple_table.restrict_to_window`` enabled the table is narrowed to a
     single tracked resonance: only peaks within ``window_ppm`` of
@@ -785,7 +923,7 @@ def _write_simple_peaks(records, peak_rows, path: Path, args=None):
 
     by_file: dict[str, list[dict]] = {}
     for row in peak_rows:
-        if not row.get("qc_pass"):
+        if apply_qc and not row.get("qc_pass"):
             continue
         if restrict and abs(float(row["interpolated_ppm"]) - target_ppm) > window_ppm:
             continue
@@ -1377,7 +1515,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             for peak_number, peak in enumerate(picked.peaks, 1):
                 width_hz = peak.width_ppm * spectrum.observe_frequency_mhz
-                qc_pass, qc_reasons = _peak_qc(peak, width_hz, args)
+                qc_pass, qc_reasons, qc_checks = _peak_qc(peak, width_hz, args)
                 local_integral = integrate_above_local_baseline(
                     analysis_ppm,
                     quantitative_real,
@@ -1422,6 +1560,9 @@ def main(argv: list[str] | None = None) -> int:
                         "alignment_shift_ppm": 0.0,
                         "qc_pass": qc_pass,
                         "qc_failure_reasons": qc_reasons,
+                        # Per-gate verdicts for the QC log. peaks.csv declares
+                        # its own columns, so these ride along unwritten there.
+                        **qc_checks,
                     }
                 )
             records.append(
@@ -1650,6 +1791,28 @@ def main(argv: list[str] | None = None) -> int:
     simple_peaks = str(
         _write_simple_peaks(records, peak_rows, out_dir / "peaks_simple.csv", args)
     )
+    # Same window, no QC gates: what the thresholds are actually removing.
+    simple_peaks_raw = str(
+        _write_simple_peaks(
+            records,
+            peak_rows,
+            out_dir / "peaks_simple_nothreshold.csv",
+            args,
+            apply_qc=False,
+        )
+    )
+    qc_log = str(_write_peak_qc_log(peak_rows, out_dir / "peak_qc_log.csv", args))
+
+    # Trim 15-digit float repr everywhere, including the library-written
+    # statistics tables. The simple tables are already formatted deliberately.
+    _round_csv_numbers(
+        out_dir,
+        skip={
+            "peaks_simple.csv",
+            "peaks_simple_nothreshold.csv",
+            "peak_qc_log.csv",
+        },
+    )
 
     # Every artefact is on disk by now, so one rename pass makes them all
     # self-identifying; recorded paths are rewritten to match.
@@ -1664,6 +1827,8 @@ def main(argv: list[str] | None = None) -> int:
     flattened_diagnostic = _remap_path(flattened_diagnostic, renamed)
     flattened_qc = _remap_path(flattened_qc, renamed)
     simple_peaks = _remap_path(simple_peaks, renamed)
+    simple_peaks_raw = _remap_path(simple_peaks_raw, renamed)
+    qc_log = _remap_path(qc_log, renamed)
     if statistics_info is not None:
         for key in ("tables_written", "plots_written"):
             if key in statistics_info:
@@ -1702,6 +1867,8 @@ def main(argv: list[str] | None = None) -> int:
         "overlay_baseline_diagnostic": flattened_diagnostic,
         "overlay_baseline_qc": flattened_qc,
         "simple_peaks": simple_peaks,
+        "simple_peaks_nothreshold": simple_peaks_raw,
+        "peak_qc_log": qc_log,
         "flattened_overlay_source_array": (
             "quantitative_real: phase-corrected real spectrum after reference/"
             "alignment and configured primary baseline correction; identical "
