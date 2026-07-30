@@ -739,7 +739,7 @@ def _peak_qc(peak, width_hz: float, args) -> tuple[bool, str]:
 
 QC_LOG_COLUMNS = [
     "file", "timestamp", "peak_ppm", "qc_pass", "qc_failure_reasons",
-    "in_simple_window",
+    "in_target_window",
     "snr", "min_snr", "snr_ok",
     "prominence_snr", "min_prominence_snr", "prominence_ok",
     "width_hz", "min_width_hz", "max_width_hz", "width_ok",
@@ -748,15 +748,20 @@ QC_LOG_COLUMNS = [
 ]
 
 
-def _write_peak_qc_log(peak_rows, path: Path, args):
+def _write_peak_qc_log(peak_rows, path: Path, args, window_only=False):
     """One row per detected peak, showing each gate's verdict separately.
 
     ``peaks.csv`` records *that* a peak failed; this records *which gate* it
     failed and by how much, with the threshold in force printed beside the
     measured value. That is the difference between "rejected" and a decision
     you can check -- and, if a gate is wrong, the number to change.
+
+    *window_only* drops every peak outside ``target_ppm +/- window_ppm``, so
+    the log covers just the resonance being tracked instead of every feature
+    anywhere in the analysed region. ``in_target_window`` always reflects that
+    same window regardless of ``restrict_to_window``, which only governs the
+    simple table.
     """
-    restrict = bool(getattr(args, "simple_restrict_to_window", False))
     target_ppm = float(getattr(args, "simple_target_ppm", 5.8))
     window_ppm = abs(float(getattr(args, "simple_window_ppm", 0.5)))
 
@@ -766,9 +771,9 @@ def _write_peak_qc_log(peak_rows, path: Path, args):
         writer.writeheader()
         for row in peak_rows:
             ppm = float(row["interpolated_ppm"])
-            in_window = (
-                abs(ppm - target_ppm) <= window_ppm if restrict else True
-            )
+            in_window = abs(ppm - target_ppm) <= window_ppm
+            if window_only and not in_window:
+                continue
             writer.writerow(
                 {
                     "file": row["file"],
@@ -776,7 +781,7 @@ def _write_peak_qc_log(peak_rows, path: Path, args):
                     "peak_ppm": f"{ppm:.4f}",
                     "qc_pass": row.get("qc_pass"),
                     "qc_failure_reasons": row.get("qc_failure_reasons", ""),
-                    "in_simple_window": in_window,
+                    "in_target_window": in_window,
                     "snr": f"{float(row['snr']):.2f}",
                     "min_snr": f"{float(args.qc_min_snr):g}",
                     "snr_ok": row.get("snr_ok"),
@@ -1802,6 +1807,16 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     qc_log = str(_write_peak_qc_log(peak_rows, out_dir / "peak_qc_log.csv", args))
+    # Focused companion: only the tracked resonance, so peaks elsewhere in the
+    # region (6.4 ppm and friends) do not bury the rows that matter.
+    qc_log_window = str(
+        _write_peak_qc_log(
+            peak_rows,
+            out_dir / "peak_qc_log_window.csv",
+            args,
+            window_only=True,
+        )
+    )
 
     # Trim 15-digit float repr everywhere, including the library-written
     # statistics tables. The simple tables are already formatted deliberately.
@@ -1811,6 +1826,7 @@ def main(argv: list[str] | None = None) -> int:
             "peaks_simple.csv",
             "peaks_simple_nothreshold.csv",
             "peak_qc_log.csv",
+            "peak_qc_log_window.csv",
         },
     )
 
@@ -1829,6 +1845,7 @@ def main(argv: list[str] | None = None) -> int:
     simple_peaks = _remap_path(simple_peaks, renamed)
     simple_peaks_raw = _remap_path(simple_peaks_raw, renamed)
     qc_log = _remap_path(qc_log, renamed)
+    qc_log_window = _remap_path(qc_log_window, renamed)
     if statistics_info is not None:
         for key in ("tables_written", "plots_written"):
             if key in statistics_info:
@@ -1869,6 +1886,7 @@ def main(argv: list[str] | None = None) -> int:
         "simple_peaks": simple_peaks,
         "simple_peaks_nothreshold": simple_peaks_raw,
         "peak_qc_log": qc_log,
+        "peak_qc_log_window": qc_log_window,
         "flattened_overlay_source_array": (
             "quantitative_real: phase-corrected real spectrum after reference/"
             "alignment and configured primary baseline correction; identical "

@@ -505,6 +505,7 @@ def test_process_fid_cli_writes_phase_corrected_artifacts(tmp_path):
     assert (run_dir / "smoke_peaks_simple.csv").is_file()
     assert (run_dir / "smoke_peaks_simple_nothreshold.csv").is_file()
     assert (run_dir / "smoke_peak_qc_log.csv").is_file()
+    assert (run_dir / "smoke_peak_qc_log_window.csv").is_file()
     assert (run_dir / "smoke_peak_families.csv").is_file()
     assert (run_dir / "smoke_summary.json").is_file()
     assert (run_dir / "plots" / "smoke_overlay_region_corrected.png").is_file()
