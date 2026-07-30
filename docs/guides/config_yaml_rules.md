@@ -149,6 +149,16 @@ several inputs — whether in `input.paths` or on the command line — merges th
 into a *single* output folder named after the first one. Process one dataset
 per invocation.
 
+**Every output file is prefixed with the run folder's name**, giving
+`06-09-26_peaks_simple.csv`, `06-09-26_run_qc.csv`,
+`plots/statistics/06-09-26_rate_vs_time.png`, and so on. Files get shared
+individually, and a bare `run_qc.csv` is ambiguous the moment it leaves its
+folder. The prefix is applied by `_prefix_output_files` as a single rename pass
+after everything is written — including files produced by the statistics
+library — and recorded paths in `summary.json` are rewritten to match. Anything
+a future writer adds is covered automatically, with no new write site to
+remember.
+
 ---
 
 ## Scripts not yet migrated

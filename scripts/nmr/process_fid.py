@@ -614,6 +614,37 @@ def _write_overlay_baseline_qc(flattened, path: Path):
     return path
 
 
+def _prefix_output_files(out_dir: Path) -> dict[str, str]:
+    """Rename every file under *out_dir* to ``<run>_<original name>``.
+
+    Output files get shared one at a time, and a bare ``peaks_simple.csv`` or
+    ``run_qc.csv`` says nothing about which run produced it once it is out of
+    its folder. Prefixing with the run name (the input folder's name) makes
+    every file self-identifying.
+
+    Applied as one pass after everything is written, so files produced by the
+    statistics library are covered too. Returns ``{old: new}`` absolute paths
+    so recorded provenance can be rewritten to match.
+    """
+    prefix = f"{out_dir.name}_"
+    renamed: dict[str, str] = {}
+    # Materialise the listing first: renaming while walking is undefined.
+    for path in sorted(out_dir.rglob("*")):
+        if not path.is_file() or path.name.startswith(prefix):
+            continue
+        target = path.with_name(prefix + path.name)
+        path.rename(target)
+        renamed[str(path)] = str(target)
+    return renamed
+
+
+def _remap_path(value, renamed: dict[str, str]):
+    """Rewrite one recorded output path through the rename map."""
+    if not value:
+        return value
+    return renamed.get(str(value), str(value))
+
+
 SIMPLE_PEAK_COLUMNS = [
     "file", "timestamp", "peak_ppm", "integrated_area", "intensity",
 ]
@@ -1431,6 +1462,26 @@ def main(argv: list[str] | None = None) -> int:
         _write_simple_peaks(records, peak_rows, out_dir / "peaks_simple.csv")
     )
 
+    # Every artefact is on disk by now, so one rename pass makes them all
+    # self-identifying; recorded paths are rewritten to match.
+    renamed = _prefix_output_files(out_dir)
+    for row in records:
+        for key in ("full_plot", "region_plot", "spectrum_csv"):
+            if key in row:
+                row[key] = _remap_path(row[key], renamed)
+    overlay = _remap_path(overlay, renamed)
+    stacked = _remap_path(stacked, renamed)
+    flattened_overlay = _remap_path(flattened_overlay, renamed)
+    flattened_diagnostic = _remap_path(flattened_diagnostic, renamed)
+    flattened_qc = _remap_path(flattened_qc, renamed)
+    simple_peaks = _remap_path(simple_peaks, renamed)
+    if statistics_info is not None:
+        for key in ("tables_written", "plots_written"):
+            if key in statistics_info:
+                statistics_info[key] = [
+                    _remap_path(p, renamed) for p in statistics_info[key]
+                ]
+
     summary = {
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "script": "process_fid.py",
@@ -1483,7 +1534,7 @@ def main(argv: list[str] | None = None) -> int:
         summary["statistics"] = stats_block
     else:
         summary["statistics"] = {"enabled": statistics_enabled}
-    (out_dir / "summary.json").write_text(
+    (out_dir / f"{out_dir.name}_summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True, default=str), encoding="utf-8"
     )
     print(f"Output: {out_dir}")

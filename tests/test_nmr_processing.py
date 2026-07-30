@@ -498,19 +498,27 @@ def test_process_fid_cli_writes_phase_corrected_artifacts(tmp_path):
 
     assert result.returncode == 0, result.stderr
     run_dir = tmp_path / "smoke"
-    assert (run_dir / "results.csv").is_file()
-    assert (run_dir / "peaks.csv").is_file()
-    assert (run_dir / "peak_families.csv").is_file()
-    assert (run_dir / "summary.json").is_file()
-    assert (run_dir / "plots" / "overlay_region_corrected.png").is_file()
-    assert (run_dir / "plots" / "overlay_region_baseline_flattened.png").is_file()
+    # Every output is prefixed with the run folder's name so a file stays
+    # identifiable once it is shared on its own.
+    assert (run_dir / "smoke_results.csv").is_file()
+    assert (run_dir / "smoke_peaks.csv").is_file()
+    assert (run_dir / "smoke_peaks_simple.csv").is_file()
+    assert (run_dir / "smoke_peak_families.csv").is_file()
+    assert (run_dir / "smoke_summary.json").is_file()
+    assert (run_dir / "plots" / "smoke_overlay_region_corrected.png").is_file()
     assert (
-        run_dir / "plots" / "overlay_baseline_diagnostic_sequence_1030.png"
+        run_dir / "plots" / "smoke_overlay_region_baseline_flattened.png"
     ).is_file()
-    assert (run_dir / "statistics" / "overlay_baseline_qc.csv").is_file()
-    assert (run_dir / "plots" / "stacked_region_corrected.png").is_file()
+    assert (
+        run_dir / "plots" / "smoke_overlay_baseline_diagnostic_sequence_1030.png"
+    ).is_file()
+    assert (run_dir / "statistics" / "smoke_overlay_baseline_qc.csv").is_file()
+    assert (run_dir / "plots" / "smoke_stacked_region_corrected.png").is_file()
     assert len(list((run_dir / "plots" / "full").glob("*.png"))) == 1
     assert len(list((run_dir / "plots" / "region").glob("*.png"))) == 1
+    # Nothing may be left unprefixed.
+    assert not [p for p in run_dir.rglob("*") if p.is_file()
+                and not p.name.startswith("smoke_")]
 
 
 @pytest.mark.skipif(
