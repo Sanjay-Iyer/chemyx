@@ -144,6 +144,7 @@ Config file: `configs/nmr/analysis.yaml` (override with `--config PATH`).
 | `processing` | `phase_method`, `baseline_method`, `reference_method`, `zero_fill_points`, `line_broadening_hz`, `normalization`, `truncation_window`, `baseline_polynomial_order`, `smoothing_window_ppm`, `abd_sections`, `abd_noise_factor`, `abd_window_points` | FID → spectrum conversion and baseline correction |
 | `regional_analysis` | `ppm_min`, `ppm_max`, `detect_all_peaks`, `min_prominence_snr`, `min_peak_distance_ppm`, `min_peak_width_ppm` | Which ppm window is searched and what counts as a peak |
 | `peak_qc` | `use_manual_thresholds`, `min_snr`, `min_prominence_snr`, `min_width_hz`, `max_width_hz`, `require_positive_area` | Whether a detected feature is a real resonance or noise |
+| `simple_table` | `restrict_to_window`, `target_ppm`, `window_ppm` | Narrows `peaks_simple.csv` to the one tracked resonance |
 | `plots` | `display_min_ppm`, `display_max_ppm`, `flattened_overlay.*` | Plot ppm range and the plot-only flattened overlay |
 | `output` | `directory`, `run_name`, `export_spectra_csv` | Where results are written |
 | `reference` | `enabled`, `method`, `expected_ppm`, QC gates | Chemical-shift referencing (fail-closed; off unless declared) |

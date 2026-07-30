@@ -205,6 +205,15 @@ def _parser(config_defaults=None) -> argparse.ArgumentParser:
         action=argparse.BooleanOptionalAction,
         default=True,
     )
+    # peaks_simple.csv can be narrowed to the one resonance being tracked, so
+    # unrelated peaks elsewhere in the region do not clutter the time series.
+    parser.add_argument(
+        "--simple-restrict-to-window",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+    )
+    parser.add_argument("--simple-target-ppm", type=float, default=5.8)
+    parser.add_argument("--simple-window-ppm", type=float, default=0.5)
     parser.add_argument("--export-csv", action="store_true")
     parser.add_argument(
         "--normalization",
@@ -322,6 +331,11 @@ def _config_defaults(argv):
             "min_width_hz": "qc_min_width_hz",
             "max_width_hz": "qc_max_width_hz",
             "require_positive_area": "qc_require_positive_area",
+        },
+        "simple_table": {
+            "restrict_to_window": "simple_restrict_to_window",
+            "target_ppm": "simple_target_ppm",
+            "window_ppm": "simple_window_ppm",
         },
         "plots": {
             "display_min_ppm": "display_min",
@@ -745,7 +759,7 @@ SIMPLE_PEAK_COLUMNS = [
 ]
 
 
-def _write_simple_peaks(records, peak_rows, path: Path):
+def _write_simple_peaks(records, peak_rows, path: Path, args=None):
     """Minimal per-peak table: which file, where the peak is, how big it is.
 
     Ordered by acquisition timestamp rather than filename, and every processed
@@ -758,12 +772,32 @@ def _write_simple_peaks(records, peak_rows, path: Path):
     gates in :func:`_peak_qc` is noise, so it is zero-filled exactly like a
     non-detection rather than contributing a fictitious area to the series.
     ``peaks.csv`` still carries every detection with its failure reasons.
+
+    With ``simple_table.restrict_to_window`` enabled the table is narrowed to a
+    single tracked resonance: only peaks within ``window_ppm`` of
+    ``target_ppm`` are eligible, and the strongest of those is the one row for
+    that spectrum. A real peak elsewhere in the analysed region is legitimate
+    and stays in ``peaks.csv``; it simply is not the peak this series is about.
     """
+    restrict = bool(getattr(args, "simple_restrict_to_window", False))
+    target_ppm = float(getattr(args, "simple_target_ppm", 5.8))
+    window_ppm = abs(float(getattr(args, "simple_window_ppm", 0.5)))
+
     by_file: dict[str, list[dict]] = {}
     for row in peak_rows:
         if not row.get("qc_pass"):
             continue
+        if restrict and abs(float(row["interpolated_ppm"]) - target_ppm) > window_ppm:
+            continue
         by_file.setdefault(row["file"], []).append(row)
+    if restrict:
+        # One resonance, one row per spectrum: keep the strongest candidate in
+        # the window rather than the nearest, so a small blip closer to the
+        # nominal centre cannot displace the actual peak.
+        by_file = {
+            name: [max(rows, key=lambda r: float(r["snr"]))]
+            for name, rows in by_file.items()
+        }
 
     # A spectrum with no usable peak still belongs on the same trace, so hold it
     # at the ppm of the resonance being tracked (the most-observed family's
@@ -777,6 +811,10 @@ def _write_simple_peaks(records, peak_rows, path: Path):
             )
     if by_family:
         tracked_ppm = float(statistics.median(max(by_family.values(), key=len)))
+    elif restrict:
+        # Nothing landed in the window anywhere: hold the trace at the ppm the
+        # window is centred on rather than wherever the rejected peaks sat.
+        tracked_ppm = target_ppm
     elif peak_rows:
         # Nothing passed QC anywhere. Fall back to where the rejected features
         # sat, which is still the right neighbourhood of the spectrum.
@@ -1610,7 +1648,7 @@ def main(argv: list[str] | None = None) -> int:
             writer.writerows(rows)
 
     simple_peaks = str(
-        _write_simple_peaks(records, peak_rows, out_dir / "peaks_simple.csv")
+        _write_simple_peaks(records, peak_rows, out_dir / "peaks_simple.csv", args)
     )
 
     # Every artefact is on disk by now, so one rename pass makes them all

@@ -186,6 +186,30 @@ peak_qc:
   require_positive_area: true # an absorption peak must integrate positive
 
 # ---------------------------------------------------------------------------
+# peaks_simple.csv — the one-peak-over-time table.
+#
+# The analysed region (5.0-6.5 ppm) can contain more than the resonance you are
+# tracking. Turn restrict_to_window on to keep only peaks within window_ppm of
+# target_ppm, leaving one row per spectrum: the strongest peak in that window.
+# Spectra with nothing in the window are zero-filled at target_ppm, so the
+# series stays continuous.
+#
+# This affects ONLY peaks_simple.csv. peaks.csv keeps every detection, so
+# nothing is lost -- narrow the window freely.
+#
+# window_ppm is a HALF-width, so the span is target_ppm +/- window_ppm. Keep it
+# tight: 0.5 would span 5.3-6.3, i.e. most of the analysed region, which lets
+# exactly the stray peaks this is meant to exclude back in.
+#
+# Current setting covers 5.70-5.90. Every confirmed peak in the local datasets
+# falls inside it (06-09-26: 5.785-5.796; 06-08-26: 5.795 and 5.847).
+# ---------------------------------------------------------------------------
+simple_table:
+  restrict_to_window: true    # true = report only the tracked resonance
+  target_ppm: 5.8             # centre of the window
+  window_ppm: 0.1             # HALF-width -> 5.70 to 5.90
+
+# ---------------------------------------------------------------------------
 # Where results are written. The run folder is named after the input folder
 # (results/raw/nmr/06-09-26 -> results/processed/nmr/06-09-26) unless run_name
 # forces a fixed name.

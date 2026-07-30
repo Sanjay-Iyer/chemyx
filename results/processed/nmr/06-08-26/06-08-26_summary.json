@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-07-30T12:35:01",
+  "created_at": "2026-07-30T13:02:24",
   "dependencies": {
     "matplotlib": "3.10.9",
     "nmrglue": "0.11",
@@ -11,7 +11,7 @@
   "files_found": 7,
   "files_succeeded": 7,
   "flattened_overlay_source_array": "quantitative_real: phase-corrected real spectrum after reference/alignment and configured primary baseline correction; identical array passed to individual full and regional plots",
-  "git_commit": "3006251092a1bf304fae263685b13dc4420b5a25",
+  "git_commit": "4d7b75500a455964b3e9d026473471c8b2d4ca4d",
   "inputs": [
     "results/raw/nmr/06-08-26/"
   ],
@@ -45,7 +45,7 @@
     "phase0": null,
     "phase1": null,
     "phase_method": "stored",
-    "qc_manual_thresholds": false,
+    "qc_manual_thresholds": true,
     "qc_max_width_hz": 10.0,
     "qc_min_prominence_snr": 3.0,
     "qc_min_snr": 8.0,
@@ -65,6 +65,9 @@
     "region_max": 6.5,
     "region_min": 5.0,
     "run_name": null,
+    "simple_restrict_to_window": true,
+    "simple_target_ppm": 5.8,
+    "simple_window_ppm": 0.1,
     "smoothing_window_ppm": 0.006,
     "solvent": "none",
     "solvent_identity": "unknown",
