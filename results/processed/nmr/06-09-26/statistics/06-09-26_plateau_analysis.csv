@@ -1,4 +1,5 @@
 analysis_target,target_kind,method,window_start_time,window_end_time,points_in_window,rolling_slope,rolling_slope_se,rolling_slope_ci95_low,rolling_slope_ci95_high,equivalence_margin_low,equivalence_margin_high,plateau_statistical_pass,decline_detected,plateau_duration_hours,plateau_failure_reason
 candidate_5p79,fixed_region,statistical_slope,1.675,2.3938888888888887,4,-5.362875319530897,7.786982055601784,-38.86755491757599,28.141804278514197,-0.3969840550098022,0.3969840550098022,False,False,nan,slope_ci_outside_equivalence_margin
 candidate_6p10,fixed_region,statistical_slope,1.675,2.3938888888888887,4,-4.819312719638411,4.60329581870482,-24.625696039832988,14.987070600556166,-0.029806468372697365,0.029806468372697365,False,False,nan,slope_ci_outside_equivalence_margin
-P001,peak_family,statistical_slope,1.675,2.3938888888888887,4,-3.080037973709883,10.552360407340796,-48.4831802856549,42.32310433823513,-0.3764602494690767,0.3764602494690767,False,False,nan,slope_ci_outside_equivalence_margin
+P003,peak_family,statistical_slope,1.675,2.3938888888888887,4,-5.7302847726231265,5.400791483249844,-28.96801499083571,17.507445445589457,-0.34933027862181787,0.34933027862181787,False,False,nan,slope_ci_outside_equivalence_margin
+P008,peak_family,statistical_slope,nan,nan,2,nan,nan,nan,nan,nan,nan,False,False,nan,insufficient_points (2 < 4)

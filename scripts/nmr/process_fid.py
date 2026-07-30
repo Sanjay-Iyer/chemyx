@@ -179,7 +179,24 @@ def _parser(config_defaults=None) -> argparse.ArgumentParser:
     # where a broad baseline undulation can clear the prominence threshold; the
     # gates below are evaluated on the quantitative real spectrum, which is
     # what separates a resonance from a wobble. Tune in [peak_qc].
-    parser.add_argument("--qc-min-snr", type=float, default=2.0)
+    parser.add_argument(
+        "--detection-trace",
+        choices=("real", "magnitude"),
+        default="real",
+        help=(
+            "spectrum peaks are found on. 'real' is the phased, "
+            "baseline-corrected trace that heights and areas are measured on; "
+            "'magnitude' restores the older behaviour."
+        ),
+    )
+    # Set from peak_qc.use_manual_thresholds; recorded for provenance only.
+    parser.add_argument(
+        "--qc-manual-thresholds",
+        action="store_true",
+        default=False,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument("--qc-min-snr", type=float, default=8.0)
     parser.add_argument("--qc-min-prominence-snr", type=float, default=3.0)
     parser.add_argument("--qc-min-width-hz", type=float, default=1.0)
     parser.add_argument("--qc-max-width-hz", type=float, default=10.0)
@@ -297,6 +314,7 @@ def _config_defaults(argv):
             "min_prominence_snr": "min_prominence_snr",
             "min_peak_distance_ppm": "min_peak_distance_ppm",
             "min_peak_width_ppm": "min_peak_width_ppm",
+            "detection_trace": "detection_trace",
         },
         "peak_qc": {
             "min_snr": "qc_min_snr",
@@ -344,6 +362,8 @@ def _config_defaults(argv):
             # Plot-only overlay settings are validated separately by
             # _flattened_overlay_config; tolerate them here.
             allowed.add("flattened_overlay")
+        if section_name == "peak_qc":
+            allowed.add("use_manual_thresholds")
         if section_name == "reference":
             allowed.update(
                 {
@@ -359,6 +379,17 @@ def _config_defaults(argv):
                 f"Unknown key(s) in [{section_name}] of {path}: "
                 + ", ".join(unknown)
             )
+        if section_name == "peak_qc":
+            defaults["qc_manual_thresholds"] = bool(
+                section.get("use_manual_thresholds", False)
+            )
+        if section_name == "peak_qc" and not section.get(
+            "use_manual_thresholds", False
+        ):
+            # Switch is off: the validated built-in thresholds win and the
+            # values below are ignored. They are still key-checked above, so a
+            # typo is caught now rather than the first time it is switched on.
+            continue
         for key, destination in mapping.items():
             if key in section:
                 defaults[destination] = section[key]
@@ -1062,6 +1093,15 @@ def main(argv: list[str] | None = None) -> int:
     if not files:
         print("ERROR: no .dx files found.", file=sys.stderr)
         return 1
+    # State the gates in force: silently running on the wrong thresholds is the
+    # expensive mistake here, not a line of output.
+    print(
+        f"  peak QC ({'manual' if args.qc_manual_thresholds else 'default'}): "
+        f"snr>={args.qc_min_snr:g}, prominence_snr>={args.qc_min_prominence_snr:g}, "
+        f"width {args.qc_min_width_hz:g}-{args.qc_max_width_hz:g} Hz, "
+        f"positive_area={bool(args.qc_require_positive_area)}; "
+        f"detection on {args.detection_trace} trace"
+    )
     if message := _error(args):
         print(f"ERROR: {message}.", file=sys.stderr)
         return 2
@@ -1237,9 +1277,21 @@ def main(argv: list[str] | None = None) -> int:
                     raise ValueError("maximum normalization scale is not positive")
                 quantitative_real = quantitative_real / scale
                 diagnostic_magnitude = diagnostic_magnitude / scale
+            # Which trace peaks are FOUND on. The magnitude spectrum is always
+            # positive and never needs phasing, but a real resonance can sit on
+            # its rising background as a mere shoulder -- so peaks get missed
+            # outright, or located on the flank instead of the apex, which then
+            # corrupts every height, width, and area derived from them. The
+            # phased, baseline-corrected real trace is where a peak actually
+            # looks like a peak, so detection defaults to it.
+            detection_trace = (
+                diagnostic_magnitude
+                if args.detection_trace == "magnitude"
+                else quantitative_real
+            )
             picked = pick_spectrum_region(
                 analysis_ppm,
-                diagnostic_magnitude,
+                detection_trace,
                 region_min_ppm=args.region_min,
                 region_max_ppm=args.region_max,
                 min_prominence_snr=args.min_prominence_snr,

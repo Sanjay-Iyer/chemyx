@@ -593,7 +593,7 @@ class _QcArgs:
     """Stand-in for the argparse namespace consumed by _peak_qc."""
 
     def __init__(self, **overrides):
-        self.qc_min_snr = 2.0
+        self.qc_min_snr = 8.0
         self.qc_min_prominence_snr = 3.0
         self.qc_min_width_hz = 1.0
         self.qc_max_width_hz = 10.0
@@ -629,47 +629,117 @@ def _peak_qc_fn():
             sys.path.remove(str(script_dir))
 
 
-def test_peak_qc_accepts_a_real_resonance():
-    # Representative of every 06-09-26 detection.
+# Operator-confirmed ground truth, measured with detection_trace="real".
+# 06-08-26: only 1115 and 1215 are real peaks. 06-09-26: only 0900 is not.
+_CONFIRMED_PEAKS = [  # (snr, prominence_snr, width_hz)
+    (29.40, 31.41, 2.67),   # 06-08 1115, the smallest confirmed on that day
+    (12.39, 14.17, 1.52),   # 06-08 1215, the smallest confirmed anywhere
+    (25.19, 27.17, 2.23),   # 06-09 1000
+    (61.29, 63.29, 1.85),   # 06-09 1100, the largest
+]
+_CONFIRMED_NOISE = [
+    (4.83, 6.57, 1.91),     # 06-08 1315, the loudest noise feature
+    (3.10, 5.14, 2.57),     # 06-08 1415
+    (4.15, 6.14, 2.02),     # 06-08 1515
+    (3.37, 5.14, 1.04),     # 06-08 1700
+    (3.29, 5.02, 3.19),     # 06-09 0900
+]
+
+
+@pytest.mark.parametrize("snr, prominence_snr, width_hz", _CONFIRMED_PEAKS)
+def test_peak_qc_accepts_every_confirmed_peak(snr, prominence_snr, width_hz):
     passed, reasons = _peak_qc_fn()(
-        _QcPeak(snr=36.09, prominence_snr=21.71), 4.20, _QcArgs()
+        _QcPeak(snr=snr, prominence_snr=prominence_snr), width_hz, _QcArgs()
     )
-    assert passed is True
-    assert reasons == ""
+    assert passed is True, reasons
 
 
-@pytest.mark.parametrize(
-    "snr, prominence_snr, width_hz, expected_reason",
-    [
-        # Real 06-08-26 rejections: broad baseline undulations, not peaks.
-        (0.62, 7.36, 14.51, "snr"),
-        (-0.07, 5.73, 12.77, "snr"),
-        (7.61, 7.08, 14.87, "width"),
-    ],
-)
-def test_peak_qc_rejects_noise_features(snr, prominence_snr, width_hz, expected_reason):
+@pytest.mark.parametrize("snr, prominence_snr, width_hz", _CONFIRMED_NOISE)
+def test_peak_qc_rejects_every_confirmed_noise_feature(snr, prominence_snr, width_hz):
     passed, reasons = _peak_qc_fn()(
         _QcPeak(snr=snr, prominence_snr=prominence_snr), width_hz, _QcArgs()
     )
     assert passed is False
-    assert expected_reason in reasons
+    assert "snr" in reasons
+
+
+def test_peak_qc_threshold_sits_inside_the_signal_to_noise_gap():
+    # The whole gate rests on this gap staying open. If new data narrows it,
+    # this fails loudly instead of silently mislabelling borderline spectra.
+    loudest_noise = max(snr for snr, _, _ in _CONFIRMED_NOISE)
+    quietest_peak = min(snr for snr, _, _ in _CONFIRMED_PEAKS)
+    assert loudest_noise < _QcArgs().qc_min_snr < quietest_peak
+    assert quietest_peak / loudest_noise > 2.0
 
 
 def test_peak_qc_rejects_negative_area_and_spikes():
     qc = _peak_qc_fn()
     passed, reasons = qc(
-        _QcPeak(snr=9.0, prominence_snr=9.0, positive_area=0.0), 5.0, _QcArgs()
+        _QcPeak(snr=20.0, prominence_snr=20.0, positive_area=0.0), 5.0, _QcArgs()
     )
     assert passed is False and "positive_area" in reasons
 
-    passed, reasons = qc(_QcPeak(snr=9.0, prominence_snr=9.0), 0.4, _QcArgs())
+    passed, reasons = qc(_QcPeak(snr=20.0, prominence_snr=20.0), 0.4, _QcArgs())
     assert passed is False and "width" in reasons
 
 
 def test_peak_qc_thresholds_are_configurable():
-    # The 7.61-SNR / 14.87-Hz feature is a width call, so a wider ceiling keeps
-    # it. This is the knob to reach for when a real peak is broader.
-    passed, _ = _peak_qc_fn()(
-        _QcPeak(snr=7.61, prominence_snr=7.08), 14.87, _QcArgs(qc_max_width_hz=20.0)
+    # Lowering min_snr admits the loudest noise feature: the knob works, and
+    # this documents what loosening it actually costs.
+    peak = _QcPeak(snr=4.83, prominence_snr=6.57)
+    assert _peak_qc_fn()(peak, 1.91, _QcArgs())[0] is False
+    assert _peak_qc_fn()(peak, 1.91, _QcArgs(qc_min_snr=2.0))[0] is True
+
+
+@pytest.mark.skipif(
+    not REFERENCE_DIR.exists(),
+    reason="06-08-26 dataset is local validation data",
+)
+@pytest.mark.parametrize(
+    "sequence, expected_ppm",
+    [("1115", 5.795), ("1215", 5.847)],
+)
+def test_real_trace_detection_finds_peaks_the_magnitude_trace_loses(
+    sequence, expected_ppm
+):
+    """Both 06-08-26 peaks are invisible to magnitude-trace detection.
+
+    1215 was missed outright and 1115 was located on its flank (5.760 rather
+    than the 5.795 apex), which understated its height by 3x and its width by
+    5x. Detection on the phased, baseline-corrected real trace recovers both.
+    """
+    from chemyx_lab.analysis.nmr import asymmetric_least_squares_baseline
+
+    path = next(REFERENCE_DIR.glob(f"*sequence-{sequence}*.dx"))
+    spectrum = build_phased_spectrum(
+        path, line_broadening_hz=0.03, zero_fill_points=65536
     )
-    assert passed is True
+    real = spectrum.real - asymmetric_least_squares_baseline(spectrum.real)
+    common = dict(
+        region_min_ppm=5.0,
+        region_max_ppm=6.5,
+        min_prominence_snr=5.0,
+        min_distance_ppm=0.04,
+        min_width_ppm=0.015,
+        baseline_polynomial_order=3,
+        smoothing_window_ppm=0.006,
+        quantitative_intensity=real,
+        source=path,
+    )
+
+    on_real = pick_spectrum_region(spectrum.ppm_axis, real, **common)
+    found = [p for p in on_real.peaks if abs(p.interpolated_ppm - expected_ppm) < 0.01]
+    assert found, (
+        f"no peak near {expected_ppm} ppm; got "
+        f"{[round(p.interpolated_ppm, 3) for p in on_real.peaks]}"
+    )
+    assert found[0].snr > 8.0
+
+    # The magnitude trace either loses it or puts it somewhere else entirely.
+    on_magnitude = pick_spectrum_region(
+        spectrum.ppm_axis, spectrum.magnitude, **common
+    )
+    assert not [
+        p for p in on_magnitude.peaks
+        if abs(p.interpolated_ppm - expected_ppm) < 0.01
+    ]

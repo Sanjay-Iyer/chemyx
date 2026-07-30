@@ -97,7 +97,23 @@ run; the record of what produced a given result must not.
 The YAML is what a person reads when deciding what to change. Units, valid
 choices, and the reason a value is what it is belong there, next to the value.
 
-### 9. The shipped config is covered by a test
+### 9. Tuned thresholds get a master switch
+
+Where a section holds *calibrated* values — thresholds validated against known
+data, as opposed to ordinary settings — pair them with a
+`use_manual_thresholds`-style boolean. `false` means the built-in defaults win
+and the values in the file are ignored; `true` means the file's values are
+used. This lets someone experiment without permanently losing the validated
+numbers, and makes "am I on the tuned values or my own?" answerable by reading
+one line.
+
+Two details that make it work: the values ship *equal* to the built-in
+defaults, so flipping the switch on changes nothing until a value is actually
+edited; and keys are still validated when the switch is off, so a typo is
+caught immediately rather than the first time someone enables it. The active
+thresholds are printed at the start of each run and recorded in `summary.json`.
+
+### 10. The shipped config is covered by a test
 
 `configs/nmr/analysis.yaml` must parse in CI
 (`tests/test_nmr_statistics.py::test_repository_analysis_yaml_parses`). A
@@ -127,7 +143,7 @@ Config file: `configs/nmr/analysis.yaml` (override with `--config PATH`).
 | `input` | `paths` | What gets processed when no path is given on the command line |
 | `processing` | `phase_method`, `baseline_method`, `reference_method`, `zero_fill_points`, `line_broadening_hz`, `normalization`, `truncation_window`, `baseline_polynomial_order`, `smoothing_window_ppm`, `abd_sections`, `abd_noise_factor`, `abd_window_points` | FID → spectrum conversion and baseline correction |
 | `regional_analysis` | `ppm_min`, `ppm_max`, `detect_all_peaks`, `min_prominence_snr`, `min_peak_distance_ppm`, `min_peak_width_ppm` | Which ppm window is searched and what counts as a peak |
-| `peak_qc` | `min_snr`, `min_prominence_snr`, `min_width_hz`, `max_width_hz`, `require_positive_area` | Whether a detected feature is a real resonance or noise |
+| `peak_qc` | `use_manual_thresholds`, `min_snr`, `min_prominence_snr`, `min_width_hz`, `max_width_hz`, `require_positive_area` | Whether a detected feature is a real resonance or noise |
 | `plots` | `display_min_ppm`, `display_max_ppm`, `flattened_overlay.*` | Plot ppm range and the plot-only flattened overlay |
 | `output` | `directory`, `run_name`, `export_spectra_csv` | Where results are written |
 | `reference` | `enabled`, `method`, `expected_ppm`, QC gates | Chemical-shift referencing (fail-closed; off unless declared) |
