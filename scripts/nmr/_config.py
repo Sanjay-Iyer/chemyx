@@ -197,6 +197,7 @@ def load_config(
         "statistics",
         "input",
         "output",
+        "peak_qc",
     } | set(_SCRIPT_KEYS)
     unknown_sections = sorted(set(raw) - allowed_sections)
     if unknown_sections:

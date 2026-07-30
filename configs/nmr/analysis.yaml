@@ -142,6 +142,28 @@ regional_analysis:
   min_peak_width_ppm: 0.015
 
 # ---------------------------------------------------------------------------
+# Is a detected feature actually a resonance?
+#
+# Peaks are FOUND on the magnitude spectrum, where a broad baseline undulation
+# can clear the prominence threshold and be reported as a peak. These gates are
+# applied afterwards to the quantitative REAL spectrum, which is where a real
+# peak and a wobble differ. Anything failing them is written to peaks.csv with
+# qc_pass=false and a reason, and zero-filled in peaks_simple.csv.
+#
+# Calibration (06-08-26 noise vs 06-09-26 real peaks on this instrument):
+#   height SNR   noise 0.6, 0.6, -0.1, 2.1, 7.6   |  real 14.5 - 42.5
+#   width (Hz)   noise 12.2 - 14.9                |  real  4.1 -  7.4
+# Deliberately lenient on SNR so genuinely small peaks survive; width does most
+# of the rejecting, because the noise features are broad, not tall.
+# ---------------------------------------------------------------------------
+peak_qc:
+  min_snr: 2.0                # peak height / robust noise, on the real spectrum
+  min_prominence_snr: 3.0     # rise above own flanking minima, in noise sigma
+  min_width_hz: 1.0           # narrower than this is a spike or artefact
+  max_width_hz: 10.0          # broader than this is baseline roll, not a peak
+  require_positive_area: true # an absorption peak must integrate positive
+
+# ---------------------------------------------------------------------------
 # Where results are written. The run folder is named after the input folder
 # (results/raw/nmr/06-09-26 -> results/processed/nmr/06-09-26) unless run_name
 # forces a fixed name.

@@ -175,6 +175,19 @@ def _parser(config_defaults=None) -> argparse.ArgumentParser:
         choices=("none", "low", "medium", "high"),
         default="none",
     )
+    # Post-detection reality gates. Detection runs on the magnitude spectrum,
+    # where a broad baseline undulation can clear the prominence threshold; the
+    # gates below are evaluated on the quantitative real spectrum, which is
+    # what separates a resonance from a wobble. Tune in [peak_qc].
+    parser.add_argument("--qc-min-snr", type=float, default=2.0)
+    parser.add_argument("--qc-min-prominence-snr", type=float, default=3.0)
+    parser.add_argument("--qc-min-width-hz", type=float, default=1.0)
+    parser.add_argument("--qc-max-width-hz", type=float, default=10.0)
+    parser.add_argument(
+        "--qc-require-positive-area",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
     parser.add_argument("--export-csv", action="store_true")
     parser.add_argument(
         "--normalization",
@@ -284,6 +297,13 @@ def _config_defaults(argv):
             "min_prominence_snr": "min_prominence_snr",
             "min_peak_distance_ppm": "min_peak_distance_ppm",
             "min_peak_width_ppm": "min_peak_width_ppm",
+        },
+        "peak_qc": {
+            "min_snr": "qc_min_snr",
+            "min_prominence_snr": "qc_min_prominence_snr",
+            "min_width_hz": "qc_min_width_hz",
+            "max_width_hz": "qc_max_width_hz",
+            "require_positive_area": "qc_require_positive_area",
         },
         "plots": {
             "display_min_ppm": "display_min",
@@ -614,6 +634,49 @@ def _write_overlay_baseline_qc(flattened, path: Path):
     return path
 
 
+def _peak_qc(peak, width_hz: float, args) -> tuple[bool, str]:
+    """Decide whether a detected feature is a real resonance.
+
+    Peaks are found on the smoothed *magnitude* spectrum, where a broad
+    baseline undulation can easily clear the prominence threshold. These gates
+    are applied to the *quantitative real* spectrum instead, which is where a
+    genuine resonance and a wobble actually differ:
+
+    * ``snr`` -- height above the local baseline in units of robust noise. A
+      baseline feature has a real-domain height near zero (or negative) even
+      when its magnitude-domain prominence looks respectable.
+    * ``prominence_snr`` -- how far the peak stands above its own flanking
+      minima, so a bump riding on a broad shoulder is not credited with the
+      shoulder's height.
+    * linewidth -- a resonance has a physically plausible width. Narrower than
+      the digital resolution means a spike or artefact; several times broader
+      than the observed lines means baseline roll, not a peak.
+    * positive area -- an absorption peak integrates positive. A negative area
+      means the "peak" is a phasing or baseline artefact.
+
+    Returns ``(passed, "; ".join(reasons))``.
+    """
+    reasons: list[str] = []
+    if peak.snr < float(args.qc_min_snr):
+        reasons.append(f"snr {peak.snr:.2f} < {float(args.qc_min_snr):g}")
+    if peak.prominence_snr < float(args.qc_min_prominence_snr):
+        reasons.append(
+            f"prominence_snr {peak.prominence_snr:.2f} < "
+            f"{float(args.qc_min_prominence_snr):g}"
+        )
+    if width_hz < float(args.qc_min_width_hz):
+        reasons.append(
+            f"width {width_hz:.2f} Hz < {float(args.qc_min_width_hz):g} Hz"
+        )
+    if width_hz > float(args.qc_max_width_hz):
+        reasons.append(
+            f"width {width_hz:.2f} Hz > {float(args.qc_max_width_hz):g} Hz"
+        )
+    if args.qc_require_positive_area and peak.positive_area <= 0:
+        reasons.append(f"positive_area {peak.positive_area:.3f} <= 0")
+    return (not reasons), "; ".join(reasons)
+
+
 def _prefix_output_files(out_dir: Path) -> dict[str, str]:
     """Rename every file under *out_dir* to ``<run>_<original name>``.
 
@@ -647,6 +710,7 @@ def _remap_path(value, renamed: dict[str, str]):
 
 SIMPLE_PEAK_COLUMNS = [
     "file", "timestamp", "peak_ppm", "integrated_area", "intensity",
+    "snr", "prominence_snr", "width_hz",
 ]
 
 
@@ -658,24 +722,49 @@ def _write_simple_peaks(records, peak_rows, path: Path):
     a time course plots as a real point instead of dropping out of the series.
     Values are the same baseline-corrected quantities written to ``peaks.csv``,
     only rounded for reading.
+
+    Only QC-passing peaks are reported. A detection that failed the reality
+    gates in :func:`_peak_qc` is noise, so it is zero-filled exactly like a
+    non-detection rather than contributing a fictitious area to the series.
+    ``peaks.csv`` still carries every detection with its failure reasons.
     """
     by_file: dict[str, list[dict]] = {}
     for row in peak_rows:
+        if not row.get("qc_pass"):
+            continue
         by_file.setdefault(row["file"], []).append(row)
 
-    # A spectrum with no detection still belongs on the same trace, so hold it
+    # A spectrum with no usable peak still belongs on the same trace, so hold it
     # at the ppm of the resonance being tracked (the most-observed family's
     # median) and report zero area/intensity.  Parking it at 0 ppm instead
     # would wreck the y-axis of any ppm-versus-time plot.
     by_family: dict[str, list[float]] = {}
-    for row in peak_rows:
-        by_family.setdefault(row.get("peak_family_id") or "", []).append(
-            float(row["interpolated_ppm"])
-        )
-    tracked_ppm = 0.0
+    for rows in by_file.values():
+        for row in rows:
+            by_family.setdefault(row.get("peak_family_id") or "", []).append(
+                float(row["interpolated_ppm"])
+            )
     if by_family:
-        tracked = max(by_family.values(), key=len)
-        tracked_ppm = float(statistics.median(tracked))
+        tracked_ppm = float(statistics.median(max(by_family.values(), key=len)))
+    elif peak_rows:
+        # Nothing passed QC anywhere. Fall back to where the rejected features
+        # sat, which is still the right neighbourhood of the spectrum.
+        tracked_ppm = float(
+            statistics.median([float(r["interpolated_ppm"]) for r in peak_rows])
+        )
+    else:
+        # Nothing was detected at all: hold the trace at the middle of the
+        # analysed region so the placeholder is never a misleading 0 ppm.
+        bounds = [
+            (float(r["region_min_ppm"]), float(r["region_max_ppm"]))
+            for r in records
+            if r.get("region_min_ppm") is not None
+        ]
+        tracked_ppm = (
+            float(statistics.median([0.5 * (lo + hi) for lo, hi in bounds]))
+            if bounds
+            else 0.0
+        )
 
     def _acquisition_order(record):
         # ISO-8601 sorts correctly as text; undated files go last.
@@ -701,6 +790,9 @@ def _write_simple_peaks(records, peak_rows, path: Path):
                         "peak_ppm": f"{tracked_ppm:.3f}",
                         "integrated_area": f"{0.0:.2f}",
                         "intensity": f"{0.0:.2f}",
+                        "snr": f"{0.0:.2f}",
+                        "prominence_snr": f"{0.0:.2f}",
+                        "width_hz": f"{0.0:.2f}",
                     }
                 )
                 continue
@@ -712,6 +804,9 @@ def _write_simple_peaks(records, peak_rows, path: Path):
                         "peak_ppm": f"{peak['interpolated_ppm']:.3f}",
                         "integrated_area": f"{peak['positive_area']:.2f}",
                         "intensity": f"{peak['height']:.2f}",
+                        "snr": f"{peak['snr']:.2f}",
+                        "prominence_snr": f"{peak['prominence_snr']:.2f}",
+                        "width_hz": f"{peak['width_hz']:.2f}",
                     }
                 )
     return path
@@ -1191,6 +1286,8 @@ def main(argv: list[str] | None = None) -> int:
                     )
                 )
             for peak_number, peak in enumerate(picked.peaks, 1):
+                width_hz = peak.width_ppm * spectrum.observe_frequency_mhz
+                qc_pass, qc_reasons = _peak_qc(peak, width_hz, args)
                 local_integral = integrate_above_local_baseline(
                     analysis_ppm,
                     quantitative_real,
@@ -1219,9 +1316,10 @@ def main(argv: list[str] | None = None) -> int:
                         "integration_left_ppm": local_integral.left_ppm,
                         "integration_right_ppm": local_integral.right_ppm,
                         "prominence": peak.prominence,
+                        "prominence_snr": peak.prominence_snr,
                         "snr": peak.snr,
                         "width_ppm": peak.width_ppm,
-                        "width_hz": peak.width_ppm * spectrum.observe_frequency_mhz,
+                        "width_hz": width_hz,
                         "fit_model": "parabolic maximum",
                         "fit_quality": peak.interpolation_quality,
                         "classification": peak.classification,
@@ -1232,8 +1330,8 @@ def main(argv: list[str] | None = None) -> int:
                         ),
                         "reference_shift_ppm": reference_shift,
                         "alignment_shift_ppm": 0.0,
-                        "qc_pass": True,
-                        "qc_failure_reasons": "",
+                        "qc_pass": qc_pass,
+                        "qc_failure_reasons": qc_reasons,
                     }
                 )
             records.append(
@@ -1434,7 +1532,8 @@ def main(argv: list[str] | None = None) -> int:
         "observed_ppm", "aligned_ppm", "referenced_ppm", "discrete_ppm",
         "interpolated_ppm", "height", "signed_area", "positive_area",
         "local_feet_signed_area", "local_feet_positive_area",
-        "integration_left_ppm", "integration_right_ppm", "prominence", "snr",
+        "integration_left_ppm", "integration_right_ppm", "prominence",
+        "prominence_snr", "snr",
         "width_ppm", "width_hz", "fit_model", "fit_quality",
         "classification", "baseline_method", "noise_region",
         "reference_shift_ppm", "alignment_shift_ppm", "qc_pass",

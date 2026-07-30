@@ -582,3 +582,94 @@ def test_peak_area_is_stable_across_reasonable_zero_fill_sizes():
     assert max(peak.peak_ppm for peak in results) - min(
         peak.peak_ppm for peak in results
     ) < 0.002
+
+
+# ---------------------------------------------------------------------------
+# Peak reality gates: real resonances survive, baseline wobbles do not
+# ---------------------------------------------------------------------------
+
+
+class _QcArgs:
+    """Stand-in for the argparse namespace consumed by _peak_qc."""
+
+    def __init__(self, **overrides):
+        self.qc_min_snr = 2.0
+        self.qc_min_prominence_snr = 3.0
+        self.qc_min_width_hz = 1.0
+        self.qc_max_width_hz = 10.0
+        self.qc_require_positive_area = True
+        self.__dict__.update(overrides)
+
+
+class _QcPeak:
+    def __init__(self, snr, prominence_snr, positive_area=10.0):
+        self.snr = snr
+        self.prominence_snr = prominence_snr
+        self.positive_area = positive_area
+
+
+def _peak_qc_fn():
+    """Import _peak_qc from the script (it lives in scripts/, not the package)."""
+    import importlib.util
+
+    script_dir = REPO_ROOT / "scripts" / "nmr"
+    added = str(script_dir) not in sys.path
+    if added:
+        sys.path.insert(0, str(script_dir))  # process_fid imports _bootstrap
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "_pf_for_qc", script_dir / "process_fid.py"
+        )
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["_pf_for_qc"] = module
+        spec.loader.exec_module(module)
+        return module._peak_qc
+    finally:
+        if added:
+            sys.path.remove(str(script_dir))
+
+
+def test_peak_qc_accepts_a_real_resonance():
+    # Representative of every 06-09-26 detection.
+    passed, reasons = _peak_qc_fn()(
+        _QcPeak(snr=36.09, prominence_snr=21.71), 4.20, _QcArgs()
+    )
+    assert passed is True
+    assert reasons == ""
+
+
+@pytest.mark.parametrize(
+    "snr, prominence_snr, width_hz, expected_reason",
+    [
+        # Real 06-08-26 rejections: broad baseline undulations, not peaks.
+        (0.62, 7.36, 14.51, "snr"),
+        (-0.07, 5.73, 12.77, "snr"),
+        (7.61, 7.08, 14.87, "width"),
+    ],
+)
+def test_peak_qc_rejects_noise_features(snr, prominence_snr, width_hz, expected_reason):
+    passed, reasons = _peak_qc_fn()(
+        _QcPeak(snr=snr, prominence_snr=prominence_snr), width_hz, _QcArgs()
+    )
+    assert passed is False
+    assert expected_reason in reasons
+
+
+def test_peak_qc_rejects_negative_area_and_spikes():
+    qc = _peak_qc_fn()
+    passed, reasons = qc(
+        _QcPeak(snr=9.0, prominence_snr=9.0, positive_area=0.0), 5.0, _QcArgs()
+    )
+    assert passed is False and "positive_area" in reasons
+
+    passed, reasons = qc(_QcPeak(snr=9.0, prominence_snr=9.0), 0.4, _QcArgs())
+    assert passed is False and "width" in reasons
+
+
+def test_peak_qc_thresholds_are_configurable():
+    # The 7.61-SNR / 14.87-Hz feature is a width call, so a wider ceiling keeps
+    # it. This is the knob to reach for when a real peak is broader.
+    passed, _ = _peak_qc_fn()(
+        _QcPeak(snr=7.61, prominence_snr=7.08), 14.87, _QcArgs(qc_max_width_hz=20.0)
+    )
+    assert passed is True
