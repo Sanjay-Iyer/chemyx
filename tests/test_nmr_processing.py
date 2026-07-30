@@ -503,6 +503,11 @@ def test_process_fid_cli_writes_phase_corrected_artifacts(tmp_path):
     assert (run_dir / "peak_families.csv").is_file()
     assert (run_dir / "summary.json").is_file()
     assert (run_dir / "plots" / "overlay_region_corrected.png").is_file()
+    assert (run_dir / "plots" / "overlay_region_baseline_flattened.png").is_file()
+    assert (
+        run_dir / "plots" / "overlay_baseline_diagnostic_sequence_1030.png"
+    ).is_file()
+    assert (run_dir / "statistics" / "overlay_baseline_qc.csv").is_file()
     assert (run_dir / "plots" / "stacked_region_corrected.png").is_file()
     assert len(list((run_dir / "plots" / "full").glob("*.png"))) == 1
     assert len(list((run_dir / "plots" / "region").glob("*.png"))) == 1

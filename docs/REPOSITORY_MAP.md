@@ -21,6 +21,10 @@ scripts/02_si6_automated_nmr.py
   monitoring, pump, NMR, analysis, and output configuration.
 - `configs/machines/00_machine.example.yaml`: committed machine template.
 - `configs/machines/00_machine.local.yaml`: ignored work-laptop-specific copy.
+- `configs/nmr/analysis.yaml`: parameters for the standalone NMR scripts under
+  `scripts/nmr/`. The convention that every script parameter lives in YAML
+  rather than in command-line flags is documented in
+  `docs/guides/config_yaml_rules.md`.
 
 The active workflow uses `stage` for a reaction-monitoring phase, `cycle` for a
 sample/NMR/return sequence, `measurement` for a scheduled NMR sample, and

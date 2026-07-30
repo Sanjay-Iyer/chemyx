@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-07-28T12:15:51",
+  "created_at": "2026-07-30T11:32:27",
   "dependencies": {
     "matplotlib": "3.10.9",
     "nmrglue": "0.11",
@@ -10,10 +10,14 @@
   "files_failed": 0,
   "files_found": 8,
   "files_succeeded": 8,
-  "git_commit": "e1c4ddd39ef3e5158fbbdc30b2ea421c83ccbddb",
+  "flattened_overlay_source_array": "quantitative_real: phase-corrected real spectrum after reference/alignment and configured primary baseline correction; identical array passed to individual full and regional plots",
+  "git_commit": "1ae1f8e1b94664f7508b86ff043afe997a17f5fd",
   "inputs": [
     "results/raw/nmr/06-09-26/"
   ],
+  "overlay_baseline_diagnostic": "results\\processed\\nmr\\06-09-26\\plots\\overlay_baseline_diagnostic_sequence_1030.png",
+  "overlay_baseline_qc": "results\\processed\\nmr\\06-09-26\\statistics\\overlay_baseline_qc.csv",
+  "overlay_region_baseline_flattened": "results\\processed\\nmr\\06-09-26\\plots\\overlay_region_baseline_flattened.png",
   "overlay_region_corrected": "results\\processed\\nmr\\06-09-26\\plots\\overlay_region_corrected.png",
   "parameters": {
     "abd_noise_factor": 3.0,
@@ -60,7 +64,7 @@
     "solvent_isotopic_form": "unknown",
     "solvent_resonance": null,
     "solvent_validation_resonance": null,
-    "statistics": true,
+    "statistics": false,
     "truncation_window": "none",
     "zero_fill_points": 65536
   },
@@ -73,7 +77,8 @@
     "stored inverse phase for real-spectrum plots",
     "regional polynomial baseline on magnitude diagnostic",
     "Savitzky-Golay smoothing for detection only",
-    "prominence, distance, width, and positive-area QC"
+    "prominence, distance, width, and positive-area QC",
+    "plot-only robust linear residual flattening of the authoritative baseline-corrected real trace, with peak/exclusion masks"
   ],
   "records": [
     {
@@ -398,6 +403,7 @@
     }
   ],
   "script": "process_fid.py",
+  "simple_peaks": "results\\processed\\nmr\\06-09-26\\peaks_simple.csv",
   "stacked_region_corrected": "results\\processed\\nmr\\06-09-26\\plots\\stacked_region_corrected.png",
   "statistics": {
     "bootstrap_confidence_level": 0.95,
@@ -427,6 +433,15 @@
       "qc_pass_rate_vs_time.png",
       "phase_vs_time.png",
       "spectral_similarity_vs_time.png",
+      "area_with_ci_vs_time.png",
+      "rate_vs_time.png",
+      "kinetic_model_comparison.png",
+      "area_with_ci_vs_time.png",
+      "rate_vs_time.png",
+      "kinetic_model_comparison.png",
+      "area_with_ci_vs_time.png",
+      "rate_vs_time.png",
+      "kinetic_model_comparison.png",
       "area_with_ci_vs_time.png",
       "rate_vs_time.png",
       "kinetic_model_comparison.png"

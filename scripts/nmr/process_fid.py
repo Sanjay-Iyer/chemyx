@@ -13,6 +13,7 @@ import hashlib
 import importlib.metadata
 import json
 import shutil
+import statistics
 import subprocess
 import sys
 from datetime import datetime
@@ -38,6 +39,13 @@ from chemyx_lab.analysis.analysis_config import (
     ConfigError as StatisticsConfigError,
     load_statistics_config,
 )
+from chemyx_lab.analysis.baseline_flattening import (
+    QC_COLUMNS as OVERLAY_BASELINE_QC_COLUMNS,
+    FlattenedOverlayConfigError,
+    flatten_residual_baseline,
+    load_flattened_overlay_config,
+    regional_authoritative_trace,
+)
 
 from _common import (
     _safe_name,
@@ -60,7 +68,14 @@ def _parser(config_defaults=None) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Process NMReady JCAMP-DX FIDs and pick all regional peaks."
     )
-    parser.add_argument("paths", nargs="+", help=".dx files or directories")
+    parser.add_argument(
+        "paths",
+        nargs="*",
+        help=(
+            ".dx files or directories. Optional: falls back to input.paths in "
+            "the config file, so a fully configured run needs no arguments."
+        ),
+    )
     parser.add_argument(
         "--config",
         type=Path,
@@ -208,6 +223,33 @@ def _statistics_config(argv):
     return load_statistics_config(raw.get("statistics"))
 
 
+def _flattened_overlay_config(argv):
+    """Load and validate the optional plot-only baseline configuration."""
+
+    preliminary = argparse.ArgumentParser(add_help=False)
+    preliminary.add_argument("--config", type=Path)
+    known, _ = preliminary.parse_known_args(argv)
+    path = DEFAULT_CONFIG_PATH if known.config is None else known.config
+    if not path.exists():
+        return load_flattened_overlay_config(None)
+    raw = read_mapping_config(path, "NMR processing config")
+    plots = raw.get("plots")
+    if plots is None:
+        return load_flattened_overlay_config(None)
+    if not isinstance(plots, dict):
+        raise FlattenedOverlayConfigError("[plots] must be a mapping")
+    # display_*_ppm are read by _config_defaults; only flattened_overlay is
+    # this function's business.
+    unknown = sorted(
+        set(plots) - {"flattened_overlay", "display_min_ppm", "display_max_ppm"}
+    )
+    if unknown:
+        raise FlattenedOverlayConfigError(
+            "Unknown key(s) in [plots]: " + ", ".join(unknown)
+        )
+    return load_flattened_overlay_config(plots.get("flattened_overlay"))
+
+
 def _config_defaults(argv):
     preliminary = argparse.ArgumentParser(add_help=False)
     preliminary.add_argument("--config", type=Path)
@@ -219,6 +261,9 @@ def _config_defaults(argv):
         return {}
     raw = read_mapping_config(path, "NMR processing config")
     sections = {
+        "input": {
+            "paths": "paths",
+        },
         "processing": {
             "phase_method": "phase_method",
             "baseline_method": "baseline_method",
@@ -226,10 +271,28 @@ def _config_defaults(argv):
             "zero_fill_points": "zero_fill_points",
             "line_broadening_hz": "line_broadening_hz",
             "normalization": "normalization",
+            "truncation_window": "truncation_window",
+            "baseline_polynomial_order": "baseline_order",
+            "smoothing_window_ppm": "smoothing_window_ppm",
+            "abd_sections": "abd_sections",
+            "abd_noise_factor": "abd_noise_factor",
+            "abd_window_points": "abd_window_points",
         },
         "regional_analysis": {
             "ppm_min": "region_min",
             "ppm_max": "region_max",
+            "min_prominence_snr": "min_prominence_snr",
+            "min_peak_distance_ppm": "min_peak_distance_ppm",
+            "min_peak_width_ppm": "min_peak_width_ppm",
+        },
+        "plots": {
+            "display_min_ppm": "display_min",
+            "display_max_ppm": "display_max",
+        },
+        "output": {
+            "directory": "output_dir",
+            "run_name": "run_name",
+            "export_spectra_csv": "export_csv",
         },
         "reference": {
             "method": "reference_model",
@@ -257,6 +320,10 @@ def _config_defaults(argv):
         allowed = set(mapping)
         if section_name == "regional_analysis":
             allowed.add("detect_all_peaks")
+        if section_name == "plots":
+            # Plot-only overlay settings are validated separately by
+            # _flattened_overlay_config; tolerate them here.
+            allowed.add("flattened_overlay")
         if section_name == "reference":
             allowed.update(
                 {
@@ -275,6 +342,19 @@ def _config_defaults(argv):
         for key, destination in mapping.items():
             if key in section:
                 defaults[destination] = section[key]
+    # argparse's type= is not applied to set_defaults values, so coerce the
+    # ones that must not stay plain strings from YAML.
+    if isinstance(defaults.get("output_dir"), str):
+        defaults["output_dir"] = Path(defaults["output_dir"])
+    paths = defaults.get("paths")
+    if isinstance(paths, str):
+        defaults["paths"] = [paths]
+    elif paths is not None and not isinstance(paths, list):
+        raise ConfigError(
+            f"'paths' in [input] of {path} must be a string or a list of strings"
+        )
+    elif paths is not None:
+        defaults["paths"] = [str(p) for p in paths]
     defaults["config"] = known.config
     return defaults
 
@@ -411,6 +491,198 @@ def _plot_overlay(
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path)
     plt.close(fig)
+    return path
+
+
+def _plot_flattened_overlay(traces, path: Path, residual_config):
+    """Plot authoritative real traces after conservative display-only flattening."""
+
+    plt = _get_plotting()
+    fig, ax = plt.subplots(figsize=(11.5, 6.3), dpi=180)
+    colors = plt.get_cmap("viridis")
+    flattened = []
+    for index, trace in enumerate(traces):
+        result = flatten_residual_baseline(
+            trace["ppm"],
+            trace["intensity"],
+            config=residual_config,
+            detected_peak_ppm=trace["detected_peak_ppm"],
+        )
+        color = colors(index / max(1, len(traces) - 1))
+        ax.plot(
+            result.ppm,
+            result.after,
+            color=color,
+            linewidth=0.85,
+            label=trace["label"],
+        )
+        flattened.append(trace | {"flattened": result})
+    ax.set_xlim(
+        max(float(max(trace["ppm"])) for trace in traces),
+        min(float(min(trace["ppm"])) for trace in traces),
+    )
+    ax.axhline(0.0, color="#555555", linewidth=0.8)
+    ax.set_title("Regional phase-corrected spectra — flattened baseline")
+    ax.set_xlabel(r"$^1$H chemical shift (ppm)")
+    ax.set_ylabel("Baseline-corrected real intensity")
+    ax.grid(True, alpha=0.18)
+    ax.legend(loc="best", fontsize=7, ncol=2)
+    fig.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path)
+    plt.close(fig)
+    return path, flattened
+
+
+def _representative_flattened_trace(flattened):
+    """Prefer sequence 1030, otherwise the strongest trace near 5.785 ppm."""
+
+    for trace in flattened:
+        if "sequence-1030" in trace["label"].lower():
+            return trace
+    candidates = []
+    for trace in flattened:
+        result = trace["flattened"]
+        mask = (result.ppm >= 5.70) & (result.ppm <= 5.90)
+        height = float(max(result.before[mask])) if any(mask) else float("-inf")
+        candidates.append((height, trace))
+    return max(candidates, key=lambda item: item[0])[1]
+
+
+def _plot_flattening_diagnostic(trace, path: Path):
+    """Show the authoritative trace, fitted residual, and flattened trace."""
+
+    plt = _get_plotting()
+    result = trace["flattened"]
+    fig, ax = plt.subplots(figsize=(11.5, 6.3), dpi=180)
+    ax.plot(
+        result.ppm,
+        result.before,
+        color="#1f77b4",
+        linewidth=0.85,
+        label="Before residual baseline flattening",
+    )
+    ax.plot(
+        result.ppm,
+        result.estimated_baseline,
+        color="#d1495b",
+        linestyle="--",
+        linewidth=1.25,
+        label="Estimated residual baseline",
+    )
+    ax.plot(
+        result.ppm,
+        result.after,
+        color="#2a9d8f",
+        linewidth=0.85,
+        label="After residual baseline flattening",
+    )
+    ax.axvspan(
+        5.70,
+        5.90,
+        color="#f4d35e",
+        alpha=0.11,
+        label="Protected 5.70–5.90 ppm region",
+    )
+    ax.axhline(0.0, color="#555555", linewidth=0.8)
+    ax.set_xlim(6.5, 5.0)
+    ax.set_title(f"Residual baseline diagnostic — {trace['label']}")
+    ax.set_xlabel(r"$^1$H chemical shift (ppm)")
+    ax.set_ylabel("Phase-corrected real intensity")
+    ax.grid(True, alpha=0.18)
+    ax.legend(loc="best", fontsize=8)
+    fig.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path)
+    plt.close(fig)
+    return path
+
+
+def _write_overlay_baseline_qc(flattened, path: Path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=OVERLAY_BASELINE_QC_COLUMNS)
+        writer.writeheader()
+        for trace in flattened:
+            writer.writerow(
+                {
+                    "file": trace["file"],
+                    "sequence_label": trace["label"],
+                    **trace["flattened"].metrics,
+                }
+            )
+    return path
+
+
+SIMPLE_PEAK_COLUMNS = [
+    "file", "timestamp", "peak_ppm", "integrated_area", "intensity",
+]
+
+
+def _write_simple_peaks(records, peak_rows, path: Path):
+    """Minimal per-peak table: which file, where the peak is, how big it is.
+
+    Ordered by acquisition timestamp rather than filename, and every processed
+    file keeps a row even when no peak was detected -- zero-filled, so a gap in
+    a time course plots as a real point instead of dropping out of the series.
+    Values are the same baseline-corrected quantities written to ``peaks.csv``,
+    only rounded for reading.
+    """
+    by_file: dict[str, list[dict]] = {}
+    for row in peak_rows:
+        by_file.setdefault(row["file"], []).append(row)
+
+    # A spectrum with no detection still belongs on the same trace, so hold it
+    # at the ppm of the resonance being tracked (the most-observed family's
+    # median) and report zero area/intensity.  Parking it at 0 ppm instead
+    # would wreck the y-axis of any ppm-versus-time plot.
+    by_family: dict[str, list[float]] = {}
+    for row in peak_rows:
+        by_family.setdefault(row.get("peak_family_id") or "", []).append(
+            float(row["interpolated_ppm"])
+        )
+    tracked_ppm = 0.0
+    if by_family:
+        tracked = max(by_family.values(), key=len)
+        tracked_ppm = float(statistics.median(tracked))
+
+    def _acquisition_order(record):
+        # ISO-8601 sorts correctly as text; undated files go last.
+        timestamp = record.get("timestamp") or ""
+        return (not timestamp, timestamp, record.get("file", ""))
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=SIMPLE_PEAK_COLUMNS)
+        writer.writeheader()
+        for record in sorted(records, key=_acquisition_order):
+            name = record.get("file", "")
+            peaks = sorted(
+                by_file.get(name, []),
+                key=lambda peak: peak["interpolated_ppm"],
+                reverse=True,
+            )
+            if not peaks:
+                writer.writerow(
+                    {
+                        "file": name,
+                        "timestamp": record.get("timestamp", ""),
+                        "peak_ppm": f"{tracked_ppm:.3f}",
+                        "integrated_area": f"{0.0:.2f}",
+                        "intensity": f"{0.0:.2f}",
+                    }
+                )
+                continue
+            for peak in peaks:
+                writer.writerow(
+                    {
+                        "file": name,
+                        "timestamp": record.get("timestamp", ""),
+                        "peak_ppm": f"{peak['interpolated_ppm']:.3f}",
+                        "integrated_area": f"{peak['positive_area']:.2f}",
+                        "intensity": f"{peak['height']:.2f}",
+                    }
+                )
     return path
 
 
@@ -630,9 +902,22 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     args = _parser(defaults).parse_args(effective_argv)
+    if not args.paths:
+        print(
+            "ERROR: no input given. Pass a .dx file or directory on the command "
+            "line, or set input.paths in the config file "
+            f"({DEFAULT_CONFIG_PATH}).",
+            file=sys.stderr,
+        )
+        return 2
     try:
         stats_config = _statistics_config(effective_argv)
-    except (ConfigError, StatisticsConfigError) as exc:
+        flattened_overlay_config = _flattened_overlay_config(effective_argv)
+    except (
+        ConfigError,
+        StatisticsConfigError,
+        FlattenedOverlayConfigError,
+    ) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     from dataclasses import replace
@@ -671,6 +956,7 @@ def main(argv: list[str] | None = None) -> int:
     records: list[dict] = []
     peak_rows: list[dict] = []
     plot_results: list[tuple[str, RegionPeakPickingResult]] = []
+    authoritative_overlay_traces: list[dict] = []
     # Per-spectrum inputs for the optional statistics pipeline, appended in
     # lock-step with plot_results so their order matches the family assignment.
     stat_spectra_raw: list[dict] = []
@@ -969,6 +1255,21 @@ def main(argv: list[str] | None = None) -> int:
                 }
             )
             plot_results.append((path.stem, picked))
+            regional_ppm, regional_real = regional_authoritative_trace(
+                analysis_ppm,
+                quantitative_real,
+                args.region_min,
+                args.region_max,
+            )
+            authoritative_overlay_traces.append(
+                {
+                    "file": path.name,
+                    "label": path.stem,
+                    "ppm": regional_ppm,
+                    "intensity": regional_real,
+                    "detected_peak_ppm": positions,
+                }
+            )
             if statistics_enabled:
                 stat_spectra_raw.append(
                     {
@@ -998,6 +1299,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  ERROR {path.name}: {exc}", file=sys.stderr)
 
     overlay = stacked = ""
+    flattened_overlay = flattened_diagnostic = flattened_qc = ""
     family_rows: list[dict] = []
     statistics_info: dict | None = None
     if plot_results:
@@ -1040,6 +1342,31 @@ def main(argv: list[str] | None = None) -> int:
                 stacked=True,
             )
         )
+        if (
+            flattened_overlay_config.enabled
+            and authoritative_overlay_traces
+        ):
+            flattened_path, flattened_results = _plot_flattened_overlay(
+                authoritative_overlay_traces,
+                out_dir / "plots" / "overlay_region_baseline_flattened.png",
+                flattened_overlay_config.residual_baseline,
+            )
+            flattened_overlay = str(flattened_path)
+            representative = _representative_flattened_trace(flattened_results)
+            flattened_diagnostic = str(
+                _plot_flattening_diagnostic(
+                    representative,
+                    out_dir
+                    / "plots"
+                    / "overlay_baseline_diagnostic_sequence_1030.png",
+                )
+            )
+            flattened_qc = str(
+                _write_overlay_baseline_qc(
+                    flattened_results,
+                    out_dir / "statistics" / "overlay_baseline_qc.csv",
+                )
+            )
         if statistics_enabled and stat_spectra_raw:
             try:
                 statistics_info = _run_statistics(
@@ -1100,6 +1427,10 @@ def main(argv: list[str] | None = None) -> int:
             writer.writeheader()
             writer.writerows(rows)
 
+    simple_peaks = str(
+        _write_simple_peaks(records, peak_rows, out_dir / "peaks_simple.csv")
+    )
+
     summary = {
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "script": "process_fid.py",
@@ -1120,9 +1451,22 @@ def main(argv: list[str] | None = None) -> int:
             "regional polynomial baseline on magnitude diagnostic",
             "Savitzky-Golay smoothing for detection only",
             "prominence, distance, width, and positive-area QC",
+            (
+                "plot-only robust linear residual flattening of the authoritative "
+                "baseline-corrected real trace, with peak/exclusion masks"
+            ),
         ],
         "overlay_region_corrected": overlay,
         "stacked_region_corrected": stacked,
+        "overlay_region_baseline_flattened": flattened_overlay,
+        "overlay_baseline_diagnostic": flattened_diagnostic,
+        "overlay_baseline_qc": flattened_qc,
+        "simple_peaks": simple_peaks,
+        "flattened_overlay_source_array": (
+            "quantitative_real: phase-corrected real spectrum after reference/"
+            "alignment and configured primary baseline correction; identical "
+            "array passed to individual full and regional plots"
+        ),
         "records": records,
     }
     if statistics_info is not None:

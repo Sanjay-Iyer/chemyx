@@ -189,9 +189,14 @@ def load_config(
         "regional_analysis",
         "reference",
         "reference_models",
+        # Plot-only settings consumed by process_fid.py. Fixed-target scripts
+        # share this YAML file and intentionally ignore this section.
+        "plots",
         # Consumed only by process_fid.py's regional processor; the fixed-target
         # scripts share this file and must tolerate (ignore) the section.
         "statistics",
+        "input",
+        "output",
     } | set(_SCRIPT_KEYS)
     unknown_sections = sorted(set(raw) - allowed_sections)
     if unknown_sections:

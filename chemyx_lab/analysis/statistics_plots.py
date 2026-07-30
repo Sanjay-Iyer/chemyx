@@ -12,6 +12,7 @@ quantities from the report's CSV tables; they never re-derive statistics.
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Iterable
 
 
@@ -57,7 +58,7 @@ def _line_plot(path: Path, x, y, *, title, xlabel, ylabel, marker="o-"):
 
 
 def render_plots(report, plots_dir: Path) -> list[str]:
-    """Draw the statistics plot set into ``plots_dir/statistics``; return paths."""
+    """Draw statistics plots, keeping every peak time series visually separate."""
     out = Path(plots_dir) / "statistics"
     written: list[str] = []
 
@@ -95,12 +96,74 @@ def render_plots(report, plots_dir: Path) -> list[str]:
     if sim:
         _try("spectral_similarity_vs_time.png", lambda p: _similarity_plot(p, sim))
 
-    if report.target_series:
-        _try("area_with_ci_vs_time.png", lambda p: _area_plot(p, report.target_series))
-        _try("rate_vs_time.png", lambda p: _rate_plot(p, report.target_series))
-    if report.kinetic_best:
-        _try("kinetic_model_comparison.png", lambda p: _kinetic_plot(p, report.kinetic_best))
+    # A plot used to judge change over time must contain exactly one analysis
+    # target.  This keeps the 5.8 and 6.1 ppm fixed regions independent.
+    for key, target in report.target_series.items():
+        target_dir = out / "single_peak" / _safe_target_name(target["name"])
+        _try(
+            str(Path("single_peak") / target_dir.name / "area_with_ci_vs_time.png"),
+            lambda _p, target=target, target_dir=target_dir: _area_plot(
+                target_dir / "area_with_ci_vs_time.png", {"target": target}
+            ),
+        )
+        _try(
+            str(Path("single_peak") / target_dir.name / "rate_vs_time.png"),
+            lambda _p, target=target, target_dir=target_dir: _rate_plot(
+                target_dir / "rate_vs_time.png", {"target": target}
+            ),
+        )
+        if key in report.kinetic_best:
+            _try(
+                str(
+                    Path("single_peak")
+                    / target_dir.name
+                    / "kinetic_model_comparison.png"
+                ),
+                lambda _p, key=key, target_dir=target_dir: _kinetic_plot(
+                    target_dir / "kinetic_model_comparison.png",
+                    {key: report.kinetic_best[key]},
+                ),
+            )
+
+    # When two or more chemically defined peaks are configured, comparisons
+    # are deliberately isolated in a separate directory.
+    fixed_targets = {
+        key: target
+        for key, target in report.target_series.items()
+        if target.get("kind") == "fixed_region"
+    }
+    if len(fixed_targets) >= 2:
+        _try(
+            str(Path("two_peaks") / "area_with_ci_vs_time.png"),
+            lambda _p: _area_plot(
+                out / "two_peaks" / "area_with_ci_vs_time.png", fixed_targets
+            ),
+        )
+        _try(
+            str(Path("two_peaks") / "rate_vs_time.png"),
+            lambda _p: _rate_plot(
+                out / "two_peaks" / "rate_vs_time.png", fixed_targets
+            ),
+        )
+        fixed_kinetics = {
+            key: info
+            for key, info in report.kinetic_best.items()
+            if key in fixed_targets
+        }
+        if fixed_kinetics:
+            _try(
+                str(Path("two_peaks") / "kinetic_model_comparison.png"),
+                lambda _p: _kinetic_plot(
+                    out / "two_peaks" / "kinetic_model_comparison.png",
+                    fixed_kinetics,
+                ),
+            )
     return written
+
+
+def _safe_target_name(value) -> str:
+    name = re.sub(r"[^A-Za-z0-9_-]+", "_", str(value)).strip("_")
+    return name or "unnamed_peak"
 
 
 def _phase_plot(path, elapsed, phase0, phase1):

@@ -408,14 +408,17 @@ def test_statistics_config_validates_and_rejects_bad_values():
 
 
 def test_repository_analysis_yaml_parses():
-    # The shipped config file must load and keep statistics disabled by default.
+    # The shipped config file must load. Statistics are enabled in it so that a
+    # bare `process_fid.py <input>` run emits the full table set without needing
+    # --statistics; the library default (no section) stays off, which
+    # test_statistics_config_defaults_to_disabled covers.
     from pathlib import Path
     from chemyx_lab.config import read_mapping_config
     from chemyx_lab.analysis.analysis_config import load_statistics_config
     repo = Path(__file__).resolve().parents[1]
     raw = read_mapping_config(repo / "configs" / "nmr" / "analysis.yaml", "cfg")
     cfg = load_statistics_config(raw.get("statistics"))
-    assert cfg.enabled is False
+    assert cfg.enabled is True
     assert [r.name for r in cfg.fixed_regions] == ["candidate_5p79", "candidate_6p10"]
 
 
@@ -476,3 +479,40 @@ def test_report_builder_emits_all_tables_with_join_keys():
     _, region_rows = report.tables["time_series_regions.csv"]
     assert {(r["left_ppm"], r["right_ppm"]) for r in region_rows} == {(5.70, 5.90)}
     assert report.provenance["n_spectra"] == 6
+
+
+def test_statistics_plots_separate_each_peak_and_isolate_two_peak_comparison(tmp_path):
+    from types import SimpleNamespace
+    from chemyx_lab.analysis.statistics_plots import render_plots
+
+    elapsed = [0.0, 1.0, 2.0, 3.0]
+    report = SimpleNamespace(
+        warnings=[],
+        qc_series={},
+        similarity_series={},
+        kinetic_best={},
+        target_series={
+            "region:candidate_5p79": {
+                "kind": "fixed_region",
+                "name": "candidate_5p79",
+                "elapsed": elapsed,
+                "area": [1.0, 2.0, 3.0, 4.0],
+                "area_uncertainty": [0.1] * 4,
+            },
+            "region:candidate_6p10": {
+                "kind": "fixed_region",
+                "name": "candidate_6p10",
+                "elapsed": elapsed,
+                "area": [4.0, 3.0, 2.0, 1.0],
+                "area_uncertainty": [0.1] * 4,
+            },
+        },
+    )
+    render_plots(report, tmp_path)
+    stats = tmp_path / "statistics"
+    for name in ("candidate_5p79", "candidate_6p10"):
+        assert (stats / "single_peak" / name / "area_with_ci_vs_time.png").is_file()
+        assert (stats / "single_peak" / name / "rate_vs_time.png").is_file()
+    assert (stats / "two_peaks" / "area_with_ci_vs_time.png").is_file()
+    assert (stats / "two_peaks" / "rate_vs_time.png").is_file()
+    assert not (stats / "area_with_ci_vs_time.png").exists()
