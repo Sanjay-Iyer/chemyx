@@ -50,3 +50,4 @@ desktop.ini
 .vscode/
 .idea/
 *.swp
+.codex_tmp_deps/
