@@ -2,6 +2,10 @@
 
 All known result files were retained during migration.
 
+The `results/raw/`, `results/analysis/`, and `results/processed/` trees are now
+machine-local and ignored by Git. Files already present remain on disk, but new
+clones obtain data separately from the code repository.
+
 ## Layout
 
 ```text

@@ -1,11 +1,11 @@
 # Copy this file to configs/nmr/analysis.local.yaml and edit it once per laptop.
 # The local file is ignored by Git and is merged over the shared analysis.yaml.
-# Forward slashes work in Windows YAML paths and avoid backslash escaping.
+# Raw and processed trees below are ignored by Git and can differ by laptop.
 
 input:
   paths:
-    - C:/ChemyxData/raw/nmr/06-09-26
+    - results/raw/nmr/06-09-26
 
 output:
-  directory: C:/ChemyxData/processed/nmr
+  directory: results/processed/nmr
   run_name: null

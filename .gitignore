@@ -22,7 +22,8 @@ results/processed/archive/
 # --- Generated run outputs ---------------------------------------------------
 runs/nmr_plots/
 results/runs/
-# Analysis products are reproducible machine-local artifacts, not source files.
+# Experimental inputs and analysis products are machine-local, not source files.
+results/raw/
 results/analysis/
 results/processed/
 

@@ -67,8 +67,8 @@ Serial-port discovery is not part of home-laptop validation.
 ## Results
 
 - `results/runs/si6/`: ignored timestamped Workflow 02 runs.
-- `results/raw/nmr/`: preserved historical raw spectra.
-- `results/processed/nmr_analysis/`: preserved processed analysis records.
+- `results/raw/`: ignored machine-local experimental inputs.
+- `results/analysis/` and `results/processed/`: ignored generated outputs.
 - `results/results_manifest.csv`: tracked provenance and checksums.
 
 ## Archive

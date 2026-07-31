@@ -19,10 +19,10 @@ results/
   README.md                    this file
 ```
 
-`analysis/` and `processed/` are generated, machine-local working trees and are
-ignored by Git. Keep shared source data under `raw/`; publish any deliberately
-curated result outside the generated trees or through a separate artifact
-store. Per-machine input/output paths belong in the ignored
+`raw/`, `analysis/`, and `processed/` are machine-local working trees and are
+ignored by Git. Raw datasets and generated results may differ across laptops
+without affecting pulls. Publish deliberately shared data through a separate
+artifact store rather than the code repository. Per-machine paths belong in the ignored
 `configs/nmr/analysis.local.yaml` file.
 
 ## Current results
