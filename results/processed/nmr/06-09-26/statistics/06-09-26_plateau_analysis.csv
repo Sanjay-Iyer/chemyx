@@ -1,5 +1,0 @@
-analysis_target,target_kind,method,window_start_time,window_end_time,points_in_window,rolling_slope,rolling_slope_se,rolling_slope_ci95_low,rolling_slope_ci95_high,equivalence_margin_low,equivalence_margin_high,plateau_statistical_pass,decline_detected,plateau_duration_hours,plateau_failure_reason
-candidate_5p79,fixed_region,statistical_slope,1.68,2.39,4,-5.36,7.79,-38.87,28.14,-0.397,0.397,False,False,nan,slope_ci_outside_equivalence_margin
-candidate_6p10,fixed_region,statistical_slope,1.68,2.39,4,-4.82,4.60,-24.63,14.99,-0.02981,0.02981,False,False,nan,slope_ci_outside_equivalence_margin
-P003,peak_family,statistical_slope,1.68,2.39,4,-5.73,5.40,-28.97,17.51,-0.3493,0.3493,False,False,nan,slope_ci_outside_equivalence_margin
-P008,peak_family,statistical_slope,nan,nan,2,nan,nan,nan,nan,nan,nan,False,False,nan,insufficient_points (2 < 4)

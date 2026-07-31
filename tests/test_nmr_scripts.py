@@ -47,6 +47,7 @@ from _config import (  # noqa: E402
     load_config,
 )
 from chemyx_lab.config import ConfigError  # noqa: E402
+from process_fid import _plot_real, _select_simple_peak_rows  # noqa: E402
 
 # Real test data
 REAL_DATA_DIR = REPO_ROOT / "results" / "raw" / "nmr" / "06-08-26"
@@ -291,6 +292,66 @@ class TestCreateOutputDir:
         assert out1 != out2
         assert out1.is_dir()
         assert out2.is_dir()
+
+
+def test_region_plot_shows_integrated_area_and_filename_only(tmp_path, monkeypatch):
+    import numpy as np
+    from matplotlib.figure import Figure
+
+    captured = {}
+    original_savefig = Figure.savefig
+
+    def capture_plot(figure, *args, **kwargs):
+        axis = figure.axes[0]
+        captured["title"] = axis.get_title()
+        captured["xlim"] = axis.get_xlim()
+        captured["labels"] = axis.get_legend_handles_labels()[1]
+        return original_savefig(figure, *args, **kwargs)
+
+    monkeypatch.setattr(Figure, "savefig", capture_plot)
+    ppm = np.linspace(4.0, 7.0, 601)
+    baseline = 10.0 + 0.5 * (ppm - 5.8)
+    corrected = 100.0 * np.exp(-((ppm - 5.8) / 0.04) ** 2)
+    output = _plot_real(
+        ppm,
+        baseline + corrected,
+        tmp_path / "region.png",
+        "sample.dx",
+        (5.0, 6.5),
+        (5.8,),
+        zoom=True,
+        display=(4.0, 7.0),
+        integration_regions=((5.72, 5.88),),
+        integration_ppm=ppm,
+        integration_corrected=corrected,
+    )
+
+    assert output.is_file()
+    assert captured["title"] == "sample.dx"
+    assert captured["xlim"] == pytest.approx((7.0, 4.0))
+    assert "Integrated peak area" in captured["labels"]
+    assert "Integration baseline" in captured["labels"]
+    assert "Integration bounds" in captured["labels"]
+    assert "search region" not in captured["labels"]
+    assert not any("QC-passed" in label for label in captured["labels"])
+
+
+def test_simple_peak_selection_keeps_one_qc_passed_target_peak():
+    args = argparse.Namespace(
+        simple_restrict_to_window=True,
+        simple_target_ppm=5.8,
+        simple_window_ppm=0.1,
+    )
+    rows = [
+        {"name": "target", "interpolated_ppm": 5.79, "snr": 25, "qc_pass": True},
+        {"name": "weaker", "interpolated_ppm": 5.82, "snr": 10, "qc_pass": True},
+        {"name": "failed", "interpolated_ppm": 5.85, "snr": 50, "qc_pass": False},
+        {"name": "off-target", "interpolated_ppm": 5.35, "snr": 100, "qc_pass": True},
+    ]
+
+    selected = _select_simple_peak_rows(rows, args)
+
+    assert [row["name"] for row in selected] == ["target"]
 
 
 class TestSafeName:

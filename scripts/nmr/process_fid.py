@@ -444,6 +444,9 @@ def _plot_real(
     *,
     zoom: bool,
     display: tuple[float, float] | None = None,
+    integration_regions: tuple[tuple[float, float], ...] | None = None,
+    integration_ppm=None,
+    integration_corrected=None,
 ) -> Path:
     import numpy as np
 
@@ -454,7 +457,8 @@ def _plot_real(
     ax.plot(ppm, real, color="#173f5f", linewidth=0.85)
     ax.axhline(0, color="#777777", linewidth=0.7)
     lo, hi = sorted(region)
-    ax.axvspan(lo, hi, color="#f4d35e", alpha=0.08, label="search region")
+    if integration_regions is None:
+        ax.axvspan(lo, hi, color="#f4d35e", alpha=0.08, label="search region")
     if zoom:
         # x-axis: wider display window for context (default 4-7 ppm).
         dlo, dhi = sorted(display) if display else (lo, hi)
@@ -478,28 +482,77 @@ def _plot_real(
         ax.set_ylim(ymin - 0.08 * span, ymax + 0.15 * span)
     else:
         ax.set_xlim(float(np.max(ppm)), float(np.min(ppm)))
-    for index, peak_ppm in enumerate(peaks):
-        ax.axvline(
-            peak_ppm,
-            color="#d1495b",
-            linestyle="--",
-            linewidth=1,
-            label="QC-passed peak" if index == 0 else None,
-        )
-        if zoom:
-            point = int(np.argmin(np.abs(np.asarray(ppm) - peak_ppm)))
-            ax.annotate(
-                f"{peak_ppm:.3f}",
-                (peak_ppm, float(np.asarray(real)[point])),
-                xytext=(0, 8),
-                textcoords="offset points",
-                ha="center",
-                fontsize=8,
+    if integration_regions is not None:
+        area_ppm = np.asarray(integration_ppm, dtype=float)
+        area_corrected = np.asarray(integration_corrected, dtype=float)
+        if area_ppm.shape != area_corrected.shape:
+            raise ValueError("integration ppm and corrected traces must match")
+        ppm_order = np.argsort(ppm)
+        area_real = np.interp(area_ppm, ppm[ppm_order], real[ppm_order])
+        area_baseline = area_real - area_corrected
+        for index, bounds in enumerate(integration_regions):
+            bound_lo, bound_hi = sorted(bounds)
+            mask = (area_ppm >= bound_lo) & (area_ppm <= bound_hi)
+            if np.count_nonzero(mask) < 2:
+                continue
+            x = area_ppm[mask]
+            baseline = area_baseline[mask]
+            positive_trace = baseline + np.maximum(area_corrected[mask], 0.0)
+            order = np.argsort(x)
+            ax.fill_between(
+                x[order],
+                baseline[order],
+                positive_trace[order],
+                color="#f4a261",
+                alpha=0.48,
+                linewidth=0,
+                label="Integrated peak area" if index == 0 else None,
             )
+            ax.plot(
+                x[order],
+                baseline[order],
+                color="#9c6644",
+                linestyle="--",
+                linewidth=1.0,
+                label="Integration baseline" if index == 0 else None,
+            )
+            for boundary_index, boundary in enumerate((bound_lo, bound_hi)):
+                ax.axvline(
+                    boundary,
+                    color="#d1495b",
+                    linestyle=":",
+                    linewidth=1.1,
+                    label=(
+                        "Integration bounds"
+                        if index == 0 and boundary_index == 0
+                        else None
+                    ),
+                )
+    else:
+        for index, peak_ppm in enumerate(peaks):
+            ax.axvline(
+                peak_ppm,
+                color="#d1495b",
+                linestyle="--",
+                linewidth=1,
+                label="QC-passed peak" if index == 0 else None,
+            )
+            if zoom:
+                point = int(np.argmin(np.abs(np.asarray(ppm) - peak_ppm)))
+                ax.annotate(
+                    f"{peak_ppm:.3f}",
+                    (peak_ppm, float(np.asarray(real)[point])),
+                    xytext=(0, 8),
+                    textcoords="offset points",
+                    ha="center",
+                    fontsize=8,
+                )
     ax.set(title=title, xlabel=r"$^1$H chemical shift (ppm)")
     ax.set_ylabel("Phase-corrected real intensity (a.u.)")
     ax.grid(True, alpha=0.18)
-    ax.legend(loc="best", fontsize=8)
+    handles, labels = ax.get_legend_handles_labels()
+    if handles:
+        ax.legend(handles, labels, loc="best", fontsize=8)
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path)
@@ -895,6 +948,29 @@ SIMPLE_PEAK_COLUMNS = [
 ]
 
 
+def _select_simple_peak_rows(rows, args=None, apply_qc=True):
+    """Return the peak rows eligible for ``peaks_simple.csv``.
+
+    This selection is also used by the per-file regional plot so its filled
+    integration area is a direct visual check of the value reported in the
+    simple table, not of unrelated detections elsewhere in the search region.
+    """
+    restrict = bool(getattr(args, "simple_restrict_to_window", False))
+    target_ppm = float(getattr(args, "simple_target_ppm", 5.8))
+    window_ppm = abs(float(getattr(args, "simple_window_ppm", 0.5)))
+
+    selected = []
+    for row in rows:
+        if apply_qc and not row.get("qc_pass"):
+            continue
+        if restrict and abs(float(row["interpolated_ppm"]) - target_ppm) > window_ppm:
+            continue
+        selected.append(row)
+    if restrict and selected:
+        return [max(selected, key=lambda row: float(row["snr"]))]
+    return selected
+
+
 def _write_simple_peaks(records, peak_rows, path: Path, args=None, apply_qc=True):
     """Minimal per-peak table: which file, where the peak is, how big it is.
 
@@ -922,25 +998,17 @@ def _write_simple_peaks(records, peak_rows, path: Path, args=None, apply_qc=True
     that spectrum. A real peak elsewhere in the analysed region is legitimate
     and stays in ``peaks.csv``; it simply is not the peak this series is about.
     """
+    candidates_by_file: dict[str, list[dict]] = {}
+    for row in peak_rows:
+        candidates_by_file.setdefault(row["file"], []).append(row)
+    by_file = {
+        name: selected
+        for name, rows in candidates_by_file.items()
+        if (selected := _select_simple_peak_rows(rows, args, apply_qc=apply_qc))
+    }
+
     restrict = bool(getattr(args, "simple_restrict_to_window", False))
     target_ppm = float(getattr(args, "simple_target_ppm", 5.8))
-    window_ppm = abs(float(getattr(args, "simple_window_ppm", 0.5)))
-
-    by_file: dict[str, list[dict]] = {}
-    for row in peak_rows:
-        if apply_qc and not row.get("qc_pass"):
-            continue
-        if restrict and abs(float(row["interpolated_ppm"]) - target_ppm) > window_ppm:
-            continue
-        by_file.setdefault(row["file"], []).append(row)
-    if restrict:
-        # One resonance, one row per spectrum: keep the strongest candidate in
-        # the window rather than the nearest, so a small blip closer to the
-        # nominal centre cannot displace the actual peak.
-        by_file = {
-            name: [max(rows, key=lambda r: float(r["snr"]))]
-            for name, rows in by_file.items()
-        }
 
     # A spectrum with no usable peak still belongs on the same trace, so hold it
     # at the ppm of the resonance being tracked (the most-observed family's
@@ -1489,6 +1557,31 @@ def main(argv: list[str] | None = None) -> int:
             timestamp_text = timestamp.isoformat() if timestamp else ""
             safe = _safe_name(path.stem)
             positions = tuple(peak.peak_ppm for peak in picked.peaks)
+            plot_candidates = []
+            for peak in picked.peaks:
+                width_hz = peak.width_ppm * spectrum.observe_frequency_mhz
+                qc_pass, _, _ = _peak_qc(peak, width_hz, args)
+                plot_candidates.append(
+                    {
+                        "peak": peak,
+                        "qc_pass": qc_pass,
+                        "interpolated_ppm": (
+                            peak.interpolated_ppm - reference_shift
+                        ),
+                        "snr": peak.snr,
+                    }
+                )
+            plotted_peaks = tuple(
+                row["peak"]
+                for row in _select_simple_peak_rows(plot_candidates, args)
+            )
+            integration_regions = tuple(
+                (
+                    peak.interpolated_ppm - peak.width_ppm,
+                    peak.interpolated_ppm + peak.width_ppm,
+                )
+                for peak in plotted_peaks
+            )
             full_plot = _plot_real(
                 analysis_ppm,
                 quantitative_real,
@@ -1502,11 +1595,14 @@ def main(argv: list[str] | None = None) -> int:
                 analysis_ppm,
                 quantitative_real,
                 out_dir / "plots" / "region" / f"{safe}.png",
-                f"{path.name} — QC-passed regional peaks",
+                path.name,
                 (args.region_min, args.region_max),
                 positions,
                 zoom=True,
                 display=(args.display_min, args.display_max),
+                integration_regions=integration_regions,
+                integration_ppm=picked.ppm_axis,
+                integration_corrected=picked.quantitative_corrected,
             )
             spectrum_csv = ""
             if args.export_csv:

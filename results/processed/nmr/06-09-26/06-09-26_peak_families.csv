@@ -1,9 +1,0 @@
-peak_family_id,observations,first_spectrum_index,last_spectrum_index,median_ppm,ppm_range,median_width_ppm,reproducible
-P001,1,0,0,5.7144,0.0000,0.0527,False
-P002,1,1,1,5.8518,0.0000,0.0439,False
-P003,7,1,7,5.7925,0.0107,0.0305,True
-P004,1,2,2,5.3033,0.0000,0.0750,False
-P005,1,4,4,6.4714,0.0000,0.0309,False
-P006,1,4,4,6.4018,0.0000,0.0371,False
-P007,1,4,4,6.3466,0.0000,0.0330,False
-P008,2,5,7,5.3580,0.0016,0.0528,True
