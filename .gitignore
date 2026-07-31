@@ -22,8 +22,13 @@ results/processed/archive/
 # --- Generated run outputs ---------------------------------------------------
 runs/nmr_plots/
 results/runs/
-# Experimental inputs and analysis products are machine-local, not source files.
-results/raw/
+# Experimental inputs are machine-local. Keep only the documented folder
+# skeleton so results/raw/nmr exists after clone/pull.
+results/raw/**
+!results/raw/README.md
+!results/raw/nmr/
+!results/raw/nmr/.gitkeep
+# Analysis products are also machine-local.
 results/analysis/
 results/processed/
 
