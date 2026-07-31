@@ -19,6 +19,12 @@ results/
   README.md                    this file
 ```
 
+`analysis/` and `processed/` are generated, machine-local working trees and are
+ignored by Git. Keep shared source data under `raw/`; publish any deliberately
+curated result outside the generated trees or through a separate artifact
+store. Per-machine input/output paths belong in the ignored
+`configs/nmr/analysis.local.yaml` file.
+
 ## Current results
 
 **`processed/nmr/06-09-26/`** — region-based peak analysis of the 06-09-26 series.

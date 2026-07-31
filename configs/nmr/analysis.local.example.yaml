@@ -1,0 +1,11 @@
+# Copy this file to configs/nmr/analysis.local.yaml and edit it once per laptop.
+# The local file is ignored by Git and is merged over the shared analysis.yaml.
+# Forward slashes work in Windows YAML paths and avoid backslash escaping.
+
+input:
+  paths:
+    - C:/ChemyxData/raw/nmr/06-09-26
+
+output:
+  directory: C:/ChemyxData/processed/nmr
+  run_name: null

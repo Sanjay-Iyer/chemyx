@@ -47,6 +47,7 @@ from _config import (  # noqa: E402
     load_config,
 )
 from chemyx_lab.config import ConfigError  # noqa: E402
+import process_fid  # noqa: E402
 from process_fid import _plot_real, _select_simple_peak_rows  # noqa: E402
 
 # Real test data
@@ -352,6 +353,47 @@ def test_simple_peak_selection_keeps_one_qc_passed_target_peak():
     selected = _select_simple_peak_rows(rows, args)
 
     assert [row["name"] for row in selected] == ["target"]
+
+
+def test_process_fid_merges_local_paths_for_no_argument_run(tmp_path, monkeypatch):
+    shared = tmp_path / "analysis.yaml"
+    local = tmp_path / "analysis.local.yaml"
+    shared.write_text(
+        textwrap.dedent(
+            """
+            input:
+              paths: [shared/raw]
+            regional_analysis:
+              ppm_min: 5.0
+              ppm_max: 6.5
+            output:
+              directory: shared/processed
+            """
+        ),
+        encoding="utf-8",
+    )
+    local.write_text(
+        textwrap.dedent(
+            """
+            input:
+              paths: [D:/work-data/raw/06-09-26]
+            output:
+              directory: D:/work-data/processed
+            """
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(process_fid, "DEFAULT_CONFIG_PATH", shared)
+    monkeypatch.setattr(process_fid, "LOCAL_CONFIG_PATH", local)
+
+    defaults = process_fid._config_defaults([])
+    args = process_fid._parser(defaults).parse_args([])
+
+    assert args.paths == ["D:/work-data/raw/06-09-26"]
+    assert args.output_dir == Path("D:/work-data/processed")
+    assert args.region_min == 5.0
+    assert args.region_max == 6.5
+    assert args.config is None
 
 
 class TestSafeName:

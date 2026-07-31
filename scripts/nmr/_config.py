@@ -53,8 +53,10 @@ DEFAULT_NORMALIZE_OVERLAY = True
 DEFAULT_ZOOM_WIDE_MIN_PPM = 5.0
 DEFAULT_ZOOM_WIDE_MAX_PPM = 7.0
 
-# Where scripts look for the config when ``--config`` is not given.
+# Shared config plus an optional ignored per-machine override. ``process_fid``
+# merges the local file automatically when ``--config`` is not given.
 DEFAULT_CONFIG_PATH = REPO_ROOT / "configs" / "nmr" / "analysis.yaml"
+LOCAL_CONFIG_PATH = REPO_ROOT / "configs" / "nmr" / "analysis.local.yaml"
 
 # Which config keys are valid in the shared section and each script section.
 _COMMON_KEYS = {

@@ -5,6 +5,8 @@ config_local.py
 configs/*.local.json
 configs/machines/*.local.yaml
 configs/machines/*.local.yml
+# Per-machine NMR input/output paths; keep the *.local.example.yaml template.
+configs/nmr/*.local.yaml
 
 # --- Local archive / ignored project metadata --------------------------------
 archive/
@@ -20,6 +22,9 @@ results/processed/archive/
 # --- Generated run outputs ---------------------------------------------------
 runs/nmr_plots/
 results/runs/
+# Analysis products are reproducible machine-local artifacts, not source files.
+results/analysis/
+results/processed/
 
 # --- Python bytecode / caches ------------------------------------------------
 __pycache__/

@@ -1,9 +1,0 @@
-file,spectrum_index,peak_number,peak_id,peak_family_id,center_ppm,height,area,center_ppm_se,center_ppm_ci95_low,center_ppm_ci95_high,height_se,height_ci95_low,height_ci95_high,area_se,area_ci95_low,area_ci95_high,width_ppm_se,width_ppm_ci95_low,width_ppm_ci95_high,bootstrap_method,bootstrap_iterations_requested,bootstrap_iterations_succeeded,bootstrap_qc_pass,bootstrap_qc_reason
-CEC-PhSi2-flow(sequence-1115)-06-08-26.dx,0,1,1,P001,5.7947,508.37,20.35,0.0002,5.7890,5.7896,4.65,488.06,506.85,0.3217,20.92,22.21,0.0005,0.0381,0.0400,fit_residual,500,500,True,
-CEC-PhSi2-flow(sequence-1215)-06-08-26.dx,1,1,1,P002,5.8470,212.09,4.51,0.0001,5.8450,5.8456,2.57,185.63,195.07,0.0611,4.18,4.43,0.0003,0.0206,0.0219,fit_residual,500,500,True,
-CEC-PhSi2-flow(sequence-1315)-06-08-26.dx,2,1,1,P002,5.8455,89.26,2.19,0.0004,5.8476,5.8493,3.13,78.75,90.75,0.09113,1.97,2.33,0.0011,0.0215,0.0255,fit_residual,500,500,True,
-CEC-PhSi2-flow(sequence-1415)-06-08-26.dx,3,1,1,P003,5.6968,56.93,1.89,0.0012,5.7083,5.7129,2.00,38.27,46.45,0.1558,2.38,2.97,0.0032,0.0470,0.0591,fit_residual,500,500,True,
-CEC-PhSi2-flow(sequence-1515)-06-08-26.dx,4,1,1,P004,6.0984,52.77,1.30,0.0008,6.0922,6.0952,2.37,32.47,41.99,0.0596,0.8054,1.04,0.0016,0.0200,0.0265,fit_residual,500,500,True,
-CEC-PhSi2-flow(sequence-1515)-06-08-26.dx,4,2,2,P002,5.8366,66.88,1.66,0.0005,5.8363,5.8383,3.12,64.16,76.59,0.114,2.10,2.53,0.0014,0.0204,0.0257,fit_residual,500,500,True,
-CEC-PhSi2-flow(sequence-1515)-06-08-26.dx,4,3,3,P005,5.2180,62.13,0.857,0.0004,5.2192,5.2206,3.68,58.11,72.60,0.07922,1.02,1.31,0.0010,0.0112,0.0153,fit_residual,500,500,True,
-CEC-PhSi2-flow(sequence-1700)-06-08-26.dx,6,1,1,P006,5.2892,57.92,0.7271,0.0003,5.2881,5.2894,3.94,48.87,64.12,0.03914,0.481,0.6374,0.0007,0.0082,0.0106,fit_residual,500,500,True,

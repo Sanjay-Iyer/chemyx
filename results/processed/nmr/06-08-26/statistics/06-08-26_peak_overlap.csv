@@ -1,9 +1,0 @@
-file,spectrum_index,peak_number,peak_id,peak_family_id,center_ppm,nearest_peak_distance_ppm,nearest_peak_distance_hz,resolution,overlap_fraction,deconvolution_stable,overlap_warning
-CEC-PhSi2-flow(sequence-1115)-06-08-26.dx,0,1,1,P001,5.7947,nan,nan,nan,0,True,
-CEC-PhSi2-flow(sequence-1215)-06-08-26.dx,1,1,1,P002,5.8470,nan,nan,nan,0,True,
-CEC-PhSi2-flow(sequence-1315)-06-08-26.dx,2,1,1,P002,5.8455,nan,nan,nan,0,True,
-CEC-PhSi2-flow(sequence-1415)-06-08-26.dx,3,1,1,P003,5.6968,nan,nan,nan,0,True,
-CEC-PhSi2-flow(sequence-1515)-06-08-26.dx,4,1,1,P004,6.0984,0.2618,15.85,7.80,0.0004092,True,
-CEC-PhSi2-flow(sequence-1515)-06-08-26.dx,4,2,2,P002,5.8366,0.2618,15.85,7.80,0.0004092,True,
-CEC-PhSi2-flow(sequence-1515)-06-08-26.dx,4,3,3,P005,5.2180,0.6187,37.46,22.99,1.041e-10,True,
-CEC-PhSi2-flow(sequence-1700)-06-08-26.dx,6,1,1,P006,5.2892,nan,nan,nan,0,True,

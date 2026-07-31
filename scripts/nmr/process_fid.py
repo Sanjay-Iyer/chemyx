@@ -62,7 +62,46 @@ def _default_run_name(paths) -> str:
     """
     first = Path(paths[0])
     return first.name if first.is_dir() else first.stem
-from _config import DEFAULT_CONFIG_PATH
+
+
+from _config import DEFAULT_CONFIG_PATH, LOCAL_CONFIG_PATH
+
+
+def _merge_config_mappings(base: dict, override: dict) -> dict:
+    """Recursively merge a per-machine YAML override into shared settings."""
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _merge_config_mappings(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _resolved_config_mapping(argv):
+    """Load explicit YAML, or shared YAML plus the ignored local override."""
+    preliminary = argparse.ArgumentParser(add_help=False)
+    preliminary.add_argument("--config", type=Path)
+    known, _ = preliminary.parse_known_args(argv)
+    if known.config is not None:
+        if not known.config.exists():
+            raise ConfigError(f"NMR analysis config not found: {known.config}")
+        return (
+            read_mapping_config(known.config, "NMR processing config"),
+            str(known.config),
+            known.config,
+        )
+
+    raw = {}
+    sources = []
+    for path in (DEFAULT_CONFIG_PATH, LOCAL_CONFIG_PATH):
+        if path.exists():
+            raw = _merge_config_mappings(
+                raw,
+                read_mapping_config(path, "NMR processing config"),
+            )
+            sources.append(str(path))
+    return raw, " + ".join(sources) or str(DEFAULT_CONFIG_PATH), None
 
 
 def _parser(config_defaults=None) -> argparse.ArgumentParser:
@@ -81,7 +120,10 @@ def _parser(config_defaults=None) -> argparse.ArgumentParser:
         "--config",
         type=Path,
         default=None,
-        help=f"processing YAML (default: {DEFAULT_CONFIG_PATH})",
+        help=(
+            f"processing YAML (default: {DEFAULT_CONFIG_PATH}, optionally "
+            f"overridden by {LOCAL_CONFIG_PATH})"
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -253,26 +295,17 @@ def _parser(config_defaults=None) -> argparse.ArgumentParser:
 
 def _statistics_config(argv):
     """Load and validate the ``statistics`` config section for this run."""
-    preliminary = argparse.ArgumentParser(add_help=False)
-    preliminary.add_argument("--config", type=Path)
-    known, _ = preliminary.parse_known_args(argv)
-    path = DEFAULT_CONFIG_PATH if known.config is None else known.config
-    if not path.exists():
+    raw, _, _ = _resolved_config_mapping(argv)
+    if not raw:
         return load_statistics_config(None)
-    raw = read_mapping_config(path, "NMR processing config")
     return load_statistics_config(raw.get("statistics"))
 
 
 def _flattened_overlay_config(argv):
     """Load and validate the optional plot-only baseline configuration."""
-
-    preliminary = argparse.ArgumentParser(add_help=False)
-    preliminary.add_argument("--config", type=Path)
-    known, _ = preliminary.parse_known_args(argv)
-    path = DEFAULT_CONFIG_PATH if known.config is None else known.config
-    if not path.exists():
+    raw, _, _ = _resolved_config_mapping(argv)
+    if not raw:
         return load_flattened_overlay_config(None)
-    raw = read_mapping_config(path, "NMR processing config")
     plots = raw.get("plots")
     if plots is None:
         return load_flattened_overlay_config(None)
@@ -291,15 +324,9 @@ def _flattened_overlay_config(argv):
 
 
 def _config_defaults(argv):
-    preliminary = argparse.ArgumentParser(add_help=False)
-    preliminary.add_argument("--config", type=Path)
-    known, _ = preliminary.parse_known_args(argv)
-    path = DEFAULT_CONFIG_PATH if known.config is None else known.config
-    if not path.exists():
-        if known.config is not None:
-            raise ConfigError(f"NMR analysis config not found: {path}")
+    raw, source, explicit_config = _resolved_config_mapping(argv)
+    if not raw:
         return {}
-    raw = read_mapping_config(path, "NMR processing config")
     sections = {
         "input": {
             "paths": "paths",
@@ -369,7 +396,7 @@ def _config_defaults(argv):
         if section is None:
             continue
         if not isinstance(section, dict):
-            raise ConfigError(f"[{section_name}] in {path} must be a mapping")
+            raise ConfigError(f"[{section_name}] in {source} must be a mapping")
         allowed = set(mapping)
         if section_name == "regional_analysis":
             allowed.add("detect_all_peaks")
@@ -391,7 +418,7 @@ def _config_defaults(argv):
         unknown = sorted(set(section) - allowed)
         if unknown:
             raise ConfigError(
-                f"Unknown key(s) in [{section_name}] of {path}: "
+                f"Unknown key(s) in [{section_name}] of {source}: "
                 + ", ".join(unknown)
             )
         if section_name == "peak_qc":
@@ -417,11 +444,11 @@ def _config_defaults(argv):
         defaults["paths"] = [paths]
     elif paths is not None and not isinstance(paths, list):
         raise ConfigError(
-            f"'paths' in [input] of {path} must be a string or a list of strings"
+            f"'paths' in [input] of {source} must be a string or a list of strings"
         )
     elif paths is not None:
         defaults["paths"] = [str(p) for p in paths]
-    defaults["config"] = known.config
+    defaults["config"] = explicit_config
     return defaults
 
 
@@ -1312,7 +1339,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "ERROR: no input given. Pass a .dx file or directory on the command "
             "line, or set input.paths in the config file "
-            f"({DEFAULT_CONFIG_PATH}).",
+            f"({DEFAULT_CONFIG_PATH} or {LOCAL_CONFIG_PATH}).",
             file=sys.stderr,
         )
         return 2

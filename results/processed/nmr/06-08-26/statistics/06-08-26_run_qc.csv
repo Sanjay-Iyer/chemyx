@@ -1,8 +1,0 @@
-file,spectrum_index,timestamp,elapsed_time_hours,reference_shift_ppm,region_noise,phase0_deg,phase1_deg,peak_count,qc_peak_count,qc_pass_fraction,median_snr,median_width_hz,correlation_to_first,cosine_similarity_to_first,spectral_rmse_to_first,run_qc_pass,run_qc_failure_reasons
-CEC-PhSi2-flow(sequence-1115)-06-08-26.dx,0,2026-06-08T11:23:25,0,0.0000,17.29,59.50,-79.00,1,1,1.00,29.40,2.67,1.00,1.00,0,True,
-CEC-PhSi2-flow(sequence-1215)-06-08-26.dx,1,2026-06-08T12:24:16,1.01,0.0000,17.12,59.50,-79.00,1,1,1.00,12.39,1.52,0.9898,0.9899,1028.29,True,
-CEC-PhSi2-flow(sequence-1315)-06-08-26.dx,2,2026-06-08T13:25:11,2.03,0.0000,18.48,59.50,-79.00,1,1,1.00,4.83,1.91,0.9457,0.9463,1334.28,True,
-CEC-PhSi2-flow(sequence-1415)-06-08-26.dx,3,2026-06-08T14:21:24,2.97,0.0000,18.37,59.50,-79.00,1,1,1.00,3.10,2.57,0.977,0.9772,1282.00,True,
-CEC-PhSi2-flow(sequence-1515)-06-08-26.dx,4,2026-06-08T15:17:54,3.91,0.0000,16.10,59.50,-79.00,3,3,1.00,3.85,2.02,0.9518,0.9523,1632.56,True,
-CEC-PhSi2-flow(sequence-1615)-06-08-26.dx,5,2026-06-08T16:21:29,4.97,0.0000,18.39,59.50,-79.00,0,0,nan,nan,nan,0.9676,0.9679,1969.30,False,peak_count_below_minimum (0 < 1)
-CEC-PhSi2-flow(sequence-1700)-06-08-26.dx,6,2026-06-08T17:04:45,5.69,0.0000,17.19,59.50,-79.00,1,1,1.00,3.37,1.04,0.9725,0.9728,2090.72,True,

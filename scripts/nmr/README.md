@@ -3,6 +3,20 @@
 Standalone tools for analysing NMReady JCAMP-DX (`.dx`) spectra. They read the
 core parser in `chemyx_lab/analysis/nmr.py` but are otherwise self-contained.
 
+## No-argument, per-machine processing
+
+Copy `configs/nmr/analysis.local.example.yaml` to
+`configs/nmr/analysis.local.yaml`, then set that laptop's `input.paths` and
+`output.directory`. The local file is ignored by Git and automatically merged
+over the shared `configs/nmr/analysis.yaml` settings. Routine processing is:
+
+```powershell
+python scripts/nmr/process_fid.py
+```
+
+Generated `results/analysis/` and `results/processed/` trees are ignored by
+Git. They may differ across laptops without blocking `git pull`.
+
 On this laptop, install the analysis dependencies in the `ai` environment:
 
 ```powershell
@@ -14,9 +28,9 @@ python -m pip install -r requirements.txt
 
 ## Where data goes / where results go
 
-- **Input**: point a script at a folder of `.dx` files (or individual files).
-  The conventional home is `results/raw/nmr/<run>/`, but any path works — it's
-  an argument, nothing is hardcoded. Directories are searched recursively.
+- **Input**: set `input.paths` in the ignored `analysis.local.yaml` for routine
+  processing. A command-line path remains available for one-off runs.
+  Directories are searched recursively.
 - **Output**: each run creates one timestamped folder under
   `results/analysis/`, **named after the input** so results are traceable, e.g.
   input `results/raw/nmr/06-08-26/` → `results/analysis/06-08-26_<timestamp>_timeseries/`.

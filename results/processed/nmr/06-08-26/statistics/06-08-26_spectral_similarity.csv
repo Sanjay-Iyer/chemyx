@@ -1,8 +1,0 @@
-file,spectrum_index,elapsed_time_hours,correlation_to_first,correlation_to_previous,cosine_similarity_to_first,spectral_rmse_to_first,integrated_absolute_difference,spectral_angle
-CEC-PhSi2-flow(sequence-1115)-06-08-26.dx,0,0,1.00,1.00,1.00,0,0,0
-CEC-PhSi2-flow(sequence-1215)-06-08-26.dx,1,1.01,0.9898,0.9898,0.9899,1028.29,2892.18,8.14
-CEC-PhSi2-flow(sequence-1315)-06-08-26.dx,2,2.03,0.9457,0.952,0.9463,1334.28,4167.99,18.87
-CEC-PhSi2-flow(sequence-1415)-06-08-26.dx,3,2.97,0.977,0.9784,0.9772,1282.00,3648.55,12.25
-CEC-PhSi2-flow(sequence-1515)-06-08-26.dx,4,3.91,0.9518,0.9861,0.9523,1632.56,4492.82,17.76
-CEC-PhSi2-flow(sequence-1615)-06-08-26.dx,5,4.97,0.9676,0.9902,0.9679,1969.30,4859.48,14.55
-CEC-PhSi2-flow(sequence-1700)-06-08-26.dx,6,5.69,0.9725,0.9838,0.9728,2090.72,4789.82,13.40
