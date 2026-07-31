@@ -179,7 +179,7 @@ peak_qc:
   # changes nothing until you actually edit one.
   use_manual_thresholds: true
 
-  min_snr: 3.0                # peak height / robust noise, on the real spectrum
+  min_snr: 3.1                # peak height / robust noise, on the real spectrum
   min_prominence_snr: 3.0     # rise above own flanking minima, in noise sigma
   min_width_hz: 1.0           # narrower than this is a spike or artefact
   max_width_hz: 10.0          # broader than this is baseline roll, not a peak
