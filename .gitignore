@@ -7,6 +7,8 @@ configs/machines/*.local.yaml
 configs/machines/*.local.yml
 # Per-machine NMR input/output paths; keep the *.local.example.yaml template.
 configs/nmr/*.local.yaml
+arduino/configs/*.local.yaml
+arduino/configs/*.local.yml
 
 # --- Local archive / ignored project metadata --------------------------------
 archive/
@@ -22,6 +24,7 @@ results/processed/archive/
 # --- Generated run outputs ---------------------------------------------------
 runs/nmr_plots/
 results/runs/
+runs/arduino/
 # Experimental inputs are machine-local. Keep only the documented folder
 # skeleton so results/raw/nmr exists after clone/pull.
 results/raw/**

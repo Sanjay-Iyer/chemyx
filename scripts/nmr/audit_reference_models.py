@@ -29,6 +29,7 @@ from chemyx_lab.analysis.nmr import (
     read_jcamp_fid,
     validate_axis_metadata,
 )
+from chemyx_lab.analysis.plot_titles import dataset_plot_title
 
 from _common import collect_dx_files, create_output_dir, parse_acquisition_timestamp
 
@@ -161,7 +162,7 @@ def _stack_plot(
             )
     ax.set_xlim(*limits)
     ax.set(xlabel="Chemical shift (ppm)", ylabel="Normalized, vertically offset")
-    ax.set_title(title)
+    ax.set_title(dataset_plot_title(title, output_path=output / filename))
     ax.grid(True, alpha=0.16)
     ax.legend(fontsize=7, ncol=2)
     fig.tight_layout()
@@ -190,7 +191,7 @@ def _region_overlay(output: Path, spectra, lo, hi, title, filename) -> None:
         )
     ax.set_xlim(hi, lo)
     ax.set(xlabel="Metadata-derived chemical shift (ppm)", ylabel="Local normalized real")
-    ax.set_title(title)
+    ax.set_title(dataset_plot_title(title, output_path=output / filename))
     ax.grid(True, alpha=0.16)
     ax.legend(fontsize=7, ncol=2)
     fig.tight_layout()
@@ -284,7 +285,12 @@ def _diagnostic_plots(output, spectra, model_rows, relative_rows, args) -> None:
             label=f"{model} applied",
         )
     ax.set(xlabel="Spectrum index", ylabel="Shift (ppm)")
-    ax.set_title("Proposed versus applied shifts (all applied shifts remain zero)")
+    ax.set_title(
+        dataset_plot_title(
+            "Proposed versus applied shifts (all applied shifts remain zero)",
+            output_path=output / "10_proposed_vs_applied_shift.png",
+        )
+    )
     ax.grid(True, alpha=0.16)
     ax.legend(fontsize=7, ncol=2)
     fig.tight_layout()
@@ -307,7 +313,12 @@ def _diagnostic_plots(output, spectra, model_rows, relative_rows, args) -> None:
         label="maximum allowed disagreement",
     )
     ax.set(xlabel="Spectrum index", ylabel="Methyl/aromatic shift disagreement (ppm)")
-    ax.set_title("Independent reference-region agreement")
+    ax.set_title(
+        dataset_plot_title(
+            "Independent reference-region agreement",
+            output_path=output / "11_reference_region_disagreement.png",
+        )
+    )
     ax.grid(True, alpha=0.16)
     ax.legend(fontsize=7)
     fig.tight_layout()
@@ -327,7 +338,12 @@ def _diagnostic_plots(output, spectra, model_rows, relative_rows, args) -> None:
         ax.plot(x, shifted, marker=".", label=f"{model} diagnostic")
     ax.axhline(args.pdf_target_ppm, color="black", linestyle=":", label="PDF-read target")
     ax.set(xlabel="Spectrum index", ylabel="Target-family ppm")
-    ax.set_title("A uniform reference shift moves the same peak; it does not create one")
+    ax.set_title(
+        dataset_plot_title(
+            "A uniform reference shift moves the same peak; it does not create one",
+            output_path=output / "12_target_before_after_models.png",
+        )
+    )
     ax.grid(True, alpha=0.16)
     ax.legend(fontsize=7)
     fig.tight_layout()
@@ -356,7 +372,12 @@ def _diagnostic_plots(output, spectra, model_rows, relative_rows, args) -> None:
         label="PDF-read target-methyl uncertainty",
     )
     ax.set(xlabel="Detected spectrum index", ylabel="Frequency separation (Hz)")
-    ax.set_title("Reference-invariant peak separations")
+    ax.set_title(
+        dataset_plot_title(
+            "Reference-invariant peak separations",
+            output_path=output / "13_relative_frequency_separations.png",
+        )
+    )
     ax.grid(True, alpha=0.16)
     ax.legend(fontsize=8)
     fig.tight_layout()
@@ -399,9 +420,15 @@ def _diagnostic_plots(output, spectra, model_rows, relative_rows, args) -> None:
         axis.grid(True, alpha=0.16)
         axis.legend(fontsize=8)
         axis.set_ylabel("Local normalized real")
-    axes[0].set_title("1045 truncation/ringing sensitivity")
+    axes[0].set_title("Unwindowed FID")
     axes[1].set_xlabel("Chemical shift (ppm)")
-    fig.tight_layout()
+    fig.suptitle(
+        dataset_plot_title(
+            "1045 Truncation/Ringing Sensitivity",
+            output_path=output / "14_ringing_window_sensitivity.png",
+        )
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
     fig.savefig(output / "14_ringing_window_sensitivity.png")
     plt.close(fig)
 
@@ -417,7 +444,12 @@ def _diagnostic_plots(output, spectra, model_rows, relative_rows, args) -> None:
         label="half-cosine tapered",
     )
     ax.set(xlabel="Acquired complex-point index", ylabel="FID magnitude")
-    ax.set_title("End of the 1045 FID: truncation diagnostic")
+    ax.set_title(
+        dataset_plot_title(
+            "End of the 1045 FID: Truncation Diagnostic",
+            output_path=output / "15_fid_endpoint.png",
+        )
+    )
     ax.grid(True, alpha=0.16)
     ax.legend()
     fig.tight_layout()

@@ -55,6 +55,7 @@ archive/           Git-tracked retired workflows
 - [Instrument Commands](docs/INSTRUMENT_COMMANDS.md)
 - [Chemyx Guide](docs/CHEMYX_GUIDE.md)
 - [NMR Guide](docs/nmr_guide.md)
+- [Focused NMR Plotting Workflow](docs/NMR_TARGET_PEAK_WORKFLOW.md)
 - [Results and Data](docs/RESULTS_AND_DATA.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
 - [Validation](docs/VALIDATION.md)
@@ -66,3 +67,10 @@ Do not run real hardware commands from the home laptop. Use `--validate-only`,
 `--dry-run`, `--inspect-run`, or mocked diagnostics locally. On the work laptop,
 rerun offline checks and use a separately authorized staged hardware procedure.
 Workflow 02 remains attended-only and experimental.
+
+## Scientific figure identity
+
+Every saved experimental-data figure visibly includes its dataset or experiment
+name. NMR plotting uses the configured dataset display name where available and
+the centralized resolver documented in the focused NMR workflow; filenames
+alone are not treated as figure identity.

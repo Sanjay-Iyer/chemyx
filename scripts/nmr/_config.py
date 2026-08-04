@@ -196,7 +196,9 @@ def load_config(
         "plots",
         # Consumed only by process_fid.py's regional processor; the fixed-target
         # scripts share this file and must tolerate (ignore) the section.
-        "statistics",
+            "statistics",
+            # Focused one-peak report consumed only by process_fid.py.
+            "target_peak",
         "input",
         "output",
         "peak_qc",

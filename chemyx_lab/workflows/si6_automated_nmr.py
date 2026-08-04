@@ -28,6 +28,7 @@ from ..analysis.nmr import (
     build_magnitude_spectrum,
     plot_peak_region,
 )
+from ..analysis.plot_titles import dataset_plot_title
 from ..instruments.chemyx import EchoMismatchError, Pump, PumpConnectionError
 from ..instruments.nmr import NmrRpcError
 from ..recovery import format_inspection, inspect_run
@@ -690,13 +691,19 @@ def update_summary_plots(rows: list[dict], paths: RunPaths, spectra_path: Path) 
 
     x = [float(row["elapsed_hours"]) for row in successful]
     plots = [
-        ("peak_area_vs_time.png", "Peak area", [float(row["peak_area"]) for row in successful]),
-        ("snr_vs_time.png", "Signal-to-noise ratio", [float(row["snr"]) for row in successful]),
-        ("growth_percent_vs_time.png", "Peak-area growth (%)", [float(row["growth_percent"]) if row["growth_percent"] not in (None, "") else float("nan") for row in successful]),
+        ("peak_area_vs_time.png", "Peak area", "Peak Area vs Time", [float(row["peak_area"]) for row in successful]),
+        ("snr_vs_time.png", "Signal-to-noise ratio", "Signal-to-Noise Ratio vs Time", [float(row["snr"]) for row in successful]),
+        ("growth_percent_vs_time.png", "Peak-area growth (%)", "Peak-Area Growth vs Time", [float(row["growth_percent"]) if row["growth_percent"] not in (None, "") else float("nan") for row in successful]),
     ]
-    for filename, ylabel, y in plots:
+    for filename, ylabel, descriptive_title, y in plots:
         fig, ax = plt.subplots(figsize=(8.5, 5), dpi=140)
         ax.plot(x, y, marker="o", linewidth=1.4)
+        ax.set_title(
+            dataset_plot_title(
+                descriptive_title,
+                output_path=paths.run_dir,
+            )
+        )
         ax.set_xlabel("Elapsed time (hours)")
         ax.set_ylabel(ylabel)
         ax.grid(True, alpha=0.25)
@@ -720,6 +727,12 @@ def update_summary_plots(rows: list[dict], paths: RunPaths, spectra_path: Path) 
         ax.plot(xs, [value / scale for value in ys], alpha=0.7, label=f"iteration {iteration}")
     ax.set_xlabel("ppm")
     ax.set_ylabel("Normalized magnitude")
+    ax.set_title(
+        dataset_plot_title(
+            "Target Region Overlay",
+            output_path=paths.run_dir,
+        )
+    )
     ax.invert_xaxis()
     ax.grid(True, alpha=0.2)
     if len(grouped) <= 12:

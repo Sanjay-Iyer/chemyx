@@ -35,10 +35,15 @@ from chemyx_lab.analysis.nmr import (
     subtract_abd_polynomial_baseline,
     track_peak_families,
 )
+from chemyx_lab.analysis.plot_titles import dataset_plot_title
 
 from chemyx_lab.analysis.analysis_config import (
     ConfigError as StatisticsConfigError,
     load_statistics_config,
+)
+from chemyx_lab.analysis.target_peak_config import (
+    TargetPeakConfigError,
+    load_target_peak_config,
 )
 from chemyx_lab.analysis.baseline_flattening import (
     QC_COLUMNS as OVERLAY_BASELINE_QC_COLUMNS,
@@ -53,6 +58,7 @@ from _common import (
     collect_dx_files,
     parse_acquisition_timestamp,
 )
+from _config import DEFAULT_CONFIG_PATH, LOCAL_CONFIG_PATH
 
 
 def _default_run_name(paths) -> str:
@@ -62,9 +68,6 @@ def _default_run_name(paths) -> str:
     """
     first = Path(paths[0])
     return first.name if first.is_dir() else first.stem
-
-
-from _config import DEFAULT_CONFIG_PATH, LOCAL_CONFIG_PATH
 
 
 def _merge_config_mappings(base: dict, override: dict) -> dict:
@@ -299,6 +302,13 @@ def _statistics_config(argv):
     if not raw:
         return load_statistics_config(None)
     return load_statistics_config(raw.get("statistics"))
+
+
+def _target_peak_config(argv):
+    """Load the optional focused target-peak analysis configuration."""
+
+    raw, _, _ = _resolved_config_mapping(argv)
+    return load_target_peak_config(raw.get("target_peak") if raw else None)
 
 
 def _flattened_overlay_config(argv):
@@ -574,7 +584,10 @@ def _plot_real(
                     ha="center",
                     fontsize=8,
                 )
-    ax.set(title=title, xlabel=r"$^1$H chemical shift (ppm)")
+    ax.set(
+        title=dataset_plot_title(title, output_path=path),
+        xlabel=r"$^1$H chemical shift (ppm)",
+    )
     ax.set_ylabel("Phase-corrected real intensity (a.u.)")
     ax.grid(True, alpha=0.18)
     handles, labels = ax.get_legend_handles_labels()
@@ -624,9 +637,12 @@ def _plot_overlay(
     )
     ax.axhline(0, color="#777777", linewidth=0.7)
     ax.set_title(
-        "Stacked regional spectra"
-        if stacked
-        else "Regional magnitude spectra — baseline removed"
+        dataset_plot_title(
+            "Stacked regional spectra"
+            if stacked
+            else "Regional magnitude spectra — baseline removed",
+            output_path=path,
+        )
     )
     ax.set_xlabel(r"$^1$H chemical shift (ppm)")
     ax.set_ylabel("Normalized intensity + offset" if stacked else "Corrected magnitude")
@@ -668,7 +684,12 @@ def _plot_flattened_overlay(traces, path: Path, residual_config):
         min(float(min(trace["ppm"])) for trace in traces),
     )
     ax.axhline(0.0, color="#555555", linewidth=0.8)
-    ax.set_title("Regional phase-corrected spectra — flattened baseline")
+    ax.set_title(
+        dataset_plot_title(
+            "Regional phase-corrected spectra — flattened baseline",
+            output_path=path,
+        )
+    )
     ax.set_xlabel(r"$^1$H chemical shift (ppm)")
     ax.set_ylabel("Baseline-corrected real intensity")
     ax.grid(True, alpha=0.18)
@@ -732,7 +753,12 @@ def _plot_flattening_diagnostic(trace, path: Path):
     )
     ax.axhline(0.0, color="#555555", linewidth=0.8)
     ax.set_xlim(6.5, 5.0)
-    ax.set_title(f"Residual baseline diagnostic — {trace['label']}")
+    ax.set_title(
+        dataset_plot_title(
+            f"Residual baseline diagnostic — {trace['label']}",
+            output_path=path,
+        )
+    )
     ax.set_xlabel(r"$^1$H chemical shift (ppm)")
     ax.set_ylabel("Phase-corrected real intensity")
     ax.grid(True, alpha=0.18)
@@ -967,6 +993,43 @@ def _remap_path(value, renamed: dict[str, str]):
     if not value:
         return value
     return renamed.get(str(value), str(value))
+
+
+def _remap_target_peak_provenance(out_dir: Path, renamed: dict[str, str]) -> None:
+    """Keep the target-peak manifest/summary exact after output prefixing."""
+
+    stats_dir = out_dir / "statistics"
+    manifest_old = stats_dir / "target_peak_plot_manifest.csv"
+    manifest = Path(_remap_path(manifest_old, renamed))
+    if manifest.is_file():
+        with manifest.open("r", newline="", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = list(reader.fieldnames or [])
+            rows = list(reader)
+        for row in rows:
+            row["figure"] = _remap_path(row.get("figure"), renamed)
+            names = [name for name in row.get("data_files", "").split(";") if name]
+            row["data_files"] = ";".join(
+                _remap_path(stats_dir / name, renamed) for name in names
+            )
+        with manifest.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(rows)
+
+    summary_old = stats_dir / "target_peak_summary.json"
+    summary_path = Path(_remap_path(summary_old, renamed))
+    if summary_path.is_file():
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+        payload["plots"] = [_remap_path(path, renamed) for path in payload.get("plots", [])]
+        payload["tables"] = [
+            Path(_remap_path(stats_dir / name, renamed)).name
+            for name in payload.get("tables", [])
+        ]
+        summary_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True, default=str),
+            encoding="utf-8",
+        )
 
 
 SIMPLE_PEAK_COLUMNS = [
@@ -1222,7 +1285,14 @@ def _error(args) -> str | None:
     return None
 
 
-def _run_statistics(stat_spectra_raw, assignments, stats_config, out_dir: Path) -> dict:
+def _run_statistics(
+    stat_spectra_raw,
+    assignments,
+    stats_config,
+    out_dir: Path,
+    target_peak_config=None,
+    processing_provenance: dict | None = None,
+) -> dict:
     """Build and write the optional statistics tables/plots for this run.
 
     Consumes the per-spectrum data collected during processing plus the peak
@@ -1263,6 +1333,7 @@ def _run_statistics(stat_spectra_raw, assignments, stats_config, out_dir: Path) 
                     signed_area=peak.signed_area,
                     positive_area=peak.positive_area,
                     snr=peak.snr,
+                    prominence=peak.prominence,
                     prominence_snr=peak.prominence_snr,
                     classification=peak.classification,
                 )
@@ -1274,6 +1345,7 @@ def _run_statistics(stat_spectra_raw, assignments, stats_config, out_dir: Path) 
                 source_path=raw["source_path"],
                 spectrum_index=index,
                 timestamp=raw["timestamp"],
+                timestamp_source=raw.get("timestamp_source", ""),
                 observe_frequency_mhz=observe,
                 region_noise=float(picked.noise),
                 reference_shift_ppm=float(raw["reference_shift_ppm"]),
@@ -1292,6 +1364,17 @@ def _run_statistics(stat_spectra_raw, assignments, stats_config, out_dir: Path) 
 
     report = build_statistics_report(spectra, stats_config)
 
+    target_analysis = None
+    target_plots_written: list[str] = []
+    target_manifest: list[dict] = []
+    if target_peak_config is not None and target_peak_config.enabled:
+        from chemyx_lab.analysis.target_peak_plots import render_target_peak_figures
+        from chemyx_lab.analysis.target_peak_report import build_target_peak_analysis
+
+        target_analysis = build_target_peak_analysis(spectra, target_peak_config)
+        report.tables.update(target_analysis.tables)
+        report.warnings.extend(target_analysis.warnings)
+
     stats_dir = out_dir / "statistics"
     stats_dir.mkdir(parents=True, exist_ok=True)
     written: list[str] = []
@@ -1304,6 +1387,60 @@ def _run_statistics(stat_spectra_raw, assignments, stats_config, out_dir: Path) 
         written.append(str(path))
 
     plots_written = render_plots(report, out_dir / "plots")
+    if target_analysis is not None:
+        target_plots_written, target_manifest = render_target_peak_figures(
+            target_analysis, out_dir / "plots"
+        )
+        processing_provenance = processing_provenance or {}
+        for row in target_manifest:
+            row.update(processing_provenance)
+            row["code_version"] = _git_commit()
+            row["config_file"] = str(DEFAULT_CONFIG_PATH)
+            row["integration_method"] = "fixed window; local foot-to-foot linear baseline"
+            row["uncertainty_method"] = "white-noise propagation; approximate lower-bound 95% interval"
+        plots_written.extend(target_plots_written)
+        manifest_path = stats_dir / "target_peak_plot_manifest.csv"
+        with manifest_path.open("w", newline="", encoding="utf-8") as handle:
+            columns = [
+                "figure", "group", "data_files", "dataset", "visible_title",
+                "peak_label",
+                "integration_window_ppm",
+                "baseline_method", "smoothing_window_ppm", "line_broadening_hz",
+                "integration_method", "uncertainty_method", "config_file",
+                "code_version",
+            ]
+            writer = csv.DictWriter(handle, fieldnames=columns, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(target_manifest)
+        written.append(str(manifest_path))
+        target_summary = {
+            "configuration": {
+                **target_peak_config.__dict__,
+                "completion": target_peak_config.completion.__dict__,
+                "figures": target_peak_config.figures.__dict__,
+                "stages": [stage.__dict__ for stage in target_peak_config.stages],
+            },
+            "processing": processing_provenance,
+            "code_version": _git_commit(),
+            "completion": target_analysis.completion.as_dict(),
+            "timestamp_sources": {
+                row["file"]: row["timestamp_source"]
+                for row in target_analysis.measurements
+            },
+            "input_files": [row["source_file"] for row in target_analysis.measurements],
+            "tables": [Path(path).name for path in written if "target_peak" in Path(path).name],
+            "plots": target_plots_written,
+            "limitations": [
+                "Completion thresholds are decision-support defaults, not validated endpoints.",
+                "Area uncertainty assumes independent white noise and is a lower bound after zero filling.",
+                "Chemical-shift referencing remains metadata-only unless a validated reference is configured.",
+            ],
+        }
+        (stats_dir / "target_peak_summary.json").write_text(
+            json.dumps(target_summary, indent=2, sort_keys=True, default=str),
+            encoding="utf-8",
+        )
+        written.append(str(stats_dir / "target_peak_summary.json"))
 
     (stats_dir / "statistics_summary.json").write_text(
         json.dumps(
@@ -1324,6 +1461,9 @@ def _run_statistics(stat_spectra_raw, assignments, stats_config, out_dir: Path) 
         "plots_written": plots_written,
         "warnings": report.warnings,
         "provenance": report.provenance,
+        "target_peak": (
+            target_analysis.completion.as_dict() if target_analysis is not None else None
+        ),
     }
 
 
@@ -1345,10 +1485,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     try:
         stats_config = _statistics_config(effective_argv)
+        target_peak_config = _target_peak_config(effective_argv)
         flattened_overlay_config = _flattened_overlay_config(effective_argv)
     except (
         ConfigError,
         StatisticsConfigError,
+        TargetPeakConfigError,
         FlattenedOverlayConfigError,
     ) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -1764,6 +1906,7 @@ def main(argv: list[str] | None = None) -> int:
                         "file": path.name,
                         "source_path": str(path),
                         "timestamp": timestamp,
+                        "timestamp_source": timestamp_source,
                         "observe_frequency_mhz": spectrum.observe_frequency_mhz,
                         "region_noise": picked.noise,
                         "reference_shift_ppm": reference_shift,
@@ -1858,7 +2001,13 @@ def main(argv: list[str] | None = None) -> int:
         if statistics_enabled and stat_spectra_raw:
             try:
                 statistics_info = _run_statistics(
-                    stat_spectra_raw, assignments, stats_config, out_dir
+                    stat_spectra_raw, assignments, stats_config, out_dir,
+                    target_peak_config,
+                    {
+                        "baseline_method": args.baseline_method,
+                        "smoothing_window_ppm": args.smoothing_window_ppm,
+                        "line_broadening_hz": args.line_broadening_hz,
+                    },
                 )
                 n_tables = len(statistics_info["tables_written"])
                 print(
@@ -1956,6 +2105,7 @@ def main(argv: list[str] | None = None) -> int:
     # Every artefact is on disk by now, so one rename pass makes them all
     # self-identifying; recorded paths are rewritten to match.
     renamed = _prefix_output_files(out_dir)
+    _remap_target_peak_provenance(out_dir, renamed)
     for row in records:
         for key in ("full_plot", "region_plot", "spectrum_csv"):
             if key in row:

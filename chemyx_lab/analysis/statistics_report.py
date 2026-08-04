@@ -28,8 +28,7 @@ from typing import Sequence
 from . import statistics as st
 from . import kinetics as kin
 from . import multivariate as mv
-from . import normalization as norm
-from .analysis_config import StatisticsConfig, FixedRegionConfig
+from .analysis_config import StatisticsConfig
 from .lineshapes import nearest_peak_overlap
 from .time_series import (
     FixedRegion,
@@ -37,6 +36,7 @@ from .time_series import (
     elapsed_hours,
     series_rates,
     statistical_plateau,
+    white_noise_area_standard_error,
 )
 from .uncertainty import bootstrap_peak_fit
 
@@ -67,6 +67,7 @@ class PeakObservation:
     snr: float
     prominence_snr: float
     classification: str
+    prominence: float = float("nan")
 
     @property
     def peak_id(self) -> str:
@@ -92,6 +93,7 @@ class SpectrumStat:
     region_quant_corrected: object  # baseline-corrected quantitative trace (numpy)
     full_ppm: object              # whole quantitative spectrum ppm (numpy)
     full_intensity: object        # whole quantitative spectrum intensity (numpy)
+    timestamp_source: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -130,13 +132,13 @@ def build_statistics_report(
     config: StatisticsConfig,
 ) -> StatisticsReport:
     """Compute every enabled statistics table for a series of spectra."""
-    np = _np()
     report = StatisticsReport()
     spectra = list(spectra)
     n = len(spectra)
     elapsed = elapsed_hours([s.timestamp for s in spectra])
 
     report.provenance = {
+        "dataset_display_name": config.dataset_display_name,
         "statistics_enabled": config.enabled,
         "bootstrap_enabled": config.bootstrap.enabled,
         "bootstrap_iterations": config.bootstrap.iterations,
@@ -435,14 +437,7 @@ def _white_noise_area_uncertainty(ppm, lo: float, hi: float, noise: float) -> fl
     Zero-filled spectra oversample, so ``m`` overstates the independent count and
     this is a *lower bound* on the true area uncertainty (documented).
     """
-    np = _np()
-    p = np.asarray(ppm, dtype=float)
-    mask = (p >= lo) & (p <= hi)
-    m = int(np.count_nonzero(mask))
-    if m < 2 or not np.isfinite(noise) or noise <= 0:
-        return float("nan")
-    d = float(np.median(np.abs(np.diff(p[mask]))))
-    return float(noise) * d * float(np.sqrt(m))
+    return white_noise_area_standard_error(ppm, lo, hi, noise)
 
 
 def _time_series_regions(report, spectra, elapsed, config) -> dict[str, list[dict]]:
@@ -507,7 +502,6 @@ _RUN_QC_COLUMNS = [
 def _run_qc(report, spectra, elapsed, similarity) -> None:
     from . import qc as qcmod
 
-    np = _np()
     sim_by_index = {r["spectrum_index"]: r for r in similarity}
     rows: list[dict] = []
     noise_series, width_series, ref_series, passfrac_series = [], [], [], []
@@ -559,7 +553,6 @@ def _run_qc(report, spectra, elapsed, similarity) -> None:
 
 
 def _assemble_targets(spectra, elapsed, region_series, config) -> dict[str, dict]:
-    np = _np()
     targets: dict[str, dict] = {}
     # Fixed regions (positive area, stable boundaries -> preferred for kinetics).
     for name, rows in region_series.items():
@@ -570,9 +563,20 @@ def _assemble_targets(spectra, elapsed, region_series, config) -> dict[str, dict
             times.append(elapsed[i])
             areas.append(r["fixed_window_positive_area"] if r else float("nan"))
             uncertainties.append(r["fixed_window_area_uncertainty"] if r else float("nan"))
-        targets[f"region:{name}"] = {"kind": "fixed_region", "name": name,
-                                     "elapsed": times, "area": areas,
-                                     "area_uncertainty": uncertainties}
+        region_cfg = next((r for r in config.fixed_regions if r.name == name), None)
+        targets[f"region:{name}"] = {
+            "kind": "fixed_region",
+            "name": name,
+            "display_label": (
+                region_cfg.display_label
+                if region_cfg is not None and region_cfg.display_label
+                else name
+            ),
+            "dataset_display_name": config.dataset_display_name,
+            "elapsed": times,
+            "area": areas,
+            "area_uncertainty": uncertainties,
+        }
     # Reproducible families (detected boundaries; labelled as such).
     fam_obs: dict[str, dict[int, float]] = {}
     for s in spectra:

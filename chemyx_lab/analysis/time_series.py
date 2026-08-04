@@ -56,7 +56,6 @@ def elapsed_hours(timestamps: Sequence[datetime | None]) -> list[float]:
     earliest available timestamp, matching how the existing pipeline orders a
     run.
     """
-    np = _np()
     first: datetime | None = None
     for ts in timestamps:
         if ts is not None:
@@ -167,6 +166,29 @@ def integrate_fixed_region(
         qc_pass=len(reasons) == 0,
         qc_failure_reasons="; ".join(reasons),
     )
+
+
+def white_noise_area_standard_error(
+    ppm: Sequence[float],
+    left_ppm: float,
+    right_ppm: float,
+    noise: float,
+) -> float:
+    """Propagate independent white intensity noise through trapezoid area.
+
+    Zero filling correlates adjacent points, so this is explicitly a lower-bound
+    standard error rather than a fully validated experimental uncertainty.
+    """
+
+    np = _np()
+    p = np.asarray(ppm, dtype=float)
+    lo, hi = sorted((float(left_ppm), float(right_ppm)))
+    mask = (p >= lo) & (p <= hi)
+    m = int(np.count_nonzero(mask))
+    if m < 2 or not np.isfinite(noise) or noise <= 0:
+        return float("nan")
+    spacing = float(np.median(np.abs(np.diff(p[mask]))))
+    return float(noise) * spacing * float(np.sqrt(m))
 
 
 # ---------------------------------------------------------------------------

@@ -26,6 +26,7 @@ from chemyx_lab.analysis.nmr import (
     iter_dx_files,
     read_jcamp_fid,
 )
+from chemyx_lab.analysis.plot_titles import dataset_plot_title
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -133,8 +134,11 @@ def parse_acquisition_timestamp(
 
     Returns ``(datetime_or_None, source_description)``.
 
-    Tries ``##LONG DATE`` first, then the ``##$DATE`` epoch, then
-    falls back to a sequence number embedded in the filename.
+    Fallback hierarchy (recorded in the returned source string): explicit
+    JCAMP acquisition fields (``##LONG DATE``, ``##$DATE``), run metadata
+    timestamp fields, a sequence time in the filename, and finally file mtime.
+    A caller that still receives ``None`` must use measurement index explicitly;
+    this function never invents an acquisition interval.
     """
     # 1. ##LONG DATE=2026/06/08 14:21:24-0400
     long_date = metadata.get("LONG DATE", "")
@@ -162,7 +166,22 @@ def parse_acquisition_timestamp(
         except (ValueError, OSError, OverflowError):
             pass
 
-    # 3. Filename sequence number (e.g. "sequence-1415")
+    # 3. Experiment/run metadata timestamp.  Vendor exports are inconsistent
+    # about the exact JCAMP key and may store either ISO text or an epoch.
+    for key in ("$TIMESTAMP", "TIMESTAMP", "TIME STAMP", "$TIME STAMP"):
+        value = metadata.get(key, "").strip().strip("<>")
+        if not value:
+            continue
+        try:
+            if value.replace(".", "", 1).isdigit():
+                dt = datetime.fromtimestamp(float(value))
+            else:
+                dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return dt, f"{key} run metadata"
+        except (ValueError, OSError, OverflowError):
+            continue
+
+    # 4. Filename sequence number (e.g. "sequence-1415")
     if filepath is not None:
         seq_m = _SEQUENCE_RE.search(filepath.stem)
         if seq_m:
@@ -185,6 +204,14 @@ def parse_acquisition_timestamp(
                 return dt, f"filename sequence-{seq_val} (ordinal)"
             except (ValueError, OverflowError):
                 pass
+
+    # 5. File modification time.  This is deliberately below filename time:
+    # copying a dataset commonly changes every mtime to the same value.
+    if filepath is not None and filepath.is_file():
+        try:
+            return datetime.fromtimestamp(filepath.stat().st_mtime), "file modification time"
+        except (OSError, ValueError, OverflowError):
+            pass
 
     return None, "none"
 
@@ -598,9 +625,25 @@ def _get_np():
     return np
 
 
-def apply_plot_style(ax, title: str, xlabel: str, ylabel: str) -> None:
+def apply_plot_style(
+    ax,
+    title: str,
+    xlabel: str,
+    ylabel: str,
+    *,
+    dataset_display_name: str | None = None,
+    output_path: Path | None = None,
+) -> None:
     """Apply consistent styling to a matplotlib Axes."""
-    ax.set_title(title, fontsize=11, fontweight="bold")
+    ax.set_title(
+        dataset_plot_title(
+            title,
+            configured_name=dataset_display_name,
+            output_path=output_path,
+        ),
+        fontsize=11,
+        fontweight="bold",
+    )
     ax.set_xlabel(xlabel, fontsize=10)
     ax.set_ylabel(ylabel, fontsize=10)
     ax.grid(True, alpha=0.25)
@@ -636,7 +679,7 @@ def plot_metric_over_time(
         ax.set_xticks(x)
         ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=7)
 
-    ax.set_title(title, fontsize=11, fontweight="bold")
+    ax.set_title(dataset_plot_title(title, output_path=output_path), fontsize=11, fontweight="bold")
     ax.set_ylabel(ylabel, fontsize=10)
     ax.grid(True, alpha=0.25)
     fig.tight_layout()
@@ -677,7 +720,7 @@ def plot_growth_rate(
 
     ax1.set_xticks(x)
     ax1.set_xticklabels(labels, rotation=45, ha="right", fontsize=7)
-    ax1.set_title(title, fontsize=11, fontweight="bold")
+    ax1.set_title(dataset_plot_title(title, output_path=output_path), fontsize=11, fontweight="bold")
     ax1.grid(True, alpha=0.15, axis="y")
 
     # Combined legend
@@ -725,7 +768,7 @@ def plot_combined_overlay(
     ax2.set_ylabel("Peak Area (integrated)", fontsize=10, color=color2)
     ax2.tick_params(axis="y", labelcolor=color2)
 
-    ax1.set_title(title, fontsize=11, fontweight="bold")
+    ax1.set_title(dataset_plot_title(title, output_path=output_path), fontsize=11, fontweight="bold")
     ax1.grid(True, alpha=0.25)
 
     lines1, labels1 = ax1.get_legend_handles_labels()
@@ -771,7 +814,7 @@ def plot_bar_comparison(
 
     ax1.set_xticks(x)
     ax1.set_xticklabels(labels, rotation=45, ha="right", fontsize=7)
-    ax1.set_title(title, fontsize=11, fontweight="bold")
+    ax1.set_title(dataset_plot_title(title, output_path=output_path), fontsize=11, fontweight="bold")
     ax1.grid(True, alpha=0.15, axis="y")
 
     lines1, l1 = ax1.get_legend_handles_labels()
@@ -817,7 +860,7 @@ def plot_scatter_correlation(
         x_line = np.linspace(min(heights), max(heights), 100)
         ax.plot(x_line, p(x_line), "--", color="#aaa", linewidth=1, label="trend")
 
-    ax.set_title(title, fontsize=11, fontweight="bold")
+    ax.set_title(dataset_plot_title(title, output_path=output_path), fontsize=11, fontweight="bold")
     ax.set_xlabel("Peak Height (intensity)", fontsize=10)
     ax.set_ylabel("Peak Area (integrated)", fontsize=10)
     ax.grid(True, alpha=0.25)
@@ -979,7 +1022,11 @@ def plot_spectrum_single(
 
     ax.set_xlabel("Chemical shift (ppm)", fontsize=10)
     ax.set_ylabel(ylabel, fontsize=10)
-    ax.set_title(title or label, fontsize=11, fontweight="bold")
+    ax.set_title(
+        dataset_plot_title(title or label, output_path=output_path),
+        fontsize=11,
+        fontweight="bold",
+    )
     ax.grid(True, alpha=0.25)
     if range_ppm is not None:
         lo, hi = float(min(range_ppm)), float(max(range_ppm))
@@ -1040,7 +1087,7 @@ def plot_spectra_overlay(
 
     ax.set_xlabel("Chemical shift (ppm)", fontsize=10)
     ax.set_ylabel("Normalized magnitude" if normalize else "Magnitude (intensity)", fontsize=10)
-    ax.set_title(title, fontsize=11, fontweight="bold")
+    ax.set_title(dataset_plot_title(title, output_path=output_path), fontsize=11, fontweight="bold")
     ax.grid(True, alpha=0.25)
 
     all_ppm = np.concatenate([s[1] for s in spectra]) if spectra else np.array([0.0, 1.0])
@@ -1121,7 +1168,7 @@ def plot_spectra_stacked(
 
     ax.set_xlabel("Chemical shift (ppm)", fontsize=10)
     ax.set_ylabel("Normalized magnitude (offset per file)", fontsize=10)
-    ax.set_title(title, fontsize=11, fontweight="bold")
+    ax.set_title(dataset_plot_title(title, output_path=output_path), fontsize=11, fontweight="bold")
     ax.grid(True, alpha=0.2, axis="x")
 
     all_ppm = np.concatenate([s[1] for s in spectra]) if spectra else np.array([0.0, 1.0])

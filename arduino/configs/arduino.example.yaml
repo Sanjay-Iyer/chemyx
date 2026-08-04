@@ -1,0 +1,86 @@
+# Copy to arduino.local.yaml (ignored by Git if named *.local.yaml) and replace
+# only values verified from labels, datasheets, measurements, and wiring review.
+arduino:
+  port: null
+  baud_rate: 115200
+  expected_device: needle_controller
+  expected_board: uno_r4_minima
+  expected_version: 0.1.0
+  ready_timeout_s: 5.0
+  read_timeout_s: 0.1
+  write_timeout_s: 1.0
+  command_timeout_s: 10.0
+  overall_timeout_s: 59.0
+  fingerprint:
+    vid: null
+    pid: null
+    serial_number: null
+    manufacturer: null
+
+firmware:
+  # Keep false until the open-collector interface and driver settings have
+  # passed professional review and the firmware compile-time guard is enabled.
+  motion_enabled: false
+  limits_enabled: false
+  version: 0.1.0
+
+signal_interface:
+  installed: false
+  interface_type: null
+  wiring_reviewed: false
+  signal_inverted: null
+  dm542_signal_voltage_v: null
+
+motor:
+  model: null
+  rated_phase_current_a: null
+  full_steps_per_revolution: null
+  coil_pairs_identified: false
+  mechanically_disconnected_for_test_02: false
+  connected_to_axis_for_test_03: false
+
+driver:
+  model: DM542T
+  supply_voltage_v: 24
+  supply_current_a: null
+  current_switch_setting: null
+  microstep_setting: null
+  microsteps_per_full_step: null
+  enable_active_low: null
+
+motion:
+  lead_screw_lead_mm_per_revolution: null
+  steps_per_mm: null
+  home_backoff_steps: null
+  safe_up_position_steps: null
+  test_down_position_steps: null
+  maximum_travel_steps: null
+  maximum_speed_steps_s: null
+  maximum_acceleration_steps_s2: null
+  test_02_steps: null
+  test_02_speed_steps_s: null
+  home_speed_steps_s: null
+
+limits:
+  upper_installed: false
+  lower_installed: false
+  normally_closed: true
+  upper_active_low: null
+  lower_active_low: null
+  upper_state_change_tested: false
+  lower_state_change_tested: false
+
+safety:
+  fuse_installed: false
+  emergency_disconnect_documented: false
+  mechanical_hard_stops_installed: false
+  vertical_axis_safe_when_disabled: null
+  hard_runtime_limit_s: 120
+  operator_shaft_safe_confirmed: false
+  operator_inspection_required: false
+  # After any failed live motion, document inspection here with a new unique
+  # reference; changing it intentionally invalidates earlier fingerprints.
+  operator_inspection_clearance: null
+
+results:
+  run_root_dir: runs/arduino

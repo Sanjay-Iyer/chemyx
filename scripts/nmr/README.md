@@ -1,5 +1,9 @@
 # NMR analysis scripts
 
+For the focused 5.7 ppm kinetics, completion-decision logic, slide/paper figure
+sets, and exact acquisition-time provenance, see
+[`docs/NMR_TARGET_PEAK_WORKFLOW.md`](../../docs/NMR_TARGET_PEAK_WORKFLOW.md).
+
 Standalone tools for analysing NMReady JCAMP-DX (`.dx`) spectra. They read the
 core parser in `chemyx_lab/analysis/nmr.py` but are otherwise self-contained.
 
@@ -120,6 +124,38 @@ exports are large.
 
 Fixed-target analysis remains available through `analyze_single.py`,
 `compare_timeseries.py`, and `plot_spectra.py`.
+
+### Dataset-aware plot titles
+
+Every NMR figure visibly identifies the dataset. The authoritative display name
+is configured as `statistics.dataset_display_name` and
+`target_peak.dataset_display_name` in `configs/nmr/analysis.yaml`. Generic and
+legacy-compatible helpers that do not receive those sections resolve metadata,
+the input dataset directory, and then the output run directory through
+`chemyx_lab.analysis.plot_titles`. Single-panel figures use
+`<dataset display name> <descriptive title>`; multi-panel figures use the same
+convention in a suptitle. The helper prevents duplicate prefixes, and PNG, SVG,
+and PDF exports share the same title.
+
+### Nominal and actual acquisition timing
+
+For timing comparisons, `sequence-HHMM` in a filename is the nominal schedule
+label and JCAMP `LONG DATE` is the authoritative actual NMR acquisition time.
+The focused workflow writes `target_peak_timing_comparison.csv` and timing
+figures for overlaid elapsed times, relative elapsed-time drift, paired clock
+times, labeled elapsed-time gaps, and the absolute metadata-minus-filename
+clock offset. A shaded timeline comparison also combines both elapsed-time
+trends with absolute clock-offset labels. The absolute labels are not
+normalized, so the first acquisition retains the true initial mismatch.
+Filename or modification-time fallbacks are never presented as metadata
+timing.
+
+The promoted clock-time comparison keeps a plain two-line V1 in which each
+series uses its own timestamps. V2 preserves those coordinates and adds only a
+light shaded gap plus absolute offset labels at the metadata points.
+Superseded slide variants are generated under `slides/archive/`; the active
+V2-derived clock-time figure is generated in `slides/` without `_v2` in its
+filename.
 
 ### Template-derived optional methods
 

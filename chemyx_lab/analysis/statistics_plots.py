@@ -13,7 +13,8 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
-from typing import Iterable
+
+from .plot_titles import dataset_plot_title, resolve_dataset_display_name
 
 
 def _plt():
@@ -39,14 +40,32 @@ def _finite_xy(x, y):
     return x[mask], y[mask]
 
 
-def _line_plot(path: Path, x, y, *, title, xlabel, ylabel, marker="o-"):
+def _line_plot(
+    path: Path,
+    x,
+    y,
+    *,
+    title,
+    xlabel,
+    ylabel,
+    marker="o-",
+    dataset_display_name=None,
+):
     plt = _plt()
     xf, yf = _finite_xy(x, y)
     if xf.size == 0:
         return None
     fig, ax = plt.subplots(figsize=(9, 5), dpi=140)
     ax.plot(xf, yf, marker, color="#1f77b4", linewidth=1.5, markersize=5)
-    ax.set_title(title, fontsize=11, fontweight="bold")
+    ax.set_title(
+        dataset_plot_title(
+            title,
+            configured_name=dataset_display_name,
+            output_path=path,
+        ),
+        fontsize=11,
+        fontweight="bold",
+    )
     ax.set_xlabel(xlabel, fontsize=10)
     ax.set_ylabel(ylabel, fontsize=10)
     ax.grid(True, alpha=0.25)
@@ -61,6 +80,12 @@ def render_plots(report, plots_dir: Path) -> list[str]:
     """Draw statistics plots, keeping every peak time series visually separate."""
     out = Path(plots_dir) / "statistics"
     written: list[str] = []
+    provenance = getattr(report, "provenance", {}) or {}
+    dataset_display_name = resolve_dataset_display_name(
+        provenance.get("dataset_display_name"),
+        metadata=provenance,
+        output_path=out,
+    )
 
     def _try(name, fn):
         try:
@@ -76,25 +101,31 @@ def render_plots(report, plots_dir: Path) -> list[str]:
         _try("noise_vs_time.png", lambda p: _line_plot(
             p, elapsed, qc.get("region_noise", []),
             title="Region noise vs time", xlabel="Elapsed time (hours)",
-            ylabel="Robust noise (intensity)"))
+            ylabel="Robust noise (intensity)",
+            dataset_display_name=dataset_display_name))
         _try("linewidth_vs_time.png", lambda p: _line_plot(
             p, elapsed, qc.get("median_width_hz", []),
             title="Median linewidth vs time", xlabel="Elapsed time (hours)",
-            ylabel="Median FWHM (Hz)"))
+            ylabel="Median FWHM (Hz)",
+            dataset_display_name=dataset_display_name))
         _try("reference_drift_vs_time.png", lambda p: _line_plot(
             p, elapsed, qc.get("reference_shift_ppm", []),
             title="Applied reference shift vs time", xlabel="Elapsed time (hours)",
-            ylabel="Reference shift (ppm)"))
+            ylabel="Reference shift (ppm)",
+            dataset_display_name=dataset_display_name))
         _try("qc_pass_rate_vs_time.png", lambda p: _line_plot(
             p, elapsed, qc.get("qc_pass_fraction", []),
             title="Per-spectrum QC pass fraction vs time",
-            xlabel="Elapsed time (hours)", ylabel="Fraction of peaks passing QC"))
+            xlabel="Elapsed time (hours)", ylabel="Fraction of peaks passing QC",
+            dataset_display_name=dataset_display_name))
         _try("phase_vs_time.png", lambda p: _phase_plot(
-            p, elapsed, qc.get("phase0_deg", []), qc.get("phase1_deg", [])))
+            p, elapsed, qc.get("phase0_deg", []), qc.get("phase1_deg", []),
+            dataset_display_name=dataset_display_name))
 
     sim = report.similarity_series
     if sim:
-        _try("spectral_similarity_vs_time.png", lambda p: _similarity_plot(p, sim))
+        _try("spectral_similarity_vs_time.png", lambda p: _similarity_plot(
+            p, sim, dataset_display_name=dataset_display_name))
 
     # A plot used to judge change over time must contain exactly one analysis
     # target.  This keeps the 5.8 and 6.1 ppm fixed regions independent.
@@ -103,13 +134,15 @@ def render_plots(report, plots_dir: Path) -> list[str]:
         _try(
             str(Path("single_peak") / target_dir.name / "area_with_ci_vs_time.png"),
             lambda _p, target=target, target_dir=target_dir: _area_plot(
-                target_dir / "area_with_ci_vs_time.png", {"target": target}
+                target_dir / "area_with_ci_vs_time.png", {"target": target},
+                dataset_display_name=dataset_display_name,
             ),
         )
         _try(
             str(Path("single_peak") / target_dir.name / "rate_vs_time.png"),
             lambda _p, target=target, target_dir=target_dir: _rate_plot(
-                target_dir / "rate_vs_time.png", {"target": target}
+                target_dir / "rate_vs_time.png", {"target": target},
+                dataset_display_name=dataset_display_name,
             ),
         )
         if key in report.kinetic_best:
@@ -122,6 +155,7 @@ def render_plots(report, plots_dir: Path) -> list[str]:
                 lambda _p, key=key, target_dir=target_dir: _kinetic_plot(
                     target_dir / "kinetic_model_comparison.png",
                     {key: report.kinetic_best[key]},
+                    dataset_display_name=dataset_display_name,
                 ),
             )
 
@@ -136,13 +170,15 @@ def render_plots(report, plots_dir: Path) -> list[str]:
         _try(
             str(Path("two_peaks") / "area_with_ci_vs_time.png"),
             lambda _p: _area_plot(
-                out / "two_peaks" / "area_with_ci_vs_time.png", fixed_targets
+                out / "two_peaks" / "area_with_ci_vs_time.png", fixed_targets,
+                dataset_display_name=dataset_display_name,
             ),
         )
         _try(
             str(Path("two_peaks") / "rate_vs_time.png"),
             lambda _p: _rate_plot(
-                out / "two_peaks" / "rate_vs_time.png", fixed_targets
+                out / "two_peaks" / "rate_vs_time.png", fixed_targets,
+                dataset_display_name=dataset_display_name,
             ),
         )
         fixed_kinetics = {
@@ -156,6 +192,7 @@ def render_plots(report, plots_dir: Path) -> list[str]:
                 lambda _p: _kinetic_plot(
                     out / "two_peaks" / "kinetic_model_comparison.png",
                     fixed_kinetics,
+                    dataset_display_name=dataset_display_name,
                 ),
             )
     return written
@@ -166,7 +203,7 @@ def _safe_target_name(value) -> str:
     return name or "unnamed_peak"
 
 
-def _phase_plot(path, elapsed, phase0, phase1):
+def _phase_plot(path, elapsed, phase0, phase1, *, dataset_display_name=None):
     plt = _plt()
     np = _np()
     e = np.asarray(elapsed, dtype=float)
@@ -178,7 +215,15 @@ def _phase_plot(path, elapsed, phase0, phase1):
         xf, yf = _finite_xy(e, values)
         if xf.size:
             ax.plot(xf, yf, "o-", label=label, color=color, linewidth=1.4)
-    ax.set_title("Phase correction vs time", fontsize=11, fontweight="bold")
+    ax.set_title(
+        dataset_plot_title(
+            "Phase correction vs time",
+            configured_name=dataset_display_name,
+            output_path=path,
+        ),
+        fontsize=11,
+        fontweight="bold",
+    )
     ax.set_xlabel("Elapsed time (hours)", fontsize=10)
     ax.set_ylabel("Phase (degrees)", fontsize=10)
     ax.grid(True, alpha=0.25)
@@ -190,7 +235,7 @@ def _phase_plot(path, elapsed, phase0, phase1):
     return path
 
 
-def _similarity_plot(path, sim):
+def _similarity_plot(path, sim, *, dataset_display_name=None):
     plt = _plt()
     np = _np()
     e = np.asarray(sim.get("elapsed", []), dtype=float)
@@ -205,7 +250,15 @@ def _similarity_plot(path, sim):
     if not drew:
         plt.close(fig)
         return None
-    ax.set_title("Whole-spectrum similarity vs time", fontsize=11, fontweight="bold")
+    ax.set_title(
+        dataset_plot_title(
+            "Whole-spectrum similarity vs time",
+            configured_name=dataset_display_name,
+            output_path=path,
+        ),
+        fontsize=11,
+        fontweight="bold",
+    )
     ax.set_xlabel("Elapsed time (hours)", fontsize=10)
     ax.set_ylabel("Similarity to first spectrum", fontsize=10)
     ax.grid(True, alpha=0.25)
@@ -217,7 +270,7 @@ def _similarity_plot(path, sim):
     return path
 
 
-def _area_plot(path, targets):
+def _area_plot(path, targets, *, dataset_display_name=None):
     plt = _plt()
     np = _np()
     fig, ax = plt.subplots(figsize=(9.5, 5.5), dpi=140)
@@ -232,22 +285,41 @@ def _area_plot(path, targets):
         if not np.any(mask):
             continue
         color = cmap(i / max(1, len(keys) - 1))
+        label = target.get("display_label", target["name"])
         unc = target.get("area_uncertainty")
         if unc is not None:
             u = np.asarray(unc, dtype=float)[mask]
-            ax.errorbar(e[mask], a[mask], yerr=np.where(np.isfinite(u), u, 0.0),
-                        fmt="o-", color=color, capsize=3, linewidth=1.4,
-                        label=f"{target['kind']}:{target['name']}")
+            # The propagated white-noise value is a standard error.  Display an
+            # approximate 95% interval, while retaining the measured points as
+            # the visually dominant layer.
+            yerr = 1.96 * np.where(np.isfinite(u), u, 0.0)
+            ax.errorbar(
+                e[mask], a[mask], yerr=yerr, fmt="o-", color=color,
+                capsize=3, linewidth=1.5, markersize=5.5, label=label,
+            )
         else:
             ax.plot(e[mask], a[mask], "s--", color=color, linewidth=1.4,
-                    label=f"{target['kind']}:{target['name']}")
+                    label=label)
         drew = True
     if not drew:
         plt.close(fig)
         return None
-    ax.set_title("Integrated area vs time (fixed-window +/-1 SE)", fontsize=11, fontweight="bold")
+    target_dataset_name = next(
+        (
+            target.get("dataset_display_name")
+            for target in targets.values()
+            if target.get("dataset_display_name")
+        ),
+        None,
+    )
+    title = dataset_plot_title(
+        "Area vs Time",
+        configured_name=dataset_display_name or target_dataset_name,
+        output_path=path,
+    )
+    ax.set_title(title, fontsize=12, fontweight="semibold")
     ax.set_xlabel("Elapsed time (hours)", fontsize=10)
-    ax.set_ylabel("Integrated positive area", fontsize=10)
+    ax.set_ylabel("Area", fontsize=10)
     ax.grid(True, alpha=0.25)
     ax.legend(fontsize=7)
     fig.tight_layout()
@@ -257,7 +329,7 @@ def _area_plot(path, targets):
     return path
 
 
-def _rate_plot(path, targets):
+def _rate_plot(path, targets, *, dataset_display_name=None):
     from .time_series import rolling_slope
 
     plt = _plt()
@@ -283,7 +355,15 @@ def _rate_plot(path, targets):
         plt.close(fig)
         return None
     ax.axhline(0.0, color="#777777", linewidth=0.8)
-    ax.set_title("Rolling rate (slope of area vs time)", fontsize=11, fontweight="bold")
+    ax.set_title(
+        dataset_plot_title(
+            "Rolling rate (slope of area vs time)",
+            configured_name=dataset_display_name,
+            output_path=path,
+        ),
+        fontsize=11,
+        fontweight="bold",
+    )
     ax.set_xlabel("Elapsed time (hours)", fontsize=10)
     ax.set_ylabel("Rate (area per hour)", fontsize=10)
     ax.grid(True, alpha=0.25)
@@ -295,7 +375,7 @@ def _rate_plot(path, targets):
     return path
 
 
-def _kinetic_plot(path, kinetic_best):
+def _kinetic_plot(path, kinetic_best, *, dataset_display_name=None):
     from .kinetics import MODELS
 
     plt = _plt()
@@ -327,7 +407,15 @@ def _kinetic_plot(path, kinetic_best):
     if not drew:
         plt.close(fig)
         return None
-    ax.set_title("Best kinetic model (by AICc) vs data", fontsize=11, fontweight="bold")
+    ax.set_title(
+        dataset_plot_title(
+            "Best kinetic model (by AICc) vs data",
+            configured_name=dataset_display_name,
+            output_path=path,
+        ),
+        fontsize=11,
+        fontweight="bold",
+    )
     ax.set_xlabel("Elapsed time (hours)", fontsize=10)
     ax.set_ylabel("Integrated area", fontsize=10)
     ax.grid(True, alpha=0.25)

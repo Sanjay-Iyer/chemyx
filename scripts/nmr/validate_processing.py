@@ -24,6 +24,7 @@ from chemyx_lab.analysis.nmr import (
     validate_axis_metadata,
     validate_jcamp_decoders,
 )
+from chemyx_lab.analysis.plot_titles import dataset_plot_title
 
 from _common import collect_dx_files, create_output_dir, parse_acquisition_timestamp
 
@@ -169,11 +170,23 @@ def _diagnostic_plots(output: Path, spectra, window_rows, sensitivity_rows):
     ax.axvspan(5.70, 5.90, color="#2a9d8f", alpha=0.10, label="5.79 window")
     ax.axvspan(6.00, 6.20, color="#d1495b", alpha=0.10, label="6.1 window")
     ax.set_xlim(6.5, 5.0)
-    ax.set(title="5.79 versus 6.1 ppm", xlabel="Chemical shift (ppm)")
+    ax.set(
+        title=dataset_plot_title(
+            "5.79 versus 6.1 ppm",
+            output_path=output / "comparison_5p79_6p1.png",
+        ),
+        xlabel="Chemical shift (ppm)",
+    )
     ax.set_ylabel("Baseline-corrected magnitude")
     ax.legend(fontsize=7, ncol=2)
     ax.grid(True, alpha=0.18)
-    fig.tight_layout()
+    fig.suptitle(
+        dataset_plot_title(
+            "Raw, Phased, and Baseline-Corrected Spectra",
+            output_path=output / "raw_phased_baseline_comparison.png",
+        )
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
     fig.savefig(output / "comparison_5p79_6p1.png")
     plt.close(fig)
 
@@ -218,8 +231,13 @@ def _diagnostic_plots(output: Path, spectra, window_rows, sensitivity_rows):
         axis.plot(range(len(rows)), [row[field] for row in rows], marker="o")
         axis.set(xlabel="Spectrum index", ylabel=ylabel)
         axis.grid(True, alpha=0.18)
-    fig.suptitle("5.79 ppm fixed-window metrics across time")
-    fig.tight_layout()
+    fig.suptitle(
+        dataset_plot_title(
+            "5.79 ppm Fixed-Window Metrics Across Time",
+            output_path=output / "candidate_metrics_vs_time.png",
+        )
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
     fig.savefig(output / "candidate_metrics_vs_time.png")
     plt.close(fig)
 
@@ -229,8 +247,13 @@ def _diagnostic_plots(output: Path, spectra, window_rows, sensitivity_rows):
         axis.plot([row["value"] for row in lbs], [row[field] for row in lbs], marker="o")
         axis.set(xlabel="Line broadening (Hz)", ylabel=field)
         axis.grid(True, alpha=0.18)
-    fig.suptitle("Apodization sensitivity")
-    fig.tight_layout()
+    fig.suptitle(
+        dataset_plot_title(
+            "Apodization Sensitivity",
+            output_path=output / "apodization_sensitivity.png",
+        )
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
     fig.savefig(output / "apodization_sensitivity.png")
     plt.close(fig)
 
@@ -261,8 +284,13 @@ def _diagnostic_plots(output: Path, spectra, window_rows, sensitivity_rows):
         plot_axis.grid(True, alpha=0.18)
     fig.supxlabel("Chemical shift (ppm)")
     fig.supylabel("Normalized magnitude")
-    fig.suptitle("Complex-channel and transform-convention diagnostic")
-    fig.tight_layout()
+    fig.suptitle(
+        dataset_plot_title(
+            "Complex-Channel and Transform-Convention Diagnostic",
+            output_path=output / "transform_conventions.png",
+        )
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
     fig.savefig(output / "transform_conventions.png")
     plt.close(fig)
 

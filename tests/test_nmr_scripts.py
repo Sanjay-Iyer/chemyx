@@ -129,6 +129,20 @@ class TestParseAcquisitionTimestamp:
         assert "filename" in source
         assert dt.hour == 14 and dt.minute == 15
 
+    def test_run_metadata_precedes_filename(self):
+        meta = {"TIMESTAMP": "2026-06-09T10:07:43"}
+        fp = Path("sample(sequence-1415).dx")
+        dt, source = parse_acquisition_timestamp(meta, fp)
+        assert dt == datetime(2026, 6, 9, 10, 7, 43)
+        assert "run metadata" in source
+
+    def test_file_mtime_fallback(self, tmp_path):
+        fp = tmp_path / "sample.dx"
+        fp.write_text("test", encoding="utf-8")
+        dt, source = parse_acquisition_timestamp({}, fp)
+        assert dt is not None
+        assert source == "file modification time"
+
     def test_no_timestamp_available(self):
         meta = {}
         dt, source = parse_acquisition_timestamp(meta)
@@ -328,7 +342,7 @@ def test_region_plot_shows_integrated_area_and_filename_only(tmp_path, monkeypat
     )
 
     assert output.is_file()
-    assert captured["title"] == "sample.dx"
+    assert captured["title"] == f"{tmp_path.name} sample.dx"
     assert captured["xlim"] == pytest.approx((7.0, 4.0))
     assert "Integrated peak area" in captured["labels"]
     assert "Integration baseline" in captured["labels"]

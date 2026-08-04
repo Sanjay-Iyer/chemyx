@@ -39,6 +39,15 @@ rates, statistical plateau, kinetics, and spectral-similarity tables. It is off
 by default and fully backward-compatible. See [nmr_statistics.md](nmr_statistics.md)
 for every metric's definition, equations, assumptions, and failure modes.
 
+## Plot titles
+
+All saved NMR plots visibly identify the dataset. Configure the display name in
+`configs/nmr/analysis.yaml`; focused and statistics plots pass it directly,
+while shared older paths use the centralized metadata/path resolver. See
+[NMR_TARGET_PEAK_WORKFLOW.md](NMR_TARGET_PEAK_WORKFLOW.md#dataset-aware-figure-titles)
+for the resolution order, duplicate-prefix behavior, multi-panel convention,
+and required tests.
+
 ## Troubleshooting
 
 - Cannot connect: verify network interface, NMR host, port, and RPC setting.

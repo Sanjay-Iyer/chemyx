@@ -265,6 +265,7 @@ reference:
 # ---------------------------------------------------------------------------
 statistics:
   enabled: true
+  dataset_display_name: 06-09-26
 
   bootstrap:                    # per-peak uncertainty (residual bootstrap of a fit)
     enabled: true
@@ -282,6 +283,7 @@ statistics:
 
   fixed_regions:                # chemically-defined windows integrated every spectrum
     - name: candidate_5p79
+      display_label: 5.7 ppm
       left_ppm: 5.70
       right_ppm: 5.90
     - name: candidate_6p10
@@ -311,6 +313,55 @@ statistics:
     spectral_similarity: true
     pca: true
     pca_components: 3
+
+# ---------------------------------------------------------------------------
+# Focused one-peak kinetics and automation decision report.
+#
+# The label is intentionally presentation-facing ("5.7 ppm"), while the
+# expected center and bounded tracking window reflect the observed ~5.79 ppm
+# resonance.  Stage boundaries are accepted only when supplied explicitly;
+# this dataset does not contain reliable stage metadata, so stages is empty.
+# ---------------------------------------------------------------------------
+target_peak:
+  enabled: true
+  dataset_display_name: 06-09-26
+  peak_label: 5.7 ppm
+  expected_center_ppm: 5.79
+  search_window_ppm: [5.70, 5.90]
+  integration_window_ppm: [5.70, 5.90]
+  plot_window_ppm: [5.68, 5.91]
+  tracking_max_drift_ppm: 0.08
+  integration_edge_margin_ppm: 0.01
+  minimum_snr: 8.0
+  minimum_prominence_snr: 5.0
+  rolling_window: 4
+  normalization_modes: [fraction_of_max, relative_to_first, zero_to_one]
+
+  completion:
+    recent_window: 4
+    minimum_observations: 6
+    minimum_elapsed_hours: 1.0
+    absolute_slope_threshold_per_hour: 5.0
+    relative_slope_threshold_percent_per_hour: 10.0
+    percent_change_threshold: 5.0
+    consecutive_stable_measurements: 3
+    low_area_absolute: null
+    low_area_fraction_of_max: 0.10
+    meaningful_trend_fraction: 0.25
+    reversal_consecutive_measurements: 2
+    percent_denominator_floor_fraction: 0.05
+    confidence_level: 0.95
+
+  figures:
+    formats: [png, svg, pdf]
+    dpi: 300
+    slide_size_inches: [10.0, 5.625]
+    paper_single_column_inches: [3.5, 3.0]
+    paper_double_column_inches: [7.2, 5.2]
+    show_uncertainty: true
+    show_trend: false
+
+  stages: []
 
 reference_models:
   protonated_toluene_low_field_neat:

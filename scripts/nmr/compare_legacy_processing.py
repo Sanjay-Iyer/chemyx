@@ -19,6 +19,7 @@ from chemyx_lab.analysis.nmr import (
 )
 from chemyx_lab.analysis.nmr_legacy import process_legacy
 from chemyx_lab.analysis.nmr_legacy import legacy_local_integral_sum
+from chemyx_lab.analysis.plot_titles import dataset_plot_title
 
 from _common import collect_dx_files, create_output_dir
 
@@ -180,7 +181,12 @@ def _plots(output: Path, representative):
         ax.set_xlim(high, low)
         ax.set_xlabel("Chemical shift (ppm)")
         ax.set_ylabel("Locally normalized real intensity")
-        ax.set_title(filename.replace("_", " "))
+        ax.set_title(
+            dataset_plot_title(
+                filename.replace("_", " "),
+                output_path=output / f"{filename}.png",
+            )
+        )
         ax.grid(True, alpha=0.18)
         ax.legend(fontsize=8)
         fig.tight_layout()

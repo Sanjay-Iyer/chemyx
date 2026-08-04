@@ -45,6 +45,7 @@ class FixedRegionConfig:
     name: str
     left_ppm: float
     right_ppm: float
+    display_label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -84,6 +85,7 @@ class MultivariateConfig:
 @dataclass(frozen=True)
 class StatisticsConfig:
     enabled: bool = False
+    dataset_display_name: str | None = None
     bootstrap: BootstrapConfig = field(default_factory=BootstrapConfig)
     internal_standard: InternalStandardConfig = field(
         default_factory=InternalStandardConfig
@@ -152,7 +154,7 @@ def load_statistics_config(raw: dict | None) -> StatisticsConfig:
     _check_keys(
         section,
         {
-            "enabled", "bootstrap", "internal_standard", "fixed_regions",
+            "enabled", "dataset_display_name", "bootstrap", "internal_standard", "fixed_regions",
             "outliers", "plateau", "kinetics", "multivariate",
         },
         "",
@@ -249,6 +251,7 @@ def load_statistics_config(raw: dict | None) -> StatisticsConfig:
 
     return StatisticsConfig(
         enabled=enabled,
+        dataset_display_name=_optional_str(section.get("dataset_display_name")),
         bootstrap=bootstrap,
         internal_standard=internal_standard,
         fixed_regions=regions,
@@ -281,7 +284,11 @@ def _regions(raw: Any) -> tuple[FixedRegionConfig, ...]:
     names: set[str] = set()
     for index, item in enumerate(raw):
         entry = _mapping(item, f"statistics.fixed_regions[{index}]")
-        _check_keys(entry, {"name", "left_ppm", "right_ppm"}, f"fixed_regions[{index}]")
+        _check_keys(
+            entry,
+            {"name", "left_ppm", "right_ppm", "display_label"},
+            f"fixed_regions[{index}]",
+        )
         if "name" not in entry or "left_ppm" not in entry or "right_ppm" not in entry:
             raise ConfigError(
                 f"statistics.fixed_regions[{index}] needs name, left_ppm, right_ppm"
@@ -294,5 +301,12 @@ def _regions(raw: Any) -> tuple[FixedRegionConfig, ...]:
         right = float(entry["right_ppm"])
         if left == right:
             raise ConfigError(f"fixed_regions[{index}] left_ppm and right_ppm are equal")
-        regions.append(FixedRegionConfig(name=name, left_ppm=left, right_ppm=right))
+        regions.append(
+            FixedRegionConfig(
+                name=name,
+                left_ppm=left,
+                right_ppm=right,
+                display_label=_optional_str(entry.get("display_label")),
+            )
+        )
     return tuple(regions)

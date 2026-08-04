@@ -1977,7 +1977,18 @@ def plot_peak_region(
     corrected_ax.set_xlabel("Chemical shift (ppm)")
     corrected_ax.set_ylabel("baseline-corrected\nrelative magnitude")
     corrected_ax.grid(True, alpha=0.25)
-    fig.tight_layout()
+    from .plot_titles import dataset_plot_title
+
+    fig.suptitle(
+        dataset_plot_title(
+            "Peak Review",
+            input_paths=path,
+            output_path=png_path,
+        ),
+        fontsize=12,
+        fontweight="semibold",
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
     fig.savefig(png_path)
     plt.close(fig)
     return png_path
