@@ -1,5 +1,10 @@
 # Arduino Needle-Axis Bring-Up
 
+The optional [commercial one-upload firmware](docs/COMMERCIAL_FIRMWARE.md)
+keeps the same staged interlocks while accepting reviewed motion ceilings from
+YAML at runtime. The original `needle_controller` firmware remains the
+compile-time-commissioned reference implementation.
+
 > **CURRENT LIVE-TEST STATUS**
 >
 > **Test 1:** Approved for Arduino-only live testing.
@@ -100,4 +105,3 @@ python -m pytest arduino\tests -q
 See [system overview](docs/SYSTEM_OVERVIEW.md),
 [required hardware](docs/REQUIRED_HARDWARE_BEFORE_LIVE_MOTION.md), and
 [safety/failure modes](docs/SAFETY_AND_FAILURE_MODES.md).
-

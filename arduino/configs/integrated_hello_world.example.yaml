@@ -20,6 +20,7 @@ arduino:
 firmware:
   motion_enabled: false
   limits_enabled: false
+  runtime_configurable: false
   version: 0.1.0
 
 signal_interface:
@@ -81,13 +82,10 @@ safety:
 integrated:
   machine_config_path: configs/machines/00_machine.local.yaml
   experiment_config_path: configs/experiments/02_si6_automated_nmr.yaml
-  # 1-based indices must point to explicitly approved pump actions in the
-  # existing experiment config. They remain null until reviewed.
   pump_action_cycle_index: null
   pump_return_cycle_index: null
   post_motion_settle_s: null
   post_pump_settle_s: null
-  # Live full mode accepts only: si6_configured_1d
   nmr_diagnostic: null
   expected_nmr_artifact_suffix: null
   test3_state_continuity_confirmed: false

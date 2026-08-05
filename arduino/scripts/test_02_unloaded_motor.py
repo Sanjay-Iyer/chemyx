@@ -75,6 +75,7 @@ def main(argv: list[str] | None = None) -> int:
             mode,
             allow_motion=True,
             motion_dispatch_callback=lambda: failure_context.update(motion_attempted=True),
+            apply_runtime_config=True,
         ) as controller:
             failure_context["firmware_version"] = controller.identity.get("version")
             state = run_test_02(

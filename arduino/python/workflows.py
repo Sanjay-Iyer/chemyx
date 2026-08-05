@@ -1,5 +1,3 @@
-"""Sequential staged test procedures, separated from their CLIs."""
-
 from __future__ import annotations
 
 import time
@@ -49,6 +47,13 @@ def _status_bool(status: dict[str, str], name: str) -> bool:
 def verify_firmware_motion_configuration(
     status: dict[str, str], cfg: dict[str, Any], *, include_limits: bool
 ) -> None:
+    expected_driver_model = str(cfg["driver"].get("model") or "").strip().upper()
+    reported_driver_model = str(status.get("driver_model") or "").strip().upper()
+    if not expected_driver_model or reported_driver_model != expected_driver_model:
+        raise ProtocolError(
+            f"Firmware driver_model={reported_driver_model!r} does not match "
+            f"reviewed config {expected_driver_model!r}"
+        )
     expected = {
         "motion_commissioned": bool(cfg["firmware"].get("motion_enabled")),
         "signal_inverted": bool(cfg["signal_interface"].get("signal_inverted")),
@@ -209,8 +214,8 @@ def run_test_03(
         raise ProtocolError("Both limit switches are active")
     verify_limits(controller, deadline)
     deadline.check("Test 3")
-    controller.enable()
     try:
+        controller.enable()
         controller.home()
         if backoff <= 0:
             raise ValueError("Home backoff must be positive")

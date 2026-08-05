@@ -1,10 +1,12 @@
-# only values verified from labels, datasheets, measurements, and wiring review.
+# One uploaded commercial firmware image reads these reviewed values at runtime.
+# Copy to commercial_arduino.local.yaml and replace only independently verified
+# placeholders. False/null values deliberately block live motion.
 arduino:
   port: null
   baud_rate: 115200
-  expected_device: needle_controller
+  expected_device: commercial_needle_controller
   expected_board: uno_r4_minima
-  expected_version: 0.1.0
+  expected_version: 1.0.0
   ready_timeout_s: 5.0
   read_timeout_s: 0.1
   write_timeout_s: 1.0
@@ -19,8 +21,8 @@ arduino:
 firmware:
   motion_enabled: false
   limits_enabled: false
-  runtime_configurable: false
-  version: 0.1.0
+  runtime_configurable: true
+  version: 1.0.0
 
 signal_interface:
   installed: false
@@ -38,7 +40,7 @@ motor:
   connected_to_axis_for_test_03: false
 
 driver:
-  model: DM542T
+  model: DM542S
   supply_voltage_v: 24
   supply_current_a: null
   current_switch_setting: null
@@ -76,8 +78,6 @@ safety:
   hard_runtime_limit_s: 120
   operator_shaft_safe_confirmed: false
   operator_inspection_required: false
-  # After any failed live motion, document inspection here with a new unique
-  # reference; changing it intentionally invalidates earlier fingerprints.
   operator_inspection_clearance: null
 
 results:

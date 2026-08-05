@@ -1,3 +1,4 @@
+#define COMMERCIAL_RUNTIME_CONFIG 1
 /*
   Needle controller 0.1.0 for Arduino UNO R4 Minima.
 */
@@ -767,3 +768,5 @@ void loop() {
   serviceMovement();
   serviceBlink();
 }
+
+

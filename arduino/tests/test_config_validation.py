@@ -1,9 +1,11 @@
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
 
 from arduino.python.config import (
     hardware_fingerprint,
+    load_arduino_config,
     test2_missing as missing_test2,
     test3_missing as missing_test3,
     validate_config_structure,
@@ -17,7 +19,7 @@ def test_example_config_accepts_placeholders(base_config):
 
 
 def test_test2_blocks_without_signal_interface(base_config):
-    assert "Verified open-collector Arduino-to-DM542T interface" in missing_test2(base_config)
+    assert "Verified open-collector Arduino-to-stepper-driver interface" in missing_test2(base_config)
 
 
 def test_test2_blocks_without_motor_current(commissioned_config):
@@ -62,3 +64,14 @@ def test_runtime_ceiling_cannot_exceed_120_seconds(base_config):
     base_config["safety"]["hard_runtime_limit_s"] = 121
     with pytest.raises(ConfigurationError):
         validate_config_structure(base_config)
+
+
+def test_commercial_example_selects_runtime_firmware():
+    path = Path(__file__).resolve().parents[1] / "configs" / "commercial_arduino.example.yaml"
+    cfg = load_arduino_config(path)
+    assert cfg["arduino"]["expected_device"] == "commercial_needle_controller"
+    assert cfg["arduino"]["expected_version"] == "1.0.0"
+    assert cfg["firmware"]["runtime_configurable"] is True
+    assert cfg["firmware"]["motion_enabled"] is False
+    assert cfg["firmware"]["limits_enabled"] is False
+    assert cfg["driver"]["model"] == "DM542S"

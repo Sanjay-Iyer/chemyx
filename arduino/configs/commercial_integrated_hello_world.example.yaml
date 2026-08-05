@@ -1,10 +1,11 @@
-# only values verified from labels, datasheets, measurements, and wiring review.
+# Commercial runtime-configured firmware example for Test 4A/4B. Null and
+# false placeholders intentionally keep live physical actions blocked.
 arduino:
   port: null
   baud_rate: 115200
-  expected_device: needle_controller
+  expected_device: commercial_needle_controller
   expected_board: uno_r4_minima
-  expected_version: 0.1.0
+  expected_version: 1.0.0
   ready_timeout_s: 5.0
   read_timeout_s: 0.1
   write_timeout_s: 1.0
@@ -19,8 +20,8 @@ arduino:
 firmware:
   motion_enabled: false
   limits_enabled: false
-  runtime_configurable: false
-  version: 0.1.0
+  runtime_configurable: true
+  version: 1.0.0
 
 signal_interface:
   installed: false
@@ -38,7 +39,7 @@ motor:
   connected_to_axis_for_test_03: false
 
 driver:
-  model: DM542T
+  model: DM542S
   supply_voltage_v: 24
   supply_current_a: null
   current_switch_setting: null
@@ -76,9 +77,18 @@ safety:
   hard_runtime_limit_s: 120
   operator_shaft_safe_confirmed: false
   operator_inspection_required: false
-  # After any failed live motion, document inspection here with a new unique
-  # reference; changing it intentionally invalidates earlier fingerprints.
   operator_inspection_clearance: null
+
+integrated:
+  machine_config_path: configs/machines/00_machine.local.yaml
+  experiment_config_path: configs/experiments/02_si6_automated_nmr.yaml
+  pump_action_cycle_index: null
+  pump_return_cycle_index: null
+  post_motion_settle_s: null
+  post_pump_settle_s: null
+  nmr_diagnostic: null
+  expected_nmr_artifact_suffix: null
+  test3_state_continuity_confirmed: false
 
 results:
   run_root_dir: runs/arduino

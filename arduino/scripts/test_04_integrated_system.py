@@ -168,7 +168,9 @@ def main(argv: list[str] | None = None) -> int:
             deadline = HardDeadline(min(59.0, run_cfg["arduino"]["overall_timeout_s"]))
             machine, pump, nmr = _machine_objects(run_cfg, mode)
             deadline.check("Test 4A setup")
-            with controller_session(run_cfg, mode, allow_motion=False) as controller:
+            with controller_session(
+                run_cfg, mode, allow_motion=False, apply_runtime_config=True
+            ) as controller:
                 failure_context["firmware_version"] = controller.identity.get("version")
                 arduino_port = getattr(controller.transport, "port", run_cfg["arduino"].get("port"))
                 ensure_distinct_ports(arduino_port, machine.chemyx.serial_port)
@@ -231,6 +233,7 @@ def main(argv: list[str] | None = None) -> int:
             mock_homed=True,
             motion_guard=interlock.motion_allowed,
             motion_dispatch_callback=lambda: failure_context.update(motion_attempted=True),
+            apply_runtime_config=True,
         ) as controller:
             failure_context["firmware_version"] = controller.identity.get("version")
             ensure_distinct_ports(

@@ -113,22 +113,44 @@ def controller_session(
     mock_homed: bool = False,
     motion_guard=None,
     motion_dispatch_callback=None,
+    apply_runtime_config: bool = False,
 ):
     settings = cfg["arduino"]
     lock = None
     if mode == "mock":
+        runtime_configurable = bool(cfg["firmware"].get("runtime_configurable"))
         transport = FakeArduinoTransport(
             scenario=mock_scenario,
+            device=settings["expected_device"],
+            board=settings["expected_board"],
+            version=settings.get("expected_version") or cfg["firmware"]["version"],
             homed=mock_homed,
-            motion_commissioned=bool(cfg["firmware"].get("motion_enabled")),
-            limits_commissioned=bool(cfg["firmware"].get("limits_enabled")),
-            maximum_travel_steps=cfg["motion"].get("maximum_travel_steps") or 0,
-            maximum_speed_steps_s=cfg["motion"].get("maximum_speed_steps_s") or 0,
-            maximum_acceleration_steps_s2=cfg["motion"].get("maximum_acceleration_steps_s2") or 0,
-            home_speed_steps_s=cfg["motion"].get("home_speed_steps_s") or 0,
+            motion_commissioned=(False if runtime_configurable else bool(cfg["firmware"].get("motion_enabled"))),
+            limits_commissioned=(False if runtime_configurable else bool(cfg["firmware"].get("limits_enabled"))),
+            maximum_travel_steps=(0 if runtime_configurable else cfg["motion"].get("maximum_travel_steps") or 0),
+            maximum_speed_steps_s=(0 if runtime_configurable else cfg["motion"].get("maximum_speed_steps_s") or 0),
+            maximum_acceleration_steps_s2=(0 if runtime_configurable else cfg["motion"].get("maximum_acceleration_steps_s2") or 0),
+            home_speed_steps_s=(0 if runtime_configurable else cfg["motion"].get("home_speed_steps_s") or 0),
             initial_position_steps=(cfg["motion"].get("safe_up_position_steps") or 0) if mock_homed else 0,
             initially_enabled=mock_homed,
+            runtime_configurable=runtime_configurable,
+            driver_model=cfg["driver"].get("model") or "",
         )
+        if runtime_configurable and mock_homed:
+            desired = NeedleController._desired_runtime_configuration(cfg)
+            transport.runtime_configured = True
+            transport.motion_commissioned = bool(desired["motion_commissioned"])
+            transport.limits_commissioned = bool(desired["limits_commissioned"])
+            transport.signal_inverted = bool(desired["signal_inverted"])
+            transport.enable_active_low = bool(desired["enable_active_low"])
+            transport.upper_active_low = bool(desired["upper_active_low"])
+            transport.lower_active_low = bool(desired["lower_active_low"])
+            transport.maximum_travel_steps = int(desired["maximum_travel_steps"])
+            transport.maximum_speed_steps_s = int(desired["maximum_speed_steps_s"])
+            transport.maximum_acceleration_steps_s2 = int(
+                desired["maximum_acceleration_steps_s2"]
+            )
+            transport.home_speed_steps_s = int(desired["home_speed_steps_s"])
     elif mode == "live":
         selected = resolve_arduino_port(settings.get("port"), settings.get("fingerprint"))
         lock = PortProcessLock(selected.device).acquire()
@@ -158,6 +180,8 @@ def controller_session(
     )
     try:
         with controller:
+            if apply_runtime_config and cfg["firmware"].get("runtime_configurable"):
+                controller.configure_runtime(cfg)
             yield controller
     finally:
         if lock is not None:

@@ -27,11 +27,16 @@ class FakeArduinoTransport:
         home_speed_steps_s: int = 0,
         initial_position_steps: int = 0,
         initially_enabled: bool = False,
+        runtime_configurable: bool = False,
+        driver_model: str = "DM542T",
     ) -> None:
         self.scenario = scenario
         self.device = device
         self.board = board
         self.version = version
+        self.runtime_configurable = bool(runtime_configurable)
+        self.driver_model = str(driver_model)
+        self.runtime_configured = not self.runtime_configurable
         self.motion_commissioned = bool(motion_commissioned)
         self.limits_commissioned = bool(limits_commissioned)
         self.maximum_travel_steps = int(maximum_travel_steps)
@@ -55,6 +60,8 @@ class FakeArduinoTransport:
         self.limit_down = False
         self.fault = "NONE"
         self.disconnected = False
+        self._pending_io: tuple[bool, ...] | None = None
+        self._pending_limits: tuple[int, ...] | None = None
 
     @property
     def is_open(self) -> bool:
@@ -133,7 +140,16 @@ class FakeArduinoTransport:
                 return
             self.led = False
             self._rx.append(f"DONE {response_sequence} blinks=3 led=off")
+        elif upper.startswith("CONFIG_IO "):
+            self._configure_io(response_sequence, command)
+        elif upper.startswith("CONFIG_LIMITS "):
+            self._configure_limits(response_sequence, command)
+        elif upper == "CONFIG_APPLY":
+            self._configure_apply(response_sequence)
         elif upper == "ENABLE":
+            if self.runtime_configurable and not self.runtime_configured:
+                self._rx.append(f"ERR {response_sequence} CONFIG_REQUIRED")
+                return
             if not self.motion_commissioned:
                 self._rx.append(f"ERR {response_sequence} MOTION_NOT_COMMISSIONED")
                 return
@@ -201,11 +217,106 @@ class FakeArduinoTransport:
                 f"enable_active_low={str(self.enable_active_low).lower()}",
                 f"upper_active_low={str(self.upper_active_low).lower()}",
                 f"lower_active_low={str(self.lower_active_low).lower()}",
+                f"driver_model={self.driver_model}",
                 f"maximum_travel_steps={self.maximum_travel_steps}",
                 f"maximum_speed_steps_s={self.maximum_speed_steps_s}",
                 f"maximum_acceleration_steps_s2={self.maximum_acceleration_steps_s2}",
                 f"home_speed_steps_s={self.home_speed_steps_s if self.limits_commissioned else 0}",
+                f"runtime_configurable={str(self.runtime_configurable).lower()}",
+                f"runtime_configured={str(self.runtime_configured).lower()}",
             ]
+        )
+
+    def _configure_io(self, sequence: int, command: str) -> None:
+        if not self.runtime_configurable:
+            self._rx.append(f"ERR {sequence} UNKNOWN_COMMAND")
+            return
+        if self.moving or self.enabled:
+            self._rx.append(f"ERR {sequence} CONFIG_STATE")
+            return
+        try:
+            _, *tokens = command.split()
+            values = tuple(int(token) for token in tokens)
+        except ValueError:
+            self._rx.append(f"ERR {sequence} MALFORMED_COMMAND")
+            return
+        if len(values) != 6 or any(value not in (0, 1) for value in values):
+            self._rx.append(f"ERR {sequence} MALFORMED_COMMAND")
+            return
+        if not self._accept(sequence, "CONFIG_IO"):
+            return
+        self._pending_io = tuple(bool(value) for value in values)
+        self._rx.append(f"DONE {sequence} staged=true")
+
+    def _configure_limits(self, sequence: int, command: str) -> None:
+        if not self.runtime_configurable:
+            self._rx.append(f"ERR {sequence} UNKNOWN_COMMAND")
+            return
+        if self.moving or self.enabled:
+            self._rx.append(f"ERR {sequence} CONFIG_STATE")
+            return
+        try:
+            _, *tokens = command.split()
+            values = tuple(int(token) for token in tokens)
+        except ValueError:
+            self._rx.append(f"ERR {sequence} MALFORMED_COMMAND")
+            return
+        if (
+            len(values) != 4
+            or any(value < 0 for value in values)
+            or values[0] > 200000
+            or values[1] > 5000
+            or values[2] > 50000
+            or values[3] > 5000
+        ):
+            self._rx.append(f"ERR {sequence} OUT_OF_RANGE")
+            return
+        if not self._accept(sequence, "CONFIG_LIMITS"):
+            return
+        self._pending_limits = values
+        self._rx.append(f"DONE {sequence} staged=true")
+
+    def _configure_apply(self, sequence: int) -> None:
+        if not self.runtime_configurable:
+            self._rx.append(f"ERR {sequence} UNKNOWN_COMMAND")
+            return
+        if self.moving or self.enabled:
+            self._rx.append(f"ERR {sequence} CONFIG_STATE")
+            return
+        if self._pending_io is None or self._pending_limits is None:
+            self._rx.append(f"ERR {sequence} CONFIG_INCOMPLETE")
+            return
+        motion, limits, signal_inverted, enable_active_low, upper_active_low, lower_active_low = self._pending_io
+        maximum_travel, maximum_speed, maximum_acceleration, home_speed = self._pending_limits
+        if limits and not motion:
+            self._rx.append(f"ERR {sequence} CONFIG_INVALID")
+            return
+        if motion and (maximum_speed <= 0 or maximum_acceleration <= 0):
+            self._rx.append(f"ERR {sequence} CONFIG_INVALID")
+            return
+        if limits and (maximum_travel <= 0 or home_speed <= 0 or home_speed > maximum_speed):
+            self._rx.append(f"ERR {sequence} CONFIG_INVALID")
+            return
+        if not self._accept(sequence, "CONFIG_APPLY"):
+            return
+        self.motion_commissioned = motion
+        self.limits_commissioned = limits
+        self.signal_inverted = signal_inverted
+        self.enable_active_low = enable_active_low
+        self.upper_active_low = upper_active_low
+        self.lower_active_low = lower_active_low
+        self.maximum_travel_steps = maximum_travel
+        self.maximum_speed_steps_s = maximum_speed
+        self.maximum_acceleration_steps_s2 = maximum_acceleration
+        self.home_speed_steps_s = home_speed
+        self.runtime_configured = True
+        self.homed = False
+        self.position_known = False
+        self.position_steps = 0
+        self._pending_io = None
+        self._pending_limits = None
+        self._rx.append(
+            f"DONE {sequence} runtime_configured=true enabled=false position_known=false"
         )
 
     def _home(self, sequence: int) -> None:

@@ -1,5 +1,3 @@
-"""Arduino YAML loading, fingerprints, and fail-closed live prerequisites."""
-
 from __future__ import annotations
 
 import hashlib
@@ -22,7 +20,7 @@ SECTION_KEYS = {
         "ready_timeout_s", "read_timeout_s", "write_timeout_s", "command_timeout_s",
         "overall_timeout_s", "fingerprint",
     },
-    "firmware": {"motion_enabled", "limits_enabled", "version"},
+    "firmware": {"motion_enabled", "limits_enabled", "runtime_configurable", "version"},
     "signal_interface": {
         "installed", "interface_type", "wiring_reviewed", "signal_inverted",
         "dm542_signal_voltage_v",
@@ -75,7 +73,12 @@ DEFAULTS: dict[str, Any] = {
         "overall_timeout_s": 60.0,
         "fingerprint": {},
     },
-    "firmware": {"motion_enabled": False, "limits_enabled": False, "version": "0.1.0"},
+    "firmware": {
+        "motion_enabled": False,
+        "limits_enabled": False,
+        "runtime_configurable": False,
+        "version": "0.1.0",
+    },
     "signal_interface": {},
     "motor": {},
     "driver": {"model": "DM542T", "supply_voltage_v": 24},
@@ -148,6 +151,9 @@ def validate_config_structure(cfg: dict[str, Any]) -> None:
         raise ConfigurationError(
             "arduino.expected_version and firmware.version must be identical non-empty strings"
         )
+    for key in ("motion_enabled", "limits_enabled", "runtime_configurable"):
+        if not isinstance(cfg["firmware"].get(key), bool):
+            raise ConfigurationError(f"firmware.{key} must be true or false")
     fingerprint = cfg["arduino"].get("fingerprint")
     if fingerprint is not None and not isinstance(fingerprint, dict):
         raise ConfigurationError("arduino.fingerprint must be a mapping")
@@ -287,12 +293,13 @@ def test2_missing(
         cfg["signal_interface"], cfg["motor"], cfg["driver"], cfg["motion"],
         cfg["safety"], cfg["firmware"],
     )
+    expected_driver_model = "DM542S" if fw.get("runtime_configurable") else "DM542T"
     checks = [
-        (s.get("installed") is True, "Verified open-collector Arduino-to-DM542T interface"),
+        (s.get("installed") is True, "Verified open-collector Arduino-to-stepper-driver interface"),
         (_present(s.get("interface_type")) and "direct" not in str(s.get("interface_type", "")).lower(), "Exact verified signal-interface type"),
         (s.get("wiring_reviewed") is True, "Signal-interface wiring review"),
         (_is_bool(s.get("signal_inverted")), "Explicit boolean signal inversion setting"),
-        (_numeric_equals(s.get("dm542_signal_voltage_v"), 5.0), "DM542T 5 V control setting"),
+        (_numeric_equals(s.get("dm542_signal_voltage_v"), 5.0), "Verified 5 V driver control signal"),
         (fw.get("motion_enabled") is True, "Firmware motion commissioning flag after expert review"),
         (_present(m.get("model")), "Exact NEMA 17 model"),
         (_positive_value(m.get("rated_phase_current_a")), "Motor rated phase current"),
@@ -303,8 +310,11 @@ def test2_missing(
         (_present(d.get("current_switch_setting")), "DM542T current switch setting"),
         (_present(d.get("microstep_setting")), "DM542T microstep switch setting"),
         (_positive_value(d.get("microsteps_per_full_step")), "Numeric microsteps per full step"),
-        (str(d.get("model", "")).strip().upper() == "DM542T", "Verified DM542T driver model"),
-        (_is_bool(d.get("enable_active_low")), "Explicit boolean DM542T enable polarity"),
+        (
+            str(d.get("model", "")).strip().upper() == expected_driver_model,
+            f"Verified {expected_driver_model} driver model",
+        ),
+        (_is_bool(d.get("enable_active_low")), f"Explicit boolean {expected_driver_model} enable polarity"),
         (_positive_integer(motion.get("test_02_steps")) and motion.get("test_02_steps") <= 200000, "Integer Test 2 step count at or below firmware cap"),
         (_positive_integer(motion.get("test_02_speed_steps_s")) and motion.get("test_02_speed_steps_s") <= 5000, "Integer Test 2 speed at or below firmware cap"),
         (safety.get("fuse_installed") is True, "Fuse installed"),

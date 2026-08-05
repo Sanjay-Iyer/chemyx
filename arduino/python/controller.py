@@ -268,6 +268,101 @@ class NeedleController:
         self.position_certain = bool_field(fields, "position_known")
         return fields
 
+    @staticmethod
+    def _desired_runtime_configuration(cfg: dict) -> dict[str, int | bool]:
+        motion = cfg["motion"]
+        motion_enabled = bool(cfg["firmware"].get("motion_enabled"))
+        limits_enabled = bool(cfg["firmware"].get("limits_enabled"))
+        maximum_speed = motion.get("maximum_speed_steps_s")
+        if maximum_speed in (None, 0):
+            maximum_speed = motion.get("test_02_speed_steps_s") or 0
+        maximum_acceleration = motion.get("maximum_acceleration_steps_s2")
+        if maximum_acceleration in (None, 0):
+            maximum_acceleration = 500 if motion_enabled else 0
+        return {
+            "motion_commissioned": motion_enabled,
+            "limits_commissioned": limits_enabled,
+            "signal_inverted": bool(cfg["signal_interface"].get("signal_inverted")),
+            "enable_active_low": bool(cfg["driver"].get("enable_active_low")),
+            "upper_active_low": bool(cfg["limits"].get("upper_active_low")),
+            "lower_active_low": bool(cfg["limits"].get("lower_active_low")),
+            "maximum_travel_steps": int(motion.get("maximum_travel_steps") or 0),
+            "maximum_speed_steps_s": int(maximum_speed),
+            "maximum_acceleration_steps_s2": int(maximum_acceleration),
+            "home_speed_steps_s": int(motion.get("home_speed_steps_s") or 0),
+        }
+
+    @staticmethod
+    def _runtime_configuration_matches(
+        status: dict[str, str], desired: dict[str, int | bool]
+    ) -> bool:
+        try:
+            if not bool_field(status, "runtime_configurable"):
+                return False
+            if not bool_field(status, "runtime_configured"):
+                return False
+            for field in (
+                "motion_commissioned",
+                "limits_commissioned",
+                "signal_inverted",
+                "enable_active_low",
+                "upper_active_low",
+                "lower_active_low",
+            ):
+                if bool_field(status, field) is not desired[field]:
+                    return False
+            for field in (
+                "maximum_travel_steps",
+                "maximum_speed_steps_s",
+                "maximum_acceleration_steps_s2",
+                "home_speed_steps_s",
+            ):
+                if int(status[field]) != desired[field]:
+                    return False
+        except (KeyError, TypeError, ValueError, ProtocolError):
+            return False
+        return True
+
+    def configure_runtime(self, cfg: dict) -> dict[str, str]:
+        """Apply reviewed volatile commissioning without reflashing firmware."""
+        desired = self._desired_runtime_configuration(cfg)
+        initial = self.status()
+        try:
+            supported = bool_field(initial, "runtime_configurable")
+        except ProtocolError as exc:
+            raise ProtocolError("Firmware does not report runtime configuration support") from exc
+        if not supported:
+            raise ProtocolError("Firmware does not support runtime commissioning")
+        if self._runtime_configuration_matches(initial, desired):
+            return initial
+        if bool_field(initial, "moving") or bool_field(initial, "enabled"):
+            raise MotionInterlockError(
+                "Runtime configuration mismatch while motor is moving or enabled"
+            )
+
+        binary = lambda value: 1 if bool(value) else 0
+        self.command(
+            "CONFIG_IO "
+            f"{binary(desired['motion_commissioned'])} "
+            f"{binary(desired['limits_commissioned'])} "
+            f"{binary(desired['signal_inverted'])} "
+            f"{binary(desired['enable_active_low'])} "
+            f"{binary(desired['upper_active_low'])} "
+            f"{binary(desired['lower_active_low'])}"
+        )
+        self.command(
+            "CONFIG_LIMITS "
+            f"{desired['maximum_travel_steps']} "
+            f"{desired['maximum_speed_steps_s']} "
+            f"{desired['maximum_acceleration_steps_s2']} "
+            f"{desired['home_speed_steps_s']}"
+        )
+        self.command("CONFIG_APPLY")
+        final = self.status()
+        if not self._runtime_configuration_matches(final, desired):
+            raise ProtocolError("Firmware runtime configuration did not match reviewed YAML")
+        return final
+
     def led_on(self) -> CommandResult:
         return self.command("LED ON")
 

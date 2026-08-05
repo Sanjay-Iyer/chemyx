@@ -117,7 +117,9 @@ def main(argv: list[str] | None = None) -> int:
                 require_live("TEST 3 LIMIT-SWITCH PREFLIGHT", missing)
                 confirm_live("RUN ARDUINO TEST 3 PREFLIGHT")
             deadline = HardDeadline(min(59.0, run_cfg["arduino"]["overall_timeout_s"]))
-            with controller_session(run_cfg, mode, allow_motion=False) as controller:
+            with controller_session(
+                run_cfg, mode, allow_motion=False, apply_runtime_config=True
+            ) as controller:
                 failure_context["firmware_version"] = controller.identity.get("version")
                 status = controller.status()
                 from arduino.python.workflows import verify_firmware_motion_configuration
@@ -165,6 +167,7 @@ def main(argv: list[str] | None = None) -> int:
             mode,
             allow_motion=True,
             motion_dispatch_callback=lambda: failure_context.update(motion_attempted=True),
+            apply_runtime_config=True,
         ) as controller:
             failure_context["firmware_version"] = controller.identity.get("version")
             state = run_test_03(
