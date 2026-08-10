@@ -134,6 +134,14 @@ def _parser(config_defaults=None) -> argparse.ArgumentParser:
         default=Path("results") / "processed" / "nmr",
     )
     parser.add_argument("--run-name")
+    parser.add_argument(
+        "--dataset-display-name",
+        default=None,
+        help=(
+            "dataset identity shown in every generated plot title; overrides "
+            "configured statistics/target-peak display names"
+        ),
+    )
     parser.add_argument("--line-broadening-hz", type=float, default=None)
     parser.add_argument("--zero-fill-points", type=int, default=None)
     parser.add_argument("--phase0", type=float, default=None)
@@ -484,6 +492,7 @@ def _plot_real(
     integration_regions: tuple[tuple[float, float], ...] | None = None,
     integration_ppm=None,
     integration_corrected=None,
+    dataset_display_name: str | None = None,
 ) -> Path:
     import numpy as np
 
@@ -585,7 +594,11 @@ def _plot_real(
                     fontsize=8,
                 )
     ax.set(
-        title=dataset_plot_title(title, output_path=path),
+        title=dataset_plot_title(
+            title,
+            configured_name=dataset_display_name,
+            output_path=path,
+        ),
         xlabel=r"$^1$H chemical shift (ppm)",
     )
     ax.set_ylabel("Phase-corrected real intensity (a.u.)")
@@ -605,6 +618,7 @@ def _plot_overlay(
     path: Path,
     *,
     stacked: bool,
+    dataset_display_name: str | None = None,
 ) -> Path:
     import numpy as np
 
@@ -641,6 +655,7 @@ def _plot_overlay(
             "Stacked regional spectra"
             if stacked
             else "Regional magnitude spectra — baseline removed",
+            configured_name=dataset_display_name,
             output_path=path,
         )
     )
@@ -656,7 +671,13 @@ def _plot_overlay(
     return path
 
 
-def _plot_flattened_overlay(traces, path: Path, residual_config):
+def _plot_flattened_overlay(
+    traces,
+    path: Path,
+    residual_config,
+    *,
+    dataset_display_name: str | None = None,
+):
     """Plot authoritative real traces after conservative display-only flattening."""
 
     plt = _get_plotting()
@@ -687,6 +708,7 @@ def _plot_flattened_overlay(traces, path: Path, residual_config):
     ax.set_title(
         dataset_plot_title(
             "Regional phase-corrected spectra — flattened baseline",
+            configured_name=dataset_display_name,
             output_path=path,
         )
     )
@@ -716,7 +738,12 @@ def _representative_flattened_trace(flattened):
     return max(candidates, key=lambda item: item[0])[1]
 
 
-def _plot_flattening_diagnostic(trace, path: Path):
+def _plot_flattening_diagnostic(
+    trace,
+    path: Path,
+    *,
+    dataset_display_name: str | None = None,
+):
     """Show the authoritative trace, fitted residual, and flattened trace."""
 
     plt = _get_plotting()
@@ -756,6 +783,7 @@ def _plot_flattening_diagnostic(trace, path: Path):
     ax.set_title(
         dataset_plot_title(
             f"Residual baseline diagnostic — {trace['label']}",
+            configured_name=dataset_display_name,
             output_path=path,
         )
     )
@@ -1497,6 +1525,15 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     from dataclasses import replace
 
+    if args.dataset_display_name:
+        stats_config = replace(
+            stats_config,
+            dataset_display_name=args.dataset_display_name,
+        )
+        target_peak_config = replace(
+            target_peak_config,
+            dataset_display_name=args.dataset_display_name,
+        )
     if args.bootstrap_iterations is not None:
         stats_config = replace(
             stats_config,
@@ -1759,6 +1796,7 @@ def main(argv: list[str] | None = None) -> int:
                 (args.region_min, args.region_max),
                 positions,
                 zoom=False,
+                dataset_display_name=args.dataset_display_name,
             )
             region_plot = _plot_real(
                 analysis_ppm,
@@ -1772,6 +1810,7 @@ def main(argv: list[str] | None = None) -> int:
                 integration_regions=integration_regions,
                 integration_ppm=picked.ppm_axis,
                 integration_corrected=picked.quantitative_corrected,
+                dataset_display_name=args.dataset_display_name,
             )
             spectrum_csv = ""
             if args.export_csv:
@@ -1964,6 +2003,7 @@ def main(argv: list[str] | None = None) -> int:
                 plot_results,
                 out_dir / "plots" / "overlay_region_corrected.png",
                 stacked=False,
+                dataset_display_name=args.dataset_display_name,
             )
         )
         stacked = str(
@@ -1971,6 +2011,7 @@ def main(argv: list[str] | None = None) -> int:
                 plot_results,
                 out_dir / "plots" / "stacked_region_corrected.png",
                 stacked=True,
+                dataset_display_name=args.dataset_display_name,
             )
         )
         if (
@@ -1981,6 +2022,7 @@ def main(argv: list[str] | None = None) -> int:
                 authoritative_overlay_traces,
                 out_dir / "plots" / "overlay_region_baseline_flattened.png",
                 flattened_overlay_config.residual_baseline,
+                dataset_display_name=args.dataset_display_name,
             )
             flattened_overlay = str(flattened_path)
             representative = _representative_flattened_trace(flattened_results)
@@ -1990,6 +2032,7 @@ def main(argv: list[str] | None = None) -> int:
                     out_dir
                     / "plots"
                     / "overlay_baseline_diagnostic_sequence_1030.png",
+                    dataset_display_name=args.dataset_display_name,
                 )
             )
             flattened_qc = str(

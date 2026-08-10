@@ -339,16 +339,25 @@ def test_region_plot_shows_integrated_area_and_filename_only(tmp_path, monkeypat
         integration_regions=((5.72, 5.88),),
         integration_ppm=ppm,
         integration_corrected=corrected,
+        dataset_display_name="081626_phsi4",
     )
 
     assert output.is_file()
-    assert captured["title"] == f"{tmp_path.name} sample.dx"
+    assert captured["title"] == "081626_phsi4 sample.dx"
     assert captured["xlim"] == pytest.approx((7.0, 4.0))
     assert "Integrated peak area" in captured["labels"]
     assert "Integration baseline" in captured["labels"]
     assert "Integration bounds" in captured["labels"]
     assert "search region" not in captured["labels"]
     assert not any("QC-passed" in label for label in captured["labels"])
+
+
+def test_process_fid_accepts_dataset_display_name_override():
+    args = process_fid._parser().parse_args(
+        ["sample.dx", "--dataset-display-name", "081626_phsi4"]
+    )
+
+    assert args.dataset_display_name == "081626_phsi4"
 
 
 def test_simple_peak_selection_keeps_one_qc_passed_target_peak():

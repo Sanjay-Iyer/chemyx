@@ -23,6 +23,7 @@ from chemyx_lab.workflows.si6_automated_nmr import (
     maximum_duration_outcome,
     plateau_reached,
     run_cycle,
+    run_process_fid_postprocessing,
     run_safe_metered_move,
     run_stage_sequence,
     stage_within_duration,
@@ -279,6 +280,47 @@ def test_capacity_includes_initial_retained_volume_and_margin():
     requirement = validate_syringe_capacity(raw)
 
     assert requirement.maximum_retained_volume_ml == pytest.approx(15.0)
+
+
+def test_process_fid_runs_for_one_acquisition_with_unique_output(tmp_path):
+    raw_dir = tmp_path / "raw_nmr"
+    raw_dir.mkdir()
+    dx_path = raw_dir / "sample_8scan_gain12.dx"
+    dx_path.write_text("test", encoding="utf-8")
+    paths = RunPaths(
+        tmp_path,
+        raw_dir,
+        tmp_path / "plots",
+        tmp_path / "time.csv",
+        tmp_path / "spectra.csv",
+        tmp_path / "operations.csv",
+        tmp_path / "manifest.json",
+    )
+    captured = {}
+
+    class Completed:
+        returncode = 0
+
+    def fake_runner(command, **kwargs):
+        captured["command"] = command
+        captured["kwargs"] = kwargs
+        return Completed()
+
+    output = run_process_fid_postprocessing(
+        dx_path,
+        paths,
+        "081626_phsi4",
+        runner=fake_runner,
+    )
+
+    command = captured["command"]
+    assert command[1] == "-B"
+    assert command[3] == str(dx_path.resolve())
+    assert command[command.index("--region-min") + 1] == "5"
+    assert command[command.index("--region-max") + 1] == "6.5"
+    assert command[command.index("--dataset-display-name") + 1] == "081626_phsi4"
+    assert captured["kwargs"]["check"] is False
+    assert output == tmp_path / "processed_nmr" / "sample_8scan_gain12_full_spectrum"
 
 
 def test_repeated_cycle_with_nonzero_retained_balance_is_rejected():

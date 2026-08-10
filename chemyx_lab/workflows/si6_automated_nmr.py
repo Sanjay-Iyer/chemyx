@@ -12,6 +12,7 @@ import csv
 import hashlib
 import json
 import math
+import subprocess
 import sys
 import time
 import uuid
@@ -50,6 +51,8 @@ from .instrument_operations import (
 
 
 DEFAULT_CONFIG = config.REPO_ROOT / "configs" / "experiments" / "02_si6_automated_nmr.yaml"
+PROCESS_FID_SCRIPT = config.REPO_ROOT / "scripts" / "nmr" / "process_fid.py"
+PROCESS_FID_REGION = (5.0, 6.5)
 TIME_SERIES_COLUMNS = [
     "iteration", "stage", "stage_iteration", "scheduled_measurement_number",
     "acquisition_attempt_number", "valid_analysis_index", "stage_started_at",
@@ -662,6 +665,56 @@ def analyze_timepoint(dx_path: Path, paths: RunPaths, analysis: dict[str, Any], 
         for ppm, magnitude in zip(spectrum.ppm_axis, spectrum.magnitude)
     ]
     return row, spectrum_rows
+
+
+def run_process_fid_postprocessing(
+    dx_path: Path,
+    paths: RunPaths,
+    dataset_display_name: str,
+    *,
+    runner: Callable[..., Any] = subprocess.run,
+) -> Path:
+    """Run full-spectrum processing for one automated NMR acquisition."""
+
+    output_root = paths.run_dir / "processed_nmr"
+    run_name = f"{dx_path.stem}_full_spectrum"
+    output_dir = output_root / run_name
+    command = [
+        sys.executable,
+        "-B",
+        str(PROCESS_FID_SCRIPT),
+        str(dx_path.resolve()),
+        "--output-dir",
+        str(output_root.resolve()),
+        "--run-name",
+        run_name,
+        "--dataset-display-name",
+        str(dataset_display_name),
+        "--region-min",
+        f"{PROCESS_FID_REGION[0]:g}",
+        "--region-max",
+        f"{PROCESS_FID_REGION[1]:g}",
+    ]
+    print("\n[4] Process full NMR spectrum")
+    print(f"     input  -> {dx_path}")
+    print(f"     output -> {output_dir}")
+    try:
+        completed = runner(
+            command,
+            cwd=str(config.REPO_ROOT),
+            check=False,
+        )
+    except OSError as exc:
+        raise AnalysisInconclusiveError(
+            f"Could not launch process_fid.py for {dx_path.name}: {exc}"
+        ) from exc
+    if completed.returncode != 0:
+        raise AnalysisInconclusiveError(
+            f"process_fid.py failed for {dx_path.name} with exit code "
+            f"{completed.returncode}"
+        )
+    print(f"     processed -> {output_dir}")
+    return output_dir
 
 
 def write_csv(path: Path, rows: list[dict], columns: list[str]) -> None:
@@ -1811,6 +1864,24 @@ def main(argv: list[str] | None = None) -> int:
                             ).total_seconds() / 3600.0,
                             "target_ppm": nmr_cfg.target_ppm,
                         }
+                        processed_dir = run_process_fid_postprocessing(
+                            dx_path,
+                            paths,
+                            str(raw["workflow"]["name"]),
+                        )
+                        recorder.record(
+                            "analysis_result",
+                            workflow_phase=stage.name,
+                            cycle_number=iteration,
+                            result_classification="completed",
+                            analysis_type="process_fid_full_spectrum",
+                            result_path=str(
+                                processed_dir.relative_to(paths.run_dir)
+                            ),
+                            dataset_display_name=str(raw["workflow"]["name"]),
+                            region_min_ppm=PROCESS_FID_REGION[0],
+                            region_max_ppm=PROCESS_FID_REGION[1],
+                        )
                         try:
                             recorder.record(
                                 "spectrum_validation",
