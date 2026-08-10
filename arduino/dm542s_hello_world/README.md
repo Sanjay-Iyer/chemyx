@@ -22,6 +22,9 @@ This package contains two things:
    thing to run when something breaks.
 2. **YAML-driven needle motion** (`99_needle_calibration.py`,
    `01_needle_move.py`) — calibration and arbitrary movement sequences.
+3. **One-way single moves** (`04_needle_forward.py`, `05_needle_backward.py`) —
+   one direction, one distance, one number to edit. The direction is fixed by
+   the script, so no configuration edit can reverse it.
 
 > **This rig has no limit switches, no home switch, no encoder, and no
 > emergency-stop input.** Position is tracked only by counting the steps the
@@ -35,7 +38,7 @@ is recorded in [`CONFIRMED_SETUP.md`](CONFIRMED_SETUP.md).
 
 | Range | Meaning | Examples |
 | ----- | ------- | -------- |
-| `01`–`97` | Ordinary, sequential needle-motion and diagnostic workflows | `01_serial_hello.py`, `01_needle_move.py`, `02_slow_forward_test.py` |
+| `01`–`97` | Ordinary, sequential needle-motion and diagnostic workflows | `01_serial_hello.py`, `01_needle_move.py`, `04_needle_forward.py`, `05_needle_backward.py` |
 | `98`, `99`, counting down | Calibration, maintenance, and special diagnostics | `99_needle_calibration.py` |
 
 New ordinary scripts take the next free low number (`04_...`, `05_...`). New
@@ -51,8 +54,11 @@ dm542s_hello_world/
 ├── 02_slow_forward_test.py       hello-world: one 100-pulse forward move
 ├── 03_forward_reverse_test.py    hello-world: one forward/reverse cycle
 ├── 01_needle_move.py             YAML-driven movement sequence
+├── 04_needle_forward.py          one-way forward move, distance from YAML
+├── 05_needle_backward.py         one-way backward move, distance from YAML
 ├── 99_needle_calibration.py      YAML-driven degrees -> millimetres calibration
 ├── motion_utils.py               all step/degree/mm maths, timing, YAML validation
+├── single_move_utils.py          shared loader/planner/runner for scripts 04 and 05
 ├── calibration_utils.py          calibration fitting, warnings, file I/O
 ├── serial_test_utils.py          shared serial helpers, STOP, safety prompts
 ├── requirements.txt
@@ -62,10 +68,13 @@ dm542s_hello_world/
 ├── configs/
 │   ├── 99_needle_calibration.yaml   calibration run settings
 │   ├── 01_needle_move.yaml          the movement sequence to execute
+│   ├── 04_needle_forward.yaml       forward distance for script 04
+│   ├── 05_needle_backward.yaml      backward distance for script 05
 │   └── needle_calibration.yaml      AUTHORITATIVE calibration (ships uncalibrated)
 ├── calibration_results/          timestamped raw results and execution logs
 │   ├── needle_calibration_<stamp>.yaml / .csv
-│   └── needle_move_<stamp>.yaml
+│   ├── needle_move_<stamp>.yaml
+│   └── needle_forward_<stamp>.yaml / needle_backward_<stamp>.yaml
 ├── tests/                        hardware-independent tests (no COM port used)
 │   ├── conftest.py
 │   ├── test_motion_conversion.py     unit conversion and rounding
@@ -76,6 +85,7 @@ dm542s_hello_world/
 │   ├── test_stop_behaviour.py        Ctrl+C -> STOP on the same connection
 │   ├── test_calibration.py           fitting, residuals, warnings
 │   ├── test_calibration_workflow.py  trials, return error, atomic writes
+│   ├── test_single_move.py           scripts 04/05 schema, direction, bounds
 │   └── test_firmware_protocol.py     mocked serial + .ino regression pins
 └── arduino_dm542s_bridge/
     └── arduino_dm542s_bridge.ino
@@ -464,6 +474,54 @@ never repeated automatically.**
 A zero final commanded position means the step counts cancelled. It does **not**
 prove the needle physically returned to its starting point. Measure it if that
 matters.
+
+## One-way single moves (scripts 04 and 05)
+
+For the common case of "move the needle in, do something, move it back out",
+where a full sequence is more machinery than the job needs.
+
+```bash
+python .\04_needle_forward.py --config .\configs\04_needle_forward.yaml
+```
+
+```bash
+python .\05_needle_backward.py --config .\configs\05_needle_backward.yaml
+```
+
+`--config` is optional; each script defaults to its matching file. To change how
+far either one moves, edit **one number**:
+
+```yaml
+movement:
+  movement_mode: degrees   # mm | degrees | steps
+  distance: 90.0           # positive magnitude, in the unit above
+```
+
+**Direction is fixed in the script, not the configuration.** Script 04 always
+moves forward and script 05 always moves backward; `direction:` is rejected as a
+configuration key, and a negative `distance` is refused rather than silently
+reversing the move the script name promises. The unit modes, conversion,
+rounding, per-move ceiling, scaled timeouts, relative software bounds, typed
+`RUN` confirmation, Ctrl+C `STOP` path, and execution logs are all the same
+machinery as script 01, imported from `motion_utils.py` — there is no second
+implementation of the motion mathematics.
+
+For a single move the relative software bounds still apply, and only one side of
+the window is doing work: `maximum_steps` limits script 04, `minimum_steps`
+limits script 05.
+
+### What these scripts deliberately cannot do
+
+**They do not track position between runs**, and they cannot: a one-way move
+never returns to zero, so `require_zero_net_steps` does not exist in their
+configuration and is rejected if you copy it across. Nothing in software knows
+whether a matching return move was ever run, or whether it used the same
+distance. Running 04 at 90° and then 05 at 45° leaves the needle 45° forward of
+where it started, with no warning at any point.
+
+If a sequence must provably return to its starting point, use
+`01_needle_move.py` — its zero-net validation is the whole reason that script
+exists, and it checks the plan before the port is opened.
 
 ## Tests
 

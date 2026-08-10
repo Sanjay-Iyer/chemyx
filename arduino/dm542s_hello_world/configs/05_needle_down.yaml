@@ -1,0 +1,86 @@
+# Configuration for 05_needle_backward.py
+#
+#   python .\05_needle_backward.py --config .\configs\05_needle_backward.yaml
+#
+# This script ALWAYS moves the needle BACKWARD. Direction is fixed by the script
+# itself and cannot be set here -- to move the other way, run
+# 04_needle_forward.py with configs/04_needle_forward.yaml.
+#
+#   ===> TO CHANGE HOW FAR IT MOVES, EDIT movement.distance BELOW. <===
+#
+# That one number is the whole knob for everyday use. Everything else is rig
+# setup you set once.
+#
+# This is a ONE-WAY move. It does not come back, and nothing in software tracks
+# position between runs. To return the needle after a 04_needle_forward.py run,
+# set the SAME distance here. Use 01_needle_move.py for a sequence that must
+# provably close at zero in a single validated plan.
+#
+# Unknown or misspelled keys are REJECTED with a "did you mean" hint, so a typo
+# can never be silently ignored.
+
+serial:
+  port: COM3              # change to your Arduino's port, e.g. COM4
+  baud: 115200
+  reset_wait_seconds: 2.0
+
+driver:
+  # Must match the DM542S DIP switch setting on the rig.
+  steps_per_revolution: 800
+
+timing:
+  # MUST match HALF_PULSE_US in arduino_dm542s_bridge.ino. Python uses it only
+  # to size serial timeouts -- changing it here does NOT change motor speed.
+  # If you slow the sketch down, raise this too or Python will give up before a
+  # healthy long move finishes.
+  pulse_half_period_us: 5000
+  startup_allowance_seconds: 1.0     # USB round trip and direction setup
+  completion_allowance_seconds: 1.0  # firmware finishing and replying
+  safety_margin_fraction: 0.25       # 25 % of the expected motion time
+  minimum_timeout_seconds: 5.0
+  maximum_timeout_seconds: 300.0
+  stop_timeout_seconds: 3.0          # how long Ctrl+C waits for STOP to be ack'd
+
+movement:
+  # mm      -> distance is millimetres of needle travel, converted using
+  #            configs/needle_calibration.yaml (which must have calibrated: true)
+  # degrees -> distance is motor shaft rotation, converted using
+  #            driver.steps_per_revolution
+  # steps   -> distance IS the step count; must be a whole number
+  #
+  # This ships as `degrees` because the rig has not been calibrated yet.
+  # Run 99_needle_calibration.py, then change this to `mm`.
+  #
+  # CHANGING THE MODE CHANGES WHAT distance MEANS. 90 degrees and 90 mm are
+  # wildly different moves -- always re-read the preflight table after switching.
+  movement_mode: degrees
+
+  # =======================================================================
+  # HOW FAR THIS SCRIPT MOVES THE NEEDLE BACKWARD, in the unit chosen above.
+  # =======================================================================
+  # Always a POSITIVE magnitude -- the script supplies the backward direction.
+  # A negative or zero value is rejected rather than silently reversing the
+  # direction this script's name promises.
+  #
+  # At 800 steps/revolution:  90 degrees = 200 steps
+  #                          180 degrees = 400 steps
+  #                          360 degrees = 800 steps
+  distance: 90.0
+
+  # Leave true. False allows unattended motion on a rig with no e-stop.
+  require_typed_confirmation: true
+
+  # Ceiling for this single move. Must not exceed MAX_MOVE_STEPS (5000) in the
+  # sketch. This is the cheapest guard against a mistyped distance.
+  maximum_absolute_steps_per_move: 5000
+
+# RELATIVE bound on commanded position, measured from wherever the needle is
+# when this script starts. For THIS script (backward) the bound that matters is
+# minimum_steps: a backward move larger than it is refused before the port opens.
+#
+# This rig has NO homing, so these are NOT absolute machine limits. They cannot
+# detect a wrong starting position; they only bound this one move.
+software_limits:
+  enabled: true
+  minimum_steps: -1000
+  maximum_steps: 1000

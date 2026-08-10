@@ -59,3 +59,15 @@ def needle_move_script():
 def calibration_script():
     """The 99_needle_calibration.py module, imported by path."""
     return load_script("99_needle_calibration.py")
+
+
+@pytest.fixture(scope="session")
+def needle_forward_script():
+    """The 04_needle_forward.py module, imported by path."""
+    return load_script("04_needle_forward.py")
+
+
+@pytest.fixture(scope="session")
+def needle_backward_script():
+    """The 05_needle_backward.py module, imported by path."""
+    return load_script("05_needle_backward.py")

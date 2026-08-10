@@ -36,8 +36,12 @@ the folder name `dm542s_hello_world`.
 | `02_slow_forward_test.py` | Diagnostic: one fixed 100-pulse move. |
 | `03_forward_reverse_test.py` | Diagnostic: one fixed forward/reverse cycle. |
 | `01_needle_move.py` | **Main script.** Runs a sequence of moves you define. |
+| `04_needle_forward.py` | **Simplest script.** Moves the needle forward once, by one distance you set. |
+| `05_needle_backward.py` | **Simplest script.** Moves the needle backward once, by one distance you set. |
 | `99_needle_calibration.py` | **Calibration.** Works out how many millimetres one motor step moves the needle. |
 | `configs\01_needle_move.yaml` | Settings for `01_needle_move.py`. |
+| `configs\04_needle_forward.yaml` | Settings for `04_needle_forward.py`. |
+| `configs\05_needle_backward.yaml` | Settings for `05_needle_backward.py`. |
 | `configs\99_needle_calibration.yaml` | Settings for `99_needle_calibration.py`. |
 | `configs\needle_calibration.yaml` | The calibration *result*. Written by script 99. **Do not hand-edit.** |
 | `calibration_results\` | Where logs and calibration results are saved automatically. |
@@ -49,6 +53,8 @@ the folder name `dm542s_hello_world`.
 **Which config controls which script** — the number at the front matches:
 
 - `01_needle_move.py`  ->  `configs\01_needle_move.yaml`
+- `04_needle_forward.py`  ->  `configs\04_needle_forward.yaml`
+- `05_needle_backward.py`  ->  `configs\05_needle_backward.yaml`
 - `99_needle_calibration.py`  ->  `configs\99_needle_calibration.yaml`
 
 `configs\needle_calibration.yaml` is not a settings file. It is the *output* of
@@ -95,10 +101,19 @@ The scripts default to **COM3**. To find your actual port: in the Arduino IDE,
 look at **Tools -> Port**. The one that disappears when you unplug the Arduino
 is the right one.
 
-If it is not COM3, you must edit **both** config files. Open each in Notepad:
+If it is not COM3, you must edit the config file of **every script you use**.
+Open each in Notepad:
 
 ```bash
 notepad C:\code\chemyx_pump\arduino\dm542s_hello_world\configs\01_needle_move.yaml
+```
+
+```bash
+notepad C:\code\chemyx_pump\arduino\dm542s_hello_world\configs\04_needle_forward.yaml
+```
+
+```bash
+notepad C:\code\chemyx_pump\arduino\dm542s_hello_world\configs\05_needle_backward.yaml
 ```
 
 ```bash
@@ -254,6 +269,9 @@ Running it twice to check repeatability:
 
 ## 7. Running a movement sequence
 
+> **Just want to move the needle in, or back out, one distance at a time?**
+> Skip to **section 8**. Scripts 04 and 05 are much simpler than this one.
+
 **Command:**
 
 ```bash
@@ -361,7 +379,84 @@ actually is. These limits bound the *plan*, not the machine.
 
 ---
 
-## 8. Worked example: forward, forward, backward, backward, forward
+## 8. The simple way: one move, one direction (scripts 04 and 05)
+
+Two scripts that do exactly one thing each.
+
+**Move the needle forward:**
+
+```bash
+python .\04_needle_forward.py
+```
+
+**Move the needle backward:**
+
+```bash
+python .\05_needle_backward.py
+```
+
+Each one prints what it is about to do and waits for you to type `RUN`. Nothing
+moves before that.
+
+### 8a. Changing how far each one moves
+
+Open the config for the script you want to change:
+
+```bash
+notepad C:\code\chemyx_pump\arduino\dm542s_hello_world\configs\04_needle_forward.yaml
+```
+
+```bash
+notepad C:\code\chemyx_pump\arduino\dm542s_hello_world\configs\05_needle_backward.yaml
+```
+
+Find the `movement:` section and change **one number**:
+
+```yaml
+movement:
+  movement_mode: degrees
+  distance: 90.0
+```
+
+| Line | What it does |
+| --- | --- |
+| `movement_mode:` | The unit `distance` is in: `degrees`, `mm`, or `steps`. Same meanings as section 7a — `mm` needs calibration first. |
+| `distance:` | **How far this script moves.** Always a positive number. |
+
+At 800 steps/revolution: `90` degrees = 200 steps, `180` = 400, `360` = 800.
+
+The two files are separate, so the forward and backward distances are set
+independently. If you want the needle to come back to where it started, put the
+**same** number in both.
+
+> Changing `movement_mode` changes what `distance` means. `90` degrees and `90`
+> millimetres are wildly different moves. Always read the preflight table the
+> script prints before typing `RUN`.
+
+### 8b. Direction cannot be changed in the config
+
+There is no `direction:` line in these files, and adding one is rejected.
+`04_needle_forward.py` always moves forward and `05_needle_backward.py` always
+moves backward — that is decided by which script you run, not by any file. A
+negative `distance` is refused too, rather than quietly turning a forward script
+into a backward one.
+
+### 8c. What these two scripts will not do for you
+
+**They do not remember anything between runs.** Each one moves and stops. No
+part of the software knows whether you ran the other one afterwards, or with what
+distance.
+
+If you run 04 at `90` degrees and then 05 at `45` degrees, the needle is left 45
+degrees forward of where it started, and nothing warns you. Repeat that a few
+times and the needle has travelled a long way with no limit switch to stop it.
+
+When it matters that the needle provably ends where it began, use
+`01_needle_move.py` (section 7) instead — checking that is its whole job.
+
+---
+
+## 9. Worked example: forward, forward, backward, backward, forward
 
 This is the shipped example. Five movements, every one a different distance,
 ending exactly where it started.
@@ -402,7 +497,7 @@ before it opens the port.
 
 ---
 
-## 9. Stopping the machine
+## 10. Stopping the machine
 
 ### The emergency stop is the 24 V power switch. Use it.
 
@@ -440,7 +535,7 @@ anyway, because Windows only lets one program hold a COM port at a time.
 
 ---
 
-## 10. Where your results are saved
+## 11. Where your results are saved
 
 Everything is written to:
 
@@ -453,6 +548,8 @@ C:\code\chemyx_pump\arduino\dm542s_hello_world\calibration_results\
 | `needle_calibration_<date>-<time>.yaml` | Full calibration record, including your measurements |
 | `needle_calibration_<date>-<time>.csv` | The same measurements, openable in Excel |
 | `needle_move_<date>-<time>.yaml` | A record of every movement sequence that reached the hardware |
+| `needle_forward_<date>-<time>.yaml` | A record of every `04_needle_forward.py` move that reached the hardware |
+| `needle_backward_<date>-<time>.yaml` | A record of every `05_needle_backward.py` move that reached the hardware |
 
 Timestamps are UTC, so they may not match your wall clock.
 
@@ -468,7 +565,7 @@ The official calibration lives at
 
 ---
 
-## 11. When something goes wrong
+## 12. When something goes wrong
 
 | Symptom | What to do |
 | --- | --- |
@@ -487,7 +584,7 @@ The official calibration lives at
 
 ---
 
-## 12. Safety — what this rig cannot do
+## 13. Safety — what this rig cannot do
 
 Read this once, properly.
 

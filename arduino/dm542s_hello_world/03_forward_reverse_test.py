@@ -1,8 +1,9 @@
-"""Test 3: issue one deliberately confirmed forward/reverse cycle."""
+"""Test 3: issue one deliberately confirmed reverse/forward cycle."""
 
 from __future__ import annotations
 
 import argparse
+import time
 
 import serial
 
@@ -20,7 +21,7 @@ from serial_test_utils import (
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="One-time slow DM542S forward/reverse test."
+        description="One-time slow DM542S reverse/forward test."
     )
     add_serial_arguments(parser)
     args = parser.parse_args()
@@ -28,8 +29,8 @@ def main() -> None:
     print_motion_safety_checklist()
     print(
         "\nThe physical clockwise/counterclockwise labels do not matter. The expected "
-        "result is 200 slow pulses one way, a 2-second pause, then 200 slow pulses "
-        "the other way, ending approximately at the starting angle."
+        "result is 200 slow pulses in reverse, a 2-second pause, then 200 slow "
+        "pulses forward, ending approximately at the starting angle."
     )
 
     command_sent = False
@@ -39,8 +40,15 @@ def main() -> None:
             command_sent = True
             send_command_and_wait(
                 board,
-                "CYCLE",
-                "DONE CYCLE",
+                "MOVE -200",
+                "DONE MOVE -200",
+                timeout=15.0,
+            )
+            time.sleep(2.0)
+            send_command_and_wait(
+                board,
+                "MOVE 200",
+                "DONE MOVE 200",
                 timeout=15.0,
             )
     except serial.SerialException as error:
@@ -59,7 +67,7 @@ def main() -> None:
             print("\nCANCELLED: no motion command was sent.")
         raise SystemExit(130)
 
-    print("PASS: Arduino completed the single forward/reverse cycle")
+    print("PASS: Arduino completed the single reverse/forward cycle")
     print_observation_checklist()
 
 

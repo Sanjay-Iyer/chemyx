@@ -1,0 +1,57 @@
+run:
+  started_at: '2026-08-10T14:14:55Z'
+  finished_at: '2026-08-10T14:15:01Z'
+  outcome: completed
+  script_direction: forward
+  config_file: C:\code\chemyx_pump\arduino\dm542s_hello_world\configs\04_needle_forward.yaml
+  calibration: null
+resolved_configuration:
+  serial:
+    port: COM3
+    baud: 115200
+    reset_wait_seconds: 2.0
+  driver:
+    steps_per_revolution: 800
+  movement:
+    movement_mode: degrees
+    distance: 90.0
+    require_typed_confirmation: true
+    maximum_absolute_steps_per_move: 5000
+  timing:
+    pulse_half_period_us: 5000.0
+    startup_allowance_seconds: 1.0
+    completion_allowance_seconds: 1.0
+    safety_margin_fraction: 0.25
+    minimum_timeout_seconds: 5.0
+    maximum_timeout_seconds: 300.0
+    stop_timeout_seconds: 3.0
+  software_limits:
+    enabled: true
+    minimum_steps: -1000
+    maximum_steps: 1000
+plan:
+  name: needle_forward
+  direction: forward
+  requested_value: 90.0
+  unit: degrees
+  exact_steps: 200.0
+  commanded_steps: 200
+  expected_seconds: 2.0
+  timeout_seconds: 5.0
+executed:
+  commanded_steps: 200
+  responses:
+  - START MOVE 200
+  - DONE MOVE 200
+  completed_at: '2026-08-10T14:15:01Z'
+software_stop:
+  attempted: false
+  summary: no software STOP was needed
+summary:
+  one_way_move: true
+  returned_to_start: false
+  final_commanded_steps_this_run: 200
+  physical_position_known: false
+  position_basis: commanded steps only; no encoder, no limit switches, no homing
+  cross_run_position_tracking: none; this script does not know what any earlier run
+    commanded

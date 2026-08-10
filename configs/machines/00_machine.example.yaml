@@ -1,14 +1,19 @@
-# Copy to 00_machine.local.yaml on the laptop that is connected to instruments.
+# Work-laptop instrument settings established during the original bench setup.
+# Copy this file to 00_machine.local.yaml on the instrument-connected laptop.
 # Keep 00_machine.local.yaml out of Git.
+#
+# COM6 was the proven Chemyx port, but Windows can assign a different COM number
+# after reconnecting hardware. Confirm that COM6 is listed as the pump/USB
+# serial adapter before allowing movement; never substitute the Intel AMT COM3.
 
 chemyx:
-  serial_port: "REPLACE_WITH_COM_PORT"
+  serial_port: "COM6"
   baud_rate: 115200
   timeout_seconds: 2.0
   response_delay_seconds: 0.2
 
 nmr:
-  host: "REPLACE_WITH_NMR_IP"
+  host: "169.254.30.54"
   port: 5000
   scheme: http
   timeout_seconds: 10.0
