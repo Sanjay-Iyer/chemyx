@@ -1,0 +1,58 @@
+# Configuration for 99_needle_calibration.py
+#
+#   python .\99_needle_calibration.py --config .\configs\99_needle_calibration.yaml
+#
+# Each trial is an independent round trip that starts and ends at commanded
+# zero: forward by N degrees, measure, back by the identical step count,
+# measure how far the needle actually is from its starting mark.
+# Trials are never chained.
+#
+# Unknown or misspelled keys are REJECTED with a "did you mean" hint.
+
+serial:
+  port: COM3              # change to your Arduino's port, e.g. COM4
+  baud: 115200
+  reset_wait_seconds: 2.0
+
+driver:
+  # Must match the DM542S DIP switch setting on the rig.
+  steps_per_revolution: 800
+
+timing:
+  # MUST match HALF_PULSE_US in arduino_dm542s_bridge.ino. Used only to size
+  # serial timeouts; it does NOT change motor speed.
+  pulse_half_period_us: 5000
+  startup_allowance_seconds: 1.0
+  completion_allowance_seconds: 1.0
+  safety_margin_fraction: 0.25
+  minimum_timeout_seconds: 5.0
+  maximum_timeout_seconds: 300.0
+  stop_timeout_seconds: 3.0
+
+motion:
+  pause_before_measurement_seconds: 3.0
+  pause_after_return_seconds: 2.0
+  require_typed_confirmation: true
+  # Refuse any single trial larger than this. One revolution at 800 steps/rev.
+  maximum_absolute_degrees: 360
+
+calibration:
+  # Independent round trips, smallest first. Edit this list to change the
+  # angles; its length is the number of trials per repetition.
+  trial_degrees:
+    - 90
+    - 180
+    - 360
+  # Repeat the whole list this many times. Two or more repetitions is the only
+  # way to see repeatability and backlash scatter in the residuals.
+  repetitions: 1
+  # true  -> force the fit through (0, 0); reports mm/degree as a pure scale.
+  # false -> allow an intercept; useful when backlash is suspected.
+  fit_through_origin: true
+  # Prompt for the PHYSICAL offset from the starting mark after each return
+  # move. This is the only direct evidence that commanded zero is physical
+  # zero. Set false only if you have no way to measure it.
+  measure_return_error: true
+  # Even when true, the script still asks for typed UPDATE confirmation before
+  # overwriting configs/needle_calibration.yaml (and keeps a .bak).
+  update_authoritative_calibration_file: true

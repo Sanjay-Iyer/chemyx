@@ -1,0 +1,29 @@
+# Authoritative needle calibration.
+#
+# This file ships UNCALIBRATED. No calibration has been performed on this rig,
+# and no values have been invented. Millimetre mode refuses to run until
+# calibrated is true.
+#
+# To populate it, run:
+#   python .\99_needle_calibration.py --config .\configs\99_needle_calibration.yaml
+# and answer UPDATE at the final prompt. That script rewrites this file.
+#
+# Do not hand-write mm_per_degree / mm_per_step / steps_per_mm. A guessed
+# calibration produces confident, wrong millimetre numbers.
+
+calibration:
+  calibrated: false
+  created_at: null
+  steps_per_revolution: 800
+  mm_per_degree: null
+  mm_per_step: null
+  steps_per_mm: null
+  fit_method: null
+  source_results_file: null
+  number_of_measurements: 0
+
+metadata:
+  motor_model: "NEMA 17, 1.8 degree full step, about 1.5 A per phase"
+  driver_model: "Cloudray DM542S"
+  direction_definition: "Positive steps are defined as forward"
+  warning: "Software calibration only; no encoder or limit switches installed"

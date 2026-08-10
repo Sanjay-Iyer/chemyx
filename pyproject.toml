@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "arduino/dm542s_hello_world/tests"]
 pythonpath = ["."]
 
 [tool.ruff]

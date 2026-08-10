@@ -1,0 +1,105 @@
+# Configuration for 01_needle_move.py
+#
+#   python .\01_needle_move.py --config .\configs\01_needle_move.yaml
+#
+# To change the motion sequence, edit the `moves:` list at the bottom. The
+# length of that list IS the number of moves -- there is no separate count to
+# keep in sync. Add, remove, or reorder entries freely.
+#
+# Unknown or misspelled keys are REJECTED with a "did you mean" hint, so a typo
+# can never be silently ignored.
+#
+# The example below is forward, forward, backward, backward, forward, with a
+# different magnitude for every move, and it nets to exactly zero:
+#   degrees +90  +45  -135 -45  +45  = 0   degrees
+#   steps   +200 +100 -300 -100 +100 = 0   steps  (at 800 steps/rev)
+
+serial:
+  port: COM3              # change to your Arduino's port, e.g. COM4
+  baud: 115200
+  reset_wait_seconds: 2.0
+
+driver:
+  # Must match the DM542S DIP switch setting on the rig.
+  steps_per_revolution: 800
+
+timing:
+  # MUST match HALF_PULSE_US in arduino_dm542s_bridge.ino. Python uses it only
+  # to size serial timeouts -- changing it here does NOT change motor speed.
+  # If you slow the sketch down, raise this too or Python will give up before a
+  # healthy long move finishes.
+  pulse_half_period_us: 5000
+  startup_allowance_seconds: 1.0     # USB round trip and direction setup
+  completion_allowance_seconds: 1.0  # firmware finishing and replying
+  safety_margin_fraction: 0.25       # 25 % of the expected motion time
+  minimum_timeout_seconds: 5.0
+  maximum_timeout_seconds: 300.0
+  stop_timeout_seconds: 3.0          # how long Ctrl+C waits for STOP to be ack'd
+
+execution:
+  # mm      -> use each move's mm value and configs/needle_calibration.yaml
+  #            (which must have calibrated: true)
+  # degrees -> use each move's degrees value and driver.steps_per_revolution
+  # steps   -> use each move's steps value directly, no conversion at all
+  #
+  # This ships as `degrees` because the rig has not been calibrated yet.
+  # Run 99_needle_calibration.py, then change this to `mm`.
+  movement_mode: degrees
+
+  # Refuse to run unless the whole-step total is exactly zero. Checked AFTER
+  # rounding, so a sequence that balances in mm can still fail by one step.
+  require_zero_net_steps: true
+
+  # Leave true. False allows unattended motion on a rig with no e-stop.
+  require_typed_confirmation: true
+
+  # Used for any move that does not set its own pause_after_seconds.
+  default_pause_between_moves_seconds: 2.0
+
+  # Per-move ceiling. Must not exceed MAX_MOVE_STEPS (5000) in the sketch.
+  maximum_absolute_steps_per_move: 5000
+
+# RELATIVE bounds on commanded position, measured from wherever the needle is
+# when this script starts. EVERY intermediate cumulative position must stay
+# inside this window -- this is what stops a plan that nets to zero but travels
+# many revolutions away and back again.
+#
+# This rig has NO homing, so these are NOT absolute machine limits. They cannot
+# detect a wrong starting position; they only bound the plan itself.
+software_limits:
+  enabled: true
+  minimum_steps: -1000
+  maximum_steps: 1000
+
+moves:
+  # Each entry: a name, a direction, the distance in the active unit, and an
+  # optional pause. Omit pause_after_seconds to use the default above.
+  - name: lower_5mm
+    direction: forward
+    degrees: 90.0
+    mm: 5.0
+    pause_after_seconds: 2.0
+
+  - name: lower_3mm
+    direction: forward
+    degrees: 45.0
+    mm: 3.0
+    pause_after_seconds: 1.0
+
+  - name: raise_8mm
+    direction: backward
+    degrees: 135.0
+    mm: 8.0
+    pause_after_seconds: 2.0
+
+  - name: raise_2mm
+    direction: backward
+    degrees: 45.0
+    mm: 2.0
+    pause_after_seconds: 1.0
+
+  - name: lower_2mm
+    direction: forward
+    degrees: 45.0
+    mm: 2.0
+    pause_after_seconds: 0.0
