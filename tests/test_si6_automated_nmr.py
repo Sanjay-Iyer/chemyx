@@ -63,7 +63,7 @@ def test_quick_hardware_config_is_immediate_with_only_the_nmr_pause():
     capacity = validate_syringe_capacity(raw)
     assert capacity.maximum_retained_volume_ml == 13.0
     assert capacity.end_retained_volume_ml == 0.0
-    assert raw["pump"]["rate_ml_min"] == 0.5
+    assert raw["pump"]["rate_ml_min"] == 5.0
 
 
 def test_plateau_requires_three_growth_intervals_and_clear_peak():
