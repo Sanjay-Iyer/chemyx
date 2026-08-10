@@ -1,0 +1,73 @@
+workflow:
+  name: chemyx_nmr_quick_hardware_test
+  description: One immediate attended Chemyx/NMR hardware integration test; no reaction scheduling.
+  # Small, balanced analogue of the production sampling cycle. The single
+  # measurement is scheduled immediately; its only deliberate wait is the
+  # original 300-second equilibration pause immediately before NMR.
+  cycle:
+    - action: withdraw
+      volume_ml: 0.05
+    - action: withdraw
+      volume_ml: 0.05
+    - action: pause
+      seconds: 300
+      note: Equilibrate for five minutes before starting the NMR acquisition.
+    - action: nmr
+    - action: infuse
+      volume_ml: 0.10
+    - action: withdraw
+      volume_ml: 0.05
+    - action: infuse
+      volume_ml: 0.05
+  pump_extra_seconds: 2.0
+
+  initial_stage:
+    name: quick_hardware_test
+    operator_prompt: Confirm the pump path and NMR test sample are ready, then type yes.
+    # The schema requires a positive interval, but measure_immediately means the
+    # only configured measurement has a zero-second scheduling offset.
+    interval_minutes: 1
+    measure_immediately: true
+    plateau_stopping_enabled: false
+    max_measurements: 1
+    max_hours: 0.25
+
+  # Do not enter any reaction/addition stages after the one hardware test.
+  repeat_addition_rounds: 0
+  repeating_stages: []
+
+pump:
+  channel: 1
+  syringe_diameter_mm: 28.6
+  syringe_capacity_ml: 20.0
+  initial_retained_volume_ml: 0.0
+  syringe_safety_margin_ml: 1.0
+  units: mL/min
+  rate_ml_min: 0.5
+  default_volume_ml: 0.05
+
+nmr:
+  route: iflow
+  result_type: fid
+  scans: 2
+  receiver_gain: 12.0
+  auto_gain: false
+  spectral_center: 5.0
+  sweep_width: 20.0
+  target_ppm: 6.1
+
+analysis:
+  detection_window_ppm: 0.12
+  integration_window_ppm: 0.12
+  plot_window_ppm: 0.5
+  line_broadening_hz: 0.3
+  min_peak_snr: 5.0
+  min_prominence_snr: 3.0
+  min_peak_area: 0.0
+  area_epsilon: 1.0e-12
+  plateau_max_growth_percent: 5.0
+  plateau_max_decline_percent: 2.0
+  plateau_consecutive_intervals: 3
+
+output:
+  run_root_dir: results/runs/chemyx_nmr_quick_test

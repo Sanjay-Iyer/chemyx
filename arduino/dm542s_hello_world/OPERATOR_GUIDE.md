@@ -36,12 +36,12 @@ the folder name `dm542s_hello_world`.
 | `02_slow_forward_test.py` | Diagnostic: one fixed 100-pulse move. |
 | `03_forward_reverse_test.py` | Diagnostic: one fixed forward/reverse cycle. |
 | `01_needle_move.py` | **Main script.** Runs a sequence of moves you define. |
-| `04_needle_forward.py` | **Simplest script.** Moves the needle forward once, by one distance you set. |
-| `05_needle_backward.py` | **Simplest script.** Moves the needle backward once, by one distance you set. |
+| `04_needle_up.py` | **Simplest script.** Moves the needle UP once, by one distance you set. |
+| `05_needle_down.py` | **Simplest script.** Moves the needle DOWN once, by one distance you set. |
 | `99_needle_calibration.py` | **Calibration.** Works out how many millimetres one motor step moves the needle. |
 | `configs\01_needle_move.yaml` | Settings for `01_needle_move.py`. |
-| `configs\04_needle_forward.yaml` | Settings for `04_needle_forward.py`. |
-| `configs\05_needle_backward.yaml` | Settings for `05_needle_backward.py`. |
+| `configs\04_needle_up.yaml` | Settings for `04_needle_up.py`. |
+| `configs\05_needle_down.yaml` | Settings for `05_needle_down.py`. |
 | `configs\99_needle_calibration.yaml` | Settings for `99_needle_calibration.py`. |
 | `configs\needle_calibration.yaml` | The calibration *result*. Written by script 99. **Do not hand-edit.** |
 | `calibration_results\` | Where logs and calibration results are saved automatically. |
@@ -53,8 +53,8 @@ the folder name `dm542s_hello_world`.
 **Which config controls which script** — the number at the front matches:
 
 - `01_needle_move.py`  ->  `configs\01_needle_move.yaml`
-- `04_needle_forward.py`  ->  `configs\04_needle_forward.yaml`
-- `05_needle_backward.py`  ->  `configs\05_needle_backward.yaml`
+- `04_needle_up.py`  ->  `configs\04_needle_up.yaml`
+- `05_needle_down.py`  ->  `configs\05_needle_down.yaml`
 - `99_needle_calibration.py`  ->  `configs\99_needle_calibration.yaml`
 
 `configs\needle_calibration.yaml` is not a settings file. It is the *output* of
@@ -109,11 +109,11 @@ notepad C:\code\chemyx_pump\arduino\dm542s_hello_world\configs\01_needle_move.ya
 ```
 
 ```bash
-notepad C:\code\chemyx_pump\arduino\dm542s_hello_world\configs\04_needle_forward.yaml
+notepad C:\code\chemyx_pump\arduino\dm542s_hello_world\configs\04_needle_up.yaml
 ```
 
 ```bash
-notepad C:\code\chemyx_pump\arduino\dm542s_hello_world\configs\05_needle_backward.yaml
+notepad C:\code\chemyx_pump\arduino\dm542s_hello_world\configs\05_needle_down.yaml
 ```
 
 ```bash
@@ -386,13 +386,13 @@ Two scripts that do exactly one thing each.
 **Move the needle forward:**
 
 ```bash
-python .\04_needle_forward.py
+python .\04_needle_up.py
 ```
 
 **Move the needle backward:**
 
 ```bash
-python .\05_needle_backward.py
+python .\05_needle_down.py
 ```
 
 Each one prints what it is about to do and waits for you to type `RUN`. Nothing
@@ -403,11 +403,11 @@ moves before that.
 Open the config for the script you want to change:
 
 ```bash
-notepad C:\code\chemyx_pump\arduino\dm542s_hello_world\configs\04_needle_forward.yaml
+notepad C:\code\chemyx_pump\arduino\dm542s_hello_world\configs\04_needle_up.yaml
 ```
 
 ```bash
-notepad C:\code\chemyx_pump\arduino\dm542s_hello_world\configs\05_needle_backward.yaml
+notepad C:\code\chemyx_pump\arduino\dm542s_hello_world\configs\05_needle_down.yaml
 ```
 
 Find the `movement:` section and change **one number**:
@@ -436,10 +436,16 @@ independently. If you want the needle to come back to where it started, put the
 ### 8b. Direction cannot be changed in the config
 
 There is no `direction:` line in these files, and adding one is rejected.
-`04_needle_forward.py` always moves forward and `05_needle_backward.py` always
-moves backward — that is decided by which script you run, not by any file. A
-negative `distance` is refused too, rather than quietly turning a forward script
-into a backward one.
+`04_needle_up.py` always moves up and `05_needle_down.py` always moves down —
+that is decided by which script you run, not by any file. A negative `distance`
+is refused too, rather than quietly turning an up script into a down one.
+
+Underneath, up is the motion core's `forward` (a positive step count,
+`MOVE +200`) and down is `backward` (`MOVE -200`). Each script prints both
+names in its preflight, so the label you read and the sign on the wire can
+never drift apart. **Which physical direction that actually is depends on how
+the motor is wired** — swap two wires of one coil and it inverts. Watch the
+needle on the first small move and confirm up really is up.
 
 ### 8c. What these two scripts will not do for you
 
@@ -548,8 +554,8 @@ C:\code\chemyx_pump\arduino\dm542s_hello_world\calibration_results\
 | `needle_calibration_<date>-<time>.yaml` | Full calibration record, including your measurements |
 | `needle_calibration_<date>-<time>.csv` | The same measurements, openable in Excel |
 | `needle_move_<date>-<time>.yaml` | A record of every movement sequence that reached the hardware |
-| `needle_forward_<date>-<time>.yaml` | A record of every `04_needle_forward.py` move that reached the hardware |
-| `needle_backward_<date>-<time>.yaml` | A record of every `05_needle_backward.py` move that reached the hardware |
+| `needle_up_<date>-<time>.yaml` | A record of every `04_needle_up.py` move that reached the hardware |
+| `needle_down_<date>-<time>.yaml` | A record of every `05_needle_down.py` move that reached the hardware |
 
 Timestamps are UTC, so they may not match your wall clock.
 

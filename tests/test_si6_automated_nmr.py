@@ -7,10 +7,18 @@ from chemyx_lab.workflows.si6_automated_nmr import (
     growth_percent,
     load_si6_config,
     plateau_reached,
+    scheduled_measurement_offset_seconds,
+    validate_syringe_capacity,
 )
 
 
 CONFIG = Path(__file__).resolve().parents[1] / "configs" / "experiments" / "02_si6_automated_nmr.yaml"
+QUICK_TEST_CONFIG = (
+    Path(__file__).resolve().parents[1]
+    / "configs"
+    / "experiments"
+    / "03_chemyx_nmr_quick_hardware_test.yaml"
+)
 
 
 def test_committed_si6_config_has_requested_cycle_and_stages():
@@ -34,6 +42,28 @@ def test_committed_si6_config_has_requested_cycle_and_stages():
     assert [stage.interval_minutes for stage in stages[1:]] == [15, 15, 15]
     assert [stage.max_measurements for stage in stages[1:]] == [6, 6, 6]
     assert all(stage.plateau_stopping_enabled for stage in stages[1:])
+
+
+def test_quick_hardware_config_is_immediate_with_only_the_nmr_pause():
+    raw = load_si6_config(QUICK_TEST_CONFIG)
+    cycle = raw["workflow"]["cycle"]
+
+    assert [event["action"] for event in cycle] == [
+        "withdraw", "withdraw", "pause", "nmr", "infuse", "withdraw", "infuse",
+    ]
+    pauses = [event["seconds"] for event in cycle if event["action"] == "pause"]
+    assert pauses == [300]
+
+    stages = build_stages(raw["workflow"])
+    assert len(stages) == 1
+    assert stages[0].measure_immediately is True
+    assert stages[0].max_measurements == 1
+    assert scheduled_measurement_offset_seconds(stages[0], 1) == 0.0
+
+    capacity = validate_syringe_capacity(raw)
+    assert capacity.maximum_retained_volume_ml == 0.1
+    assert capacity.end_retained_volume_ml == 0.0
+    assert raw["pump"]["rate_ml_min"] == 0.5
 
 
 def test_plateau_requires_three_growth_intervals_and_clear_peak():

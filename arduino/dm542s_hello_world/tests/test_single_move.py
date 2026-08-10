@@ -74,13 +74,13 @@ def write_calibration(tmp_path: Path, **overrides: Any) -> Path:
 
 def plan_forward(config, **kwargs):
     return plan_single_move(
-        config, direction=FORWARD, move_name="needle_forward", **kwargs
+        config, direction=FORWARD, move_name="needle_up", **kwargs
     )
 
 
 def plan_backward(config, **kwargs):
     return plan_single_move(
-        config, direction=BACKWARD, move_name="needle_backward", **kwargs
+        config, direction=BACKWARD, move_name="needle_down", **kwargs
     )
 
 
@@ -92,8 +92,8 @@ def plan_backward(config, **kwargs):
 @pytest.mark.parametrize(
     "filename, planner, expected_sign",
     [
-        ("04_needle_forward.yaml", plan_forward, +1),
-        ("05_needle_backward.yaml", plan_backward, -1),
+        ("04_needle_up.yaml", plan_forward, +1),
+        ("05_needle_down.yaml", plan_backward, -1),
     ],
 )
 def test_shipped_configs_load_and_plan(
@@ -108,7 +108,7 @@ def test_shipped_configs_load_and_plan(
 
 def test_every_script_has_a_matching_config(package_root: Path):
     """The package convention: configs/<script name>.yaml, one per script."""
-    for script in ("04_needle_forward", "05_needle_backward"):
+    for script in ("04_needle_up", "05_needle_down"):
         assert (package_root / f"{script}.py").is_file()
         assert (package_root / "configs" / f"{script}.yaml").is_file()
 
@@ -370,12 +370,12 @@ def test_missing_movement_section_is_rejected(tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 
-def test_scripts_pin_their_own_direction(needle_forward_script, needle_backward_script):
+def test_scripts_pin_their_own_direction(needle_up_script, needle_down_script):
     """Importing the scripts must not need hardware, and must fix direction."""
-    assert needle_forward_script.DEFAULT_CONFIG.name == "04_needle_forward.yaml"
-    assert needle_backward_script.DEFAULT_CONFIG.name == "05_needle_backward.yaml"
-    assert callable(needle_forward_script.main)
-    assert callable(needle_backward_script.main)
+    assert needle_up_script.DEFAULT_CONFIG.name == "04_needle_up.yaml"
+    assert needle_down_script.DEFAULT_CONFIG.name == "05_needle_down.yaml"
+    assert callable(needle_up_script.main)
+    assert callable(needle_down_script.main)
 
 
 def test_a_missing_config_file_is_reported_not_traced(tmp_path: Path):

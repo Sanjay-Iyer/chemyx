@@ -1,10 +1,10 @@
-# Configuration for 04_needle_forward.py
+# Configuration for 04_needle_up.py
 #
-#   python .\04_needle_forward.py --config .\configs\04_needle_forward.yaml
+#   python .\04_needle_up.py --config .\configs\04_needle_up.yaml
 #
-# This script ALWAYS moves the needle FORWARD. Direction is fixed by the script
+# This script ALWAYS moves the needle UP. Direction is fixed by the script
 # itself and cannot be set here -- to move the other way, run
-# 05_needle_backward.py with configs/05_needle_backward.yaml.
+# 05_needle_down.py with configs/05_needle_down.yaml.
 #
 #   ===> TO CHANGE HOW FAR IT MOVES, EDIT movement.distance BELOW. <===
 #
@@ -55,7 +55,7 @@ movement:
   movement_mode: degrees
 
   # ======================================================================
-  # HOW FAR THIS SCRIPT MOVES THE NEEDLE FORWARD, in the unit chosen above.
+  # HOW FAR THIS SCRIPT MOVES THE NEEDLE UP, in the unit chosen above.
   # ======================================================================
   # Always a POSITIVE magnitude. A negative or zero value is rejected rather
   # than silently reversing the direction this script's name promises.
@@ -73,7 +73,7 @@ movement:
   maximum_absolute_steps_per_move: 5000
 
 # RELATIVE bound on commanded position, measured from wherever the needle is
-# when this script starts. For THIS script (forward) the bound that matters is
+# when this script starts. For THIS script (up = forward, positive steps) the bound that matters is
 # maximum_steps: a forward move larger than it is refused before the port opens.
 #
 # This rig has NO homing, so these are NOT absolute machine limits. They cannot

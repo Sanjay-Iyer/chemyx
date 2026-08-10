@@ -62,12 +62,12 @@ def calibration_script():
 
 
 @pytest.fixture(scope="session")
-def needle_forward_script():
-    """The 04_needle_forward.py module, imported by path."""
-    return load_script("04_needle_forward.py")
+def needle_up_script():
+    """The 04_needle_up.py module, imported by path."""
+    return load_script("04_needle_up.py")
 
 
 @pytest.fixture(scope="session")
-def needle_backward_script():
-    """The 05_needle_backward.py module, imported by path."""
-    return load_script("05_needle_backward.py")
+def needle_down_script():
+    """The 05_needle_down.py module, imported by path."""
+    return load_script("05_needle_down.py")

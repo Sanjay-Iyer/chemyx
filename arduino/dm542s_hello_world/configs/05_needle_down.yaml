@@ -1,10 +1,10 @@
-# Configuration for 05_needle_backward.py
+# Configuration for 05_needle_down.py
 #
-#   python .\05_needle_backward.py --config .\configs\05_needle_backward.yaml
+#   python .\05_needle_down.py --config .\configs\05_needle_down.yaml
 #
-# This script ALWAYS moves the needle BACKWARD. Direction is fixed by the script
+# This script ALWAYS moves the needle DOWN. Direction is fixed by the script
 # itself and cannot be set here -- to move the other way, run
-# 04_needle_forward.py with configs/04_needle_forward.yaml.
+# 04_needle_up.py with configs/04_needle_up.yaml.
 #
 #   ===> TO CHANGE HOW FAR IT MOVES, EDIT movement.distance BELOW. <===
 #
@@ -12,7 +12,7 @@
 # setup you set once.
 #
 # This is a ONE-WAY move. It does not come back, and nothing in software tracks
-# position between runs. To return the needle after a 04_needle_forward.py run,
+# position between runs. To return the needle after a 04_needle_up.py run,
 # set the SAME distance here. Use 01_needle_move.py for a sequence that must
 # provably close at zero in a single validated plan.
 #
@@ -56,9 +56,9 @@ movement:
   movement_mode: degrees
 
   # =======================================================================
-  # HOW FAR THIS SCRIPT MOVES THE NEEDLE BACKWARD, in the unit chosen above.
+  # HOW FAR THIS SCRIPT MOVES THE NEEDLE DOWN, in the unit chosen above.
   # =======================================================================
-  # Always a POSITIVE magnitude -- the script supplies the backward direction.
+  # Always a POSITIVE magnitude -- the script supplies the downward direction.
   # A negative or zero value is rejected rather than silently reversing the
   # direction this script's name promises.
   #
@@ -75,7 +75,7 @@ movement:
   maximum_absolute_steps_per_move: 5000
 
 # RELATIVE bound on commanded position, measured from wherever the needle is
-# when this script starts. For THIS script (backward) the bound that matters is
+# when this script starts. For THIS script (down = backward, negative steps) the bound that matters is
 # minimum_steps: a backward move larger than it is refused before the port opens.
 #
 # This rig has NO homing, so these are NOT absolute machine limits. They cannot
