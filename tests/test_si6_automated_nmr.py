@@ -13,11 +13,11 @@ from chemyx_lab.workflows.si6_automated_nmr import (
 
 
 CONFIG = Path(__file__).resolve().parents[1] / "configs" / "experiments" / "02_si6_automated_nmr.yaml"
-QUICK_TEST_CONFIG = (
+PHSI4_CONFIG = (
     Path(__file__).resolve().parents[1]
     / "configs"
     / "experiments"
-    / "03_chemyx_nmr_quick_hardware_test.yaml"
+    / "03_081626_phsi4.yaml"
 )
 
 
@@ -44,8 +44,8 @@ def test_committed_si6_config_has_requested_cycle_and_stages():
     assert all(stage.plateau_stopping_enabled for stage in stages[1:])
 
 
-def test_quick_hardware_config_is_immediate_with_only_the_nmr_pause():
-    raw = load_si6_config(QUICK_TEST_CONFIG)
+def test_081626_phsi4_config_is_immediate_with_only_the_nmr_pause():
+    raw = load_si6_config(PHSI4_CONFIG)
     cycle = raw["workflow"]["cycle"]
 
     assert [event["action"] for event in cycle] == [
@@ -66,6 +66,8 @@ def test_quick_hardware_config_is_immediate_with_only_the_nmr_pause():
     assert raw["pump"]["syringe_diameter_mm"] == 20.0
     assert raw["pump"]["rate_ml_min"] == 5.0
     assert raw["nmr"]["scans"] == 8
+    assert raw["workflow"]["name"] == "081626_phsi4"
+    assert raw["output"]["run_root_dir"] == "results/runs/081626_phsi4"
 
 
 def test_plateau_requires_three_growth_intervals_and_clear_peak():

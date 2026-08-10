@@ -1,6 +1,6 @@
 workflow:
-  name: chemyx_nmr_quick_hardware_test
-  description: One immediate attended Chemyx/NMR hardware integration test; no reaction scheduling.
+  name: 081626_phsi4
+  description: One immediate attended Chemyx/NMR hardware integration run for 081626_phsi4.
   # Balanced production sampling cycle. The single measurement is scheduled
   # immediately; its only deliberate wait is a 10-second settling pause
   # immediately before NMR.
@@ -22,7 +22,7 @@ workflow:
   pump_extra_seconds: 2.0
 
   initial_stage:
-    name: quick_hardware_test
+    name: 081626_phsi4
     operator_prompt: Confirm the pump path and NMR test sample are ready, then type yes.
     # The schema requires a positive interval, but measure_immediately means the
     # only configured measurement has a zero-second scheduling offset.
@@ -70,4 +70,4 @@ analysis:
   plateau_consecutive_intervals: 3
 
 output:
-  run_root_dir: results/runs/chemyx_nmr_quick_test
+  run_root_dir: results/runs/081626_phsi4
