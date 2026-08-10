@@ -519,6 +519,9 @@ def test_process_fid_cli_writes_phase_corrected_artifacts(tmp_path):
     assert (run_dir / "plots" / "smoke_stacked_region_corrected.png").is_file()
     assert len(list((run_dir / "plots" / "full").glob("*.png"))) == 1
     assert len(list((run_dir / "plots" / "region").glob("*.png"))) == 1
+    assert len(list((run_dir / "plots" / "region_ymax_1000").glob("*.png"))) == 1
+    assert len(list((run_dir / "plots" / "region_ymax_500").glob("*.png"))) == 1
+    assert len(list((run_dir / "plots" / "region_ymax_300").glob("*.png"))) == 1
     # Nothing may be left unprefixed.
     assert not [p for p in run_dir.rglob("*") if p.is_file()
                 and not p.name.startswith("smoke_")]

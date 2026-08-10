@@ -79,6 +79,8 @@ plots:
   # regional_analysis.ppm_min/ppm_max; this is context either side of them.
   display_min_ppm: 4.0
   display_max_ppm: 7.0
+  # Additional 5.0-6.5 ppm regional views with fixed positive-intensity axes.
+  low_intensity_ymax: [1000, 500, 300]
 
   flattened_overlay:
     enabled: true

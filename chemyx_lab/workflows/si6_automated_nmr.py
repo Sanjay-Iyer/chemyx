@@ -677,7 +677,8 @@ def run_process_fid_postprocessing(
     """Run full-spectrum processing for one automated NMR acquisition."""
 
     output_root = paths.run_dir / "processed_nmr"
-    run_name = f"{dx_path.stem}_full_spectrum"
+    acquisition_stamp = dx_path.stem[:15]
+    run_name = f"{dataset_display_name}_{acquisition_stamp}_full_spectrum"
     output_dir = output_root / run_name
     command = [
         sys.executable,

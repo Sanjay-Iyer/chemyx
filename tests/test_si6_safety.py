@@ -320,7 +320,11 @@ def test_process_fid_runs_for_one_acquisition_with_unique_output(tmp_path):
     assert command[command.index("--region-max") + 1] == "6.5"
     assert command[command.index("--dataset-display-name") + 1] == "081626_phsi4"
     assert captured["kwargs"]["check"] is False
-    assert output == tmp_path / "processed_nmr" / "sample_8scan_gain12_full_spectrum"
+    assert output == (
+        tmp_path
+        / "processed_nmr"
+        / "081626_phsi4_sample_8scan_ga_full_spectrum"
+    )
 
 
 def test_repeated_cycle_with_nonzero_retained_balance_is_rejected():

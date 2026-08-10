@@ -171,6 +171,16 @@ def _parser(config_defaults=None) -> argparse.ArgumentParser:
     # to clip off the top rather than flatten the target peak.
     parser.add_argument("--display-min", type=float, default=4.0)
     parser.add_argument("--display-max", type=float, default=7.0)
+    parser.add_argument(
+        "--low-intensity-ymax",
+        nargs="+",
+        type=float,
+        default=(1000.0, 500.0, 300.0),
+        help=(
+            "fixed positive y-axis maxima for additional regional plots "
+            "(default: 1000 500 300)"
+        ),
+    )
     parser.add_argument("--min-prominence-snr", type=float, default=5.0)
     parser.add_argument("--min-peak-distance-ppm", type=float, default=0.04)
     parser.add_argument("--min-peak-width-ppm", type=float, default=0.015)
@@ -329,10 +339,16 @@ def _flattened_overlay_config(argv):
         return load_flattened_overlay_config(None)
     if not isinstance(plots, dict):
         raise FlattenedOverlayConfigError("[plots] must be a mapping")
-    # display_*_ppm are read by _config_defaults; only flattened_overlay is
+    # Display ranges are read by _config_defaults; only flattened_overlay is
     # this function's business.
     unknown = sorted(
-        set(plots) - {"flattened_overlay", "display_min_ppm", "display_max_ppm"}
+        set(plots)
+        - {
+            "flattened_overlay",
+            "display_min_ppm",
+            "display_max_ppm",
+            "low_intensity_ymax",
+        }
     )
     if unknown:
         raise FlattenedOverlayConfigError(
@@ -386,6 +402,7 @@ def _config_defaults(argv):
         "plots": {
             "display_min_ppm": "display_min",
             "display_max_ppm": "display_max",
+            "low_intensity_ymax": "low_intensity_ymax",
         },
         "output": {
             "directory": "output_dir",
@@ -493,6 +510,7 @@ def _plot_real(
     integration_ppm=None,
     integration_corrected=None,
     dataset_display_name: str | None = None,
+    y_max: float | None = None,
 ) -> Path:
     import numpy as np
 
@@ -528,6 +546,8 @@ def _plot_real(
         ax.set_ylim(ymin - 0.08 * span, ymax + 0.15 * span)
     else:
         ax.set_xlim(float(np.max(ppm)), float(np.min(ppm)))
+    if y_max is not None:
+        ax.set_ylim(0.0, float(y_max))
     if integration_regions is not None:
         area_ppm = np.asarray(integration_ppm, dtype=float)
         area_corrected = np.asarray(integration_corrected, dtype=float)
@@ -1004,12 +1024,35 @@ def _prefix_output_files(out_dir: Path) -> dict[str, str]:
     statistics library are covered too. Returns ``{old: new}`` absolute paths
     so recorded provenance can be rewritten to match.
     """
-    prefix = f"{out_dir.name}_"
     renamed: dict[str, str] = {}
     # Materialise the listing first: renaming while walking is undefined.
     for path in sorted(out_dir.rglob("*")):
-        if not path.is_file() or path.name.startswith(prefix):
+        if not path.is_file():
             continue
+        full_prefix = f"{out_dir.name}_"
+        if path.name.startswith(full_prefix):
+            continue
+        # Acquisition plots are already self-identifying when their filename
+        # is the raw-data stem contained in the run folder name. Prefixing the
+        # same long stem again can exceed Windows MAX_PATH.
+        if (
+            len(path.stem) >= 16
+            and path.stem.casefold() in out_dir.name.casefold()
+        ):
+            continue
+        prefix = full_prefix
+        # Keep the absolute target comfortably below the legacy Windows path
+        # limit. Preserve a human-readable prefix plus a stable hash; if even
+        # that cannot fit, retain the existing file inside its identifying run
+        # directory rather than failing the entire analysis after plots exist.
+        available = 240 - len(str(path.resolve()))
+        if len(prefix) > available:
+            digest = hashlib.sha256(out_dir.name.encode("utf-8")).hexdigest()[:8]
+            human_budget = available - len(digest) - 2
+            if human_budget <= 0:
+                continue
+            human = out_dir.name[:human_budget].rstrip("_-")
+            prefix = f"{human}_{digest}_"
         target = path.with_name(prefix + path.name)
         path.rename(target)
         renamed[str(path)] = str(target)
@@ -1266,6 +1309,11 @@ def _error(args) -> str | None:
         return "--zero-fill-points must be positive"
     if args.region_min == args.region_max:
         return "--region-min and --region-max must differ"
+    if not args.low_intensity_ymax or any(
+        not math.isfinite(value) or value <= 0
+        for value in args.low_intensity_ymax
+    ):
+        return "--low-intensity-ymax values must be positive and finite"
     if min(
         args.min_peak_distance_ppm,
         args.min_peak_width_ppm,
@@ -1812,6 +1860,33 @@ def main(argv: list[str] | None = None) -> int:
                 integration_corrected=picked.quantitative_corrected,
                 dataset_display_name=args.dataset_display_name,
             )
+            low_intensity_plots = []
+            for fixed_ymax in args.low_intensity_ymax:
+                ymax_label = f"{fixed_ymax:g}".replace(".", "p")
+                low_intensity_plots.append(
+                    _plot_real(
+                        analysis_ppm,
+                        quantitative_real,
+                        out_dir
+                        / "plots"
+                        / f"region_ymax_{ymax_label}"
+                        / f"{safe}.png",
+                        (
+                            f"{path.name} - {args.region_min:g} to "
+                            f"{args.region_max:g} ppm, intensity 0 to "
+                            f"{fixed_ymax:g}"
+                        ),
+                        (args.region_min, args.region_max),
+                        positions,
+                        zoom=True,
+                        display=(args.region_min, args.region_max),
+                        integration_regions=integration_regions,
+                        integration_ppm=picked.ppm_axis,
+                        integration_corrected=picked.quantitative_corrected,
+                        dataset_display_name=args.dataset_display_name,
+                        y_max=fixed_ymax,
+                    )
+                )
             spectrum_csv = ""
             if args.export_csv:
                 spectrum_csv = str(
@@ -1919,6 +1994,9 @@ def main(argv: list[str] | None = None) -> int:
                     "alignment_shift_ppm": 0.0,
                     "full_plot": str(full_plot),
                     "region_plot": str(region_plot),
+                    "low_intensity_plots": ";".join(
+                        str(plot) for plot in low_intensity_plots
+                    ),
                     "spectrum_csv": spectrum_csv,
                     "error": "",
                 }
@@ -2076,7 +2154,8 @@ def main(argv: list[str] | None = None) -> int:
         "reference_region_count", "reference_region_agreement",
         "reference_qc_pass", "reference_qc_failure_reasons",
         "reference_shift_disagreement_ppm",
-        "alignment_shift_ppm", "full_plot", "region_plot", "spectrum_csv", "error",
+        "alignment_shift_ppm", "full_plot", "region_plot",
+        "low_intensity_plots", "spectrum_csv", "error",
     ]
     peak_columns = [
         "file", "timestamp", "spectrum_index", "peak_number", "peak_family_id",
@@ -2153,6 +2232,11 @@ def main(argv: list[str] | None = None) -> int:
         for key in ("full_plot", "region_plot", "spectrum_csv"):
             if key in row:
                 row[key] = _remap_path(row[key], renamed)
+        if row.get("low_intensity_plots"):
+            row["low_intensity_plots"] = ";".join(
+                _remap_path(value, renamed)
+                for value in row["low_intensity_plots"].split(";")
+            )
     overlay = _remap_path(overlay, renamed)
     stacked = _remap_path(stacked, renamed)
     flattened_overlay = _remap_path(flattened_overlay, renamed)

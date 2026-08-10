@@ -48,7 +48,11 @@ from _config import (  # noqa: E402
 )
 from chemyx_lab.config import ConfigError  # noqa: E402
 import process_fid  # noqa: E402
-from process_fid import _plot_real, _select_simple_peak_rows  # noqa: E402
+from process_fid import (  # noqa: E402
+    _plot_real,
+    _prefix_output_files,
+    _select_simple_peak_rows,
+)
 
 # Real test data
 REAL_DATA_DIR = REPO_ROOT / "results" / "raw" / "nmr" / "06-08-26"
@@ -320,6 +324,7 @@ def test_region_plot_shows_integrated_area_and_filename_only(tmp_path, monkeypat
         axis = figure.axes[0]
         captured["title"] = axis.get_title()
         captured["xlim"] = axis.get_xlim()
+        captured["ylim"] = axis.get_ylim()
         captured["labels"] = axis.get_legend_handles_labels()[1]
         return original_savefig(figure, *args, **kwargs)
 
@@ -340,11 +345,13 @@ def test_region_plot_shows_integrated_area_and_filename_only(tmp_path, monkeypat
         integration_ppm=ppm,
         integration_corrected=corrected,
         dataset_display_name="081626_phsi4",
+        y_max=500,
     )
 
     assert output.is_file()
     assert captured["title"] == "081626_phsi4 sample.dx"
     assert captured["xlim"] == pytest.approx((7.0, 4.0))
+    assert captured["ylim"] == pytest.approx((0.0, 500.0))
     assert "Integrated peak area" in captured["labels"]
     assert "Integration baseline" in captured["labels"]
     assert "Integration bounds" in captured["labels"]
@@ -358,6 +365,44 @@ def test_process_fid_accepts_dataset_display_name_override():
     )
 
     assert args.dataset_display_name == "081626_phsi4"
+    assert args.low_intensity_ymax == (1000.0, 500.0, 300.0)
+
+
+def test_process_fid_loads_fixed_intensity_scales_from_repository_config():
+    defaults = process_fid._config_defaults([])
+    args = process_fid._parser(defaults).parse_args(["sample.dx"])
+
+    assert args.low_intensity_ymax == [1000, 500, 300]
+
+
+def test_output_prefix_skips_already_identifying_acquisition_plot(tmp_path):
+    raw_stem = "20260810_145916_081626_phsi4_0001_8scan_gain12"
+    out_dir = tmp_path / f"{raw_stem}_full_spectrum"
+    plot = out_dir / "plots" / "full" / f"{raw_stem}.png"
+    plot.parent.mkdir(parents=True)
+    plot.write_bytes(b"plot")
+
+    renamed = _prefix_output_files(out_dir)
+
+    assert renamed == {}
+    assert plot.is_file()
+
+
+def test_output_prefix_is_bounded_for_long_windows_paths(tmp_path):
+    run_name = (
+        "20260810_145916_081626_phsi4_0001_8scan_gain12_full_spectrum"
+    )
+    out_dir = tmp_path / run_name
+    report = out_dir / "statistics" / "target_peak" / "slides" / "report.csv"
+    report.parent.mkdir(parents=True)
+    report.write_text("value\n1\n", encoding="utf-8")
+
+    renamed = _prefix_output_files(out_dir)
+
+    target = Path(renamed[str(report)])
+    assert target.is_file()
+    assert target.name.endswith("report.csv")
+    assert len(str(target.resolve())) <= 240
 
 
 def test_simple_peak_selection_keeps_one_qc_passed_target_peak():
