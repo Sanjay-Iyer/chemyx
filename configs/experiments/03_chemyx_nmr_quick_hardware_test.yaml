@@ -2,16 +2,16 @@ workflow:
   name: chemyx_nmr_quick_hardware_test
   description: One immediate attended Chemyx/NMR hardware integration test; no reaction scheduling.
   # Balanced production sampling cycle. The single measurement is scheduled
-  # immediately; its only deliberate wait is the original 300-second
-  # equilibration pause immediately before NMR.
+  # immediately; its only deliberate wait is a 10-second settling pause
+  # immediately before NMR.
   cycle:
     - action: withdraw
       volume_ml: 8.0
     - action: withdraw
       volume_ml: 5.0
     - action: pause
-      seconds: 300
-      note: Equilibrate for five minutes before starting the NMR acquisition.
+      seconds: 10
+      note: Let the transferred sample settle for ten seconds before starting the NMR acquisition.
     - action: nmr
     - action: infuse
       volume_ml: 13.0
@@ -38,7 +38,7 @@ workflow:
 
 pump:
   channel: 1
-  syringe_diameter_mm: 28.6
+  syringe_diameter_mm: 20.0
   syringe_capacity_ml: 20.0
   initial_retained_volume_ml: 0.0
   syringe_safety_margin_ml: 1.0
@@ -49,7 +49,7 @@ pump:
 nmr:
   route: iflow
   result_type: fid
-  scans: 2
+  scans: 8
   receiver_gain: 12.0
   auto_gain: false
   spectral_center: 5.0
