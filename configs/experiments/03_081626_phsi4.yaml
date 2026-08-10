@@ -43,7 +43,7 @@ pump:
   initial_retained_volume_ml: 0.0
   syringe_safety_margin_ml: 1.0
   units: mL/min
-  rate_ml_min: 5.0
+  rate_ml_min: 10.0
   default_volume_ml: 0.05
 
 nmr:

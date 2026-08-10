@@ -64,7 +64,7 @@ def test_081626_phsi4_config_is_immediate_with_only_the_nmr_pause():
     assert capacity.maximum_retained_volume_ml == 13.0
     assert capacity.end_retained_volume_ml == 0.0
     assert raw["pump"]["syringe_diameter_mm"] == 20.0
-    assert raw["pump"]["rate_ml_min"] == 5.0
+    assert raw["pump"]["rate_ml_min"] == 10.0
     assert raw["nmr"]["scans"] == 8
     assert raw["workflow"]["name"] == "081626_phsi4"
     assert raw["output"]["run_root_dir"] == "results/runs/081626_phsi4"
