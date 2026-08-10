@@ -1,24 +1,24 @@
 workflow:
   name: chemyx_nmr_quick_hardware_test
   description: One immediate attended Chemyx/NMR hardware integration test; no reaction scheduling.
-  # Small, balanced analogue of the production sampling cycle. The single
-  # measurement is scheduled immediately; its only deliberate wait is the
-  # original 300-second equilibration pause immediately before NMR.
+  # Balanced production sampling cycle. The single measurement is scheduled
+  # immediately; its only deliberate wait is the original 300-second
+  # equilibration pause immediately before NMR.
   cycle:
     - action: withdraw
-      volume_ml: 0.05
+      volume_ml: 8.0
     - action: withdraw
-      volume_ml: 0.05
+      volume_ml: 5.0
     - action: pause
       seconds: 300
       note: Equilibrate for five minutes before starting the NMR acquisition.
     - action: nmr
     - action: infuse
-      volume_ml: 0.10
+      volume_ml: 13.0
     - action: withdraw
-      volume_ml: 0.05
+      volume_ml: 5.0
     - action: infuse
-      volume_ml: 0.05
+      volume_ml: 5.0
   pump_extra_seconds: 2.0
 
   initial_stage:

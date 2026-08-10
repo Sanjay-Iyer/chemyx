@@ -61,7 +61,7 @@ def test_quick_hardware_config_is_immediate_with_only_the_nmr_pause():
     assert scheduled_measurement_offset_seconds(stages[0], 1) == 0.0
 
     capacity = validate_syringe_capacity(raw)
-    assert capacity.maximum_retained_volume_ml == 0.1
+    assert capacity.maximum_retained_volume_ml == 13.0
     assert capacity.end_retained_volume_ml == 0.0
     assert raw["pump"]["rate_ml_min"] == 0.5
 
