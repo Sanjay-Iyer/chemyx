@@ -415,11 +415,16 @@ def test_repository_analysis_yaml_parses():
     from pathlib import Path
     from chemyx_lab.config import read_mapping_config
     from chemyx_lab.analysis.analysis_config import load_statistics_config
+    from chemyx_lab.analysis.target_peak_config import load_target_peak_config
     repo = Path(__file__).resolve().parents[1]
     raw = read_mapping_config(repo / "configs" / "nmr" / "analysis.yaml", "cfg")
     cfg = load_statistics_config(raw.get("statistics"))
+    target_cfg = load_target_peak_config(raw.get("target_peak"))
     assert cfg.enabled is True
     assert [r.name for r in cfg.fixed_regions] == ["candidate_5p79", "candidate_6p10"]
+    assert target_cfg.plot_window_ppm == (5.0, 6.5)
+    assert target_cfg.search_window_ppm == (5.70, 5.90)
+    assert target_cfg.integration_window_ppm == (5.70, 5.90)
 
 
 # ---------------------------------------------------------------------------

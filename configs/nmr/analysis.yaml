@@ -329,7 +329,9 @@ target_peak:
   expected_center_ppm: 5.79
   search_window_ppm: [5.70, 5.90]
   integration_window_ppm: [5.70, 5.90]
-  plot_window_ppm: [5.68, 5.91]
+  # Show the wider regional spectrum in 01_focused_spectra while keeping peak
+  # tracking and quantitative integration restricted to 5.70-5.90 ppm.
+  plot_window_ppm: [5.0, 6.5]
   tracking_max_drift_ppm: 0.08
   integration_edge_margin_ppm: 0.01
   minimum_snr: 8.0
