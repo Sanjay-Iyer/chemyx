@@ -57,6 +57,36 @@ class SpectrumData:
 
 
 @dataclass(frozen=True)
+class ProcessingInspection:
+    """Intermediate arrays from the production JCAMP-to-spectrum path.
+
+    This is an additive, read-only inspection surface.  The arrays are built
+    with the same decoder, apodization, FFT, phase, and ALS helpers used by
+    ``scripts/nmr/process_fid.py`` so diagnostic plots do not carry a second
+    implementation of the processing mathematics.
+    """
+
+    source: Path
+    metadata: dict[str, str]
+    time_s: object
+    raw_fid: object
+    apodized_fid: object
+    ppm_axis: object
+    fft_spectrum: object
+    phased_spectrum: object
+    als_baseline: object
+    corrected_real: object
+    processed_points: int
+    line_broadening_hz: float
+    phase0_deg: float
+    phase1_deg: float
+    inverse_phase: bool
+    als_smoothness: float
+    als_asymmetry: float
+    als_iterations: int
+
+
+@dataclass(frozen=True)
 class PeakResult:
     source: Path
     target_ppm: float
@@ -1867,6 +1897,86 @@ def asymmetric_least_squares_baseline(
             1.0 - float(asymmetry),
         )
     return np.asarray(baseline)
+
+
+def build_processing_inspection(
+    path,
+    *,
+    line_broadening_hz=None,
+    zero_fill_points=None,
+    phase0_deg=None,
+    phase1_deg=None,
+    inverse_phase=True,
+    truncation_window="none",
+    als_smoothness=1e6,
+    als_asymmetry=0.001,
+    als_iterations=10,
+) -> ProcessingInspection:
+    """Return production-equivalent intermediate arrays for inspection.
+
+    The production processor applies ALS only to the phase-corrected real
+    spectrum.  No normalization, clipping, smoothing, or regional polynomial
+    detrending is applied here.  Those later peak-picking operations remain
+    explicit to callers.
+    """
+    np = _numpy()
+    ng = _nmrglue()
+    fid, ppm_axis, fft_spectrum, processed_points, resolved_lb = (
+        _build_complex_spectrum(
+            path,
+            line_broadening_hz=line_broadening_hz,
+            zero_fill_points=zero_fill_points,
+            truncation_window=truncation_window,
+        )
+    )
+    raw_fid = np.asarray(fid.complex_points, dtype=np.complex128)
+    swh_hz = _metadata_float(fid.metadata, "$SWH", "$SWEEP WIDTH")
+    apodized_fid = ng.proc_base.em(
+        raw_fid, lb=float(resolved_lb) / float(swh_hz)
+    )
+    if truncation_window == "half-cosine":
+        apodized_fid = apodized_fid * half_cosine_truncation_window(
+            raw_fid.size
+        )
+    if phase0_deg is None:
+        phase0_deg = _metadata_float(fid.metadata, "$PHC0", default=0.0)
+    if phase1_deg is None:
+        phase1_deg = _metadata_float(fid.metadata, "$PHC1", default=0.0)
+    phased = ng.proc_base.ps(
+        fft_spectrum,
+        p0=float(phase0_deg),
+        p1=float(phase1_deg),
+        inv=bool(inverse_phase),
+    )
+    phased_real = np.real(phased)
+    baseline = asymmetric_least_squares_baseline(
+        phased_real,
+        smoothness=float(als_smoothness),
+        asymmetry=float(als_asymmetry),
+        iterations=int(als_iterations),
+    )
+    corrected = phased_real - baseline
+    time_s = np.arange(raw_fid.size, dtype=float) / float(swh_hz)
+    return ProcessingInspection(
+        source=Path(path),
+        metadata=fid.metadata,
+        time_s=time_s,
+        raw_fid=raw_fid,
+        apodized_fid=apodized_fid,
+        ppm_axis=ppm_axis,
+        fft_spectrum=fft_spectrum,
+        phased_spectrum=phased,
+        als_baseline=baseline,
+        corrected_real=corrected,
+        processed_points=int(processed_points),
+        line_broadening_hz=float(resolved_lb),
+        phase0_deg=float(phase0_deg),
+        phase1_deg=float(phase1_deg),
+        inverse_phase=bool(inverse_phase),
+        als_smoothness=float(als_smoothness),
+        als_asymmetry=float(als_asymmetry),
+        als_iterations=int(als_iterations),
+    )
 
 
 def plot_peak_region(

@@ -1,0 +1,21 @@
+{
+  "before": {
+    "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\20260810_154505_si6\\processed_nmr\\081626_phsi4_20260810_154822_full_spectrum\\081626_phsi4_20260810_154822_full_spectrum_peaks_simple.csv": "7cdd92ea0666b720fc13a07a7bf4e8d8e28ae462625e9466e8970a29e1823066",
+    "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\20260810_161459_si6\\processed_nmr\\081626_phsi4_20260810_161811_full_spectrum\\081626_phsi4_20260810_161811_full_spectrum_peaks_simple.csv": "ab4a3bfc8e7556d2c98e268ae9ef74b99e5fbca5f6e0a038764150888ddbe24c",
+    "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\20260810_164505_si6\\processed_nmr\\081626_phsi4_20260810_164820_full_spectrum\\081626_phsi4_20260810_164820_full_spectrum_peaks_simple.csv": "603de350c2db89a2dcf3081d81623dce4a10c14d076b2f193f3e9c1bc9c2ce96",
+    "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\20260810_171441_si6\\processed_nmr\\081626_phsi4_20260810_171806_full_spectrum\\081626_phsi4_20260810_171806_full_spectrum_peaks_simple.csv": "79479b522020fef82677a7959e5ea15892189ecda6941e170a6a5a275e55ad11",
+    "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\20260811_094824_si6\\processed_nmr\\081626_phsi4_20260811_095145_full_spectrum\\081626_phsi4_20260811_095145_full_spectrum_peaks_simple.csv": "a9d5e665ee16fc8db513a16694fceb19664c5c12ffb0434d1b9d8954a78ebde5",
+    "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\20260811_110258_si6\\processed_nmr\\081626_phsi4_20260811_110614_full_spectrum\\081626_phsi4_20260811_110614_full_spectrum_peaks_simple.csv": "2c2997c9bfbecd9ceb80dbd4cb1aa54ee3ae6a4fde8e8cece8b601dee9650aba",
+    "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\timeseries_results\\peak_area_timeseries.csv": "e4b5236005690ff99286e6276e7932f46864a961047650fab7ad678b5cab4206"
+  },
+  "after": {
+    "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\20260810_154505_si6\\processed_nmr\\081626_phsi4_20260810_154822_full_spectrum\\081626_phsi4_20260810_154822_full_spectrum_peaks_simple.csv": "7cdd92ea0666b720fc13a07a7bf4e8d8e28ae462625e9466e8970a29e1823066",
+    "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\20260810_161459_si6\\processed_nmr\\081626_phsi4_20260810_161811_full_spectrum\\081626_phsi4_20260810_161811_full_spectrum_peaks_simple.csv": "ab4a3bfc8e7556d2c98e268ae9ef74b99e5fbca5f6e0a038764150888ddbe24c",
+    "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\20260810_164505_si6\\processed_nmr\\081626_phsi4_20260810_164820_full_spectrum\\081626_phsi4_20260810_164820_full_spectrum_peaks_simple.csv": "603de350c2db89a2dcf3081d81623dce4a10c14d076b2f193f3e9c1bc9c2ce96",
+    "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\20260810_171441_si6\\processed_nmr\\081626_phsi4_20260810_171806_full_spectrum\\081626_phsi4_20260810_171806_full_spectrum_peaks_simple.csv": "79479b522020fef82677a7959e5ea15892189ecda6941e170a6a5a275e55ad11",
+    "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\20260811_094824_si6\\processed_nmr\\081626_phsi4_20260811_095145_full_spectrum\\081626_phsi4_20260811_095145_full_spectrum_peaks_simple.csv": "a9d5e665ee16fc8db513a16694fceb19664c5c12ffb0434d1b9d8954a78ebde5",
+    "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\20260811_110258_si6\\processed_nmr\\081626_phsi4_20260811_110614_full_spectrum\\081626_phsi4_20260811_110614_full_spectrum_peaks_simple.csv": "2c2997c9bfbecd9ceb80dbd4cb1aa54ee3ae6a4fde8e8cece8b601dee9650aba",
+    "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\timeseries_results\\peak_area_timeseries.csv": "e4b5236005690ff99286e6276e7932f46864a961047650fab7ad678b5cab4206"
+  },
+  "unchanged": true
+}

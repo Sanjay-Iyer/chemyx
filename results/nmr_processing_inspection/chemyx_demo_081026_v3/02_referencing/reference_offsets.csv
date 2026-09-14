@@ -1,0 +1,7 @@
+file,timestamp,production_reference_method,metadata_shift_reference,applied_shift_ppm,intensity_max_absolute_difference
+20260810_154822_081626_phsi4_0001_8scan_gain12.dx,2026-08-10T15:57:37,metadata,"INTERNAL, Toluene, 4096, 5.00000000000000",0.0,0.0
+20260810_161811_081626_phsi4_0001_8scan_gain12.dx,2026-08-10T16:27:25,metadata,"INTERNAL, Toluene, 4096, 5.00000000000000",0.0,0.0
+20260810_164820_081626_phsi4_0001_8scan_gain12.dx,2026-08-10T16:57:35,metadata,"INTERNAL, Toluene, 4096, 5.00000000000000",0.0,0.0
+20260810_171806_081626_phsi4_0001_8scan_gain12.dx,2026-08-10T17:27:21,metadata,"INTERNAL, Toluene, 4096, 5.00000000000000",0.0,0.0
+20260811_095145_081626_phsi4_0001_8scan_gain12.dx,2026-08-11T10:01:01,metadata,"INTERNAL, Toluene, 4096, 5.00000000000000",0.0,0.0
+20260811_110614_081626_phsi4_0001_8scan_gain12.dx,2026-08-11T11:15:30,metadata,"INTERNAL, Toluene, 4096, 5.00000000000000",0.0,0.0
