@@ -1,0 +1,11 @@
+{
+  "exploratory_only": true,
+  "source_file": "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\20260810_171441_si6\\raw_nmr\\20260810_171806_081626_phsi4_0001_8scan_gain12.dx",
+  "peak_ppm": 5.791652275331811,
+  "height": 423.22230389051043,
+  "snr": 31.23393700069562,
+  "linewidth_hz": 3.9797346344591267,
+  "stage1_area": 30.693710121988133,
+  "fixed_window_area": 33.77578909930907,
+  "manual_integration_area": 33.77578909930907
+}

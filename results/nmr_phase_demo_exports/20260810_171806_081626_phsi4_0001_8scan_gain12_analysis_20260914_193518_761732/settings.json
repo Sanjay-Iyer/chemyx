@@ -1,0 +1,27 @@
+{
+  "exploratory_only": true,
+  "source_file": "C:\\code\\chemyx_pump\\results\\runs\\automated\\chemyx_demo_081026_v3\\20260810_171441_si6\\raw_nmr\\20260810_171806_081626_phsi4_0001_8scan_gain12.dx",
+  "dataset_display_name": "raw_nmr",
+  "acquisition_timestamp": "2026-08-10T17:27:21",
+  "timestamp_source": "LONG DATE header",
+  "phase": {
+    "p0_deg": 5.0,
+    "p1_deg": -10.0,
+    "pivot_ppm": -5.322036431022282,
+    "inv": true
+  },
+  "reference": {
+    "shift_ppm": 0.0
+  },
+  "baseline": {
+    "enabled": true,
+    "method": "asymmetric_least_squares",
+    "smoothness_lambda": 1000000.0,
+    "asymmetry": 0.001,
+    "iterations": 10
+  },
+  "integration": {
+    "left_ppm": 5.7,
+    "right_ppm": 5.9
+  }
+}
