@@ -1,4 +1,4 @@
-"""USB serial PING/PONG smoke test for the bundled Arduino sketch."""
+"""USB serial PING/PONG test for commercial needle-controller firmware 1.0.0."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def list_ports() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Send PING to the non-motion Arduino smoke-test firmware."
+        description="Send a non-motion PING to commercial needle firmware 1.0.0."
     )
     parser.add_argument("--port", help="verified Arduino COM port, for example COM3")
     parser.add_argument("--baud", type=int, default=115200)
@@ -61,15 +61,29 @@ def main() -> int:
             timeout=0.25,
             write_timeout=2.0,
         ) as connection:
-            time.sleep(max(0.0, args.startup_seconds))
-            connection.reset_input_buffer()
-            payload = b"PING\n"
+            deadline = time.monotonic() + max(0.1, args.startup_seconds)
+            ready_seen = False
+            while time.monotonic() < deadline:
+                raw = connection.readline()
+                if not raw:
+                    continue
+                line = raw.decode("ascii", errors="replace").strip()
+                print(f"RX startup: {line}")
+                if line == (
+                    "READY device=commercial_needle_controller "
+                    "board=uno_r4_minima version=1.0.0"
+                ):
+                    ready_seen = True
+                    break
+
+            payload = b"1 PING\n"
             print(f"TX: {payload!r}")
             connection.write(payload)
             connection.flush()
 
             deadline = time.monotonic() + max(0.1, args.timeout)
             received: list[str] = []
+            ack_seen = False
             while time.monotonic() < deadline:
                 raw = connection.readline()
                 if not raw:
@@ -77,15 +91,22 @@ def main() -> int:
                 line = raw.decode("ascii", errors="replace").strip()
                 received.append(line)
                 print(f"RX: {line}")
-                if line == "PONG ARDUINO_SMOKE_TEST":
-                    print("PASS: the laptop exchanged PING/PONG with the Arduino.")
-                    print("The smoke-test firmware contains no motor commands or motor-pin setup.")
+                if line == "ACK 1 PING":
+                    ack_seen = True
+                    continue
+                if line == "DONE 1 PONG" and ack_seen:
+                    print("PASS: the laptop exchanged sequenced PING/PONG with the Arduino.")
+                    if ready_seen:
+                        print("Firmware identity confirmed: commercial_needle_controller 1.0.0.")
+                    else:
+                        print("WARNING: PING passed, but the startup READY identity was not observed.")
+                    print("No motor command was sent.")
                     return 0
     except (serial.SerialException, OSError, ValueError) as exc:
         print(f"FAIL: could not communicate with the Arduino on {args.port}: {exc}")
         return 1
 
-    print("FAIL: the expected 'PONG ARDUINO_SMOKE_TEST' reply was not received.")
+    print("FAIL: the expected 'ACK 1 PING' then 'DONE 1 PONG' replies were not received.")
     if received:
         print("The board responded, but it may have different firmware loaded.")
     else:

@@ -75,13 +75,17 @@ Test-NetConnection 169.254.30.54 -Port 5000
 
 ## 3. Arduino: USB PING/PONG test
 
-### Upload the included firmware
+### Upload the included current firmware
 
 The upload file is:
 
 ```text
-smoke_test\arduino_smoke_test\arduino_smoke_test.ino
+smoke_test\commercial_needle_controller\commercial_needle_controller.ino
 ```
+
+This is a standalone copy of the repository's current one-upload firmware:
+`arduino\firmware\commercial_needle_controller\commercial_needle_controller.ino`.
+Its device identity is `commercial_needle_controller`, version `1.0.0`.
 
 1. Disconnect the DM542 driver, motor, needle mechanism, and other external
    wiring. For this check, use only `Laptop -> USB-C cable -> UNO R4 Minima`.
@@ -90,10 +94,11 @@ smoke_test\arduino_smoke_test\arduino_smoke_test.ino
 4. Upload the sketch.
 5. Close Arduino Serial Monitor so Python can open the COM port.
 
-The included sketch configures no motor pins and recognizes only `PING` and
-`INFO`. Uploading it replaces whatever firmware is currently on the Arduino.
-Before later needle operation, restore and verify the appropriate production
-firmware from this repository.
+The firmware boots with motion and limits uncommissioned, numeric motion limits
+at zero, and the driver disabled. For this smoke test, keep the DM542 driver,
+motor, needle mechanism, limit switches, and all other external wiring
+disconnected. The Python smoke test sends only `PING`; it sends no runtime
+configuration, enable, home, jog, or movement command.
 
 List the ports:
 
@@ -110,9 +115,11 @@ python smoke_test\03_smoke_arduino.py --port COM3
 Expected exchange:
 
 ```text
-TX: PING
-RX: PONG ARDUINO_SMOKE_TEST
-PASS: the laptop exchanged PING/PONG with the Arduino.
+RX startup: READY device=commercial_needle_controller board=uno_r4_minima version=1.0.0
+TX: 1 PING
+RX: ACK 1 PING
+RX: DONE 1 PONG
+PASS: the laptop exchanged sequenced PING/PONG with the Arduino.
 ```
 
 If a different response appears, the port is communicating but different
