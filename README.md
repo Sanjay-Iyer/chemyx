@@ -41,6 +41,7 @@ configs/           Experiment and machine configuration
 scripts/           Canonical Workflow 02 and numbered diagnostics
 tests/             Offline tests and fakes
 results/           Preserved raw and processed data
+offline/           Pinned versions and scripts for a laptop with no internet
 docs/              Guides, reports, and audits
 _archive/          Ignored local archive
 archive/           Git-tracked retired workflows
@@ -49,6 +50,7 @@ archive/           Git-tracked retired workflows
 ## Documentation
 
 - [Quickstart](docs/QUICKSTART.md)
+- [Offline Laptop Setup](docs/OFFLINE_SETUP.md)
 - [Repository Map](docs/REPOSITORY_MAP.md)
 - [Configuration](docs/CONFIGURATION.md)
 - [Si6 Automated Workflow](docs/SI6_AUTOMATED_WORKFLOW.md)

@@ -10,6 +10,12 @@ configs/nmr/*.local.yaml
 arduino/configs/*.local.yaml
 arduino/configs/*.local.yml
 
+# --- Offline-laptop bundle payload (offline/build_offline_bundle.ps1) --------
+offline/wheelhouse/
+offline/installers/
+offline/drivers/
+offline/BUNDLE_MANIFEST.txt
+
 # --- Local archive / ignored project metadata --------------------------------
 archive/
 _archive/
