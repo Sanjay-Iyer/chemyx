@@ -36,11 +36,11 @@ def test_committed_si6_config_has_requested_cycle_and_stages():
     stages = build_stages(raw["workflow"])
     assert stages[0].interval_minutes == 60
     assert stages[0].max_hours == 26
-    assert stages[0].max_measurements == 24
+    assert stages[0].max_measurements == 25
     assert stages[0].measure_immediately is False
     assert stages[0].plateau_stopping_enabled is False
     assert [stage.interval_minutes for stage in stages[1:]] == [15, 15, 15]
-    assert [stage.max_measurements for stage in stages[1:]] == [6, 6, 6]
+    assert [stage.max_measurements for stage in stages[1:]] == [7, 7, 7]
     assert all(stage.plateau_stopping_enabled for stage in stages[1:])
 
 

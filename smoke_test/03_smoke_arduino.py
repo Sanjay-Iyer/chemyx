@@ -1,4 +1,4 @@
-"""USB serial PING/PONG test for commercial needle-controller firmware 1.0.0."""
+"""USB serial PING/PONG test for canonical needle-controller firmware 1.1.0."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def list_ports() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Send a non-motion PING to commercial needle firmware 1.0.0."
+        description="Send a non-motion PING to canonical needle firmware 1.1.0."
     )
     parser.add_argument("--port", help="verified Arduino COM port, for example COM3")
     parser.add_argument("--baud", type=int, default=115200)
@@ -70,8 +70,8 @@ def main() -> int:
                 line = raw.decode("ascii", errors="replace").strip()
                 print(f"RX startup: {line}")
                 if line == (
-                    "READY device=commercial_needle_controller "
-                    "board=uno_r4_minima version=1.0.0"
+                    "READY device=needle_controller "
+                    "board=uno_r4_minima version=1.1.0"
                 ):
                     ready_seen = True
                     break
@@ -97,7 +97,7 @@ def main() -> int:
                 if line == "DONE 1 PONG" and ack_seen:
                     print("PASS: the laptop exchanged sequenced PING/PONG with the Arduino.")
                     if ready_seen:
-                        print("Firmware identity confirmed: commercial_needle_controller 1.0.0.")
+                        print("Firmware identity confirmed: needle_controller 1.1.0.")
                     else:
                         print("WARNING: PING passed, but the startup READY identity was not observed.")
                     print("No motor command was sent.")

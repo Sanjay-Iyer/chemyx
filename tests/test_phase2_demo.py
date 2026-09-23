@@ -16,6 +16,12 @@ sys.path.insert(0, str(NMR_SCRIPTS))
 
 import phase2  # noqa: E402
 
+# Run data under results/ is gitignored, so a clean checkout skips these.
+requires_demo_dx = pytest.mark.skipif(
+    not phase2.DEFAULT_DX.is_file(),
+    reason="the audited demo .dx is not present in this checkout",
+)
+
 
 def test_phase1_is_frozen_copy_of_original_demo():
     assert (NMR_SCRIPTS / "phase1.py").read_bytes() == (
@@ -28,6 +34,7 @@ def model():
     return phase2.Phase2Model(phase2.DEFAULT_DX)
 
 
+@requires_demo_dx
 def test_phase2_processing_controls_and_live_area(model):
     production = model.production_settings
     result = model.process(production)
@@ -56,6 +63,7 @@ def test_phase2_processing_controls_and_live_area(model):
     assert model.manual_area(result, narrower) != pytest.approx(default_area)
 
 
+@requires_demo_dx
 def test_phase2_exports_are_isolated_and_reproducible(model, monkeypatch, tmp_path):
     allowed = tmp_path / "nmr_phase_demo_exports"
     allowed.mkdir()

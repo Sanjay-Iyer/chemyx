@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +32,10 @@ def _module():
     return module
 
 
+@pytest.mark.skipif(
+    not (DEFAULT_DX.is_file() and PRIMARY_DX.is_file()),
+    reason="the audited demo .dx files are not present in this checkout",
+)
 def test_real_spectrum_phase_controls_reset_and_second_file_load():
     module = _module()
     model = module.PhaseSpectrumModel(DEFAULT_DX)

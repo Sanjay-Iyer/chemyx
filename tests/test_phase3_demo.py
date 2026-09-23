@@ -22,6 +22,12 @@ sys.path.insert(0, str(NMR_SCRIPTS))
 import phase3  # noqa: E402
 from chemyx_lab.analysis.nmr import build_processing_inspection  # noqa: E402
 
+# Run data under results/ is gitignored, so a clean checkout skips these.
+requires_demo_dx = pytest.mark.skipif(
+    not phase3.DEFAULT_DX.is_file(),
+    reason="the audited demo .dx is not present in this checkout",
+)
+
 
 @pytest.fixture(scope="module")
 def qapp():
@@ -60,6 +66,7 @@ def model():
     return phase3.PhaseSpectrumModel(phase3.DEFAULT_DX)
 
 
+@requires_demo_dx
 def test_phase3_manual_phase_is_applied_once_from_raw_fid(model):
     candidate = phase3.PhaseCandidate("Candidate 1", 18.2, -31.4, 5.8)
     effective_p0 = model.effective_p0(
@@ -89,6 +96,7 @@ def test_phase3_manual_phase_is_applied_once_from_raw_fid(model):
     np.testing.assert_allclose(np.real(production.phased_spectrum), model.production_spectrum)
 
 
+@requires_demo_dx
 def test_analysis_handoff_passes_selected_phase_and_never_overwrites(
     tmp_path, model
 ):
@@ -174,6 +182,7 @@ def test_analysis_handoff_passes_selected_phase_and_never_overwrites(
     )
 
 
+@requires_demo_dx
 def test_window_switching_restores_controls_and_marks_modified(qapp):
     window = phase3.Phase3Window(phase3.DEFAULT_DX)
     try:

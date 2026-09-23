@@ -5,7 +5,7 @@ from arduino.python.protocol import bool_field, parse_response
 
 
 def test_parse_ready_identity():
-    result = parse_response("READY device=needle_controller board=uno_r4_minima version=0.1.0")
+    result = parse_response("READY device=needle_controller board=uno_r4_minima version=1.1.0")
     assert result.kind == "READY"
     assert result.fields["board"] == "uno_r4_minima"
 
@@ -27,4 +27,3 @@ def test_boolean_fields_are_strict():
     assert bool_field({"moving": "false"}, "moving") is False
     with pytest.raises(ProtocolError):
         bool_field({"moving": "perhaps"}, "moving")
-

@@ -1988,6 +1988,7 @@ def plot_peak_region(
     plot_window_ppm=0.5,
     line_broadening_hz=None,
     zero_fill_points=None,
+    dataset_display_name=None,
 ):
     """Save a raw and baseline-corrected review plot around a target peak."""
     np = _numpy()
@@ -2092,6 +2093,7 @@ def plot_peak_region(
     fig.suptitle(
         dataset_plot_title(
             "Peak Review",
+            configured_name=dataset_display_name,
             input_paths=path,
             output_path=png_path,
         ),

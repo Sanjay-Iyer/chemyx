@@ -1,5 +1,6 @@
 # Exact package versions the chemyx_pump code was tested with: CPython 3.11,
-# 64-bit Windows, 745 offline tests passing on 2026-09-21.
+# 64-bit Windows. On 2026-09-22 a wheelhouse built from this list installed
+# with --no-index and both test suites passed on it.
 #
 # offline\build_offline_bundle.ps1 turns this list into offline\wheelhouse\.
 # offline\install_offline.ps1 installs it on a laptop with no internet.

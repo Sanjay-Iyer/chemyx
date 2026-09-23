@@ -7,6 +7,8 @@ configs/machines/*.local.yaml
 configs/machines/*.local.yml
 # Per-machine NMR input/output paths; keep the *.local.example.yaml template.
 configs/nmr/*.local.yaml
+# Commissioning and short attended-run copies of experiment configs.
+configs/experiments/*.local.yaml
 arduino/configs/*.local.yaml
 arduino/configs/*.local.yml
 
@@ -15,6 +17,8 @@ offline/wheelhouse/
 offline/installers/
 offline/drivers/
 offline/BUNDLE_MANIFEST.txt
+# Portable arduino-cli plus UNO R4 core (offline/arduino_toolchain.ps1).
+offline/arduino/
 
 # --- Local archive / ignored project metadata --------------------------------
 archive/
@@ -22,6 +26,10 @@ _archive/
 # Ignore archive holding directories at every repository depth.
 **/archive/
 **/_archive/
+# The root firmware archive is intentional, small, and required for provenance.
+!archive/
+!archive/legacy_arduino_firmware/
+!archive/legacy_arduino_firmware/**
 # Local holding areas for raw/processed runs that should never be committed.
 results/archive/
 results/processed/archive/
@@ -48,6 +56,9 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+# Disposable pytest --basetemp folders from earlier sessions.
+test_tmp_*/
+arduino/.test-tmp*/
 
 # --- Virtual environments ----------------------------------------------------
 .venv/

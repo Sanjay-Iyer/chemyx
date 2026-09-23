@@ -16,16 +16,21 @@ comes from the scripts that ran on the real hardware:
 |---|---|---|
 | This repository folder, with `offline\wheelhouse\` and `offline\installers\` filled | Code, configs, data, every Python package | Section 2 |
 | Python 3.11, 64-bit | Running everything | `offline\installers\python-3.11.9-amd64.exe` |
+| `offline\arduino\` (portable arduino-cli 1.5.1, UNO R4 core 1.6.0, compiler, dfu-util) | Recompiling or re-uploading the needle firmware offline | Section 2 |
 | Pump USB-serial driver | The pump's COM port | `offline\drivers\`, exported in section 2. Not needed if Windows' own driver runs the pump |
 | Pump USB cable, plus the USB-to-RS-232 adapter if your setup uses one | Pump | Existing rig |
 | USB-C **data** cable | Arduino UNO R4 Minima | A charge-only cable shows no COM port |
 | Ethernet cable | NMR | Direct to the NMR or through the lab switch |
 | 24 V DC adapter with its inline switch | DM542S needle driver | Existing rig |
 
-The Arduino keeps its sketch through power cycles, so the offline laptop does
-not need the Arduino IDE. If the sketch ever has to be re-uploaded, do it from
-a laptop with internet. The IDE, the UNO R4 board package, and its upload driver
-are awkward to install offline.
+The Arduino keeps its sketch through power cycles, so uploading firmware 1.1.0
+before going offline is simplest. `offline\arduino\` lets the offline laptop
+compile and re-upload anyway: the sketch needs only the Arduino core (no
+third-party libraries). The UNO R4 Minima uploads with dfu-util to USB
+2341:0369 (its bootloader). Windows 10/11 runs the board's normal COM port with
+the built-in USB serial driver; if an upload cannot find the DFU device, run
+`offline\arduino\data\packages\arduino\hardware\renesas_uno\1.6.0\post_install.bat`
+once as Administrator to install the bundled bootloader driver.
 
 ## 2. Build the bundle (on a computer with internet)
 
@@ -39,12 +44,20 @@ powershell -ExecutionPolicy Bypass -File offline\build_offline_bundle.ps1 -Pytho
 This script does four things:
 
 - Fills `offline\wheelhouse\` with the 27 packages pinned in
-  `offline\requirements-lock.txt`. These are the exact versions the code was
-  tested with (745 offline tests passing).
+  `offline\requirements-lock.txt`, the exact versions the test suites run on.
 - Downloads `offline\installers\python-3.11.9-amd64.exe` from python.org and
   checks its signature.
 - Proves the wheelhouse installs with the network switched off.
 - Writes `offline\BUNDLE_MANIFEST.txt` with the SHA-256 of every file.
+
+Then build the portable Arduino toolchain. It downloads arduino-cli (SHA-256
+checked) and the UNO R4 core into `offline\arduino\`, skips driver
+installation on this computer, compiles the firmware with the network blocked,
+and writes `offline\arduino\ARDUINO_MANIFEST.txt`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File offline\arduino_toolchain.ps1 -Build
+```
 
 Next, on the laptop where the pump and needle already work, plug both in. Open
 PowerShell **as Administrator** in the repository folder:
@@ -58,22 +71,25 @@ It lists every COM port with its driver. It copies any third-party driver
 because the offline laptop already has those. Without `-Export`, it only lists
 the ports.
 
-Finally, copy the repository folder to a USB drive. With the bundle it is about
-0.8 GB (355 MB of that is the wheels and the Python installer). Use `robocopy`
-instead of Explorer. It skips caches and the locked leftover
-`arduino\.test-tmp-*` folders, which would otherwise stop an Explorer copy. Use
-your USB drive's letter in place of `E:`:
+Finally, copy the repository folder to a USB drive. With both bundles it is
+about 2 GB: roughly 340 MB of wheels and the Python installer, 860 MB of
+Arduino toolchain, and 580 MB of existing results. Use `robocopy` instead of
+Explorer. It skips caches and the locked leftover pytest folders
+(`test_tmp_*`, `arduino\.test-tmp-*`, and `results\archive\pytest_*`), which
+would otherwise stop the copy. Use your USB drive's letter in place of `E:`:
 
 ```powershell
-robocopy C:\code\chemyx_pump E:\chemyx_pump /E /XD .test-tmp* __pycache__ .pytest_cache .ruff_cache .venv /R:0 /W:0
+robocopy C:\code\chemyx_pump E:\chemyx_pump /E /XD .test-tmp* test_tmp_* pytest_* __pycache__ .pytest_cache .ruff_cache .venv .codex_tmp_deps /R:0 /W:0
 ```
 
 Robocopy exit codes 0–7 mean success.
 
 ## 3. Install on the offline laptop
 
-1. Copy the folder to `C:\code\chemyx_pump`. Any path works; the commands below
-   assume this one.
+1. Copy the folder to `C:\code\chemyx_pump`, or another path of at most 50
+   characters. The bundled Arduino compiler cannot open files beyond the Windows
+   path limit, so a deep folder breaks the firmware compile. The commands below
+   assume `C:\code\chemyx_pump`.
 2. Run `offline\installers\python-3.11.9-amd64.exe`. Tick **Add python.exe to
    PATH**, then choose **Install Now**. Offline, Windows may say it cannot
    verify the app: choose **More info**, then **Run anyway**.
@@ -84,9 +100,11 @@ Robocopy exit codes 0–7 mean success.
    ```
 
    This installs everything into `.venv\` from the wheelhouse, never touching
-   the network. It checks imports and creates
-   `configs\machines\00_machine.local.yaml`. It then validates Workflow 02 and
-   runs the offline tests (about 2 minutes).
+   the network. It checks imports and the required files, creates
+   `configs\machines\00_machine.local.yaml`, validates the Si6 workflows, and
+   compiles the needle firmware when `offline\arduino\` was copied. With
+   `-RunTests` it then runs both test suites and the Level 1 and Level 2 mock
+   workflows (about 8 minutes). Nothing contacts hardware.
 4. If `offline\drivers\` contains anything, install it from PowerShell **as
    Administrator**, then unplug and replug the instruments:
 
@@ -148,6 +166,15 @@ From now on, run every command from `C:\code\chemyx_pump` with
 
 ### Needle (Arduino UNO R4 Minima + DM542S)
 
+The `dm542s_hello_world` up/down scripts below are *archived legacy bring-up
+notes*. They require archived D3 STEP / D4 DIR firmware and are not compatible
+with the active controller. The new integrated scripts use
+`arduino/python/controller.py`, firmware 1.1.0, D2 STEP / D3 DIR / D4 ENABLE /
+D5 upper limit / D6 lower limit, and the Arduino YAML. Do not mix these
+pinouts or protocols; use `docs/THREE_INSTRUMENT_ARCHITECTURE.md` for the new
+system. The following numbered legacy steps are not the new commissioning
+procedure.
+
 1. Plug in the USB-C data cable. The Arduino appears as a COM port with USB
    vendor ID 2341. Windows 10/11 normally runs it with its built-in USB serial
    driver.
@@ -165,11 +192,30 @@ From now on, run every command from `C:\code\chemyx_pump` with
 |---|---|---|
 | `configs\machines\00_machine.local.yaml` | `chemyx.serial_port` | `COM6` (will differ) |
 | same file | `nmr.host`, `nmr.port` | `169.254.30.54`, `5000` |
-| `arduino\dm542s_hello_world\configs\04_needle_up.yaml` and `05_needle_down.yaml` | `serial.port` | `COM3` (will differ) |
-| `configs\experiments\02_si6_automated_nmr.yaml` | `pump.syringe_diameter_mm`, `nmr.target_ppm` | 28.6; see the known issue in section 8 |
+| `arduino\configs\arduino.local.yaml` (copy of `arduino.example.yaml`) | Arduino port, wiring, limits, UP and sample DOWN positions | Commission per the checklist, section A |
+| `arduino\dm542s_hello_world\configs\04_needle_up.yaml` and `05_needle_down.yaml` (legacy bridge only) | `serial.port` | `COM3` (will differ) |
+| `configs\experiments\02_si6_automated_nmr.yaml` | `pump.syringe_diameter_mm`, `pump.syringe_capacity_ml`, `nmr.target_ppm` | 20.0 mm and 20 mL (verify against the installed syringe); 5.8 ppm |
 | `configs\nmr\analysis.local.yaml` (optional) | `input.paths`, `output.directory` | Only needed to run `process_fid.py` with no arguments |
 
 ## 5. First bring-up, in order
+
+For the **new three-instrument Si6 workflow**, follow
+[LIVE_COMMISSIONING_CHECKLIST.md](LIVE_COMMISSIONING_CHECKLIST.md): first
+complete the staged live Arduino commissioning and verify the Chemyx and NMR
+separately. Then run the new scripts from the repository root in this order:
+
+```powershell
+.venv\Scripts\python.exe scripts\01_three_instrument_system_test.py --mock --all
+.venv\Scripts\python.exe scripts\02_si6_experiment.py --mock
+```
+
+These contact no hardware. Only after the active firmware, limits, reviewed
+sample DOWN position, ports, and fluid path are commissioned should an operator
+consider `--live` on Level 1, followed by one attended short Level 2 cycle.
+Both scripts default to validation-only when no mode is given. Level 2's fast
+mock skips repeated full-spectrum `process_fid` calls; Level 1's mock runs one
+full production processing pass. The legacy commands below are retained only
+for historical bridge documentation, not for the new integrated rig.
 
 Each step talks to one instrument. Stop at the first failure and check
 section 8.
@@ -204,14 +250,17 @@ section 8.
    .venv\Scripts\python.exe scripts\diagnostics\02_verify_chemyx_movement.py --channel 1 --diameter 20.0 --rate 1 --volume 0.5
    ```
 
-5. **Needle serial.** Keep the 24 V supply off for this check. Expect
+Steps 5 and 6 apply only to the archived bridge rig. Do not run them against
+firmware 1.1.0; use section A of the commissioning checklist instead.
+
+5. **Needle serial (legacy bridge only).** Keep the 24 V supply off for this check. Expect
    `PASS: Arduino serial communication is working`.
 
    ```powershell
    .venv\Scripts\python.exe arduino\dm542s_hello_world\01_serial_hello.py --port COM3
    ```
 
-6. **Needle motion.** Switch on 24 V first. Each script moves 90° (200 steps) and
+6. **Needle motion (legacy bridge only).** Switch on 24 V first. Each script moves 90° (200 steps) and
    asks you to type `RUN`:
 
    ```powershell
@@ -359,7 +408,8 @@ acquisition with the last settings.
 
 **Code:** `arduino\dm542s_hello_world\single_move_utils.py`, `motion_utils.py`,
 and `serial_test_utils.py`. The firmware is
-`arduino_dm542s_bridge\arduino_dm542s_bridge.ino`.
+archived at
+`archive\legacy_arduino_firmware\proven_dm542s_bridge\arduino_dm542s_bridge.ino`.
 
 The signal path is: laptop, then USB serial, then the Arduino, which pulses D3
 (STEP) and D4 (DIR), then the DM542S driver, then the NEMA 17 motor. The wiring,
@@ -477,11 +527,15 @@ pipeline, open the GUI (the argument is optional):
 | NMR works in a browser but not in Python | A Windows proxy setting | Run `$env:NO_PROXY = "169.254.30.54"` in that window first |
 | No `PONG` | Wrong port, charge-only cable, or Serial Monitor open | Check the port and cable; close the Arduino IDE |
 | `ERROR controller busy` | A needle move is still running | Wait for `DONE`, or send `STOP` |
-| Run stops with `analysis_inconclusive` after the first spectrum | Known issue: nothing found at `nmr.target_ppm` | See below |
+| Si6 run stops with `analysis_inconclusive` (exit 7) | The spectrum had no QC-passing peak in 5.70-5.90 ppm, or acquisition, processing, or `LONG DATE` failed | See below |
+| Live run refuses to start: "Previous live run review" | The last live run stopped outside its rest state or needs review | Reconcile it, then add `--acknowledge-review <run id>` |
 
-**Known issue: target peak.** The live check looks for a peak within
-`analysis.detection_window_ppm` (0.12) of `nmr.target_ppm` (6.1). On
-2026-08-10 the product peak was at 5.79 ppm, so the run stopped after its first
-spectrum. A spectrum with no peak in that window stops the whole run, which can
-also happen early in a reaction before any product forms. Set `target_ppm` to
-your product peak before a real run.
+**Measurement failures.** The three-instrument workflow tracks the resonance
+at 5.8 +/- 0.10 ppm with production `process_fid` (the 2026-08-10 run stopped
+because the old setting watched 6.1 ppm). When a measurement fails after the
+sample was withdrawn and the pump and needle states are proven, the workflow
+still returns the sample and completes the cleanup, then stops (exit 7) with
+the run marked for operator review. A spectrum recorded before any product
+forms also stops the run this way. Inspect the run with
+`scripts\02_si6_automated_nmr.py --inspect-run <run folder>` before starting
+another.

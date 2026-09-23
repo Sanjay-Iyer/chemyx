@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -21,6 +22,9 @@ ALLOWED_TRANSITIONS = {
     "planned": {"dispatch_started", "failed", "skipped"},
     "dispatch_started": {"completed", "failed", "uncertain"},
 }
+# Three-instrument cycle statuses that leave the needle, syringe, tubing, or
+# NMR sample away from the cycle's rest state.
+INCOMPLETE_CYCLE_STATUSES = {"STARTED", "NMR_COMPLETE", "MEASUREMENT_FAILED", "FAILED"}
 
 
 @dataclass(frozen=True)
@@ -46,6 +50,9 @@ class DerivedRunState:
     monitoring_progress: dict[str, Any] = field(default_factory=dict)
     last_valid_analysis_result: dict[str, Any] | None = None
     manual_inspection_required: bool = False
+    # The rig is at rest, but a scientist must review the stop (for example a
+    # failed NMR measurement after a completed cleanup) before a new run.
+    operator_review_required: bool = False
     last_update_timestamp: str | None = None
 
     @property
@@ -125,6 +132,8 @@ def replay_journal(path: Path) -> ReplayResult:
     expected_sequence = 1
     canonical_run_id: str | None = None
     terminal_seen = False
+    last_cycle_status: str | None = None
+    needle_motion_open = False
 
     for record in parsed:
         sequence = record.get("sequence")
@@ -259,6 +268,16 @@ def replay_journal(path: Path) -> ReplayResult:
                 )
         elif event_type == "cycle_completed":
             result.state.completed_cycle_count += 1
+        elif event_type == "cycle_status":
+            last_cycle_status = record.get("status")
+        elif event_type == "manual_inspection_required":
+            result.state.manual_inspection_required = True
+            if record.get("physical_state_certainty") == "uncertain":
+                result.state.physical_state_certainty = "uncertain"
+        elif event_type == "needle_transition":
+            # A commanded move without its verified completion leaves the
+            # needle position unknown.
+            needle_motion_open = record.get("result_classification") == "started"
         elif event_type == "analysis_result":
             if record.get("result_classification") == "valid":
                 result.state.last_valid_analysis_result = record.get(
@@ -308,6 +327,13 @@ def replay_journal(path: Path) -> ReplayResult:
                     "terminal_status"
                 )
                 terminal_seen = True
+                certainty = record.get("physical_state_certainty")
+                if certainty == "uncertain":
+                    result.state.physical_state_certainty = "uncertain"
+                if certainty not in (None, "certain"):
+                    result.state.manual_inspection_required = True
+                if record.get("operator_review_required"):
+                    result.state.operator_review_required = True
 
         result.state.last_applied_sequence = max(
             result.state.last_applied_sequence,
@@ -316,6 +342,24 @@ def replay_journal(path: Path) -> ReplayResult:
         result.state.last_update_timestamp = record.get("timestamp_utc")
         result.records.append(record)
 
+    if needle_motion_open:
+        result.state.physical_state_certainty = "uncertain"
+        result.state.manual_inspection_required = True
+        _issue(
+            result.warnings,
+            "needle_motion_incomplete",
+            "A commanded needle move has no verified completion; the needle "
+            "position is unknown",
+        )
+    if last_cycle_status in INCOMPLETE_CYCLE_STATUSES:
+        result.state.manual_inspection_required = True
+        _issue(
+            result.warnings,
+            "cycle_cleanup_incomplete",
+            f"The last sampling cycle stopped at {last_cycle_status} before "
+            "cleanup; reconcile the needle, syringe, tubing, NMR sample, and "
+            "flask before any new run",
+        )
     for operation_id, lifecycle in operation_states.items():
         if lifecycle not in FINAL_OPERATION_STATES:
             record = operation_records[operation_id]
@@ -369,7 +413,17 @@ def write_json_atomic(path: Path, value: dict[str, Any]) -> None:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, path)
+        # Windows indexers and antivirus scanners can briefly hold the prior
+        # snapshot open. The journal is already durable; bounded retries keep
+        # a transient sharing violation from forcing physical-state recovery.
+        for attempt in range(6):
+            try:
+                os.replace(temporary, path)
+                break
+            except PermissionError:
+                if os.name != "nt" or attempt == 5:
+                    raise
+                time.sleep(0.05 * (attempt + 1))
     finally:
         if temporary.exists():
             try:

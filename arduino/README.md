@@ -1,9 +1,9 @@
 # Arduino Needle-Axis Bring-Up
 
-The optional [commercial one-upload firmware](docs/COMMERCIAL_FIRMWARE.md)
-keeps the same staged interlocks while accepting reviewed motion ceilings from
-YAML at runtime. The original `needle_controller` firmware remains the
-compile-time-commissioned reference implementation.
+The single active [runtime-configured firmware](docs/FIRMWARE.md) keeps the
+staged interlocks while accepting reviewed motion ceilings from YAML at
+runtime. Older sketches are retained under `archive/legacy_arduino_firmware/`
+for provenance only.
 
 > **CURRENT LIVE-TEST STATUS**
 >
@@ -11,15 +11,15 @@ compile-time-commissioned reference implementation.
 >
 > Required connection: `Laptop -> USB-C data cable -> Arduino UNO R4 Minima`
 >
-> Keep the DM542T, 24 V supply, NEMA 17 motor, signal interface, and needle
+> Keep the DM542S, 24 V supply, NEMA 17 motor, signal interface, and needle
 > mechanism disconnected.
 >
 > **Tests 2, 3, and full Test 4: DO NOT RUN IN LIVE MODE YET.**
 >
 > These tests require a verified open-collector/open-drain signal interface
-> between the Arduino and DM542T, correct motor and driver configuration, and
+> between the Arduino and DM542S, correct motor and driver configuration, and
 > the additional hardware listed in each test guide. Never connect UNO R4 GPIO
-> directly to DM542T PUL, DIR, or ENA. The software is included now for review
+> directly to DM542S PUL, DIR, or ENA. The software is included now for review
 > and mock testing before the remaining hardware is available.
 
 | Test | Purpose | Can run now? |
@@ -41,7 +41,8 @@ OT-2 or other robot command belongs in this subsystem.
    or null for Test 1.
 3. Install the Arduino IDE and its Arduino UNO R4 Boards package.
 4. Open `arduino/firmware/needle_controller/needle_controller.ino`.
-5. Confirm `MOTION_COMMISSIONED` is `false`.
+5. Confirm the sketch identifies itself as version `1.1.0`. Motion is always
+   uncommissioned after reset until reviewed YAML is applied by the host.
 6. With only USB-C connected, select **Arduino UNO R4 Minima** and the verified
    Arduino COM port, then upload.
 7. Close Arduino Serial Monitor so Python can own the COM port.

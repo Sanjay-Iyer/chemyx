@@ -24,13 +24,19 @@ Every stage explicitly requires:
 - positive `interval_minutes`;
 - Boolean `measure_immediately`;
 - Boolean `plateau_stopping_enabled`;
-- positive integer `max_measurements`;
-- positive `max_hours` extending beyond the last scheduled start.
+- positive `max_hours`: the stage duration.
+
+`max_measurements` is optional. Without it, measurements are scheduled every
+interval while the stage is younger than `max_hours` (60 min over 26 h gives
+25; 15 min over 2 h gives 7). An explicit positive integer is a cap that must
+still start before `max_hours`; the three-instrument workflow rejects a cap that
+would end a stage before its duration.
 
 When plateau stopping is disabled, all slots run and successful completion is
 `scheduled_monitoring_completed`. Plateau is still analyzed and recorded. When
-enabled, verified plateau stops early; exhausting slots without plateau is a
-non-success outcome. `max_hours` is always a separate hard safety ceiling.
+enabled, verified plateau stops early. Reaching the limit without plateau is a
+non-success outcome in the legacy workflow; the three-instrument workflow asks
+the operator to CONTINUE, ADVANCE, or ABORT.
 
 ## Pump safety fields
 
@@ -45,10 +51,14 @@ retained volume plus margin not to exceed capacity.
 ## NMR and analysis
 
 The NMR section fixes route, FID result type, scans, receiver gain, acquired
-window, and 6.1 ppm target. Auto-gain must remain disabled for comparable peak
-areas. The analysis section defines ppm tolerance, fixed integration window,
-SNR/prominence/area quality requirements, and the explicit acceptable plateau
-growth band.
+window, and the 5.8 ppm tracked-resonance target. With
+`analysis.detection_window_ppm: 0.10` the window is 5.70-5.90 ppm, the
+`target_peak` window in `configs/nmr/analysis.yaml`. Auto-gain must remain
+disabled for comparable peak areas. The analysis section defines the ppm
+window, SNR/prominence/area quality requirements, and the explicit acceptable
+plateau growth band. The three-instrument workflow measures the window with
+production `process_fid`; the legacy workflow still uses the magnitude
+detector.
 
 Unknown top-level, section, stage, and cycle-event fields are rejected before
 hardware construction.

@@ -1,4 +1,4 @@
-# One uploaded commercial firmware image reads these reviewed values at runtime.
+# ARCHIVED configuration for the former commercial-named firmware identity.
 # Copy to commercial_arduino.local.yaml and replace only independently verified
 # placeholders. False/null values deliberately block live motion.
 arduino:

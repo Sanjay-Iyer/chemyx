@@ -17,7 +17,7 @@ class FakeArduinoTransport:
         scenario: str = "normal",
         device: str = "needle_controller",
         board: str = "uno_r4_minima",
-        version: str = "0.1.0",
+        version: str = "1.1.0",
         homed: bool = False,
         motion_commissioned: bool = False,
         limits_commissioned: bool = False,
@@ -28,7 +28,7 @@ class FakeArduinoTransport:
         initial_position_steps: int = 0,
         initially_enabled: bool = False,
         runtime_configurable: bool = False,
-        driver_model: str = "DM542T",
+        driver_model: str = "DM542S",
     ) -> None:
         self.scenario = scenario
         self.device = device
@@ -432,6 +432,12 @@ class FakeArduinoTransport:
         if delta > 0 and self.limit_down:
             self._rx.append(f"ERR {sequence} LIMIT_DOWN_ACTIVE")
             return
+        if delta > 0 and self.limit_up:
+            self.limit_up = False
+            self._rx.append("EVENT LIMIT_UP INACTIVE")
+        if delta < 0 and self.limit_down:
+            self.limit_down = False
+            self._rx.append("EVENT LIMIT_DOWN INACTIVE")
         if not self._accept(sequence, command):
             return
         self.position_steps = target

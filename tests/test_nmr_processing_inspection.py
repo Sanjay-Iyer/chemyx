@@ -30,6 +30,11 @@ SAVED = (
     / "081626_phsi4_20260810_154822_full_spectrum"
     / "081626_phsi4_20260810_154822_full_spectrum_peaks_simple.csv"
 )
+# Run data under results/runs is gitignored, so a clean checkout skips these.
+requires_saved_run = pytest.mark.skipif(
+    not (DX.is_file() and SAVED.is_file()),
+    reason="the audited demo run is not present in this checkout",
+)
 
 
 def _script_module():
@@ -48,6 +53,7 @@ def _sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+@requires_saved_run
 def test_inspection_reuses_production_phase_and_baseline_subtraction():
     inspection = build_processing_inspection(
         DX, line_broadening_hz=0.03, zero_fill_points=65536
@@ -76,6 +82,7 @@ def test_inspection_reuses_production_phase_and_baseline_subtraction():
     )
 
 
+@requires_saved_run
 def test_known_file_reconstructs_saved_quantitative_result_without_mutation():
     before = _sha256(SAVED)
     module = _script_module()
@@ -95,6 +102,7 @@ def test_known_file_reconstructs_saved_quantitative_result_without_mutation():
     assert _sha256(SAVED) == before
 
 
+@requires_saved_run
 def test_diagnostic_peak_pick_does_not_change_arrays_or_metrics():
     inspection = build_processing_inspection(
         DX, line_broadening_hz=0.03, zero_fill_points=65536
@@ -136,6 +144,7 @@ def test_dataset_titles_are_visible_and_sensitivity_output_is_isolated(tmp_path)
     assert tmp_path.resolve() != production_parent.resolve()
 
 
+@requires_saved_run
 def test_reference_stage_preserves_intensity_and_metadata_axis():
     inspection = build_processing_inspection(
         DX, line_broadening_hz=0.03, zero_fill_points=65536
@@ -149,6 +158,7 @@ def test_reference_stage_preserves_intensity_and_metadata_axis():
     np.testing.assert_array_equal(after_intensity, before_intensity)
 
 
+@requires_saved_run
 def test_left_line_fill_matches_reported_local_baseline_integral():
     module = _script_module()
     acq = module._load_acquisition(DX.parents[1])

@@ -4,7 +4,7 @@ arduino:
   baud_rate: 115200
   expected_device: needle_controller
   expected_board: uno_r4_minima
-  expected_version: 0.1.0
+  expected_version: 1.1.0
   ready_timeout_s: 5.0
   read_timeout_s: 0.1
   write_timeout_s: 1.0
@@ -19,8 +19,8 @@ arduino:
 firmware:
   motion_enabled: false
   limits_enabled: false
-  runtime_configurable: false
-  version: 0.1.0
+  runtime_configurable: true
+  version: 1.1.0
 
 signal_interface:
   installed: false
@@ -38,7 +38,7 @@ motor:
   connected_to_axis_for_test_03: false
 
 driver:
-  model: DM542T
+  model: DM542S
   supply_voltage_v: 24
   supply_current_a: null
   current_switch_setting: null
@@ -52,6 +52,9 @@ motion:
   home_backoff_steps: null
   safe_up_position_steps: null
   test_down_position_steps: null
+  # Production immersion position; independently review the fluid path and
+  # axis clearance before assigning this. Never infer it from the test step.
+  sample_down_position_steps: null
   maximum_travel_steps: null
   maximum_speed_steps_s: null
   maximum_acceleration_steps_s2: null

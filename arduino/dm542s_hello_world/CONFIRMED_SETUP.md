@@ -27,7 +27,7 @@ thermal performance, mechanical load capability, or production suitability.
 | Motor body marking | `42BL481.8-22A` with `20251022` below it |
 | DC adapter | Chicony `TRH50A240` family; photographed P/N `TRH50A240-26E03 WI` |
 | Adapter output | Fixed 24.0 V DC, 2.1 A maximum, 50.4 W |
-| Firmware | `arduino_dm542s_bridge/arduino_dm542s_bridge.ino` |
+| Firmware | Archived at `archive/legacy_arduino_firmware/proven_dm542s_bridge/arduino_dm542s_bridge.ino` |
 | Serial protocol | 115200 baud; newline-terminated `PING`, `BLINK10`, `FWD`, and `CYCLE` |
 
 `COM3` is machine-specific and may change after reconnecting the Arduino.

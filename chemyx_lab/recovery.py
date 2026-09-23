@@ -160,6 +160,7 @@ def format_inspection(result: InspectionResult) -> str:
             f"Physical state: {state.physical_state_certainty}",
             f"Terminal status: {state.terminal_status or 'none'}",
             f"Manual inspection required: {state.manual_inspection_required}",
+            f"Operator review required: {state.operator_review_required}",
             "Possible future resume candidate: "
             + (
                 "yes, pending a later implementation and operator approval"

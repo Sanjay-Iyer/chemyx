@@ -16,6 +16,11 @@ FINAL_PACKAGE = (
     REPO_ROOT
     / "results/nmr_processing_inspection/chemyx_demo_081026_v3_plot_cleanup_v3"
 )
+# Run data under results/runs is gitignored, so a clean checkout skips these.
+requires_series = pytest.mark.skipif(
+    not SERIES.is_dir(),
+    reason="the audited demo run folder is not present in this checkout",
+)
 
 
 def _load_script(name: str):
@@ -43,6 +48,7 @@ def primary_dx(explorer_module):
     return explorer_module.representative_dx_files(SERIES)[0]
 
 
+@requires_series
 def test_explorer_loads_known_dx_and_reset_restores_production(
     explorer_module, primary_dx
 ):
@@ -57,6 +63,7 @@ def test_explorer_loads_known_dx_and_reset_restores_production(
     assert explorer.compute().mode == "production"
 
 
+@requires_series
 def test_phase_reference_and_baseline_controls_change_expected_arrays(
     explorer_module, primary_dx
 ):
@@ -103,6 +110,7 @@ def test_phase_reference_and_baseline_controls_change_expected_arrays(
     assert not np.allclose(arpls.baseline, production.baseline)
 
 
+@requires_series
 def test_exports_are_restricted_to_exploratory_root(
     explorer_module, primary_dx, tmp_path, monkeypatch
 ):
@@ -120,6 +128,7 @@ def test_exports_are_restricted_to_exploratory_root(
         explorer_module.NmrProcessingExplorer(primary_dx, exploratory_root=SERIES)
 
 
+@requires_series
 def test_grouped_static_families_and_contact_sheet_generate(
     cleanup_module, primary_dx, tmp_path
 ):

@@ -80,12 +80,12 @@ Test-NetConnection 169.254.30.54 -Port 5000
 The upload file is:
 
 ```text
-smoke_test\commercial_needle_controller\commercial_needle_controller.ino
+arduino\firmware\needle_controller\needle_controller.ino
 ```
 
 This is a standalone copy of the repository's current one-upload firmware:
-`arduino\firmware\commercial_needle_controller\commercial_needle_controller.ino`.
-Its device identity is `commercial_needle_controller`, version `1.0.0`.
+`arduino\firmware\needle_controller\needle_controller.ino`.
+Its device identity is `needle_controller`, version `1.1.0`.
 
 1. Disconnect the DM542 driver, motor, needle mechanism, and other external
    wiring. For this check, use only `Laptop -> USB-C cable -> UNO R4 Minima`.
@@ -115,7 +115,7 @@ python smoke_test\03_smoke_arduino.py --port COM3
 Expected exchange:
 
 ```text
-RX startup: READY device=commercial_needle_controller board=uno_r4_minima version=1.0.0
+RX startup: READY device=needle_controller board=uno_r4_minima version=1.1.0
 TX: 1 PING
 RX: ACK 1 PING
 RX: DONE 1 PONG

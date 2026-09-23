@@ -14,7 +14,7 @@ from arduino.python.errors import (
 def test_context_manager_validates_ready_and_closes():
     fake = FakeArduinoTransport()
     with NeedleController(fake) as controller:
-        assert controller.identity["version"] == "0.1.0"
+        assert controller.identity["version"] == "1.1.0"
         controller.ping()
     assert not fake.is_open
 
@@ -83,15 +83,15 @@ def test_commercial_runtime_configuration_applies_reviewed_values(commissioned_c
     commissioned_config["firmware"]["runtime_configurable"] = True
     commissioned_config["driver"]["model"] = "DM542S"
     fake = FakeArduinoTransport(
-        device="commercial_needle_controller",
-        version="1.0.0",
+        device="needle_controller",
+        version="1.1.0",
         runtime_configurable=True,
         driver_model="DM542S",
     )
     with NeedleController(
         fake,
-        expected_device="commercial_needle_controller",
-        expected_version="1.0.0",
+        expected_device="needle_controller",
+        expected_version="1.1.0",
     ) as controller:
         final = controller.configure_runtime(commissioned_config)
     assert final["runtime_configured"] == "true"
@@ -107,8 +107,8 @@ def test_matching_runtime_configuration_preserves_homed_enabled_state(commission
     commissioned_config["firmware"]["runtime_configurable"] = True
     commissioned_config["driver"]["model"] = "DM542S"
     fake = FakeArduinoTransport(
-        device="commercial_needle_controller",
-        version="1.0.0",
+        device="needle_controller",
+        version="1.1.0",
         runtime_configurable=True,
         homed=True,
         motion_commissioned=True,
@@ -125,8 +125,8 @@ def test_matching_runtime_configuration_preserves_homed_enabled_state(commission
     fake.signal_inverted = True
     with NeedleController(
         fake,
-        expected_device="commercial_needle_controller",
-        expected_version="1.0.0",
+        expected_device="needle_controller",
+        expected_version="1.1.0",
     ) as controller:
         final = controller.configure_runtime(commissioned_config)
     assert final["homed"] == "true"

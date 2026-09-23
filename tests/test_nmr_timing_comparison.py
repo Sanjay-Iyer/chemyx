@@ -114,6 +114,10 @@ def test_csv_export_columns_and_values_match_comparison_rows(tmp_path):
     assert exported[1]["metadata_time_source"] == "LONG DATE header"
 
 
+@pytest.mark.skipif(
+    not any((REPO_ROOT / "results" / "raw" / "nmr" / "06-09-26").glob("*.dx")),
+    reason="the gitignored 06-09-26 raw spectra are not present in this checkout",
+)
 def test_real_06_09_26_headers_use_long_date_and_filename_hhmm():
     raw_dir = REPO_ROOT / "results" / "raw" / "nmr" / "06-09-26"
     files = sorted(raw_dir.glob("*.dx"))

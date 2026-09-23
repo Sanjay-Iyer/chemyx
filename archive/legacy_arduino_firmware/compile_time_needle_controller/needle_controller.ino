@@ -1,6 +1,8 @@
-#define COMMERCIAL_RUNTIME_CONFIG 1
 /*
-  Needle controller 0.1.0 for Arduino UNO R4 Minima.
+  ARCHIVED: compile-time needle controller 0.1.0 for Arduino UNO R4 Minima.
+
+  The active runtime-configured firmware is now:
+  arduino/firmware/needle_controller/needle_controller.ino
 */
 
 #include <Arduino.h>
@@ -768,4 +770,3 @@ void loop() {
   serviceMovement();
   serviceBlink();
 }
-

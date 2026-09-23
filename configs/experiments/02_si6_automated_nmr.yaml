@@ -1,37 +1,60 @@
+# Si6 experiment configuration, shared by:
+#   scripts/02_si6_experiment.py              three-instrument Level 2 workflow
+#   scripts/01_three_instrument_system_test.py  Level 1 diagnostic
+#   scripts/02_si6_automated_nmr.py           legacy two-instrument workflow
+#
+# Mock or live is chosen only on the command line (--mock / --live), never
+# here, so editing this file can never switch a run onto real hardware.
+#
+# Values marked COMMISSION must be confirmed on the instrument laptop before a
+# live run (docs/LIVE_COMMISSIONING_CHECKLIST.md). Needle UP/DOWN positions
+# live in arduino/configs/arduino.local.yaml, not here.
+
 workflow:
   name: si6_automated_nmr
   description: Si6 sampling cycle with automated NMR kinetics and plateau stopping.
-  # Each cycle starts and ends with the needle raised/out of solution.
+  # One sampling cycle, in this fixed order. The three-instrument workflow
+  # reads the two "operator" entries as needle DOWN and needle UP; the legacy
+  # workflow prompts for them. Volumes must return to the starting volume.
   cycle:
-    - action: withdraw
+    - action: withdraw          # 8 mL, needle UP (out of solution)
       volume_ml: 8.0
       note: Needle must be out of solution.
-    - action: operator
+    - action: operator          # needle DOWN
       prompt: Lower the needle into the reaction solution, then type yes.
-    - action: withdraw
+    - action: withdraw          # 5 mL sample, needle DOWN
       volume_ml: 5.0
-    - action: pause
+    - action: pause             # settle before NMR (seconds)
       seconds: 300
       note: Increase this if more NMR scans require a longer equilibration.
     - action: nmr
-    - action: infuse
+    - action: infuse            # 13 mL return, needle still DOWN
       volume_ml: 13.0
-    - action: operator
+    - action: operator          # needle UP
       prompt: Raise the needle out of the reaction solution, then type yes.
-    - action: withdraw
+    - action: withdraw          # 5 mL cleanup, needle UP
       volume_ml: 5.0
-    - action: infuse
+    - action: infuse            # 5 mL cleanup, needle UP
       volume_ml: 5.0
+  # Wait added to each timed pump move before STOP. COMMISSION: confirm every
+  # volume completes inside volume/rate + this margin (checklist B4).
   pump_extra_seconds: 2.0
 
-  # Initial reaction: check hourly for at most 24 hours.
+  # Stage timing. interval_minutes is start-to-start. A stage ends at plateau,
+  # at max_hours, or by operator decision; measurements are taken every
+  # interval while the stage is younger than max_hours (60 min / 26 h gives 25
+  # measurements; 30 min / 26 h gives 51). An optional max_measurements is a
+  # safety cap only and is rejected if it would end a stage before max_hours.
+  # A stage that reaches max_hours without a plateau asks the operator to
+  # CONTINUE the stage, ADVANCE to the next reagent checkpoint, or ABORT.
   initial_stage:
     name: initial_reaction
     operator_prompt: Add catalyst and starting reagents, mix under N2, then type yes.
-    interval_minutes: 60
+    interval_minutes: 60        # 60 or 30 for the initial sampling interval
     measure_immediately: false
+    # Legacy workflow only; the three-instrument workflow uses
+    # three_instrument.initial_plateau_stopping_enabled below.
     plateau_stopping_enabled: false
-    max_measurements: 24
     max_hours: 26
 
   # First Si-H addition, then repeat the acetone/Si-H pair as desired.
@@ -41,51 +64,62 @@ workflow:
     interval_minutes: 15
     measure_immediately: false
     plateau_stopping_enabled: true
-    max_measurements: 6
-    max_hours: 2
-  repeat_addition_rounds: 1
+    max_hours: 2                # 7 measurements (15-105 min)
+  repeat_addition_rounds: 1     # acetone + diphenyl silane pairs
   repeating_stages:
     - name: acetone
       operator_prompt: Add acetone, then type yes.
       interval_minutes: 15
       measure_immediately: false
       plateau_stopping_enabled: true
-      max_measurements: 6
       max_hours: 2
     - name: diphenyl_silane
       operator_prompt: Add diphenyl silane, then type yes.
       interval_minutes: 15
       measure_immediately: false
       plateau_stopping_enabled: true
-      max_measurements: 6
       max_hours: 2
 
 pump:
   channel: 1
-  syringe_diameter_mm: 28.6
-  # Required fail-closed capacity model. The cycle temporarily retains 13 mL.
+  # COMMISSION: inner diameter of the installed syringe. 20.0 mm is the value
+  # used on the real rig on 2026-08-10 (03_081626_phsi4.yaml) and matches a
+  # 20 mL barrel; it sets every delivered volume.
+  syringe_diameter_mm: 20.0
+  # COMMISSION: required fail-closed capacity model. The cycle retains up to 13 mL.
   syringe_capacity_ml: 20.0
   initial_retained_volume_ml: 0.0
   syringe_safety_margin_ml: 1.0
   units: mL/min
-  rate_ml_min: 5.0
+  rate_ml_min: 5.0              # COMMISSION: weigh delivered volumes at this rate
   default_volume_ml: 5.0
 
 nmr:
   route: iflow
   result_type: fid
-  scans: 2
+  scans: 2                      # raise machine nmr.max_wait_seconds if scans grow
   receiver_gain: 12.0
   auto_gain: false
   spectral_center: 5.0
   sweep_width: 20.0
-  target_ppm: 6.1
+  # Tracked product resonance on the production (metadata-derived) ppm axis.
+  # Confirmed spectra place it at 5.785-5.847 ppm (configs/nmr/analysis.yaml
+  # target_peak and simple_table; results/README.md). The earlier 6.1 ppm is
+  # the same resonance on a vendor display with a shifted reference.
+  target_ppm: 5.8
 
 analysis:
-  detection_window_ppm: 0.12
-  integration_window_ppm: 0.12
+  # Half-width of the tracked window: 5.8 +/- 0.10 = 5.70-5.90 ppm, the same
+  # window as target_peak.search_window_ppm in configs/nmr/analysis.yaml. The
+  # three-instrument workflow passes it to production process_fid, whose
+  # QC-passing peak in this window is the measurement.
+  detection_window_ppm: 0.10
+  # Legacy magnitude analysis only: integration half-width, plot window, and
+  # line broadening.
+  integration_window_ppm: 0.10
   plot_window_ppm: 0.5
   line_broadening_hz: 0.3
+  # A measurement is valid only when the tracked peak also clears these.
   min_peak_snr: 5.0
   min_prominence_snr: 3.0
   min_peak_area: 0.0
@@ -93,7 +127,17 @@ analysis:
   plateau_max_growth_percent: 5.0
   # A decline larger than 2% is not stable and resets the plateau window.
   plateau_max_decline_percent: 2.0
+  # Three stable intervals need four consecutive valid measurements in a stage.
   plateau_consecutive_intervals: 3
 
 output:
+  # Live runs: results/runs/si6/<stamp>_si6_live (experiment) or
+  # <stamp>_diagnostic_<test>_live. Mock runs go to results/runs/si6_mock.
   run_root_dir: results/runs/si6
+
+# Used by scripts/01_three_instrument_system_test.py and the three-instrument
+# experiment; change only after reviewing syringe capacity and the liquid path.
+three_instrument:
+  test_withdraw_ml: 0.5
+  test_infuse_ml: 0.5
+  initial_plateau_stopping_enabled: true

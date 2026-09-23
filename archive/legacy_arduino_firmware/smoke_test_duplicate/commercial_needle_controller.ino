@@ -1,4 +1,6 @@
 #define COMMERCIAL_RUNTIME_CONFIG 1
+// ARCHIVED smoke-test duplicate. Use the canonical active sketch at
+// arduino/firmware/needle_controller/needle_controller.ino.
 /*
   Needle controller 0.1.0 for Arduino UNO R4 Minima.
 */
@@ -768,5 +770,3 @@ void loop() {
   serviceMovement();
   serviceBlink();
 }
-
-

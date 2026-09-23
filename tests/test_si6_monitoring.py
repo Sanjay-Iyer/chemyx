@@ -265,11 +265,13 @@ def test_active_configuration_has_deliberate_monitoring_policies():
 
     assert stages[0].measure_immediately is False
     assert stages[0].plateau_stopping_enabled is False
-    assert stages[0].max_measurements == 24
+    # The stage duration governs: hourly slots strictly before 26 h.
     assert stages[0].max_hours == 26
+    assert stages[0].max_measurements == 25
     assert all(stage_value.plateau_stopping_enabled for stage_value in stages[1:])
-    assert all(stage_value.max_measurements == 6 for stage_value in stages[1:])
+    assert all(stage_value.max_measurements == 7 for stage_value in stages[1:])
     assert all(stage_value.max_hours == 2 for stage_value in stages[1:])
+    assert not any(stage_value.max_measurements_explicit for stage_value in stages)
 
 
 @pytest.mark.parametrize(
@@ -309,6 +311,7 @@ def test_unknown_stage_field_and_duplicate_names_are_rejected(tmp_path):
 
 def test_runtime_ceiling_must_extend_beyond_last_scheduled_slot(tmp_path):
     raw = copy.deepcopy(load_si6_config(CONFIG))
+    raw["workflow"]["initial_stage"]["max_measurements"] = 24
     raw["workflow"]["initial_stage"]["max_hours"] = 24
     path = tmp_path / "unsafe_schedule.yaml"
     path.write_text(yaml.safe_dump(raw, sort_keys=False))

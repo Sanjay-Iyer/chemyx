@@ -1,5 +1,13 @@
 # Operator Guide — Needle Motion Rig
 
+> **LEGACY PROCEDURE:** This guide belongs to the archived D3 STEP / D4 DIR
+> bridge. It is incompatible with the active runtime-configured D2 STEP / D3
+> DIR / D4 ENABLE firmware.
+
+> **LEGACY PROCEDURE:** This guide belongs to the archived D3 STEP / D4 DIR
+> bridge. It is incompatible with the active runtime-configured D2 STEP / D3
+> DIR / D4 ENABLE firmware.
+
 This guide assumes you have never used Python, YAML, or Arduino before. Follow
 it top to bottom. Every command is written out in full.
 
@@ -30,7 +38,7 @@ the folder name `dm542s_hello_world`.
 
 | File | What it is |
 | ---- | ---------- |
-| `arduino_dm542s_bridge\arduino_dm542s_bridge.ino` | **The Arduino firmware.** Upload this to the board. |
+| `archive\legacy_arduino_firmware\proven_dm542s_bridge\arduino_dm542s_bridge.ino` | Archived firmware for this legacy procedure. The active firmware uses a different protocol and pinout. |
 | `01_serial_hello.py` | Diagnostic: is the USB connection working? (24 V off) |
 | `01b_led_blink_test.py` | Diagnostic: blink the board's LED ten times. (24 V off) |
 | `02_slow_forward_test.py` | Diagnostic: one fixed 100-pulse move. |
@@ -80,7 +88,7 @@ The Arduino cannot do anything until the firmware is on it.
 1. Open the **Arduino IDE**.
 2. Menu: **File -> Open**, then navigate to and select this exact file:
    ```text
-   C:\code\chemyx_pump\arduino\dm542s_hello_world\arduino_dm542s_bridge\arduino_dm542s_bridge.ino
+   C:\code\chemyx_pump\archive\legacy_arduino_firmware\proven_dm542s_bridge\arduino_dm542s_bridge.ino
    ```
 3. Menu: **Tools -> Board -> Arduino Renesas UNO R4 Boards -> Arduino UNO R4 Minima**
 4. Menu: **Tools -> Port -> COM3** (or whichever port your board shows).

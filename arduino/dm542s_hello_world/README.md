@@ -1,5 +1,15 @@
 # Arduino UNO R4 Minima + DM542S needle motion
 
+> **LEGACY PROTOCOL:** These scripts require the archived D3 STEP / D4 DIR
+> bridge firmware. They do not speak the active sequence-checked controller
+> protocol and must not be used after uploading the active D2/D3/D4 firmware.
+> They remain in the repository only for recovery and historical validation.
+
+> **LEGACY PROTOCOL:** These scripts require the archived D3 STEP / D4 DIR
+> bridge firmware. They do not speak the active sequence-checked controller
+> protocol and must not be used after uploading the active D2/D3/D4 firmware.
+> They remain in the repository only for recovery and historical validation.
+
 > ### New here? Start with **[OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)**
 > Step-by-step instructions for Windows PowerShell: which commands to run, which
 > file to upload, and exactly how to edit the configuration to change the port,
@@ -87,8 +97,7 @@ dm542s_hello_world/
 │   ├── test_calibration_workflow.py  trials, return error, atomic writes
 │   ├── test_single_move.py           scripts 04/05 schema, direction, bounds
 │   └── test_firmware_protocol.py     mocked serial + .ino regression pins
-└── arduino_dm542s_bridge/
-    └── arduino_dm542s_bridge.ino
+└── firmware archived at archive/legacy_arduino_firmware/proven_dm542s_bridge/
 ```
 
 ## Wiring (common cathode)
@@ -188,7 +197,7 @@ Python 3.10 or newer. From this directory:
 py -m pip install -r requirements.txt
 ```
 
-Open `arduino_dm542s_bridge\arduino_dm542s_bridge.ino` in Arduino IDE, select
+Open `archive\legacy_arduino_firmware\proven_dm542s_bridge\arduino_dm542s_bridge.ino` in Arduino IDE, select
 **Arduino UNO R4 Minima** and its COM port, and upload. Close the Arduino Serial
 Monitor afterwards — only one program can own a COM port at a time.
 

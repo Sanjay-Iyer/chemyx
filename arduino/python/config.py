@@ -37,6 +37,7 @@ SECTION_KEYS = {
     "motion": {
         "lead_screw_lead_mm_per_revolution", "steps_per_mm", "home_backoff_steps",
         "safe_up_position_steps", "test_down_position_steps", "maximum_travel_steps",
+        "sample_down_position_steps",
         "maximum_speed_steps_s", "maximum_acceleration_steps_s2", "test_02_steps",
         "test_02_speed_steps_s", "home_speed_steps_s",
     },
@@ -65,7 +66,7 @@ DEFAULTS: dict[str, Any] = {
         "baud_rate": 115200,
         "expected_device": "needle_controller",
         "expected_board": "uno_r4_minima",
-        "expected_version": "0.1.0",
+        "expected_version": "1.1.0",
         "ready_timeout_s": 5.0,
         "read_timeout_s": 0.1,
         "write_timeout_s": 1.0,
@@ -76,12 +77,12 @@ DEFAULTS: dict[str, Any] = {
     "firmware": {
         "motion_enabled": False,
         "limits_enabled": False,
-        "runtime_configurable": False,
-        "version": "0.1.0",
+        "runtime_configurable": True,
+        "version": "1.1.0",
     },
     "signal_interface": {},
     "motor": {},
-    "driver": {"model": "DM542T", "supply_voltage_v": 24},
+    "driver": {"model": "DM542S", "supply_voltage_v": 24},
     "motion": {},
     "limits": {"normally_closed": True},
     "safety": {
@@ -307,8 +308,8 @@ def test2_missing(
         (m.get("coil_pairs_identified") is True, "Identified motor coil pairs"),
         (_numeric_equals(d.get("supply_voltage_v"), 24.0), "Verified 24 V driver supply"),
         (_positive_value(d.get("supply_current_a")), "24 V power-supply current rating"),
-        (_present(d.get("current_switch_setting")), "DM542T current switch setting"),
-        (_present(d.get("microstep_setting")), "DM542T microstep switch setting"),
+        (_present(d.get("current_switch_setting")), "Stepper-driver current switch setting"),
+        (_present(d.get("microstep_setting")), "Stepper-driver microstep switch setting"),
         (_positive_value(d.get("microsteps_per_full_step")), "Numeric microsteps per full step"),
         (
             str(d.get("model", "")).strip().upper() == expected_driver_model,

@@ -8,7 +8,7 @@ Required: Dynabook laptop, USB-C data cable, and Arduino UNO R4 Minima.
 Laptop -> USB-C data cable -> Arduino UNO R4 Minima
 ```
 
-Disconnect the DM542T, 24 V supply, NEMA 17, all signal-interface wiring,
+Disconnect the DM542S, 24 V supply, NEMA 17, all signal-interface wiring,
 limit switches, and needle mechanism. Test 1 contains no motor command.
 
 ## Configuration and firmware upload
@@ -18,10 +18,10 @@ Copy `arduino/configs/arduino.example.yaml` to
 and, optionally, its verified fingerprint. Leave motion placeholders unchanged.
 
 In Arduino IDE, install Arduino UNO R4 Boards, open
-`arduino/firmware/needle_controller/needle_controller.ino`, verify
-`MOTION_COMMISSIONED = false`, `LIMITS_COMMISSIONED = false`, and the four
-`COMMISSIONED_*` axis values remain zero; select **Arduino UNO R4 Minima** and
-its port, upload, and close Serial Monitor.
+`arduino/firmware/needle_controller/needle_controller.ino`; select **Arduino
+UNO R4 Minima** and its port, upload, and close Serial Monitor. The firmware
+boots with motion and limits uncommissioned and all runtime motion ceilings at
+zero. Reviewed YAML must be applied before any motion command can succeed.
 
 ## Exact command
 
@@ -35,7 +35,7 @@ configured hard ceiling is under 60 seconds.
 
 ## Expected output
 
-- READY identifies `needle_controller`, `uno_r4_minima`, and firmware `0.1.0`.
+- READY identifies `needle_controller`, `uno_r4_minima`, and firmware `1.1.0`.
 - PING returns PONG.
 - Initial STATUS reports motor disabled and LED off.
 - LED on/off status transitions pass; BLINK completes three pulses and ends off.

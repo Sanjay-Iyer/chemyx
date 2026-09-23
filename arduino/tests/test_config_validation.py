@@ -66,11 +66,11 @@ def test_runtime_ceiling_cannot_exceed_120_seconds(base_config):
         validate_config_structure(base_config)
 
 
-def test_commercial_example_selects_runtime_firmware():
-    path = Path(__file__).resolve().parents[1] / "configs" / "commercial_arduino.example.yaml"
+def test_canonical_example_selects_runtime_firmware():
+    path = Path(__file__).resolve().parents[1] / "configs" / "arduino.example.yaml"
     cfg = load_arduino_config(path)
-    assert cfg["arduino"]["expected_device"] == "commercial_needle_controller"
-    assert cfg["arduino"]["expected_version"] == "1.0.0"
+    assert cfg["arduino"]["expected_device"] == "needle_controller"
+    assert cfg["arduino"]["expected_version"] == "1.1.0"
     assert cfg["firmware"]["runtime_configurable"] is True
     assert cfg["firmware"]["motion_enabled"] is False
     assert cfg["firmware"]["limits_enabled"] is False

@@ -1,5 +1,9 @@
 /*
-  Needle controller 0.1.0 for Arduino UNO R4 Minima.
+  Canonical runtime-configured needle controller 1.1.0 for Arduino UNO R4
+  Minima. This is the only active sketch in the repository.
+
+  Motion remains disabled after every reset until the host applies reviewed
+  YAML commissioning values with CONFIG_IO, CONFIG_LIMITS, and CONFIG_APPLY.
 */
 
 #include <Arduino.h>
@@ -9,10 +13,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef COMMERCIAL_RUNTIME_CONFIG
-const char *DEVICE_NAME = "commercial_needle_controller";
+const char *DEVICE_NAME = "needle_controller";
 const char *BOARD_NAME = "uno_r4_minima";
-const char *FIRMWARE_VERSION = "1.0.0";
+const char *FIRMWARE_VERSION = "1.1.0";
 const char *DRIVER_MODEL = "DM542S";
 
 bool runtimeMotionCommissioned = false;
@@ -30,19 +33,6 @@ bool runtimeIoPolarityLocked = false;
 #define ENABLE_ACTIVE_LOW runtimeEnableActiveLow
 #define UPPER_LIMIT_ACTIVE_HIGH runtimeUpperLimitActiveHigh
 #define LOWER_LIMIT_ACTIVE_HIGH runtimeLowerLimitActiveHigh
-#else
-const char *DEVICE_NAME = "needle_controller";
-const char *BOARD_NAME = "uno_r4_minima";
-const char *FIRMWARE_VERSION = "0.1.0";
-const char *DRIVER_MODEL = "DM542T";
-
-const bool MOTION_COMMISSIONED = false;
-const bool LIMITS_COMMISSIONED = false;
-const bool DRIVER_SIGNALS_INVERTED = false;  // Must match the reviewed interface.
-const bool ENABLE_ACTIVE_LOW = true;         // Must match the reviewed driver setup.
-const bool UPPER_LIMIT_ACTIVE_HIGH = true;   // NC loop opens -> INPUT_PULLUP reads HIGH.
-const bool LOWER_LIMIT_ACTIVE_HIGH = true;
-#endif
 
 const uint8_t STEP_PIN = 2;
 const uint8_t DIR_PIN = 3;
@@ -58,7 +48,6 @@ const unsigned long ABSOLUTE_MAX_ACCELERATION_STEPS_S2 = 50000UL;
 const unsigned long DEFAULT_UNLOADED_ACCELERATION_STEPS_S2 = 500UL;
 // Set these three exact values only during axis commissioning. Test 2 can use
 // the absolute pulse/step caps while the commanded axis position is unknown.
-#ifdef COMMERCIAL_RUNTIME_CONFIG
 long runtimeMaximumTravelSteps = 0L;
 unsigned long runtimeMaximumSpeedStepsS = 0UL;
 unsigned long runtimeMaximumAccelerationStepsS2 = 0UL;
@@ -67,12 +56,6 @@ unsigned long runtimeHomeSpeedStepsS = 0UL;
 #define COMMISSIONED_MAX_SPEED_STEPS_S runtimeMaximumSpeedStepsS
 #define COMMISSIONED_MAX_ACCELERATION_STEPS_S2 runtimeMaximumAccelerationStepsS2
 #define COMMISSIONED_HOME_SPEED_STEPS_S runtimeHomeSpeedStepsS
-#else
-const long COMMISSIONED_MAX_TRAVEL_STEPS = 0L;
-const unsigned long COMMISSIONED_MAX_SPEED_STEPS_S = 0UL;
-const unsigned long COMMISSIONED_MAX_ACCELERATION_STEPS_S2 = 0UL;
-const unsigned long COMMISSIONED_HOME_SPEED_STEPS_S = 0UL;
-#endif
 const unsigned long MIN_STEP_INTERVAL_US = 200UL;
 const unsigned long STEP_HIGH_US = 10UL;
 const unsigned long COMMUNICATION_LOSS_MS = 3000UL;
@@ -94,7 +77,6 @@ bool ledOn = false;
 bool faultLatched = false;
 char faultCode[32] = "NONE";
 
-#ifdef COMMERCIAL_RUNTIME_CONFIG
 bool pendingMotionCommissioned = false;
 bool pendingLimitsCommissioned = false;
 bool pendingDriverSignalsInverted = false;
@@ -107,7 +89,6 @@ unsigned long pendingMaximumAccelerationStepsS2 = 0UL;
 unsigned long pendingHomeSpeedStepsS = 0UL;
 bool pendingIoReceived = false;
 bool pendingLimitsReceived = false;
-#endif
 
 long commandedPositionSteps = 0;  // Command-derived only; no physical encoder exists.
 long remainingSteps = 0;
@@ -235,12 +216,10 @@ bool movementDirectionBlocked(int8_t direction) {
 }
 
 void beginMovement(long sequence, const char *command, long steps, unsigned long speed, bool isHoming) {
-#ifdef COMMERCIAL_RUNTIME_CONFIG
   if (!runtimeConfigured) {
     printError(sequence, "CONFIG_REQUIRED");
     return;
   }
-#endif
   if (!MOTION_COMMISSIONED) {
     printError(sequence, "MOTION_NOT_COMMISSIONED");
     return;
@@ -444,13 +423,8 @@ void printStatus(long sequence) {
   Serial.print(" maximum_speed_steps_s="); Serial.print(COMMISSIONED_MAX_SPEED_STEPS_S);
   Serial.print(" maximum_acceleration_steps_s2="); Serial.print(COMMISSIONED_MAX_ACCELERATION_STEPS_S2);
   Serial.print(" home_speed_steps_s="); Serial.print(COMMISSIONED_HOME_SPEED_STEPS_S);
-#ifdef COMMERCIAL_RUNTIME_CONFIG
   Serial.print(" runtime_configurable=true");
   Serial.print(" runtime_configured="); Serial.print(runtimeConfigured ? "true" : "false");
-#else
-  Serial.print(" runtime_configurable=false");
-  Serial.print(" runtime_configured=true");
-#endif
   Serial.print(" fault="); Serial.println(faultCode);
 }
 
@@ -461,7 +435,6 @@ void uppercase(char *text) {
   }
 }
 
-#ifdef COMMERCIAL_RUNTIME_CONFIG
 bool parseBinaryToken(const char *text, bool &value) {
   long parsed = 0;
   if (!parseLongExact(text, parsed) || (parsed != 0 && parsed != 1)) return false;
@@ -589,7 +562,6 @@ void handleConfigApply(long sequence, char **savePointer) {
   pendingLimitsReceived = false;
   printDone(sequence, "runtime_configured=true enabled=false position_known=false");
 }
-#endif
 
 void handleCommand(char *line) {
   char *savePointer = NULL;
@@ -603,7 +575,6 @@ void handleCommand(char *line) {
   uppercase(command);
   lastCommunicationMs = millis();
 
-#ifdef COMMERCIAL_RUNTIME_CONFIG
   if (strcmp(command, "CONFIG_IO") == 0) {
     handleConfigIo(sequence, &savePointer); return;
   }
@@ -613,7 +584,6 @@ void handleCommand(char *line) {
   if (strcmp(command, "CONFIG_APPLY") == 0) {
     handleConfigApply(sequence, &savePointer); return;
   }
-#endif
 
   if (strcmp(command, "STOP") == 0) {
     if (strtok_r(NULL, " ", &savePointer) != NULL) { printError(sequence, "MALFORMED_COMMAND"); return; }
@@ -666,18 +636,14 @@ void handleCommand(char *line) {
   }
   if (strcmp(command, "ENABLE") == 0) {
     if (strtok_r(NULL, " ", &savePointer) != NULL) { printError(sequence, "MALFORMED_COMMAND"); return; }
-#ifdef COMMERCIAL_RUNTIME_CONFIG
     if (!runtimeConfigured) { printError(sequence, "CONFIG_REQUIRED"); return; }
-#endif
     if (!MOTION_COMMISSIONED) { printError(sequence, "MOTION_NOT_COMMISSIONED"); return; }
     if (faultLatched) { printError(sequence, "FAULT_LATCHED"); return; }
     printAck(sequence, "ENABLE"); setDriverEnabled(true); printDone(sequence, "enabled=true"); return;
   }
   if (strcmp(command, "HOME") == 0) {
     if (strtok_r(NULL, " ", &savePointer) != NULL) { printError(sequence, "MALFORMED_COMMAND"); return; }
-#ifdef COMMERCIAL_RUNTIME_CONFIG
     if (!runtimeConfigured) { printError(sequence, "CONFIG_REQUIRED"); return; }
-#endif
     if (!LIMITS_COMMISSIONED || COMMISSIONED_HOME_SPEED_STEPS_S == 0) {
       printError(sequence, "HOME_NOT_COMMISSIONED"); return;
     }

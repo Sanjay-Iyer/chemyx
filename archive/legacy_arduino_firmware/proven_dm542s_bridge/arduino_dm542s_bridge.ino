@@ -1,4 +1,6 @@
-// UNO R4 Minima serial bridge for a DM542S common-cathode test rig.
+// ARCHIVED UNO R4 Minima serial bridge for a DM542S common-cathode test rig.
+// The active runtime-configured firmware uses a different commissioned pinout;
+// do not swap sketches without reviewing the wiring.
 // D3/D4 drive PUL+/DIR+; PUL- and DIR- connect to Arduino GND.
 //
 // Commands:

@@ -1,4 +1,4 @@
-# Commercial runtime-configured firmware example for Test 4A/4B. Null and
+# ARCHIVED commercial-named runtime firmware example for Test 4A/4B. Null and
 # false placeholders intentionally keep live physical actions blocked.
 arduino:
   port: null

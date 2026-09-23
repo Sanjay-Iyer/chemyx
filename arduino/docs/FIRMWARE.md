@@ -1,8 +1,9 @@
-# Commercial One-Upload Firmware
+# Canonical Arduino Firmware
 
-`commercial_needle_controller.ino` is the runtime-configured UNO R4 Minima
-variant. It is intended to be uploaded once to one reviewed controller and then
-used by Tests 1-4 without recompiling when motion distances or limits change.
+`needle_controller.ino` is the one active runtime-configured UNO R4 Minima
+firmware. It is intended to be uploaded once to one reviewed controller and
+then used by Tests 1-4 and the future integrated workflow without recompiling
+when motion distances or limits change.
 
 ## Safety model
 
@@ -28,16 +29,30 @@ removed, then reset the Arduino and rerun the staged tests.
 Open and upload:
 
 ```text
-arduino/firmware/commercial_needle_controller/commercial_needle_controller.ino
+arduino/firmware/needle_controller/needle_controller.ino
 ```
 
 Select **Arduino UNO R4 Minima**. The uploaded identity is
-`commercial_needle_controller`, version `1.0.0`.
+`needle_controller`, version `1.1.0`.
+
+The active firmware pin contract is:
+
+| UNO R4 pin | Function |
+|---|---|
+| D2 | STEP |
+| D3 | DIR |
+| D4 | ENABLE |
+| D5 | Upper limit |
+| D6 | Lower limit |
+
+This differs from the archived proven bridge, which used D3 STEP and D4 DIR
+without ENABLE or limit inputs. Rewire and commission the signal interface
+before changing an existing bridge-based rig to this firmware.
 
 Copy the matching example and record the explicit COM port:
 
 ```powershell
-Copy-Item arduino\configs\commercial_arduino.example.yaml arduino\configs\commercial_arduino.local.yaml
+Copy-Item arduino\configs\arduino.example.yaml arduino\configs\arduino.local.yaml
 ```
 
 Test 1 can run with motion placeholders false/null. Before live Test 2, replace
@@ -46,14 +61,14 @@ must additionally contain the reviewed limit and axis values. This changes YAML
 configuration, not the uploaded firmware.
 
 ```powershell
-python arduino\scripts\test_01_arduino_connection.py --config arduino\configs\commercial_arduino.local.yaml --live
-python arduino\scripts\test_02_unloaded_motor.py --config arduino\configs\commercial_arduino.local.yaml --live
-python arduino\scripts\test_03_needle_axis.py --config arduino\configs\commercial_arduino.local.yaml --live --preflight-only
-python arduino\scripts\test_03_needle_axis.py --config arduino\configs\commercial_arduino.local.yaml --live
+python arduino\scripts\test_01_arduino_connection.py --config arduino\configs\arduino.local.yaml --live
+python arduino\scripts\test_02_unloaded_motor.py --config arduino\configs\arduino.local.yaml --live
+python arduino\scripts\test_03_needle_axis.py --config arduino\configs\arduino.local.yaml --live --preflight-only
+python arduino\scripts\test_03_needle_axis.py --config arduino\configs\arduino.local.yaml --live
 ```
 
 Test 4 uses a local copy of
-`commercial_integrated_hello_world.example.yaml` and still requires the Chemyx
+`integrated_hello_world.example.yaml` and still requires the Chemyx
 pump, NMR endpoint, prior passing records, and approved experiment actions.
 
 ## Scope

@@ -10,13 +10,24 @@ This repository is structured for two laptops:
 
 Real hardware was not contacted during this restructuring.
 
-## Quickest Safe Command
+## Three-instrument Si6 entry points
 
 ```powershell
-conda run -n ai python -B scripts\02_si6_automated_nmr.py --validate-only
+python -B scripts\01_three_instrument_system_test.py
+python -B scripts\01_three_instrument_system_test.py --mock --all
+python -B scripts\02_si6_experiment.py --mock
 ```
 
-## Primary Workflow
+`01` diagnoses the needle, Chemyx, NMR acquisition, retrieval, and processing.
+`02` runs the configured Si6 sampling stages. Both default to validation only;
+`--mock` contacts no hardware and writes to `results/runs/si6_mock/`. `--live`
+requires commissioning, reviewed positions, and an attended confirmation, and
+writes to `results/runs/si6/<stamp>_si6_live` (or `_diagnostic_<test>_live`).
+See
+[the exact sampling order and gates](docs/THREE_INSTRUMENT_ARCHITECTURE.md) and
+the ordered [live commissioning checklist](docs/LIVE_COMMISSIONING_CHECKLIST.md).
+
+## Legacy two-instrument workflow
 
 - Script: `scripts/02_si6_automated_nmr.py`
 - Experiment config: `configs/experiments/02_si6_automated_nmr.yaml`
@@ -26,7 +37,7 @@ conda run -n ai python -B scripts\02_si6_automated_nmr.py --validate-only
   `chemyx_lab/instruments/nmr.py`
 - Results: `results/runs/si6/<timestamp>_si6/`
 
-Workflow 02 uses descriptive operations for the Si6 sample cycle:
+The older Chemyx/NMR-only Workflow 02 uses operator needle checkpoints:
 
 ```text
 withdraw -> operator checkpoint -> withdraw -> pause -> NMR -> infuse
@@ -54,6 +65,9 @@ archive/           Git-tracked retired workflows
 - [Repository Map](docs/REPOSITORY_MAP.md)
 - [Configuration](docs/CONFIGURATION.md)
 - [Si6 Automated Workflow](docs/SI6_AUTOMATED_WORKFLOW.md)
+- [Three-instrument architecture](docs/THREE_INSTRUMENT_ARCHITECTURE.md)
+- [Live commissioning checklist](docs/LIVE_COMMISSIONING_CHECKLIST.md)
+- [Canonical Arduino firmware](arduino/docs/FIRMWARE.md)
 - [Instrument Commands](docs/INSTRUMENT_COMMANDS.md)
 - [Chemyx Guide](docs/CHEMYX_GUIDE.md)
 - [NMR Guide](docs/nmr_guide.md)

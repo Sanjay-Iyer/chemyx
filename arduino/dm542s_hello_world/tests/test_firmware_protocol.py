@@ -153,7 +153,7 @@ def test_the_sketch_still_contains_the_four_original_commands(
 ) -> None:
     """Guard the exact reply strings the hello-world scripts wait for."""
     sketch = (
-        package_root / "arduino_dm542s_bridge" / "arduino_dm542s_bridge.ino"
+        package_root.parents[1] / "archive" / "legacy_arduino_firmware" / "proven_dm542s_bridge" / "arduino_dm542s_bridge.ino"
     ).read_text(encoding="utf-8")
 
     for expected in (
@@ -175,7 +175,7 @@ def test_the_sketch_still_contains_the_four_original_commands(
 
 def test_the_sketch_keeps_the_confirmed_pin_assignment(package_root: Path) -> None:
     sketch = (
-        package_root / "arduino_dm542s_bridge" / "arduino_dm542s_bridge.ino"
+        package_root.parents[1] / "archive" / "legacy_arduino_firmware" / "proven_dm542s_bridge" / "arduino_dm542s_bridge.ino"
     ).read_text(encoding="utf-8")
 
     assert "const uint8_t STEP_PIN = 3;" in sketch
@@ -189,7 +189,7 @@ def test_python_and_firmware_agree_on_the_move_limit(package_root: Path) -> None
     from motion_utils import FIRMWARE_MAX_ABSOLUTE_STEPS
 
     sketch = (
-        package_root / "arduino_dm542s_bridge" / "arduino_dm542s_bridge.ino"
+        package_root.parents[1] / "archive" / "legacy_arduino_firmware" / "proven_dm542s_bridge" / "arduino_dm542s_bridge.ino"
     ).read_text(encoding="utf-8")
 
     assert f"const long MAX_MOVE_STEPS = {FIRMWARE_MAX_ABSOLUTE_STEPS};" in sketch
@@ -205,7 +205,7 @@ def test_python_and_firmware_agree_on_the_pulse_period(package_root: Path) -> No
     from motion_utils import FIRMWARE_PULSE_HALF_PERIOD_US
 
     sketch = (
-        package_root / "arduino_dm542s_bridge" / "arduino_dm542s_bridge.ino"
+        package_root.parents[1] / "archive" / "legacy_arduino_firmware" / "proven_dm542s_bridge" / "arduino_dm542s_bridge.ino"
     ).read_text(encoding="utf-8")
 
     assert (
@@ -221,7 +221,7 @@ def test_the_sketch_range_check_is_overflow_safe(package_root: Path) -> None:
     strtol results, never compute a magnitude first.
     """
     sketch = (
-        package_root / "arduino_dm542s_bridge" / "arduino_dm542s_bridge.ino"
+        package_root.parents[1] / "archive" / "legacy_arduino_firmware" / "proven_dm542s_bridge" / "arduino_dm542s_bridge.ino"
     ).read_text(encoding="utf-8")
 
     assert "errno = 0;" in sketch
@@ -234,7 +234,7 @@ def test_the_sketch_range_check_is_overflow_safe(package_root: Path) -> None:
 
 def test_the_sketch_includes_the_headers_the_guard_needs(package_root: Path) -> None:
     sketch = (
-        package_root / "arduino_dm542s_bridge" / "arduino_dm542s_bridge.ino"
+        package_root.parents[1] / "archive" / "legacy_arduino_firmware" / "proven_dm542s_bridge" / "arduino_dm542s_bridge.ino"
     ).read_text(encoding="utf-8")
 
     assert "#include <errno.h>" in sketch
@@ -383,7 +383,7 @@ def test_the_sketch_answers_status_and_stop_before_the_busy_check(
 ) -> None:
     """STATUS/STOP must be handled above the busy guard, or STOP is useless."""
     sketch = (
-        package_root / "arduino_dm542s_bridge" / "arduino_dm542s_bridge.ino"
+        package_root.parents[1] / "archive" / "legacy_arduino_firmware" / "proven_dm542s_bridge" / "arduino_dm542s_bridge.ino"
     ).read_text(encoding="utf-8")
     body = sketch[sketch.index("void executeCommand(") :]
     busy_guard = body.index("ERROR controller busy")

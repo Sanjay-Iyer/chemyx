@@ -131,3 +131,34 @@ def test_machine_config_rejects_unknown_nested_key(tmp_path):
 
     with pytest.raises(config.ConfigError, match="mystery"):
         config.load_machine_config(cfg)
+
+
+def test_checked_in_yaml_templates_have_no_duplicate_keys():
+    # PyYAML keeps the last duplicate silently, so a commissioned value typed
+    # into an earlier copy of a key would be discarded without warning.
+    import yaml
+
+    class StrictLoader(yaml.SafeLoader):
+        pass
+
+    def unique_mapping(loader, node, deep=False):
+        keys = [loader.construct_object(key, deep=deep) for key, _ in node.value]
+        duplicates = sorted({str(key) for key in keys if keys.count(key) > 1})
+        if duplicates:
+            raise yaml.constructor.ConstructorError(
+                None, None, f"duplicate key(s) {duplicates}", node.start_mark
+            )
+        return loader.construct_mapping(node, deep)
+
+    StrictLoader.add_constructor(
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, unique_mapping
+    )
+    root = config.REPO_ROOT
+    templates = [
+        path
+        for path in (*root.glob("configs/**/*.yaml"), *root.glob("arduino/configs/*.example.yaml"))
+        if ".local." not in path.name
+    ]
+    assert templates
+    for path in templates:
+        yaml.load(path.read_text(encoding="utf-8"), Loader=StrictLoader)

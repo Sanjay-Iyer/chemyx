@@ -38,14 +38,14 @@ Edit `02_si6_automated_nmr.yaml`:
 - `interval_minutes`: fixed start-to-start measurement spacing.
 - `measure_immediately`: whether measurement 1 is scheduled at stage start.
 - `plateau_stopping_enabled`: selects fixed-count or plateau-or-limit mode.
-- `max_measurements`: number of scheduled measurement slots.
-- `max_hours`: independent hard runtime ceiling.
+- `max_hours`: stage duration; measurements are scheduled every interval before it.
+- `max_measurements`: optional cap on scheduled slots (omitted in the committed config).
 - `repeat_addition_rounds`: number of acetone/diphenyl-silane pairs.
 - `pump.syringe_capacity_ml`: physical syringe capacity; required.
 - `pump.initial_retained_volume_ml`: volume already retained before the cycle.
 - `pump.syringe_safety_margin_ml`: capacity that automation may not use.
 - `nmr.scans`: NMR scans per timepoint. Increase the cycle pause if needed.
-- `nmr.target_ppm`: tracked peak, currently 6.1 ppm.
+- `nmr.target_ppm`: tracked peak, currently 5.8 ppm (window +/- `analysis.detection_window_ppm`, 0.10).
 - `analysis.min_peak_snr`, `min_prominence_snr`, and `min_peak_area`: when a peak is considered clear.
 - `analysis.plateau_max_growth_percent`: maximum permitted growth, currently 5%.
 - `analysis.plateau_max_decline_percent`: maximum permitted decline, currently 2%.
@@ -70,10 +70,12 @@ calculated, plotted, and journaled, but a detected plateau is marked
 all slots is `scheduled_monitoring_completed`.
 
 `plateau_stopping_enabled: true` means plateau-or-limit monitoring. A verified
-plateau ends the stage as `plateau_reached`. Reaching `max_measurements` without
-plateau is the non-success outcome `plateau_not_reached_within_limit`; later
-chemistry is not authorized. Reaching `max_hours` is separately reported as
-`maximum_duration_reached` with stage outcome `runtime_limit_reached`.
+plateau ends the stage as `plateau_reached`, even when that measurement finishes
+after the ceiling. Using every slot without plateau is the non-success outcome
+`plateau_not_reached_within_limit`; reaching `max_hours` first is reported as
+`maximum_duration_reached` with stage outcome `runtime_limit_reached`. In this
+legacy workflow later chemistry is then not authorized; the three-instrument
+workflow instead asks the operator to CONTINUE, ADVANCE, or ABORT.
 
 The active initial stage is deliberately configured as:
 
@@ -81,14 +83,12 @@ The active initial stage is deliberately configured as:
 interval_minutes: 60
 measure_immediately: false
 plateau_stopping_enabled: false
-max_measurements: 24
 max_hours: 26
 ```
 
-Its fixed deadlines are stage start + 1 hour through stage start + 24 hours.
-The 24th physical cycle may finish after the 24-hour boundary. The 26-hour
-ceiling allows pump, equilibration, NMR, analysis, and modest operator latency,
-but remains a hard safety limit.
+Its fixed deadlines are stage start + 1 hour through stage start + 25 hours,
+every slot that starts before the 26-hour duration. For 30-minute sampling,
+change only `interval_minutes`; the stage then has 51 slots.
 
 Addition stages use six scheduled 15-minute slots, do not measure immediately,
 enable plateau stopping, and use a two-hour hard ceiling. Their last scheduled

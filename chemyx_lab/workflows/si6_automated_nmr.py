@@ -16,7 +16,7 @@ import subprocess
 import sys
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
@@ -96,6 +96,7 @@ class StageOutcome(str, Enum):
     PLATEAU_REACHED = "plateau_reached"
     PLATEAU_NOT_REACHED_WITHIN_LIMIT = "plateau_not_reached_within_limit"
     RUNTIME_LIMIT_REACHED = "runtime_limit_reached"
+    OPERATOR_ADVANCED_WITHOUT_PLATEAU = "operator_advanced_without_plateau"
 
 
 class StopStatus(str, Enum):
@@ -160,6 +161,9 @@ class Stage:
     measure_immediately: bool = True
     plateau_stopping_enabled: bool = True
     max_measurements: int = 1
+    # False when max_measurements was derived from max_hours, so the stage
+    # duration rather than a count governs when monitoring ends.
+    max_measurements_explicit: bool = True
 
 
 @dataclass(frozen=True)
@@ -227,11 +231,17 @@ def load_si6_config(path: Path) -> dict[str, Any]:
     raw = config.read_mapping_config(path, "Si6 experiment config")
     required = {"workflow", "pump", "nmr", "analysis", "output"}
     missing = sorted(required - set(raw))
-    unknown = sorted(set(raw) - required)
+    unknown = sorted(set(raw) - required - {"three_instrument"})
     if missing:
         raise ValueError(f"Missing Si6 config section(s): {', '.join(missing)}")
     if unknown:
         raise ValueError(f"Unknown Si6 config section(s): {', '.join(unknown)}")
+    if "three_instrument" in raw:
+        diagnostic = _mapping(raw["three_instrument"], "three_instrument")
+        _reject_unknown(diagnostic, {"test_withdraw_ml", "test_infuse_ml", "initial_plateau_stopping_enabled"}, "three_instrument")
+        for key in ("test_withdraw_ml", "test_infuse_ml"):
+            _positive(diagnostic.get(key), f"three_instrument.{key}")
+        _required_bool(diagnostic.get("initial_plateau_stopping_enabled"), "three_instrument.initial_plateau_stopping_enabled")
 
     workflow = _mapping(raw["workflow"], "workflow")
     _reject_unknown(
@@ -409,15 +419,7 @@ def build_stages(workflow: dict[str, Any]) -> list[Stage]:
         for index, value in enumerate(repeating, start=1):
             stage = _parse_stage(value, f"repeating_stages[{index}]")
             stages.append(
-                Stage(
-                    f"round_{round_number}_{stage.name}",
-                    stage.operator_prompt,
-                    stage.interval_minutes,
-                    stage.max_hours,
-                    stage.measure_immediately,
-                    stage.plateau_stopping_enabled,
-                    stage.max_measurements,
-                )
+                replace(stage, name=f"round_{round_number}_{stage.name}")
             )
     names = [stage.name for stage in stages]
     if len(names) != len(set(names)):
@@ -451,17 +453,29 @@ def _parse_stage(value: Any, label: str) -> Stage:
         section.get("plateau_stopping_enabled"),
         f"{label}.plateau_stopping_enabled",
     )
-    max_measurements = _positive_integer(
-        section.get("max_measurements"), f"{label}.max_measurements"
-    )
-    last_scheduled_minutes = interval_minutes * (
-        max_measurements - 1 if measure_immediately else max_measurements
-    )
-    if max_hours * 60 <= last_scheduled_minutes:
-        raise ValueError(
-            f"{label}.max_hours must extend beyond the last scheduled "
-            f"measurement at {last_scheduled_minutes:g} minutes"
+    explicit = section.get("max_measurements") is not None
+    if explicit:
+        # An explicit count is a cap; it must still start before the ceiling.
+        max_measurements = _positive_integer(
+            section.get("max_measurements"), f"{label}.max_measurements"
         )
+        last_scheduled_minutes = interval_minutes * (
+            max_measurements - 1 if measure_immediately else max_measurements
+        )
+        if max_hours * 60 <= last_scheduled_minutes:
+            raise ValueError(
+                f"{label}.max_hours must extend beyond the last scheduled "
+                f"measurement at {last_scheduled_minutes:g} minutes"
+            )
+    else:
+        max_measurements = duration_measurement_slots(
+            interval_minutes, max_hours, measure_immediately
+        )
+        if max_measurements < 1:
+            raise ValueError(
+                f"{label}.max_hours leaves no measurement slot at an interval "
+                f"of {interval_minutes:g} minutes"
+            )
     return Stage(
         name=name,
         operator_prompt=prompt,
@@ -470,7 +484,23 @@ def _parse_stage(value: Any, label: str) -> Stage:
         measure_immediately=measure_immediately,
         plateau_stopping_enabled=plateau_enabled,
         max_measurements=max_measurements,
+        max_measurements_explicit=explicit,
     )
+
+
+def duration_measurement_slots(
+    interval_minutes: float, max_hours: float, measure_immediately: bool
+) -> int:
+    """Count scheduled measurements that start strictly before ``max_hours``.
+
+    With a 15-minute interval and a 2-hour stage this is 7 (15-105 minutes);
+    the slot at exactly 120 minutes would start at the ceiling and is not run.
+    """
+    total_minutes = float(max_hours) * 60.0
+    first_minutes = 0.0 if measure_immediately else float(interval_minutes)
+    if first_minutes >= total_minutes:
+        return 0
+    return int(math.floor((total_minutes - first_minutes - 1e-9) / float(interval_minutes))) + 1
 
 
 def _reject_unknown(
@@ -518,12 +548,14 @@ def _nonnegative(value: Any, label: str) -> float:
     return number
 
 
-def create_run_paths(root: Path, now: datetime | None = None) -> RunPaths:
+def create_run_paths(
+    root: Path, now: datetime | None = None, *, label: str = "si6"
+) -> RunPaths:
     stamp = (now or datetime.now()).strftime("%Y%m%d_%H%M%S")
-    run_dir = Path(root) / f"{stamp}_si6"
+    run_dir = Path(root) / f"{stamp}_{label}"
     suffix = 1
     while run_dir.exists():
-        run_dir = Path(root) / f"{stamp}_si6_{suffix:02d}"
+        run_dir = Path(root) / f"{stamp}_{label}_{suffix:02d}"
         suffix += 1
     raw_dir = run_dir / "raw_nmr"
     plots_dir = run_dir / "plots"
@@ -642,6 +674,7 @@ def analyze_timepoint(dx_path: Path, paths: RunPaths, analysis: dict[str, Any], 
         detection_window_ppm=float(analysis["detection_window_ppm"]),
         plot_window_ppm=float(analysis["plot_window_ppm"]),
         line_broadening_hz=float(analysis.get("line_broadening_hz", 0.3)),
+        dataset_display_name=metadata.get("dataset_display_name"),
     )
     clear = (
         result.snr >= float(analysis["min_peak_snr"])
@@ -657,6 +690,10 @@ def analyze_timepoint(dx_path: Path, paths: RunPaths, analysis: dict[str, Any], 
         "baseline": result.baseline, "noise": result.noise, "peak_clear": clear,
         "plot_file": str(plot.relative_to(paths.run_dir)), "error": "",
     })
+    if metadata.get("dataset_display_name"):
+        row["plot_title"] = dataset_plot_title(
+            "Peak Review", configured_name=str(metadata["dataset_display_name"])
+        )
     spectrum = build_magnitude_spectrum(dx_path, line_broadening_hz=float(analysis.get("line_broadening_hz", 0.3)))
     spectrum_rows = [
         {"iteration": metadata["iteration"], "stage": metadata["stage"],
@@ -673,8 +710,14 @@ def run_process_fid_postprocessing(
     dataset_display_name: str,
     *,
     runner: Callable[..., Any] = subprocess.run,
+    tracked_window: tuple[float, float] | None = None,
 ) -> Path:
-    """Run full-spectrum processing for one automated NMR acquisition."""
+    """Run full-spectrum processing for one automated NMR acquisition.
+
+    ``tracked_window`` is ``(target_ppm, half_width_ppm)``. When given, the
+    production simple table is restricted to that one resonance, so its
+    QC-passing row is the workflow's measurement.
+    """
 
     output_root = paths.run_dir / "processed_nmr"
     acquisition_stamp = dx_path.stem[:15]
@@ -696,6 +739,14 @@ def run_process_fid_postprocessing(
         "--region-max",
         f"{PROCESS_FID_REGION[1]:g}",
     ]
+    if tracked_window is not None:
+        command += [
+            "--simple-restrict-to-window",
+            "--simple-target-ppm",
+            f"{float(tracked_window[0]):g}",
+            "--simple-window-ppm",
+            f"{float(tracked_window[1]):g}",
+        ]
     print("\n[4] Process full NMR spectrum")
     print(f"     input  -> {dx_path}")
     print(f"     output -> {output_dir}")
@@ -1323,6 +1374,9 @@ def run_monitoring_stage(
         "plateau_stopping_enabled": stage.plateau_stopping_enabled,
         "measure_immediately": stage.measure_immediately,
         "max_measurements": stage.max_measurements,
+        "max_measurements_source": (
+            "explicit" if stage.max_measurements_explicit else "duration"
+        ),
         "hard_runtime_ceiling_hours": stage.max_hours,
         "interval_minutes": stage.interval_minutes,
         "stage_started_at": stage_started_wall.isoformat(timespec="seconds"),
@@ -1416,19 +1470,9 @@ def run_monitoring_stage(
                 **monitoring_fields,
             )
 
-        if analysis_finished_monotonic >= hard_deadline:
-            outcome = maximum_duration_outcome(stage)
-            if recorder is not None:
-                recorder.record(
-                    "stage_transition_decision",
-                    result_classification=StageOutcome.RUNTIME_LIMIT_REACHED.value,
-                    scheduled_measurement_number=measurement_number,
-                    **monitoring_fields,
-                )
-            return MonitoringResult(
-                outcome, measurement_number, attempts, valid_count
-            )
-
+        # A completed measurement that shows plateau (or finishes a fixed
+        # schedule) counts even if it ends after the ceiling; the deadline only
+        # prevents starting another measurement.
         if observation.plateau_detected:
             if recorder is not None:
                 recorder.record(
@@ -1479,6 +1523,19 @@ def run_monitoring_stage(
                     result_classification=(
                         StageOutcome.SCHEDULED_MONITORING_COMPLETED.value
                     ),
+                    scheduled_measurement_number=measurement_number,
+                    **monitoring_fields,
+                )
+            return MonitoringResult(
+                outcome, measurement_number, attempts, valid_count
+            )
+
+        if analysis_finished_monotonic >= hard_deadline:
+            outcome = maximum_duration_outcome(stage)
+            if recorder is not None:
+                recorder.record(
+                    "stage_transition_decision",
+                    result_classification=StageOutcome.RUNTIME_LIMIT_REACHED.value,
                     scheduled_measurement_number=measurement_number,
                     **monitoring_fields,
                 )
