@@ -1,0 +1,9 @@
+# Copy to configs/nmr/analysis.local.yaml for per-computer NMR input/output.
+# process_fid.py merges this over the tracked configs/nmr/analysis.yaml.
+input:
+  paths:
+    - results/raw/nmr/REPLACE_WITH_EXISTING_DATASET_DIRECTORY
+
+output:
+  directory: results/processed/nmr # Change if this laptop uses another path
+  run_name: null

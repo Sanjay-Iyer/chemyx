@@ -65,6 +65,7 @@ archive/           Git-tracked retired workflows
 
 - [Quickstart](docs/QUICKSTART.md)
 - [Offline Laptop Setup](docs/OFFLINE_SETUP.md)
+- [YAML template and destination guide](config_templates/README.md)
 - [Repository Map](docs/REPOSITORY_MAP.md)
 - [Configuration](docs/CONFIGURATION.md)
 - [Si6 Automated Workflow](docs/SI6_AUTOMATED_WORKFLOW.md)

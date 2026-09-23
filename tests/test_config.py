@@ -159,6 +159,25 @@ def test_checked_in_yaml_templates_have_no_duplicate_keys():
         for path in (*root.glob("configs/**/*.yaml"), *root.glob("arduino/configs/*.example.yaml"))
         if ".local." not in path.name
     ]
+    templates.extend(root.glob("config_templates/*.yaml"))
     assert templates
     for path in templates:
         yaml.load(path.read_text(encoding="utf-8"), Loader=StrictLoader)
+
+
+def test_new_laptop_yaml_templates_load_with_their_runtime_parsers():
+    from arduino.python.config import load_arduino_config
+
+    root = config.REPO_ROOT / "config_templates"
+    arduino = load_arduino_config(root / "arduino.local.template.yaml")
+    integrated = load_arduino_config(root / "integrated_hello_world.local.template.yaml")
+    machine = config.load_machine_config(root / "00_machine.local.template.yaml")
+    analysis = config.read_mapping_config(root / "analysis.local.template.yaml", "NMR local template")
+
+    assert arduino["arduino"]["port"] is None
+    assert arduino["needle"]["steps_per_unit"] is None
+    assert arduino["needle"]["up_step_sign"] is None
+    assert integrated["integrated"]["machine_config_path"] == "configs/machines/00_machine.local.yaml"
+    assert machine.chemyx.serial_port is None
+    assert machine.nmr.host is None
+    assert analysis["input"]["paths"]

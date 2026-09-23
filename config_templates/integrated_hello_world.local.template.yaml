@@ -1,0 +1,88 @@
+# Full example for Test 4. All motion-related placeholders intentionally block
+# live Test 4B. Test 4A needs only the Arduino endpoint and valid machine config.
+arduino:
+  port: null
+  baud_rate: 115200
+  expected_device: needle_controller
+  expected_board: uno_r4_minima
+  expected_version: 1.2.0
+  ready_timeout_s: 5.0
+  read_timeout_s: 0.1
+  write_timeout_s: 1.0
+  command_timeout_s: 10.0
+  overall_timeout_s: 59.0
+  fingerprint:
+    vid: null
+    pid: null
+    serial_number: null
+    manufacturer: null
+
+firmware:
+  motion_enabled: false
+  limits_enabled: false
+  runtime_configurable: true
+  version: 1.2.0
+
+signal_interface:
+  installed: false
+  interface_type: direct_validated_bridge
+  wiring_reviewed: false
+  signal_inverted: false
+  dm542_signal_voltage_v: null
+
+motor:
+  model: null
+  rated_phase_current_a: null
+  full_steps_per_revolution: null
+  coil_pairs_identified: false
+  mechanically_disconnected_for_test_02: false
+  connected_to_axis_for_test_03: false
+
+driver:
+  model: DM542S
+  supply_voltage_v: 24
+  supply_current_a: null
+  current_switch_setting: null
+  microstep_setting: null
+  microsteps_per_full_step: null
+  enable_active_low: null
+
+motion:
+  # Firmware 1.2.0 preserves the proven bridge timing: at most 100 steps/s.
+  maximum_speed_steps_s: null
+  maximum_acceleration_steps_s2: null
+  test_02_steps: null
+  test_02_speed_steps_s: null
+
+needle:
+  min_position: -3
+  max_position: 5
+  home_position: 0
+  up_position: 1
+  down_position: -1
+  steps_per_unit: null # physically verify before live motion
+  up_step_sign: null # +1 if bridge-forward is UP, otherwise -1
+  state_path: runs/arduino/needle_state.json
+
+safety:
+  fuse_installed: false
+  emergency_disconnect_documented: false
+  mechanical_hard_stops_installed: false
+  vertical_axis_safe_when_disabled: null
+  hard_runtime_limit_s: 120
+  operator_shaft_safe_confirmed: false
+  operator_inspection_required: false
+  operator_inspection_clearance: null
+
+integrated:
+  machine_config_path: configs/machines/00_machine.local.yaml
+  experiment_config_path: configs/experiments/02_si6_automated_nmr.yaml
+  pump_action_cycle_index: null
+  pump_return_cycle_index: null
+  post_motion_settle_s: null
+  post_pump_settle_s: null
+  nmr_diagnostic: null
+  expected_nmr_artifact_suffix: null
+
+results:
+  run_root_dir: runs/arduino
