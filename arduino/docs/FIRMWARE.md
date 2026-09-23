@@ -1,80 +1,53 @@
-# Canonical Arduino Firmware
+# Active needle firmware: validated D3/D4 demo
 
-`needle_controller.ino` is the one active runtime-configured UNO R4 Minima
-firmware. It is intended to be uploaded once to one reviewed controller and
-then used by Tests 1-4 and the future integrated workflow without recompiling
-when motion distances or limits change.
+The only active sketch is
+`arduino/firmware/needle_controller/needle_controller.ino` for the Arduino UNO
+R4 Minima. It identifies as `needle_controller` version `1.2.0`.
 
-## Safety model
+| Arduino pin | Existing connection |
+| --- | --- |
+| D3 | STEP / PUL input on the already-working DM542S bridge |
+| D4 | DIR input on the already-working DM542S bridge |
 
-- Every reset boots with motion and limits uncommissioned, the driver disabled,
-  position unknown, and all numeric motion ceilings zero.
-- Tests 2-4 stage and atomically apply the reviewed YAML values before motion.
-- Runtime configuration is accepted only while stopped and driver-disabled.
-- I/O polarity is locked after the first successful apply until the next reset.
-- ENABLE, HOME, JOG, and MOVE_ABS reject commands until configuration succeeds.
-- Reconfiguration invalidates homing and command-derived position.
-- Test 4B skips reconfiguration when the live firmware already exactly matches
-  YAML, preserving the homed/enabled state established by Test 3.
+No ENABLE connection, upper limit switch, lower limit switch, or other Arduino
+GPIO connection is required. **Do not rewire the proven setup or change driver
+switch settings to use this sketch.** The legacy bridge used D3/D4 too; its
+positive/forward movement held DIR LOW. Version 1.2.0 preserves that direction
+and the established 5 ms HIGH / 5 ms LOW pulse timing at a maximum of 100
+steps/s, while adding bounded serial acknowledgements.
 
-Runtime configuration avoids firmware changes; it does not remove physical
-commissioning. The open-collector/open-drain interface, external fail-safe
-enable bias, reviewed DM542S 5 V control interface, fuse, emergency disconnect,
-limit switches, hard stops, motor current, microsteps, travel, speed, and acceleration must
-still be independently verified. Change I/O polarity only with driver power
-removed, then reset the Arduino and rerun the staged tests.
+The firmware begins with motion disarmed after reset. Python applies the
+reviewed YAML with `CONFIG_IO`, `CONFIG_LIMITS`, and `CONFIG_APPLY`; the
+`ENABLE`/`DISABLE` commands are *software motion arms only*. They do not drive
+an ENA pin and do not remove holding torque or motor power. `JOG <signed steps>
+<steps/s>` sends bounded relative pulses and reports ACK, DONE, or ERR.
+`STOP`, communication-loss detection, and motion timeouts stop pulse generation.
+Physical `HOME` and firmware `MOVE_ABS` deliberately reject with an error:
+without switches they cannot establish a physical reference. Python's
+`TrackedNeedle` supplies the software HOME and bounded logical moves.
 
-## Upload once
+The saved position is a **software estimate, not encoder feedback or physical
+homing**. Missed steps, a stall, manual axis movement, or unpowered drift are
+not detectable. Use only for a supervised demo; do not treat this as an
+unattended production safety system. Keep the real 24 V driver-power disconnect
+accessible. `STOP` is not a substitute for that disconnect.
 
-Open and upload:
+## Offline compile and instrument-laptop upload
 
-```text
-arduino/firmware/needle_controller/needle_controller.ino
-```
-
-Select **Arduino UNO R4 Minima**. The uploaded identity is
-`needle_controller`, version `1.1.0`.
-
-The active firmware pin contract is:
-
-| UNO R4 pin | Function |
-|---|---|
-| D2 | STEP |
-| D3 | DIR |
-| D4 | ENABLE |
-| D5 | Upper limit |
-| D6 | Lower limit |
-
-This differs from the archived proven bridge, which used D3 STEP and D4 DIR
-without ENABLE or limit inputs. Rewire and commission the signal interface
-before changing an existing bridge-based rig to this firmware.
-
-Copy the matching example and record the explicit COM port:
+From the repository root, with the offline Arduino toolchain bundle already
+transferred:
 
 ```powershell
-Copy-Item arduino\configs\arduino.example.yaml arduino\configs\arduino.local.yaml
+powershell -ExecutionPolicy Bypass -File offline\arduino_toolchain.ps1 -Compile
 ```
 
-Test 1 can run with motion placeholders false/null. Before live Test 2, replace
-every Test 2 placeholder with reviewed facts. Before Test 3, the same local file
-must additionally contain the reviewed limit and axis values. This changes YAML
-configuration, not the uploaded firmware.
+With 24 V motor power **off**, the verified Arduino COM port substituted for
+`COMx`, and the Arduino Serial Monitor closed:
 
 ```powershell
-python arduino\scripts\test_01_arduino_connection.py --config arduino\configs\arduino.local.yaml --live
-python arduino\scripts\test_02_unloaded_motor.py --config arduino\configs\arduino.local.yaml --live
-python arduino\scripts\test_03_needle_axis.py --config arduino\configs\arduino.local.yaml --live --preflight-only
-python arduino\scripts\test_03_needle_axis.py --config arduino\configs\arduino.local.yaml --live
+powershell -ExecutionPolicy Bypass -File offline\arduino_toolchain.ps1 -Upload -Port COMx
 ```
 
-Test 4 uses a local copy of
-`integrated_hello_world.example.yaml` and still requires the Chemyx
-pump, NMR endpoint, prior passing records, and approved experiment actions.
-
-## Scope
-
-One image can support multiple reviewed mechanics through different YAML
-values, but no open-loop firmware can infer safe travel or detect every physical
-failure. There is no encoder, force sensor, temperature sensor, or connected
-DM542S alarm input. Stalls, skipped steps, collisions, and wrong driver current
-remain physical commissioning and inspection responsibilities.
+Do not upload from this development computer. On the instrument laptop, first
+verify the D3/D4 wiring and intended movement direction. See
+`arduino/docs/TEST_03_GUIDE.md` for the supervised software-HOME procedure.

@@ -381,7 +381,7 @@ def test_measurement_failure_with_known_state_cleans_up_then_stops_for_review(tm
         if hasattr(s, "plateau_patch"):
             monkeypatch.setattr(base, "plateau_reached", s.plateau_patch)
         outcome = integrated.run_experiment(s, mock_cycles_per_stage=4)
-        assert integrated.verify_needle(s.needle, up)["commanded_position_steps"] == str(up)
+        assert integrated.verify_needle(s.needle, up)["logical_position"] == str(up)
         assert s.state.retained_volume_ml == 0.0 and not s.state.uncertain
     assert outcome.status is base.TerminalStatus.ANALYSIS_INCONCLUSIVE and outcome.exit_code == 7
     run_dir = only_run_dir(tmp_path)
@@ -547,7 +547,7 @@ def test_pump_does_not_move_unless_needle_at_expected_position(tmp_path):
         integrated.home_and_raise(s)
         volumes = []
         s.pump.set_volume = lambda *args, **kwargs: volumes.append(args)
-        with pytest.raises(integrated.VerificationError, match="commanded position"):
+        with pytest.raises(integrated.VerificationError, match="logical position"):
             s.pump_move("withdraw", 5.0, "DOWN", stage="initial", cycle=1)
         assert volumes == []
         assert s.state.retained_volume_ml == 0.0

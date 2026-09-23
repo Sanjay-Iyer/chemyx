@@ -228,9 +228,9 @@ class NeedleController:
         if self.motion_guard is not None and not self.motion_guard():
             raise MotionInterlockError("Motor command blocked while another instrument is active")
 
-    def _motion(self, command: str) -> CommandResult:
+    def _motion(self, command: str, *, timeout_s: float | None = None) -> CommandResult:
         try:
-            result = self.command(command)
+            result = self.command(command, timeout_s=timeout_s)
         except (MotionInterlockError, CommandNotDispatched):
             # The host rejected the command before dispatch, so no physical
             # state changed and a STOP attempt would be a hidden action.
@@ -272,7 +272,6 @@ class NeedleController:
     def _desired_runtime_configuration(cfg: dict) -> dict[str, int | bool]:
         motion = cfg["motion"]
         motion_enabled = bool(cfg["firmware"].get("motion_enabled"))
-        limits_enabled = bool(cfg["firmware"].get("limits_enabled"))
         maximum_speed = motion.get("maximum_speed_steps_s")
         if maximum_speed in (None, 0):
             maximum_speed = motion.get("test_02_speed_steps_s") or 0
@@ -281,15 +280,15 @@ class NeedleController:
             maximum_acceleration = 500 if motion_enabled else 0
         return {
             "motion_commissioned": motion_enabled,
-            "limits_commissioned": limits_enabled,
+            "limits_commissioned": False,  # no physical switches on D3/D4 demo
             "signal_inverted": bool(cfg["signal_interface"].get("signal_inverted")),
-            "enable_active_low": bool(cfg["driver"].get("enable_active_low")),
-            "upper_active_low": bool(cfg["limits"].get("upper_active_low")),
-            "lower_active_low": bool(cfg["limits"].get("lower_active_low")),
+            "enable_active_low": False,  # unused compatibility fields
+            "upper_active_low": False,
+            "lower_active_low": False,
             "maximum_travel_steps": int(motion.get("maximum_travel_steps") or 0),
             "maximum_speed_steps_s": int(maximum_speed),
             "maximum_acceleration_steps_s2": int(maximum_acceleration),
-            "home_speed_steps_s": int(motion.get("home_speed_steps_s") or 0),
+            "home_speed_steps_s": 0,
         }
 
     @staticmethod
@@ -382,7 +381,12 @@ class NeedleController:
         return self._motion("HOME")
 
     def jog(self, signed_steps: int, speed_steps_s: int) -> CommandResult:
-        return self._motion(f"JOG {int(signed_steps)} {int(speed_steps_s)}")
+        speed = int(speed_steps_s)
+        if speed <= 0:
+            raise ValueError("JOG speed must be positive")
+        # The firmware's bounded ramp can outlast the ordinary 10 s RPC timeout.
+        timeout = min(125.0, max(self.command_timeout_s, abs(int(signed_steps)) / speed * 3 + 10))
+        return self._motion(f"JOG {int(signed_steps)} {speed}", timeout_s=timeout)
 
     def move_absolute(self, position_steps: int, speed_steps_s: int) -> CommandResult:
         return self._motion(f"MOVE_ABS {int(position_steps)} {int(speed_steps_s)}")

@@ -8,8 +8,8 @@ Required: Dynabook laptop, USB-C data cable, and Arduino UNO R4 Minima.
 Laptop -> USB-C data cable -> Arduino UNO R4 Minima
 ```
 
-Disconnect the DM542S, 24 V supply, NEMA 17, all signal-interface wiring,
-limit switches, and needle mechanism. Test 1 contains no motor command.
+Keep 24 V motor power off. Test 1 contains no motor command and does not
+require changing the existing D3/D4 signal wiring.
 
 ## Configuration and firmware upload
 
@@ -20,13 +20,13 @@ and, optionally, its verified fingerprint. Leave motion placeholders unchanged.
 In Arduino IDE, install Arduino UNO R4 Boards, open
 `arduino/firmware/needle_controller/needle_controller.ino`; select **Arduino
 UNO R4 Minima** and its port, upload, and close Serial Monitor. The firmware
-boots with motion and limits uncommissioned and all runtime motion ceilings at
+boots with motion disarmed and all runtime motion ceilings at
 zero. Reviewed YAML must be applied before any motion command can succeed.
 
 ## Exact command
 
 ```powershell
-conda activate ai
+conda activate air
 python arduino\scripts\test_01_arduino_connection.py --config arduino\configs\arduino.local.yaml --live
 ```
 
@@ -35,9 +35,9 @@ configured hard ceiling is under 60 seconds.
 
 ## Expected output
 
-- READY identifies `needle_controller`, `uno_r4_minima`, and firmware `1.1.0`.
+- READY identifies `needle_controller`, `uno_r4_minima`, and firmware `1.2.0`.
 - PING returns PONG.
-- Initial STATUS reports motor disabled and LED off.
+- Initial STATUS reports the software motion arm disabled and LED off.
 - LED on/off status transitions pass; BLINK completes three pulses and ends off.
 - A passing live `result.json` is written and the COM port closes.
 
@@ -49,5 +49,5 @@ another program probably owns the COM port; close Arduino Serial Monitor. A
 missing port usually means wrong port selection, cable, or driver. The software
 never tries another port automatically.
 
-Final safe state: LED off, motor disabled, no movement command, USB connection
+Final state: LED off, software motion arm disabled, no movement command, USB connection
 closed by Python. Disconnect USB if inspection shows anything unexpected.

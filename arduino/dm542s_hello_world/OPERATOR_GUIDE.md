@@ -1,12 +1,9 @@
 # Operator Guide — Needle Motion Rig
 
-> **LEGACY PROCEDURE:** This guide belongs to the archived D3 STEP / D4 DIR
-> bridge. It is incompatible with the active runtime-configured D2 STEP / D3
-> DIR / D4 ENABLE firmware.
-
-> **LEGACY PROCEDURE:** This guide belongs to the archived D3 STEP / D4 DIR
-> bridge. It is incompatible with the active runtime-configured D2 STEP / D3
-> DIR / D4 ENABLE firmware.
+> **LEGACY SERIAL PROTOCOL:** This guide describes the older D3 STEP / D4 DIR
+> bridge commands. Active firmware 1.2.0 uses the same pins but a different
+> serial protocol and persistent Python state. Do not run these legacy scripts
+> against the active firmware; use `arduino/README.md`.
 
 This guide assumes you have never used Python, YAML, or Arduino before. Follow
 it top to bottom. Every command is written out in full.

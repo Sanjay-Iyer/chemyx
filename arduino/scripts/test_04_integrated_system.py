@@ -20,6 +20,7 @@ from _common import (
 
 from arduino.mock.fake_instruments import FakeNmrClient
 from arduino.python.config import require_live, test1_missing, test4_full_missing
+from arduino.python.needle_state import TrackedNeedle
 from arduino.python.discovery import ensure_distinct_ports
 from arduino.python.results import matching_live_result, unresolved_live_motion_failure
 from arduino.python.workflows import (
@@ -105,18 +106,13 @@ def _machine_objects(cfg: dict, mode: str):
 def _mock_cfg(cfg: dict) -> dict:
     value = deepcopy(cfg)
     value["firmware"]["motion_enabled"] = True
-    value["firmware"]["limits_enabled"] = True
+    value["firmware"]["limits_enabled"] = False
     value["signal_interface"]["signal_inverted"] = False
-    value["driver"]["enable_active_low"] = True
-    value["limits"].update({"upper_active_low": False, "lower_active_low": False})
+    value["needle"].update({"steps_per_unit": 20, "up_step_sign": 1})
     value["motion"].update(
         {
-            "safe_up_position_steps": 100,
-            "test_down_position_steps": 500,
-            "maximum_travel_steps": 1000,
-            "maximum_speed_steps_s": 300,
+            "maximum_speed_steps_s": 100,
             "maximum_acceleration_steps_s2": 300,
-            "home_speed_steps_s": 100,
         }
     )
     value["integrated"].update(
@@ -129,7 +125,6 @@ def _mock_cfg(cfg: dict) -> dict:
             "post_pump_settle_s": 0,
             "nmr_diagnostic": "mock_si6_configured_1d",
             "expected_nmr_artifact_suffix": ".dx",
-            "test3_state_continuity_confirmed": True,
         }
     )
     return value
@@ -230,12 +225,16 @@ def main(argv: list[str] | None = None) -> int:
             run_cfg,
             mode,
             allow_motion=True,
-            mock_homed=True,
+            mock_homed=False,
             motion_guard=interlock.motion_allowed,
             motion_dispatch_callback=lambda: failure_context.update(motion_attempted=True),
             apply_runtime_config=True,
         ) as controller:
             failure_context["firmware_version"] = controller.identity.get("version")
+            needle = TrackedNeedle(controller, run_cfg, state_path=run_dir / "mock_needle_state.json" if mode == "mock" else None)
+            if mode == "mock":
+                needle.confirm_home(operator_confirmed=True)
+                needle.move_to(run_cfg["needle"]["up_position"])
             ensure_distinct_ports(
                 getattr(controller.transport, "port", run_cfg["arduino"].get("port")),
                 machine.chemyx.serial_port,
@@ -250,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
                         else lambda path, max_wait: existing_nmr_operation(nmr_cfg, path, max_wait)
                     )
                     state = run_test_04b(
-                        controller,
+                        needle,
                         pump,
                         nmr_operation,
                         run_cfg,
@@ -270,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
                         ),
                     )
                 except BaseException:
-                    controller.stop_best_effort()
+                    needle.stop_best_effort()
                     try:
                         pump.stop()
                     except BaseException:

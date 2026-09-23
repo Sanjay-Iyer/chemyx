@@ -7,7 +7,7 @@ from arduino.python.errors import PositionUncertainError
 
 def controller(fake):
     fake.motion_commissioned = True
-    fake.limits_commissioned = True
+    fake.limits_commissioned = False
     fake.enabled = True
     fake.maximum_travel_steps = 1000
     fake.maximum_speed_steps_s = 300
@@ -25,28 +25,28 @@ def test_led_and_pong_state():
         assert item.status()["led"] == "off"
 
 
-def test_absolute_move_rejected_before_homing():
+def test_physical_absolute_move_is_rejected():
     with controller(FakeArduinoTransport()) as item:
-        with pytest.raises(PositionUncertainError, match="NOT_HOMED"):
+        with pytest.raises(PositionUncertainError, match="USE_HOST_LOGICAL_POSITION"):
             item.move_absolute(100, 100)
         assert item.position_certain is False
 
 
-def test_movement_toward_active_limit_is_rejected():
+def test_unwired_limit_input_does_not_block_jog():
     fake = FakeArduinoTransport()
     fake.limit_up = True
     with controller(fake) as item:
-        with pytest.raises(PositionUncertainError, match="LIMIT_UP_ACTIVE"):
-            item.jog(-10, 100)
+        item.jog(-10, 100)
+        assert item.status()["limit_up"] == "false"
 
 
-def test_both_limits_active_faults():
+def test_physical_home_is_unavailable():
     fake = FakeArduinoTransport()
     fake.limit_up = fake.limit_down = True
     with controller(fake) as item:
-        with pytest.raises(PositionUncertainError, match="BOTH_LIMITS_ACTIVE"):
+        with pytest.raises(PositionUncertainError, match="PHYSICAL_HOME_UNAVAILABLE"):
             item.home()
-        assert fake.fault == "BOTH_LIMITS_ACTIVE"
+        assert fake.fault == "NONE"
 
 
 @pytest.mark.parametrize("scenario", ["movement_timeout", "homing_timeout", "firmware_fault"])

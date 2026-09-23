@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 from .errors import ProtocolError
 
-MAX_RESPONSE_CHARS = 512
+MAX_RESPONSE_CHARS = 1024
 _TOKEN = re.compile(r"^[A-Za-z0-9_.:+/-]+$")
 
 
@@ -98,4 +98,3 @@ def bool_field(fields: dict[str, str], name: str) -> bool:
     if value in {"0", "false", "off", "inactive", "no"}:
         return False
     raise ProtocolError(f"STATUS field {name!r} is not boolean: {fields[name]!r}")
-

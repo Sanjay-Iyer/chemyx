@@ -23,7 +23,7 @@ comes from the scripts that ran on the real hardware:
 | Ethernet cable | NMR | Direct to the NMR or through the lab switch |
 | 24 V DC adapter with its inline switch | DM542S needle driver | Existing rig |
 
-The Arduino keeps its sketch through power cycles, so uploading firmware 1.1.0
+The Arduino keeps its sketch through power cycles, so uploading firmware 1.2.0
 before going offline is simplest. `offline\arduino\` lets the offline laptop
 compile and re-upload anyway: the sketch needs only the Arduino core (no
 third-party libraries). The UNO R4 Minima uploads with dfu-util to USB
@@ -166,14 +166,13 @@ From now on, run every command from `C:\code\chemyx_pump` with
 
 ### Needle (Arduino UNO R4 Minima + DM542S)
 
-The `dm542s_hello_world` up/down scripts below are *archived legacy bring-up
-notes*. They require archived D3 STEP / D4 DIR firmware and are not compatible
-with the active controller. The new integrated scripts use
-`arduino/python/controller.py`, firmware 1.1.0, D2 STEP / D3 DIR / D4 ENABLE /
-D5 upper limit / D6 lower limit, and the Arduino YAML. Do not mix these
-pinouts or protocols; use `docs/THREE_INSTRUMENT_ARCHITECTURE.md` for the new
-system. The following numbered legacy steps are not the new commissioning
-procedure.
+The `dm542s_hello_world` scripts below are historical bring-up notes using
+the older bridge serial protocol. The active 1.2.0 controller deliberately
+preserves the same validated **D3 STEP / D4 DIR** wiring but uses a different
+serial protocol and Python persistent software-position tracker. Do not mix
+old scripts with new firmware. There is no ENABLE connection or upper/lower
+limit switch requirement. See `arduino/README.md` for the current commands.
+The following numbered legacy steps are not the new commissioning procedure.
 
 1. Plug in the USB-C data cable. The Arduino appears as a COM port with USB
    vendor ID 2341. Windows 10/11 normally runs it with its built-in USB serial
@@ -192,7 +191,7 @@ procedure.
 |---|---|---|
 | `configs\machines\00_machine.local.yaml` | `chemyx.serial_port` | `COM6` (will differ) |
 | same file | `nmr.host`, `nmr.port` | `169.254.30.54`, `5000` |
-| `arduino\configs\arduino.local.yaml` (copy of `arduino.example.yaml`) | Arduino port, wiring, limits, UP and sample DOWN positions | Commission per the checklist, section A |
+| `arduino\configs\arduino.local.yaml` (copy of `arduino.example.yaml`) | Arduino port, D3/D4 review, software limits, movement calibration, UP/DOWN logical positions | Commission per the checklist, section A |
 | `arduino\dm542s_hello_world\configs\04_needle_up.yaml` and `05_needle_down.yaml` (legacy bridge only) | `serial.port` | `COM3` (will differ) |
 | `configs\experiments\02_si6_automated_nmr.yaml` | `pump.syringe_diameter_mm`, `pump.syringe_capacity_ml`, `nmr.target_ppm` | 20.0 mm and 20 mL (verify against the installed syringe); 5.8 ppm |
 | `configs\nmr\analysis.local.yaml` (optional) | `input.paths`, `output.directory` | Only needed to run `process_fid.py` with no arguments |
@@ -209,8 +208,8 @@ separately. Then run the new scripts from the repository root in this order:
 .venv\Scripts\python.exe scripts\02_si6_experiment.py --mock
 ```
 
-These contact no hardware. Only after the active firmware, limits, reviewed
-sample DOWN position, ports, and fluid path are commissioned should an operator
+These contact no hardware. Only after the active firmware, software position
+reference, reviewed UP/DOWN positions, ports, and fluid path are commissioned should an operator
 consider `--live` on Level 1, followed by one attended short Level 2 cycle.
 Both scripts default to validation-only when no mode is given. Level 2's fast
 mock skips repeated full-spectrum `process_fid` calls; Level 1's mock runs one
@@ -251,7 +250,7 @@ section 8.
    ```
 
 Steps 5 and 6 apply only to the archived bridge rig. Do not run them against
-firmware 1.1.0; use section A of the commissioning checklist instead.
+firmware 1.2.0; use section A of the commissioning checklist instead.
 
 5. **Needle serial (legacy bridge only).** Keep the 24 V supply off for this check. Expect
    `PASS: Arduino serial communication is working`.

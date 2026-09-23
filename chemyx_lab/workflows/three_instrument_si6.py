@@ -24,6 +24,7 @@ from typing import Any, Callable
 
 from arduino.python.protocol import bool_field
 from arduino.python.config import load_arduino_config, test3_missing
+from arduino.python.needle_state import TrackedNeedle
 from arduino.python.controller import NeedleController
 from arduino.python.discovery import resolve_arduino_port
 from arduino.python.errors import LiveExecutionBlocked, PositionUncertainError
@@ -146,6 +147,14 @@ def cycle_values(raw: dict[str, Any]) -> dict[str, float]:
 
 
 def positions(arduino_cfg: dict[str, Any], *, mock: bool) -> tuple[int, int, int]:
+    if "needle" in arduino_cfg:
+        needle, motion = arduino_cfg["needle"], arduino_cfg["motion"]
+        speed = motion.get("maximum_speed_steps_s")
+        if mock and speed is None:
+            speed = 100
+        if not isinstance(speed, int) or speed <= 0:
+            raise ValueError("Configured needle maximum_speed_steps_s is required")
+        return needle["up_position"], needle["down_position"], speed
     motion = arduino_cfg["motion"]
     up = motion.get("safe_up_position_steps")
     down = motion.get("sample_down_position_steps")
@@ -166,6 +175,12 @@ def verify_needle(needle: Any, expected_steps: int, *, require_homed: bool = Tru
     status = needle.status()
     if bool_field(status, "moving") or status["fault"] != "NONE":
         raise VerificationError(f"Needle moving or faulted: {status}")
+    if "logical_position" in status:
+        if not bool_field(status, "position_valid"):
+            raise VerificationError("Needle software position is uncertain; operator confirmation required")
+        if int(status["logical_position"]) != expected_steps:
+            raise VerificationError(f"Needle logical position {status['logical_position']} != {expected_steps}")
+        return status
     if require_homed and (not bool_field(status, "homed") or not bool_field(status, "position_known")):
         raise VerificationError("Needle is not homed with a known commanded position")
     if bool_field(status, "limit_up") and bool_field(status, "limit_down"):
@@ -610,7 +625,7 @@ def prepare(workflow_path: Path, machine_path: Path, arduino_path: Path, *, mock
         root = arduino_cfg["results"]["run_root_dir"]
         records = {name: matching_live_result(root, test, arduino_cfg) is not None for name, test in (
             ("test_02", "test_02_unloaded_motor"), ("test_03", "test_03_needle_axis"))}
-        missing = test3_missing(arduino_cfg, test2_record_valid=records["test_02"], limit_record_valid=records["test_03"])
+        missing = test3_missing(arduino_cfg, test2_record_valid=records["test_02"])
         if unresolved_live_motion_failure(root, arduino_cfg):
             missing.append("Unresolved live motion failure requires inspection clearance")
         if missing:
@@ -648,7 +663,7 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
     lock = None
     settings = arduino_cfg["arduino"]
     if mock:
-        transport = FakeArduinoTransport(runtime_configurable=True, version=settings.get("expected_version") or "1.1.0")
+        transport = FakeArduinoTransport(runtime_configurable=True, version=settings.get("expected_version") or "1.2.0")
     else:
         selected = resolve_arduino_port(settings.get("port"), settings.get("fingerprint"))
         lock = PortProcessLock(selected.device).acquire()
@@ -664,11 +679,22 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
             if arduino_cfg["firmware"].get("runtime_configurable"):
                 if mock:
                     synthetic = dict(arduino_cfg)
-                    synthetic["firmware"] = dict(arduino_cfg["firmware"], motion_enabled=True, limits_enabled=True)
-                    synthetic["motion"] = dict(arduino_cfg["motion"], safe_up_position_steps=positions(arduino_cfg, mock=True)[0], test_down_position_steps=positions(arduino_cfg, mock=True)[1], maximum_travel_steps=1000, maximum_speed_steps_s=300, maximum_acceleration_steps_s2=300, home_speed_steps_s=100)
+                    synthetic["firmware"] = dict(arduino_cfg["firmware"], motion_enabled=True, limits_enabled=False)
+                    synthetic["motion"] = dict(arduino_cfg["motion"], maximum_travel_steps=0, maximum_speed_steps_s=100, maximum_acceleration_steps_s2=300, home_speed_steps_s=0)
                     controller.configure_runtime(synthetic)
                 else:
                     controller.configure_runtime(arduino_cfg)
+            tracked_cfg = arduino_cfg
+            if mock:
+                tracked_cfg = dict(arduino_cfg)
+                tracked_cfg["needle"] = dict(arduino_cfg["needle"], steps_per_unit=20, up_step_sign=1)
+                tracked_cfg["motion"] = dict(
+                    arduino_cfg["motion"], maximum_speed_steps_s=100,
+                    maximum_acceleration_steps_s2=300,
+                )
+            needle = TrackedNeedle(controller, tracked_cfg, state_path=paths.run_dir / "mock_needle_state.json" if mock else None)
+            if mock:
+                needle.confirm_home(operator_confirmed=True)
             with pump:
                 base.configure_pump(pump, pump_cfg)
                 if base.attempt_emergency_stop(pump, state, recorder) is not base.StopStatus.SUCCEEDED:
@@ -676,7 +702,7 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
                 window = tracked_window(raw, nmr_cfg)
                 processor = MockProcessFid(window) if mock and fast_mock_processing else partial(base.run_process_fid_postprocessing, tracked_window=window)
                 yield Services(
-                    needle=controller, pump=pump, pump_cfg=pump_cfg, nmr_cfg=nmr_cfg, raw=raw,
+                    needle=needle, pump=pump, pump_cfg=pump_cfg, nmr_cfg=nmr_cfg, raw=raw,
                     arduino_cfg=arduino_cfg, paths=paths, recorder=recorder, state=state,
                     acquire=mock_acquire if mock else base.run_nmr_acquisition, process=processor,
                     analyze=analyze_tracked_resonance,
@@ -687,7 +713,10 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
         if pump.is_connected:
             base.attempt_emergency_stop(pump, state, recorder)
         if controller.is_open:
-            controller.stop_best_effort()
+            if "needle" in locals():
+                needle.stop_best_effort()
+            else:
+                controller.stop_best_effort()
         try:
             recorder.record("terminal", workflow_phase="run", terminal_status="failed", result_classification=type(exc).__name__, error_message=str(exc), physical_state_certainty="uncertain" if state.uncertain else "requires_inspection")
         except BaseException:
@@ -732,7 +761,10 @@ def home_and_raise(s: Services) -> None:
     s.needle.enable()
     s.needle.home()
     status = s.needle.status()
-    if not bool_field(status, "homed") or not bool_field(status, "position_known"):
+    if "position_valid" in status:
+        if not bool_field(status, "position_valid"):
+            raise VerificationError("Needle software HOME reference unknown")
+    elif not bool_field(status, "homed") or not bool_field(status, "position_known"):
         raise VerificationError("Needle homing not confirmed")
     s.move_needle("UP")
 

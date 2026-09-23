@@ -58,6 +58,10 @@ SECTION_KEYS = {
         "nmr_diagnostic", "expected_nmr_artifact_suffix",
         "test3_state_continuity_confirmed",
     },
+    "needle": {
+        "min_position", "max_position", "home_position", "up_position",
+        "down_position", "steps_per_unit", "up_step_sign", "state_path",
+    },
 }
 
 DEFAULTS: dict[str, Any] = {
@@ -66,7 +70,7 @@ DEFAULTS: dict[str, Any] = {
         "baud_rate": 115200,
         "expected_device": "needle_controller",
         "expected_board": "uno_r4_minima",
-        "expected_version": "1.1.0",
+        "expected_version": "1.2.0",
         "ready_timeout_s": 5.0,
         "read_timeout_s": 0.1,
         "write_timeout_s": 1.0,
@@ -78,7 +82,7 @@ DEFAULTS: dict[str, Any] = {
         "motion_enabled": False,
         "limits_enabled": False,
         "runtime_configurable": True,
-        "version": "1.1.0",
+        "version": "1.2.0",
     },
     "signal_interface": {},
     "motor": {},
@@ -92,6 +96,12 @@ DEFAULTS: dict[str, Any] = {
     },
     "results": {"run_root_dir": str(DEFAULT_RUN_ROOT)},
     "integrated": {},
+    "needle": {
+        "min_position": -3, "max_position": 5, "home_position": 0,
+        "up_position": 1, "down_position": -1,
+        "steps_per_unit": None, "up_step_sign": None,
+        "state_path": str(DEFAULT_RUN_ROOT / "needle_state.json"),
+    },
 }
 
 
@@ -118,6 +128,9 @@ def load_arduino_config(path: str | Path) -> dict[str, Any]:
     raw = read_mapping_config(config_path, "Arduino config")
     merged = _merge(raw)
     validate_config_structure(merged)
+    state_path = Path(merged["needle"]["state_path"])
+    if not state_path.is_absolute():
+        merged["needle"]["state_path"] = str((REPO_ROOT / state_path).resolve())
     merged["_source_path"] = str(config_path.resolve())
     return merged
 
@@ -155,9 +168,35 @@ def validate_config_structure(cfg: dict[str, Any]) -> None:
     for key in ("motion_enabled", "limits_enabled", "runtime_configurable"):
         if not isinstance(cfg["firmware"].get(key), bool):
             raise ConfigurationError(f"firmware.{key} must be true or false")
+    if cfg["firmware"]["limits_enabled"]:
+        raise ConfigurationError("Firmware 1.2.0 has no physical limit inputs; set firmware.limits_enabled=false")
+    if cfg["signal_interface"].get("signal_inverted") not in (None, False):
+        raise ConfigurationError("Validated D3/D4 demo uses non-inverted STEP/DIR signals")
     fingerprint = cfg["arduino"].get("fingerprint")
     if fingerprint is not None and not isinstance(fingerprint, dict):
         raise ConfigurationError("arduino.fingerprint must be a mapping")
+    needle = cfg["needle"]
+    for key in ("min_position", "max_position", "home_position", "up_position", "down_position"):
+        if type(needle.get(key)) is not int:
+            raise ConfigurationError(f"needle.{key} must be an integer")
+    if needle["home_position"] != 0 or not (
+        needle["min_position"] <= needle["down_position"] < 0
+        < needle["up_position"] <= needle["max_position"]
+    ):
+        raise ConfigurationError("Needle positions must satisfy min <= DOWN < HOME=0 < UP <= max")
+    if needle.get("steps_per_unit") is not None and not _positive_integer(needle["steps_per_unit"]):
+        raise ConfigurationError("needle.steps_per_unit must be a positive integer")
+    if needle.get("up_step_sign") is not None and (type(needle["up_step_sign"]) is not int or needle["up_step_sign"] not in (-1, 1)):
+        raise ConfigurationError("needle.up_step_sign must be -1 or +1")
+    if not str(needle.get("state_path") or "").strip():
+        raise ConfigurationError("needle.state_path is required")
+    for key in ("test_02_speed_steps_s", "maximum_speed_steps_s"):
+        value = cfg["motion"].get(key)
+        if value is not None and (type(value) is not int or not 1 <= value <= 100):
+            raise ConfigurationError(f"motion.{key} must be an integer from 1 to 100 steps/s")
+    acceleration = cfg["motion"].get("maximum_acceleration_steps_s2")
+    if acceleration is not None and (type(acceleration) is not int or not 1 <= acceleration <= 50000):
+        raise ConfigurationError("motion.maximum_acceleration_steps_s2 must be an integer from 1 to 50000")
 
 
 def hardware_fingerprint(cfg: dict[str, Any], test_name: str | None = None) -> str:
@@ -178,9 +217,6 @@ def hardware_fingerprint(cfg: dict[str, Any], test_name: str | None = None) -> s
     stable_safety = dict(cfg.get("safety", {}))
     stable_safety.pop("operator_shaft_safe_confirmed", None)
     stable_safety.pop("operator_inspection_required", None)
-    stable_limits = dict(cfg.get("limits", {}))
-    stable_limits.pop("upper_state_change_tested", None)
-    stable_limits.pop("lower_state_change_tested", None)
     firmware = cfg.get("firmware", {})
     identity_firmware = {"version": firmware.get("version")}
     test2_firmware = {
@@ -215,7 +251,7 @@ def hardware_fingerprint(cfg: dict[str, Any], test_name: str | None = None) -> s
             "motor": stable_motor,
             "driver": cfg.get("driver", {}),
             "motion": cfg.get("motion", {}),
-            "limits": stable_limits,
+            "needle": cfg.get("needle", {}),
             "safety": stable_safety,
         }
         if test_name == "test_04b_integrated_system":
@@ -227,7 +263,7 @@ def hardware_fingerprint(cfg: dict[str, Any], test_name: str | None = None) -> s
             "motor": stable_motor,
             "driver": cfg.get("driver", {}),
             "motion": cfg.get("motion", {}),
-            "limits": stable_limits,
+            "needle": cfg.get("needle", {}),
             "safety": stable_safety,
         }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
@@ -290,42 +326,21 @@ def test1_missing(cfg: dict[str, Any]) -> list[str]:
 def test2_missing(
     cfg: dict[str, Any], *, include_unloaded_conditions: bool = True
 ) -> list[str]:
-    s, m, d, motion, safety, fw = (
-        cfg["signal_interface"], cfg["motor"], cfg["driver"], cfg["motion"],
-        cfg["safety"], cfg["firmware"],
+    s, m, motion, safety, fw = (
+        cfg["signal_interface"], cfg["motor"], cfg["motion"], cfg["safety"], cfg["firmware"],
     )
-    expected_driver_model = "DM542S" if fw.get("runtime_configurable") else "DM542T"
     checks = [
-        (s.get("installed") is True, "Verified open-collector Arduino-to-stepper-driver interface"),
-        (_present(s.get("interface_type")) and "direct" not in str(s.get("interface_type", "")).lower(), "Exact verified signal-interface type"),
-        (s.get("wiring_reviewed") is True, "Signal-interface wiring review"),
-        (_is_bool(s.get("signal_inverted")), "Explicit boolean signal inversion setting"),
-        (_numeric_equals(s.get("dm542_signal_voltage_v"), 5.0), "Verified 5 V driver control signal"),
-        (fw.get("motion_enabled") is True, "Firmware motion commissioning flag after expert review"),
-        (_present(m.get("model")), "Exact NEMA 17 model"),
-        (_positive_value(m.get("rated_phase_current_a")), "Motor rated phase current"),
-        (_positive_value(m.get("full_steps_per_revolution")), "Motor full steps per revolution"),
-        (m.get("coil_pairs_identified") is True, "Identified motor coil pairs"),
-        (_numeric_equals(d.get("supply_voltage_v"), 24.0), "Verified 24 V driver supply"),
-        (_positive_value(d.get("supply_current_a")), "24 V power-supply current rating"),
-        (_present(d.get("current_switch_setting")), "Stepper-driver current switch setting"),
-        (_present(d.get("microstep_setting")), "Stepper-driver microstep switch setting"),
-        (_positive_value(d.get("microsteps_per_full_step")), "Numeric microsteps per full step"),
-        (
-            str(d.get("model", "")).strip().upper() == expected_driver_model,
-            f"Verified {expected_driver_model} driver model",
-        ),
-        (_is_bool(d.get("enable_active_low")), f"Explicit boolean {expected_driver_model} enable polarity"),
+        (s.get("wiring_reviewed") is True, "Operator review of validated D3 STEP / D4 DIR wiring"),
+        (fw.get("motion_enabled") is True, "Firmware software motion arm configured"),
         (_positive_integer(motion.get("test_02_steps")) and motion.get("test_02_steps") <= 200000, "Integer Test 2 step count at or below firmware cap"),
-        (_positive_integer(motion.get("test_02_speed_steps_s")) and motion.get("test_02_speed_steps_s") <= 5000, "Integer Test 2 speed at or below firmware cap"),
-        (safety.get("fuse_installed") is True, "Fuse installed"),
+        (_positive_integer(motion.get("test_02_speed_steps_s")) and motion.get("test_02_speed_steps_s") <= 100, "Integer Test 2 speed at or below firmware cap (100 steps/s)"),
         (safety.get("emergency_disconnect_documented") is True, "Documented emergency driver-power disconnect"),
         (safety.get("operator_inspection_required") is not True, "Resolution of prior operator-inspection requirement"),
     ]
     if include_unloaded_conditions:
         checks.extend(
             [
-                (m.get("mechanically_disconnected_for_test_02") is True, "Motor mechanically disconnected from needle axis"),
+                (m.get("mechanically_disconnected_for_test_02") is True, "Motor mechanically disconnected for unloaded Test 2"),
                 (safety.get("operator_shaft_safe_confirmed") is True, "Operator confirmation that unloaded shaft can rotate safely"),
             ]
         )
@@ -333,77 +348,26 @@ def test2_missing(
 
 
 def test3_limit_preflight_missing(cfg: dict[str, Any], *, test2_record_valid: bool) -> list[str]:
-    limits = cfg["limits"]
-    checks = [
-        (test2_record_valid, "Matching successful live Test 2 result record"),
-        (not test2_missing(cfg, include_unloaded_conditions=False), "All Test 2 electrical and motor prerequisites"),
-        (limits.get("upper_installed") is True, "Upper normally closed limit switch installed"),
-        (limits.get("lower_installed") is True, "Lower normally closed limit switch installed"),
-        (limits.get("normally_closed") is True, "Normally closed limit-switch wiring"),
-        (_is_bool(limits.get("upper_active_low")), "Explicit boolean upper limit polarity"),
-        (_is_bool(limits.get("lower_active_low")), "Explicit boolean lower limit polarity"),
-        (cfg["firmware"].get("limits_enabled") is True, "Firmware limit-switch commissioning flag"),
-    ]
-    return [label for passed, label in checks if not passed]
+    # Deprecated API kept for callers of older versions; no switches exist.
+    return []
 
 
 def test3_missing(
     cfg: dict[str, Any], *, test2_record_valid: bool, limit_record_valid: bool = False
 ) -> list[str]:
-    limits, motion, safety = cfg["limits"], cfg["motion"], cfg["safety"]
+    # limit_record_valid is ignored for compatibility with older callers.
+    motion, safety, needle = cfg["motion"], cfg["safety"], cfg["needle"]
     checks = [
         (test2_record_valid, "Matching successful live Test 2 result record"),
-        (not test2_missing(cfg, include_unloaded_conditions=False), "All Test 2 electrical and motor prerequisites"),
-        (cfg["motor"].get("connected_to_axis_for_test_03") is True, "Motor mechanically connected to the reviewed needle axis"),
-        (limits.get("upper_installed") is True, "Upper normally closed limit switch installed"),
-        (limits.get("lower_installed") is True, "Lower normally closed limit switch installed"),
-        (limits.get("normally_closed") is True, "Normally closed limit-switch wiring"),
-        (_is_bool(limits.get("upper_active_low")), "Explicit boolean upper limit polarity"),
-        (_is_bool(limits.get("lower_active_low")), "Explicit boolean lower limit polarity"),
-        (limit_record_valid, "Matching successful live Test 3 limit-switch preflight record"),
-        (cfg["firmware"].get("limits_enabled") is True, "Firmware limit-switch commissioning flag"),
-        (safety.get("mechanical_hard_stops_installed") is True, "Mechanical hard stops"),
-        (_positive_value(motion.get("lead_screw_lead_mm_per_revolution")), "Lead-screw lead"),
-        (_positive_value(motion.get("steps_per_mm")), "Calculated steps per millimeter"),
-        (_positive_integer(motion.get("home_backoff_steps")), "Integer home backoff distance"),
-        (_positive_integer(motion.get("safe_up_position_steps")), "Integer safe UP position"),
-        (_positive_integer(motion.get("test_down_position_steps")), "Integer conservative DOWN test position"),
-        (_positive_integer(motion.get("maximum_travel_steps")) and motion.get("maximum_travel_steps") <= 200000, "Integer maximum travel at or below firmware command cap"),
-        (_positive_integer(motion.get("maximum_speed_steps_s")) and motion.get("maximum_speed_steps_s") <= 5000, "Integer maximum speed at or below firmware cap"),
+        (not test2_missing(cfg, include_unloaded_conditions=False), "D3/D4 motion prerequisites"),
+        (cfg["motor"].get("connected_to_axis_for_test_03") is True, "Motor connected to inspected needle axis"),
+        (_positive_integer(needle.get("steps_per_unit")), "Calibrated integer motor steps per logical needle unit"),
+        (needle.get("up_step_sign") in (-1, 1), "Verified physical UP direction sign (-1 or +1)"),
+        (_positive_integer(motion.get("maximum_speed_steps_s")) and motion.get("maximum_speed_steps_s") <= 100, "Integer maximum speed at or below firmware cap (100 steps/s)"),
         (_positive_integer(motion.get("maximum_acceleration_steps_s2")), "Integer maximum acceleration"),
-        (_positive_integer(motion.get("home_speed_steps_s")) and motion.get("home_speed_steps_s") <= 5000, "Integer conservative homing speed at or below firmware cap"),
         (safety.get("emergency_disconnect_documented") is True, "Documented emergency driver-power disconnect"),
-        (safety.get("vertical_axis_safe_when_disabled") is True, "Verified axis cannot fall dangerously without holding torque"),
         (safety.get("operator_inspection_required") is not True, "Resolution of prior operator-inspection requirement"),
     ]
-    try:
-        safe_up = int(motion.get("safe_up_position_steps"))
-        test_down = int(motion.get("test_down_position_steps"))
-        maximum = int(motion.get("maximum_travel_steps"))
-        geometry_valid = 0 < safe_up < test_down < maximum
-    except (TypeError, ValueError):
-        geometry_valid = False
-    checks.append(
-        (geometry_valid, "Conservative geometry 0 < safe UP < test DOWN < maximum travel")
-    )
-    try:
-        calculated_steps_per_mm = (
-            float(cfg["motor"]["full_steps_per_revolution"])
-            * float(cfg["driver"]["microsteps_per_full_step"])
-            / float(motion["lead_screw_lead_mm_per_revolution"])
-        )
-        configured_steps_per_mm = float(motion["steps_per_mm"])
-        steps_per_mm_valid = math.isclose(
-            calculated_steps_per_mm,
-            configured_steps_per_mm,
-            rel_tol=1e-9,
-            abs_tol=1e-9,
-        )
-    except (KeyError, TypeError, ValueError, ZeroDivisionError):
-        steps_per_mm_valid = False
-    checks.append(
-        (steps_per_mm_valid, "steps_per_mm matches full steps, microsteps, and lead-screw lead")
-    )
     return [label for passed, label in checks if not passed]
 
 
@@ -420,7 +384,6 @@ def test4_full_missing(cfg: dict[str, Any], prerequisite_records: dict[str, bool
         (_present(integrated.get("expected_nmr_artifact_suffix")), "Expected NMR output artifact suffix"),
         (_positive_value(integrated.get("post_motion_settle_s")), "Finite positive post-motion settling delay"),
         (_positive_value(integrated.get("post_pump_settle_s")), "Finite positive post-pump settling delay"),
-        (integrated.get("test3_state_continuity_confirmed") is True, "Confirmed no reset, power loss, or manual axis motion since Test 3"),
     ]
     return [label for passed, label in checks if not passed]
 

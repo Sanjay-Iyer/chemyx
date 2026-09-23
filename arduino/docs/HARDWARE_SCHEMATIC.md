@@ -1,43 +1,19 @@
-# Hardware Schematic
-
-## Current approved Test 1 connection
+# Validated needle demo wiring
 
 ```text
-Dynabook laptop -- USB-C data cable --> Arduino UNO R4 Minima
+Laptop -- USB-C --> Arduino UNO R4 Minima
+                         D3 STEP --> existing DM542S STEP/PUL connection
+                         D4 DIR  --> existing DM542S DIR connection
+                                      DM542S --> NEMA 17 --> needle axis
+                         24 V driver supply --> existing power/disconnect path
 ```
 
-Nothing else is connected for Test 1.
+This documents the wiring already validated on the bench. Keep the existing
+signal return/ground and driver DIP-switch settings exactly as installed and
+reviewed. There is **no ENABLE wire**, **no upper limit switch**, and **no lower
+limit switch** in the active demo. D2, D5, and D6 are not used by the sketch.
 
-## Future conceptual motion system
-
-```text
-Laptop
-  |
-  | USB-C
-  v
-Arduino UNO R4 Minima
-  |
-  | STEP / DIR / ENABLE logic
-  v
-Professionally verified open-collector/open-drain signal interface
-  |
-  v
-DM542T stepper driver ------> NEMA 17 motor ------> needle mechanism
-  ^
-  |
-24 VDC supply through fuse and emergency driver-power disconnect
-
-Upper NC limit ----> reviewed input interface ----> Arduino
-Lower NC limit ----> reviewed input interface ----> Arduino
-```
-
-The Arduino sends logic commands; it does not power the motor. Do not connect
-UNO R4 GPIO directly to DM542T PUL, DIR, or ENA. No exact signal wiring is
-specified because the interface type, inversion, driver common-anode/common-
-cathode arrangement, and 5 V selector setting have not been verified. A
-ULN2803A must not be assumed merely because it is one possible interface.
-
-Before wiring, an electrical-controls reviewer must issue an interface-specific
-schematic that documents source/sink current, grounds/isolation, PUL/DIR/ENA
-polarity, selector position, external fail-safe enable bias during MCU reset or
-power loss, and NC switch logic.
+The earlier conceptual open-collector/limit-switch expansion is not part of
+this supervised demo. The software position is open-loop and cannot detect a
+stall, collision, or unpowered drift. Have the existing 24 V driver-power
+disconnect available; never claim software STOP is a physical emergency stop.

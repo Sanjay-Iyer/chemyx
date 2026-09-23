@@ -57,16 +57,10 @@ def verify_firmware_motion_configuration(
     expected = {
         "motion_commissioned": bool(cfg["firmware"].get("motion_enabled")),
         "signal_inverted": bool(cfg["signal_interface"].get("signal_inverted")),
-        "enable_active_low": bool(cfg["driver"].get("enable_active_low")),
+        "limits_commissioned": False,
+        "enable_output_present": False,
+        "physical_limits_present": False,
     }
-    if include_limits:
-        expected.update(
-            {
-                "limits_commissioned": bool(cfg["firmware"].get("limits_enabled")),
-                "upper_active_low": bool(cfg["limits"].get("upper_active_low")),
-                "lower_active_low": bool(cfg["limits"].get("lower_active_low")),
-            }
-        )
     for field, configured in expected.items():
         reported = bool_field(status, field)
         if reported != configured:
@@ -75,10 +69,8 @@ def verify_firmware_motion_configuration(
             )
     if include_limits:
         for field in (
-            "maximum_travel_steps",
             "maximum_speed_steps_s",
             "maximum_acceleration_steps_s2",
-            "home_speed_steps_s",
         ):
             try:
                 reported_number = int(status[field])
@@ -141,12 +133,12 @@ def run_test_02(
     speed = int(motion["test_02_speed_steps_s"])
     if steps <= 0 or speed <= 0:
         raise ValueError("Test 2 steps and speed must be positive")
-    if steps > 200000 or speed > 5000:
+    if steps > 200000 or speed > 100:
         raise ValueError("Test 2 exceeds the immutable firmware step or speed cap")
     estimated_seconds = 2.0 * steps / speed + 4.0 * speed / 500.0 + 11.0
     if estimated_seconds > deadline.remaining_s:
         raise HardRuntimeExceeded(
-            "The complete forward/pause/reverse Test 2 sequence cannot fit before ENABLE "
+            "The complete forward/pause/reverse Test 2 sequence cannot fit the deadline "
             f"(needs about {estimated_seconds:.1f} s)"
         )
     initial = controller.status()
@@ -176,19 +168,16 @@ def run_test_02(
 
 
 def run_test_03(
-    controller: NeedleController,
+    controller: Any,
     cfg: dict[str, Any],
     deadline: HardDeadline,
     *,
-    verify_limits: Callable[[NeedleController, HardDeadline], None],
+    verify_limits: Callable[[NeedleController, HardDeadline], None] | None = None,
 ) -> dict[str, Any]:
-    motion = cfg["motion"]
+    motion, needle = cfg["motion"], cfg["needle"]
     speed = int(motion["maximum_speed_steps_s"])
-    home_speed = int(motion["home_speed_steps_s"])
-    backoff = int(motion["home_backoff_steps"])
-    safe_up = int(motion["safe_up_position_steps"])
-    down = int(motion["test_down_position_steps"])
-    maximum = int(motion["maximum_travel_steps"])
+    safe_up = int(needle["up_position"])
+    down = int(needle["down_position"])
     validate_axis_geometry(cfg)
     acceleration = int(motion["maximum_acceleration_steps_s2"])
 
@@ -196,41 +185,34 @@ def run_test_03(
         return abs(steps) / selected_speed + 2.0 * selected_speed / acceleration + 5.0
 
     estimated_seconds = (
-        movement_budget(maximum, home_speed)
-        + movement_budget(backoff, home_speed)
-        + movement_budget(safe_up - backoff, speed)
-        + 4.0 * movement_budget(down - safe_up, speed)
+        movement_budget(abs(safe_up) * needle["steps_per_unit"], speed)
+        + 4.0 * movement_budget(abs(down - safe_up) * needle["steps_per_unit"], speed)
     )
     if estimated_seconds > deadline.remaining_s:
         raise HardRuntimeExceeded(
-            "The complete homing/backoff/two-cycle Test 3 plan cannot fit before ENABLE "
+            "The complete software-position Test 3 plan cannot fit the deadline "
             f"(needs about {estimated_seconds:.1f} s)"
         )
     initial = controller.status()
     verify_firmware_motion_configuration(initial, cfg, include_limits=True)
     if _status_bool(initial, "moving") or initial.get("fault", "NONE") != "NONE":
         raise ProtocolError("Test 3 requires idle firmware with no latched fault")
-    if _status_bool(initial, "limit_up") and _status_bool(initial, "limit_down"):
-        raise ProtocolError("Both limit switches are active")
-    verify_limits(controller, deadline)
+    if not _status_bool(initial, "position_valid"):
+        raise MotionInterlockError("Software HOME reference is unknown; physically inspect and confirm_home")
     deadline.check("Test 3")
     try:
-        controller.enable()
-        controller.home()
-        if backoff <= 0:
-            raise ValueError("Home backoff must be positive")
-        controller.jog(backoff, home_speed)
-        controller.move_absolute(safe_up, speed)
+        controller.return_to_home()
+        controller.move_to(safe_up, speed)
         for _ in range(2):
             deadline.check("Test 3")
-            controller.move_absolute(down, speed)
-            controller.move_absolute(safe_up, speed)
+            controller.move_to(down, speed)
+            controller.move_to(safe_up, speed)
         final = controller.status()
     except BaseException:
         controller.stop_best_effort()
         raise
     deadline.check("Test 3")
-    if int(final.get("commanded_position_steps", -1)) != safe_up:
+    if int(final.get("logical_position", -99)) != safe_up:
         raise ProtocolError("Test 3 did not finish at commanded safe UP")
     if _status_bool(final, "moving"):
         raise ProtocolError("Test 3 finished while firmware reports moving")
@@ -238,20 +220,19 @@ def run_test_03(
 
 
 def validate_axis_geometry(cfg: dict[str, Any]) -> None:
-    motion = cfg["motion"]
+    needle = cfg["needle"]
     try:
         values = (
-            motion["safe_up_position_steps"],
-            motion["test_down_position_steps"],
-            motion["maximum_travel_steps"],
+            needle["up_position"], needle["down_position"],
+            needle["min_position"], needle["max_position"],
         )
         if any(isinstance(value, bool) or not isinstance(value, int) for value in values):
             raise TypeError
-        safe_up, down, maximum = values
+        safe_up, down, minimum, maximum = values
     except (KeyError, TypeError, ValueError) as exc:
         raise ValueError("Axis positions must be configured integers") from exc
-    if not (0 < safe_up < down < maximum):
-        raise ValueError("Require 0 < safe UP < test DOWN < maximum travel")
+    if not (minimum <= down < 0 < safe_up <= maximum):
+        raise ValueError("Require min <= DOWN < HOME=0 < UP <= max")
 
 
 @dataclass
@@ -366,8 +347,9 @@ def run_test_04b(
     events = event_log if event_log is not None else []
     motion = cfg["motion"]
     integrated = cfg["integrated"]
-    safe_up = int(motion["safe_up_position_steps"])
-    down = int(motion["test_down_position_steps"])
+    needle_cfg = cfg.get("needle")
+    safe_up = int(needle_cfg["up_position"] if needle_cfg else motion["safe_up_position_steps"])
+    down = int(needle_cfg["down_position"] if needle_cfg else motion["test_down_position_steps"])
     speed = int(motion["maximum_speed_steps_s"])
     if pump_return_action is None:
         raise MotionInterlockError("Full integration requires an approved pump return action")
@@ -383,7 +365,7 @@ def run_test_04b(
         raise MotionInterlockError("Pump return action must match the diagnostic volume")
     acceleration = float(motion["maximum_acceleration_steps_s2"])
     needle_move_seconds = (
-        abs(down - safe_up) / speed + 2.0 * speed / acceleration + 5.0
+        abs(down - safe_up) * (needle_cfg["steps_per_unit"] if needle_cfg else 1) / speed + 2.0 * speed / acceleration + 5.0
     )
     required_seconds = (
         forward_seconds
@@ -402,12 +384,14 @@ def run_test_04b(
         )
     initial = controller.status()
     verify_firmware_motion_configuration(initial, cfg, include_limits=True)
-    if not _status_bool(initial, "homed") or not _status_bool(initial, "position_known"):
-        raise MotionInterlockError("Full integration requires a homed, known needle position")
-    if int(initial.get("commanded_position_steps", -1)) != safe_up:
-        raise MotionInterlockError("Full integration must start at commanded safe UP")
-    if not _status_bool(initial, "enabled"):
-        raise MotionInterlockError("Full integration requires holding torque enabled")
+    if "logical_position" in initial:
+        if not _status_bool(initial, "position_valid") or int(initial.get("logical_position", -99)) != safe_up:
+            raise MotionInterlockError("Full integration requires a valid software UP position")
+    else:
+        if not _status_bool(initial, "homed") or not _status_bool(initial, "position_known"):
+            raise MotionInterlockError("Full integration requires a homed, known needle position")
+        if int(initial.get("commanded_position_steps", -1)) != safe_up:
+            raise MotionInterlockError("Full integration must start at commanded safe UP")
     if _status_bool(initial, "moving") or initial.get("fault", "NONE") != "NONE":
         raise MotionInterlockError("Full integration requires idle firmware with no fault")
     events.append({"instrument": "arduino", "operation": "MOVE_DOWN", "state": "planned"})
@@ -485,7 +469,8 @@ def run_test_04b(
         events.append({"instrument": "chemyx", "operation": pump_return_action["action"], "state": "completed"})
     deadline.check("Test 4B")
     final = controller.status()
-    if int(final.get("commanded_position_steps", -1)) != safe_up:
+    final_position = final.get("logical_position", final.get("commanded_position_steps", -1))
+    if int(final_position) != safe_up:
         raise ProtocolError("Full integration did not finish at safe UP")
     return {"arduino": final, "nmr_artifact": str(artifact), "pump_state_uncertain": state.uncertain}
 

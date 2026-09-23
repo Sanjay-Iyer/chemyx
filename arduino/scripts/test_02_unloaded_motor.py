@@ -36,8 +36,7 @@ def _mock_cfg(cfg: dict) -> dict:
     value = deepcopy(cfg)
     value["firmware"]["motion_enabled"] = True
     value["signal_interface"]["signal_inverted"] = False
-    value["driver"]["enable_active_low"] = True
-    value["motion"].update({"test_02_steps": 200, "test_02_speed_steps_s": 300})
+    value["motion"].update({"test_02_steps": 200, "test_02_speed_steps_s": 100})
     return value
 
 
@@ -48,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.list_ports:
         return 0
     mode = execution_mode(args)
-    if mode == "validate_only":
+    if mode == "validate_only" and not args.preflight_only:
         missing = test2_missing(cfg)
         print("Configuration syntax valid. No port was opened.")
         print(f"Live Test 2 missing requirements: {len(missing)}")

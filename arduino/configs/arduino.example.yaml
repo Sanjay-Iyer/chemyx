@@ -4,7 +4,7 @@ arduino:
   baud_rate: 115200
   expected_device: needle_controller
   expected_board: uno_r4_minima
-  expected_version: 1.1.0
+  expected_version: 1.2.0
   ready_timeout_s: 5.0
   read_timeout_s: 0.1
   write_timeout_s: 1.0
@@ -20,13 +20,15 @@ firmware:
   motion_enabled: false
   limits_enabled: false
   runtime_configurable: true
-  version: 1.1.0
+  version: 1.2.0
 
 signal_interface:
+  # Review the already-validated D3 STEP / D4 DIR wiring. No new interface
+  # or additional GPIO connections are required for this supervised demo.
   installed: false
-  interface_type: null
+  interface_type: direct_validated_bridge
   wiring_reviewed: false
-  signal_inverted: null
+  signal_inverted: false
   dm542_signal_voltage_v: null
 
 motor:
@@ -44,32 +46,28 @@ driver:
   current_switch_setting: null
   microstep_setting: null
   microsteps_per_full_step: null
-  enable_active_low: null
+  enable_active_low: null # unused; ENA is not wired
 
 motion:
-  lead_screw_lead_mm_per_revolution: null
-  steps_per_mm: null
-  home_backoff_steps: null
-  safe_up_position_steps: null
-  test_down_position_steps: null
-  # Production immersion position; independently review the fluid path and
-  # axis clearance before assigning this. Never infer it from the test step.
-  sample_down_position_steps: null
-  maximum_travel_steps: null
+  # Firmware 1.2.0 preserves the proven bridge timing: at most 100 steps/s.
   maximum_speed_steps_s: null
   maximum_acceleration_steps_s2: null
   test_02_steps: null
   test_02_speed_steps_s: null
-  home_speed_steps_s: null
 
-limits:
-  upper_installed: false
-  lower_installed: false
-  normally_closed: true
-  upper_active_low: null
-  lower_active_low: null
-  upper_state_change_tested: false
-  lower_state_change_tested: false
+needle:
+  # HOME is a manually confirmed software reference, not a switch position.
+  min_position: -3
+  max_position: 5
+  home_position: 0
+  up_position: 1
+  down_position: -1
+  # Set only after reviewing the existing 90-degree = 200-step bench move
+  # against the real needle clearance. Do not assume this example is safe.
+  steps_per_unit: null
+  # Legacy bridge positive/forward drives DIR LOW. Verify whether that is UP.
+  up_step_sign: null
+  state_path: runs/arduino/needle_state.json
 
 safety:
   fuse_installed: false

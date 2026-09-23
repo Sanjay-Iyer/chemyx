@@ -1,108 +1,53 @@
-# Arduino Needle-Axis Bring-Up
+# Arduino needle controller — supervised D3/D4 demo
 
-The single active [runtime-configured firmware](docs/FIRMWARE.md) keeps the
-staged interlocks while accepting reviewed motion ceilings from YAML at
-runtime. Older sketches are retained under `archive/legacy_arduino_firmware/`
-for provenance only.
+The active UNO R4 Minima sketch is
+`arduino/firmware/needle_controller/needle_controller.ino` (version 1.2.0).
+It uses the **already-validated D3 STEP / D4 DIR wiring**. Do not move wires,
+add an ENABLE wire, add upper/lower switches, or change DM542S settings for
+this demo. Older sketches and the `dm542s_hello_world` scripts are historical
+bring-up tools with a different serial protocol; do not mix them with this
+controller.
 
-> **CURRENT LIVE-TEST STATUS**
->
-> **Test 1:** Approved for Arduino-only live testing.
->
-> Required connection: `Laptop -> USB-C data cable -> Arduino UNO R4 Minima`
->
-> Keep the DM542S, 24 V supply, NEMA 17 motor, signal interface, and needle
-> mechanism disconnected.
->
-> **Tests 2, 3, and full Test 4: DO NOT RUN IN LIVE MODE YET.**
->
-> These tests require a verified open-collector/open-drain signal interface
-> between the Arduino and DM542S, correct motor and driver configuration, and
-> the additional hardware listed in each test guide. Never connect UNO R4 GPIO
-> directly to DM542S PUL, DIR, or ENA. The software is included now for review
-> and mock testing before the remaining hardware is available.
+Python's `TrackedNeedle` in `arduino/python/needle_state.py` owns logical
+position: HOME=0, UP positive, DOWN negative. It stores an atomic JSON estimate
+at `runs/arduino/needle_state.json` by default. The position is not measured:
+there is no encoder or physical HOME. Missing/corrupt state and failed or
+interrupted motion block further movement until inspection and explicit
+`confirm-home`. A valid saved estimate survives Python/computer restarts if
+the physical axis has not moved independently.
+If the JSON is corrupt, the explicit `confirm-home` action first preserves it
+as a `.corrupt-*.bak` file, then establishes a new inspected reference.
 
-| Test | Purpose | Can run now? |
-| --- | --- | --- |
-| Test 1 | Arduino USB, serial, LED, PING/PONG | Yes |
-| Test 2 | Unloaded motor movement | No |
-| Test 3 | Homed needle-axis movement | No |
-| Test 4A | Connection-only preflight | Yes, only if it causes no movement |
-| Test 4B | Full Arduino, pump, and NMR sequence | No |
+Configure the Arduino COM port, physical UP direction, steps per logical unit,
+speed, named positions, and software limits in an ignored local copy of
+`arduino/configs/arduino.example.yaml`. Its default `steps_per_unit` and
+`up_step_sign` are deliberately null: inspect/calibrate on the rig before any
+live move. The example -3/+5 bounds are **not** verified physical limits.
 
-## Safe first use
-
-Use the Conda `ai` environment on this simulation/development laptop. No live
-OT-2 or other robot command belongs in this subsystem.
-
-1. Copy `arduino/configs/arduino.example.yaml` to an ignored local file such
-   as `arduino/configs/arduino.local.yaml`.
-2. Leave every motor, driver, interface, limit, and motion placeholder false
-   or null for Test 1.
-3. Install the Arduino IDE and its Arduino UNO R4 Boards package.
-4. Open `arduino/firmware/needle_controller/needle_controller.ino`.
-5. Confirm the sketch identifies itself as version `1.1.0`. Motion is always
-   uncommissioned after reset until reviewed YAML is applied by the host.
-6. With only USB-C connected, select **Arduino UNO R4 Minima** and the verified
-   Arduino COM port, then upload.
-7. Close Arduino Serial Monitor so Python can own the COM port.
-8. Record the explicit COM port in the local YAML. A verified VID/PID/serial
-   fingerprint may be added; the software never selects the first port.
-9. Run:
+From the repository root, in the instrument laptop's `air` environment:
 
 ```powershell
-conda activate ai
+Copy-Item arduino\configs\arduino.example.yaml arduino\configs\arduino.local.yaml
 python arduino\scripts\test_01_arduino_connection.py --config arduino\configs\arduino.local.yaml --live
+python arduino\scripts\needle_control.py status --live --config arduino\configs\arduino.local.yaml
+python arduino\scripts\needle_control.py confirm-home --live --config arduino\configs\arduino.local.yaml
+python arduino\scripts\needle_control.py up --live --config arduino\configs\arduino.local.yaml
+python arduino\scripts\needle_control.py down --live --config arduino\configs\arduino.local.yaml
+python arduino\scripts\needle_control.py return-home --live --config arduino\configs\arduino.local.yaml
 ```
 
-Type the exact confirmation `RUN ARDUINO TEST 1` when prompted.
+The physical confirmation step must follow an actual needle inspection. Live
+motion prompts for an exact typed confirmation. `status` never moves the
+needle. `stop` is also available, but the existing 24 V driver-power
+disconnect is the physical stop. `ENABLE`/`DISABLE` in this firmware only arm
+software; they do not control the driver's unwired ENA input.
 
-Expected final state: port closed, built-in LED off, motor output disabled,
-and no motor command sent. Full details are in
-[`docs/TEST_01_GUIDE.md`](docs/TEST_01_GUIDE.md).
+For offline checks, use `--mock` instead of `--live`, or run
+`python -m pytest -q arduino/tests`. The staged Test 2, Test 3, and Test 4
+scripts remain available; see `arduino/docs/TEST_02_GUIDE.md`,
+`arduino/docs/TEST_03_GUIDE.md`, and `arduino/docs/TEST_04_GUIDE.md`.
+Firmware upload commands and pin details are in `arduino/docs/FIRMWARE.md`.
 
-## Modes
-
-Every script supports `--validate-only`, `--mock`, `--dry-run`, `--live`,
-`--config PATH`, and `--list-ports`. Motion-capable scripts also support
-`--preflight-only`. With no mode flag, behavior is validation-only and opens
-no hardware endpoint. `--live` and `--mock` are mutually exclusive.
-
-Examples:
-
-```powershell
-conda activate ai
-python arduino\scripts\test_01_arduino_connection.py --mock --config arduino\configs\arduino.example.yaml
-python arduino\scripts\test_02_unloaded_motor.py --preflight-only --config arduino\configs\arduino.example.yaml
-python arduino\scripts\test_03_needle_axis.py --mock --config arduino\configs\arduino.example.yaml
-python arduino\scripts\test_04_integrated_system.py --mock --preflight-only --config arduino\configs\integrated_hello_world.example.yaml
-```
-
-Test 4A connection-only live command, after configuring the three endpoints:
-
-```powershell
-conda activate ai
-python arduino\scripts\test_04_integrated_system.py --config arduino\configs\integrated_hello_world.local.yaml --live --preflight-only
-```
-
-Test 4A sends only Arduino `PING`/`STATUS`, Chemyx `help`, and NMR
-`PingSpectrometer`. It performs no axis move, pump start, or NMR acquisition.
-
-## Durable evidence
-
-Mock and live executions write `runs/arduino/<run_id>/result.json` plus an
-event log. Results include execution mode, Git commit, firmware version,
-hardware configuration fingerprint, operator confirmations, and final known
-state. Only matching successful **live** records can satisfy later live-test
-prerequisites. A mock claim or an edited filename cannot unlock a live test.
-
-## Validation
-
-```powershell
-conda activate ai
-python -m pytest arduino\tests -q
-```
-
-See [system overview](docs/SYSTEM_OVERVIEW.md),
-[required hardware](docs/REQUIRED_HARDWARE_BEFORE_LIVE_MOTION.md), and
-[safety/failure modes](docs/SAFETY_AND_FAILURE_MODES.md).
+This is an attended demonstration, not an unattended production safety system.
+Software bounds cannot prevent a collision after missed steps, unpowered drift,
+or manual movement. Inspect the physical axis after any uncertainty.

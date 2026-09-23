@@ -1,62 +1,36 @@
-# Test 3 Guide: Needle Axis
+# Test 3: supervised needle-axis demonstration
 
-> **LIVE TEST BLOCKED UNTIL TEST 2 AND ALL AXIS HARDWARE PASS.**
+Use only the validated D3 STEP / D4 DIR wiring. No ENABLE connection or limit
+switches are used. A matching live Test 2 result, an inspected connected axis,
+and verified `needle.steps_per_unit` and `needle.up_step_sign` are required.
+The default `needle.min_position: -3` and `needle.max_position: 5` are examples;
+set bounds from the actual physical clearance before live motion.
 
-## Required hardware and configuration
-
-Require a matching successful live Test 2 record; verified signal interface;
-upper/lower NC switches; hard stops; lead, steps/rev, microsteps, steps/mm;
-home backoff; safe UP; conservative DOWN; maximum travel; speed/acceleration;
-emergency disconnect; and proof the vertical axis cannot fall dangerously when
-disabled. Explicitly confirm `motor.connected_to_axis_for_test_03: true`; the
-temporary Test 2 disconnected flag is not reused as evidence of coupling.
-
-## Connections and disconnected components
-
-Connect only per the reviewed enclosed schematic, including both fail-safe NC
-limit circuits. Keep Chemyx fluid movement and NMR acquisition disconnected or
-inactive; they are not part of Test 3.
-
-## Exact commands
-
-Safe now:
+From the repository root:
 
 ```powershell
-conda activate ai
+conda activate air
 python arduino\scripts\test_03_needle_axis.py --config arduino\configs\arduino.local.yaml --preflight-only
 python arduino\scripts\test_03_needle_axis.py --config arduino\configs\arduino.example.yaml --mock
 ```
 
-Future live command is the same script with `--live` and exact confirmation
-`RUN ARDUINO TEST 3`.
-
-Before that motion command, run the no-motion switch preflight with both flags:
+For a live first reference, physically inspect and put the needle at the
+chosen HOME, then deliberately establish `HOME=0`:
 
 ```powershell
-python arduino\scripts\test_03_needle_axis.py --config arduino\configs\arduino.local.yaml --live --preflight-only
+python arduino\scripts\needle_control.py confirm-home --live --config arduino\configs\arduino.local.yaml
 ```
 
-Type `RUN ARDUINO TEST 3 PREFLIGHT`, then activate/hold and release each switch
-as prompted. Five stable samples are required for each state and a durable
-passing record is required by the subsequent motion test. The YAML
-`upper_state_change_tested` and `lower_state_change_tested` fields are notes,
-not substitutes for this observed preflight record.
+The command demands an exact typed confirmation. It sends no movement. If a
+valid saved estimate already exists, inspect that it still matches reality.
+Then run the bounded test:
 
-## Expected output
+```powershell
+python arduino\scripts\test_03_needle_axis.py --config arduino\configs\arduino.local.yaml --live
+```
 
-The operator activates/releases each switch, then the controller homes slowly
-UP, stops at the upper limit, backs off, establishes command home, moves only
-to conservative DOWN and safe UP twice, and finishes stopped at safe UP. Status
-reports command-derived position and both limits. There is no full-travel test;
-hard ceiling is 120 seconds.
-
-## Stop conditions and common problems
-
-Stop if both limits are active, a switch fails to change state, movement goes
-toward an active limit, homing times out, direction is wrong, the axis can fall,
-or any response/connection fails. Never command UP blindly after interrupted
-motion. Inspect wiring, mechanics, and physical location first.
-
-Final safe state: stopped at confirmed commanded safe UP with position known.
-The driver remains enabled when disabling it could allow the vertical axis to
-fall. Any interrupted motion records position uncertain.
+The test returns to software HOME from the saved position, visits logical UP
+and DOWN twice, and ends at UP. There is no limit-switch preflight or physical
+homing. If interrupted, the state becomes uncertain and movement is blocked
+until inspection and a new explicit `confirm-home`. The estimate cannot detect
+stalls or skipped steps. Do not run unattended.

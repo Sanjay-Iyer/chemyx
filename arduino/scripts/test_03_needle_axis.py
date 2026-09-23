@@ -1,4 +1,4 @@
-"""Stage 3: limited homing and two conservative needle DOWN/UP cycles."""
+"""Stage 3: supervised software-HOME and two bounded needle DOWN/UP cycles."""
 
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ from _common import (
     serialized_events,
 )
 
-from arduino.python.config import require_live, test3_limit_preflight_missing, test3_missing
-from arduino.python.protocol import bool_field
+from arduino.python.config import require_live, test3_missing
+from arduino.python.needle_state import TrackedNeedle
 from arduino.python.results import matching_live_result, unresolved_live_motion_failure
 from arduino.python.workflows import HardDeadline, run_test_03, validate_axis_geometry
 
@@ -29,62 +29,23 @@ DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "configs" / "arduino.exam
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Bounded vertical needle-axis hello world")
     add_standard_arguments(parser, motion_capable=True, default_config=DEFAULT_CONFIG)
+    parser.add_argument("--confirm-home", action="store_true", help="After physical inspection, explicitly set software HOME=0")
     return parser
 
 
 def _mock_cfg(cfg: dict) -> dict:
     value = deepcopy(cfg)
     value["firmware"]["motion_enabled"] = True
-    value["firmware"]["limits_enabled"] = True
+    value["firmware"]["limits_enabled"] = False
     value["signal_interface"]["signal_inverted"] = False
-    value["driver"]["enable_active_low"] = True
-    value["limits"].update({"upper_active_low": False, "lower_active_low": False})
+    value["needle"].update({"steps_per_unit": 20, "up_step_sign": 1})
     value["motion"].update(
         {
-            "home_backoff_steps": 100,
-            "safe_up_position_steps": 100,
-            "test_down_position_steps": 500,
-            "maximum_travel_steps": 1000,
-            "maximum_speed_steps_s": 300,
+            "maximum_speed_steps_s": 100,
             "maximum_acceleration_steps_s2": 300,
-            "home_speed_steps_s": 100,
         }
     )
     return value
-
-
-def _interactive_limit_check(controller, deadline) -> None:
-    for name in ("upper", "lower"):
-        for expected, instruction in (
-            (True, f"Activate and hold the {name} normally closed limit switch."),
-            (False, f"Release the {name} limit switch."),
-        ):
-            print(instruction)
-            stable_samples = 0
-            while True:
-                deadline.check("Test 3 limit-switch verification")
-                status = controller.status()
-                if bool_field(status, "limit_up") and bool_field(status, "limit_down"):
-                    raise RuntimeError("Both limit switches appear active")
-                if bool_field(status, f"limit_{name}") is expected:
-                    stable_samples += 1
-                    if stable_samples >= 5:
-                        break
-                else:
-                    stable_samples = 0
-                __import__("time").sleep(min(0.05, deadline.remaining_s))
-
-
-def _mock_limit_check(controller, _deadline) -> None:
-    transport = controller.transport
-    transport.limit_up = True
-    assert bool_field(controller.status(), "limit_up")
-    transport.limit_up = False
-    assert not bool_field(controller.status(), "limit_up")
-    transport.limit_down = True
-    assert bool_field(controller.status(), "limit_down")
-    transport.limit_down = False
-    assert not bool_field(controller.status(), "limit_down")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -95,13 +56,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     mode = execution_mode(args)
     test2_valid = matching_live_result(cfg["results"]["run_root_dir"], "test_02_unloaded_motor", cfg) is not None
-    if mode == "validate_only":
+    if mode == "validate_only" and not args.preflight_only:
         print("Configuration syntax valid. No port was opened.")
         print(f"Live Test 3 missing requirements: {len(test3_missing(cfg, test2_record_valid=test2_valid))}")
         return 0
-    if mode == "dry_run":
+    if mode == "dry_run" and not args.preflight_only:
         print("Test 3 preflight only. No port was opened and no motion occurred.")
-        missing = test3_missing(cfg, test2_record_valid=test2_valid, limit_record_valid=False)
+        missing = test3_missing(cfg, test2_record_valid=test2_valid)
         for item in missing:
             print(f"MISSING: {item}")
         return 0
@@ -109,52 +70,17 @@ def main(argv: list[str] | None = None) -> int:
     failure_context = {"motion_attempted": False}
 
     if args.preflight_only:
-        def preflight_runner(_run_dir):
-            missing = test3_limit_preflight_missing(
-                run_cfg, test2_record_valid=test2_valid or mode == "mock"
-            )
-            if mode == "live":
-                require_live("TEST 3 LIMIT-SWITCH PREFLIGHT", missing)
-                confirm_live("RUN ARDUINO TEST 3 PREFLIGHT")
-            deadline = HardDeadline(min(59.0, run_cfg["arduino"]["overall_timeout_s"]))
-            with controller_session(
-                run_cfg, mode, allow_motion=False, apply_runtime_config=True
-            ) as controller:
-                failure_context["firmware_version"] = controller.identity.get("version")
-                status = controller.status()
-                from arduino.python.workflows import verify_firmware_motion_configuration
+        print("Test 3 preflight: no physical switches or ENABLE connection are used.")
+        missing = test3_missing(run_cfg, test2_record_valid=test2_valid or mode == "mock")
+        for item in missing:
+            print(f"MISSING: {item}")
+        return 0 if mode != "live" or not missing else 1
 
-                verify_firmware_motion_configuration(status, run_cfg, include_limits=True)
-                (_mock_limit_check if mode == "mock" else _interactive_limit_check)(
-                    controller, deadline
-                )
-                final = controller.status()
-                events = serialized_events(controller)
-                return (
-                    final,
-                    controller.identity.get("version"),
-                    {"upper_and_lower_active_release_stable_samples": 5},
-                    events,
-                )
-
-        return run_recorded(
-            test_name="test_03_limit_switch_preflight",
-            mode=mode,
-            cfg=run_cfg,
-            runner=preflight_runner,
-            failure_context=failure_context,
-        )
-
-    limit_valid = matching_live_result(
-        cfg["results"]["run_root_dir"], "test_03_limit_switch_preflight", cfg
-    ) is not None
-
-    def runner(_run_dir):
+    def runner(run_dir):
         if mode == "live":
             missing = test3_missing(
                 run_cfg,
                 test2_record_valid=test2_valid,
-                limit_record_valid=limit_valid,
             )
             if unresolved_live_motion_failure(run_cfg["results"]["run_root_dir"], run_cfg):
                 missing.append("Documented operator inspection after the latest failed live motion")
@@ -170,15 +96,13 @@ def main(argv: list[str] | None = None) -> int:
             apply_runtime_config=True,
         ) as controller:
             failure_context["firmware_version"] = controller.identity.get("version")
-            state = run_test_03(
-                controller,
-                run_cfg,
-                deadline,
-                # The durable preflight is a prerequisite, and the bounded
-                # check is deliberately repeated immediately before motion.
-                verify_limits=_mock_limit_check if mode == "mock" else _interactive_limit_check,
-            )
-            return state, controller.identity.get("version"), {"limit_state_changes_observed": True}, serialized_events(controller)
+            needle = TrackedNeedle(controller, run_cfg, state_path=run_dir / "mock_needle_state.json" if mode == "mock" else None)
+            if mode == "mock" or args.confirm_home:
+                if mode == "live":
+                    confirm_live("CONFIRM NEEDLE AT HOME ZERO")
+                needle.confirm_home(operator_confirmed=True)
+            state = run_test_03(needle, run_cfg, deadline)
+            return state, controller.identity.get("version"), {"software_home_confirmed": mode == "mock" or args.confirm_home}, serialized_events(controller)
 
     return run_recorded(
         test_name="test_03_needle_axis",

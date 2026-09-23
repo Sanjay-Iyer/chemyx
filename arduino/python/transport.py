@@ -32,7 +32,7 @@ class SerialTransport:
         *,
         read_timeout_s: float = 0.1,
         write_timeout_s: float = 1.0,
-        max_line_bytes: int = 512,
+        max_line_bytes: int = 1024,
         serial_factory=None,
     ) -> None:
         self.port = str(port)

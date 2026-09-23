@@ -1,5 +1,5 @@
 /*
-  Canonical runtime-configured needle controller 1.1.0 for Arduino UNO R4
+  Canonical runtime-configured needle controller 1.2.0 for Arduino UNO R4
   Minima. This is the only active sketch in the repository.
 
   Motion remains disabled after every reset until the host applies reviewed
@@ -15,7 +15,7 @@
 
 const char *DEVICE_NAME = "needle_controller";
 const char *BOARD_NAME = "uno_r4_minima";
-const char *FIRMWARE_VERSION = "1.1.0";
+const char *FIRMWARE_VERSION = "1.2.0";
 const char *DRIVER_MODEL = "DM542S";
 
 bool runtimeMotionCommissioned = false;
@@ -34,16 +34,15 @@ bool runtimeIoPolarityLocked = false;
 #define UPPER_LIMIT_ACTIVE_HIGH runtimeUpperLimitActiveHigh
 #define LOWER_LIMIT_ACTIVE_HIGH runtimeLowerLimitActiveHigh
 
-const uint8_t STEP_PIN = 2;
-const uint8_t DIR_PIN = 3;
-const uint8_t ENABLE_PIN = 4;
-const uint8_t UPPER_LIMIT_PIN = 5;
-const uint8_t LOWER_LIMIT_PIN = 6;
+// Validated bridge wiring. ENA is not connected; no limit switches exist.
+const uint8_t STEP_PIN = 3;
+const uint8_t DIR_PIN = 4;
 
 const size_t INPUT_CAPACITY = 96;
 const long MAX_COMMAND_STEPS = 200000L;
 const uint8_t MAX_SERIAL_BYTES_PER_LOOP = 32;
-const unsigned long ABSOLUTE_MAX_SPEED_STEPS_S = 5000UL;
+// Preserve the proven bridge's 5 ms HIGH / 5 ms LOW pulse timing at top speed.
+const unsigned long ABSOLUTE_MAX_SPEED_STEPS_S = 100UL;
 const unsigned long ABSOLUTE_MAX_ACCELERATION_STEPS_S2 = 50000UL;
 const unsigned long DEFAULT_UNLOADED_ACCELERATION_STEPS_S2 = 500UL;
 // Set these three exact values only during axis commissioning. Test 2 can use
@@ -56,8 +55,8 @@ unsigned long runtimeHomeSpeedStepsS = 0UL;
 #define COMMISSIONED_MAX_SPEED_STEPS_S runtimeMaximumSpeedStepsS
 #define COMMISSIONED_MAX_ACCELERATION_STEPS_S2 runtimeMaximumAccelerationStepsS2
 #define COMMISSIONED_HOME_SPEED_STEPS_S runtimeHomeSpeedStepsS
-const unsigned long MIN_STEP_INTERVAL_US = 200UL;
-const unsigned long STEP_HIGH_US = 10UL;
+const unsigned long MIN_STEP_INTERVAL_US = 10000UL;
+const unsigned long STEP_HIGH_US = 5000UL;
 const unsigned long COMMUNICATION_LOSS_MS = 3000UL;
 const unsigned long ABSOLUTE_MOVEMENT_TIMEOUT_MS = 120000UL;
 const unsigned long BLINK_HALF_PERIOD_MS = 120UL;
@@ -92,7 +91,7 @@ bool pendingLimitsReceived = false;
 
 long commandedPositionSteps = 0;  // Command-derived only; no physical encoder exists.
 long remainingSteps = 0;
-int8_t motionDirection = 0;       // Positive is DOWN, negative is UP.
+int8_t motionDirection = 0;       // Positive = legacy bridge forward (DIR LOW).
 unsigned long stepIntervalUs = 0;
 float currentSpeedStepsS = 0.0f;
 float targetSpeedStepsS = 0.0f;
@@ -121,27 +120,16 @@ void setLed(bool on) {
 }
 
 void setDriverEnabled(bool enabled) {
+  // Protocol software arm only: there is no physical ENA connection.
   driverEnabled = enabled && MOTION_COMMISSIONED;
-  bool electricalAsserted = driverEnabled;
-  bool pinLevel = ENABLE_ACTIVE_LOW ? !electricalAsserted : electricalAsserted;
-  digitalWrite(ENABLE_PIN, logicalOutput(pinLevel) ? HIGH : LOW);
-}
-
-bool disabledEnablePinLevel() {
-  bool pinLevel = ENABLE_ACTIVE_LOW ? true : false;
-  return logicalOutput(pinLevel);
 }
 
 bool upperLimitActive() {
-  if (!LIMITS_COMMISSIONED) return false;
-  bool high = digitalRead(UPPER_LIMIT_PIN) == HIGH;
-  return UPPER_LIMIT_ACTIVE_HIGH ? high : !high;
+  return false; // No upper switch is wired.
 }
 
 bool lowerLimitActive() {
-  if (!LIMITS_COMMISSIONED) return false;
-  bool high = digitalRead(LOWER_LIMIT_PIN) == HIGH;
-  return LOWER_LIMIT_ACTIVE_HIGH ? high : !high;
+  return false; // No lower switch is wired.
 }
 
 void printAck(long sequence, const char *command) {
@@ -269,7 +257,8 @@ void beginMovement(long sequence, const char *command, long steps, unsigned long
     }
   }
   printAck(sequence, command);
-  digitalWrite(DIR_PIN, logicalOutput(direction > 0) ? HIGH : LOW);
+  // The proven D3/D4 bridge uses LOW for positive/forward steps.
+  digitalWrite(DIR_PIN, logicalOutput(direction < 0) ? HIGH : LOW);
   remainingSteps = (long)count;
   motionDirection = direction;
   targetSpeedStepsS = (float)speed;
@@ -364,7 +353,7 @@ void serviceMovement() {
     stepHigh = false;
     lastStepEdgeUs = nowUs;
     remainingSteps--;
-    if (positionKnown) commandedPositionSteps += motionDirection;
+    commandedPositionSteps += motionDirection; // Reset on MCU reboot; never an absolute reference.
     if (remainingSteps <= 0) {
       finishMovement();
       return;
@@ -404,6 +393,7 @@ void printStatus(long sequence) {
   Serial.print("DONE ");
   Serial.print(sequence);
   Serial.print(" enabled="); Serial.print(driverEnabled ? "true" : "false");
+  Serial.print(" enable_output_present=false");
   Serial.print(" moving="); Serial.print(moving ? "true" : "false");
   Serial.print(" led="); Serial.print(ledOn ? "on" : "off");
   Serial.print(" homed="); Serial.print(homed ? "true" : "false");
@@ -412,6 +402,7 @@ void printStatus(long sequence) {
   Serial.print(" position_is_commanded_only=true");
   Serial.print(" limit_up="); Serial.print(upperLimitActive() ? "true" : "false");
   Serial.print(" limit_down="); Serial.print(lowerLimitActive() ? "true" : "false");
+  Serial.print(" physical_limits_present=false");
   Serial.print(" motion_commissioned="); Serial.print(MOTION_COMMISSIONED ? "true" : "false");
   Serial.print(" limits_commissioned="); Serial.print(LIMITS_COMMISSIONED ? "true" : "false");
   Serial.print(" signal_inverted="); Serial.print(DRIVER_SIGNALS_INVERTED ? "true" : "false");
@@ -460,6 +451,7 @@ void handleConfigIo(long sequence, char **savePointer) {
     printError(sequence, "MALFORMED_COMMAND");
     return;
   }
+  if (limits) { printError(sequence, "PHYSICAL_LIMITS_UNAVAILABLE"); return; }
   pendingMotionCommissioned = motion;
   pendingLimitsCommissioned = limits;
   pendingDriverSignalsInverted = signalInverted;
@@ -548,7 +540,6 @@ void handleConfigApply(long sequence, char **savePointer) {
   runtimeMaximumSpeedStepsS = pendingMaximumSpeedStepsS;
   runtimeMaximumAccelerationStepsS2 = pendingMaximumAccelerationStepsS2;
   runtimeHomeSpeedStepsS = pendingHomeSpeedStepsS;
-  digitalWrite(ENABLE_PIN, disabledEnablePinLevel() ? HIGH : LOW);
   digitalWrite(STEP_PIN, logicalOutput(false) ? HIGH : LOW);
   digitalWrite(DIR_PIN, logicalOutput(false) ? HIGH : LOW);
   if (configurationChanged) {
@@ -643,11 +634,7 @@ void handleCommand(char *line) {
   }
   if (strcmp(command, "HOME") == 0) {
     if (strtok_r(NULL, " ", &savePointer) != NULL) { printError(sequence, "MALFORMED_COMMAND"); return; }
-    if (!runtimeConfigured) { printError(sequence, "CONFIG_REQUIRED"); return; }
-    if (!LIMITS_COMMISSIONED || COMMISSIONED_HOME_SPEED_STEPS_S == 0) {
-      printError(sequence, "HOME_NOT_COMMISSIONED"); return;
-    }
-    beginMovement(sequence, "HOME", -MAX_COMMAND_STEPS, COMMISSIONED_HOME_SPEED_STEPS_S, true); return;
+    printError(sequence, "PHYSICAL_HOME_UNAVAILABLE"); return;
   }
   if (strcmp(command, "JOG") == 0 || strcmp(command, "MOVE_ABS") == 0) {
     char *positionText = strtok_r(NULL, " ", &savePointer);
@@ -656,16 +643,7 @@ void handleCommand(char *line) {
     long positionOrSteps = 0, speed = 0;
     if (!parseLongExact(positionText, positionOrSteps) || !parseLongExact(speedText, speed) || speed <= 0) { printError(sequence, "MALFORMED_COMMAND"); return; }
     if (strcmp(command, "MOVE_ABS") == 0) {
-      if (!homed || !positionKnown) { printError(sequence, "NOT_HOMED"); return; }
-      if (COMMISSIONED_MAX_TRAVEL_STEPS <= 0 || positionOrSteps < 0 || positionOrSteps > COMMISSIONED_MAX_TRAVEL_STEPS) { printError(sequence, "OUT_OF_RANGE"); return; }
-      if (positionOrSteps == commandedPositionSteps) {
-        printAck(sequence, "MOVE_ABS");
-        Serial.print("DONE "); Serial.print(sequence);
-        Serial.print(" position_steps="); Serial.print(commandedPositionSteps);
-        Serial.println(" position_known=true no_motion=true");
-        return;
-      }
-      beginMovement(sequence, "MOVE_ABS", positionOrSteps - commandedPositionSteps, (unsigned long)speed, false);
+      printError(sequence, "USE_HOST_LOGICAL_POSITION"); return;
     } else {
       beginMovement(sequence, "JOG", positionOrSteps, (unsigned long)speed, false);
     }
@@ -709,13 +687,6 @@ void setup() {
   digitalWrite(DIR_PIN, logicalOutput(false) ? HIGH : LOW);
   pinMode(STEP_PIN, OUTPUT);
   pinMode(DIR_PIN, OUTPUT);
-  // Preload the disabled latch before changing pin direction to avoid a brief
-  // active-low enable pulse. The reviewed interface must also provide an
-  // external fail-safe bias while the MCU is resetting or unpowered.
-  digitalWrite(ENABLE_PIN, disabledEnablePinLevel() ? HIGH : LOW);
-  pinMode(ENABLE_PIN, OUTPUT);
-  pinMode(UPPER_LIMIT_PIN, INPUT_PULLUP);
-  pinMode(LOWER_LIMIT_PIN, INPUT_PULLUP);
   setLed(false);
   setDriverEnabled(false);
   Serial.begin(115200);
@@ -727,9 +698,6 @@ void setup() {
 
 void loop() {
   serviceSerial();
-  if (MOTION_COMMISSIONED && LIMITS_COMMISSIONED && upperLimitActive() && lowerLimitActive() && !faultLatched) {
-    latchFault("BOTH_LIMITS_ACTIVE", true);
-  }
   serviceMovement();
   serviceBlink();
 }

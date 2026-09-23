@@ -1,7 +1,7 @@
 # Live commissioning checklist: three-instrument Si6 workflow
 
 Status on 2026-09-22: **software, mock, and offline-bundle verified on the home
-laptop; not live-hardware verified.** Firmware 1.1.0 compiles with the bundled
+laptop; not live-hardware verified.** Firmware 1.2.0 requires a fresh compile with the bundled
 toolchain but has not been uploaded. The integrated workflow has never
 contacted the Arduino, Chemyx, or NMR.
 
@@ -53,68 +53,43 @@ transferred copy.
 
 ## A. Arduino and needle
 
-Pin map for firmware 1.1.0: D2 STEP, D3 DIR, D4 ENABLE, D5 upper limit (NC),
-D6 lower limit (NC). Positive steps move DOWN (toward D6); homing moves UP to
-D5. Guides: `arduino\docs\TEST_01_GUIDE.md` through `TEST_03_GUIDE.md`.
+The active firmware is 1.2.0: **D3 STEP, D4 DIR only**. Keep the already-working
+wiring and driver settings. There is no ENABLE connection or physical upper or
+lower switch. Python HOME=0 and positions are software estimates, not encoder
+or physical homing measurements. See `arduino/docs/FIRMWARE.md`.
 
-- [ ] **A1 Wiring review, all power off.** Trace D2, D3, D4 through the reviewed
-  signal interface to the DM542S PUL, DIR, and ENA inputs, and D5/D6 to the
-  normally closed switches (`arduino\docs\HARDWARE_SCHEMATIC.md`). Record the
-  interface, driver switch settings, motor data, limit polarity, fuse, hard
-  stops, and emergency disconnect in `arduino.local.yaml`. Software lists what is
-  still missing:
-  `python arduino\scripts\test_02_unloaded_motor.py --config arduino\configs\arduino.local.yaml --preflight-only`
-- [ ] **A2 Compile** (already proven at home), from a repository path of at most
-  50 characters:
+- [ ] **A1 Wiring review, all power off.** Confirm the existing D3/D4 and
+  signal-return connections, 24 V power disconnect, and safe travel space.
+  Record `signal_interface.wiring_reviewed: true`; do not add wires.
+- [ ] **A2 Compile offline:**
   `powershell -ExecutionPolicy Bypass -File offline\arduino_toolchain.ps1 -Compile`
-- [ ] **A3 Upload** only after A1 is signed off, with 24 V off:
+- [ ] **A3 Upload with 24 V off and the actual Arduino COM port:**
   `powershell -ExecutionPolicy Bypass -File offline\arduino_toolchain.ps1 -Upload -Port COMx`.
-  If dfu-util finds no device, run the core's `post_install.bat` once as
-  Administrator (docs/OFFLINE_SETUP.md, section 1).
-- [ ] **A4 Test 1, connection only:**
-  `python arduino\scripts\test_01_arduino_connection.py --config arduino\configs\arduino.local.yaml --live`.
-  READY must report `device=needle_controller board=uno_r4_minima version=1.1.0`.
-- [ ] **A5 Test 2, motor mechanically decoupled** (`--preflight-only`, then
-  `--live`, confirmation `RUN ARDUINO TEST 2`). Verify STEP (commanded steps
-  rotate the shaft), DIR (the two directions differ), ENABLE polarity (shaft
-  holds only when enabled), and STOP (Ctrl+C during a move stops the motor at
-  once and the host reports the position as uncertain). Verify that cutting the
-  24 V emergency disconnect stops the motor.
-- [ ] **A6 Test 3 limit preflight, no motion:**
-  `python arduino\scripts\test_03_needle_axis.py --config arduino\configs\arduino.local.yaml --live --preflight-only`
-  (`RUN ARDUINO TEST 3 PREFLIGHT`). Hold and release each switch as prompted.
-  Confirm that D5 is the upper switch and D6 the lower (not swapped), and that
-  an open circuit reads active (NC fail-safe).
-- [ ] **A7 Test 3 needle axis** (`--live`, `RUN ARDUINO TEST 3`). Homing moves
-  UP, stops on D5, and backs off. The needle visits the conservative test DOWN
-  and safe UP twice and finishes at safe UP.
-- [ ] **A7b Bench fault checks** (not automated by Test 3; unloaded or at homing
-  speed). For each fault, confirm that the host reports it and that later
-  motion is refused until the fault is deliberately cleared: lower switch
-  actuated during a DOWN move (`LIMIT_DOWN_ACTIVE`); both switches open
-  (`BOTH_LIMITS_ACTIVE`); USB unplugged during a move (`COMMUNICATION_LOSS`).
-- [ ] **A8 Determine the production `sample_down_position_steps`.** Test 3 proves
-  only the conservative test DOWN; never reuse it silently. Install the real
-  flask (same septum, stir bar, and planned fill volume of solvent, stirring
-  on). Starting from the known-safe test DOWN, increase
-  `sample_down_position_steps` in small steps (using `steps_per_mm`). After each
-  change, run `01 --live --needle-only` (section D) and inspect the tip. Accept
-  a value only when both hold:
-  - the inlet stays submerged after 5 mL of liquid has been withdrawn, with
-    the stirring vortex present; and
-  - there is agreed clearance above the stir bar and flask bottom.
+- [ ] **A4 Test 1 connection:** run `arduino/scripts/test_01_arduino_connection.py
+  --config arduino/configs/arduino.local.yaml --live`. READY must report 1.2.0.
+- [ ] **A5 Test 2 decoupled motor:** run its preflight, then attended live
+  forward/reverse test. Verify actual shaft direction and the physical 24 V
+  disconnect. Firmware ENABLE/DISABLE only arm software; they do not switch
+  the unwired driver ENA input.
+- [ ] **A6 Calibrate logical movement:** physically verify the steps for one
+  safe needle increment and whether legacy positive/forward is UP. Set
+  `needle.steps_per_unit` and `needle.up_step_sign`; review min/max and named
+  UP/DOWN positions against real clearance. Example bounds are not safety
+  evidence.
+- [ ] **A7 Establish software HOME:** physically inspect and place the needle
+  at the chosen reference, then run `needle_control.py confirm-home --live`.
+  Inspect any existing saved state after a restart; if the axis could have
+  moved independently, reconfirm HOME.
+- [ ] **A8 Test 3 axis:** run its no-motion `--preflight-only`, then an
+  attended `--live` cycle. It returns to software HOME and visits configured
+  UP/DOWN twice. Inspect travel and immediately stop on unexpected direction.
+- [ ] **A9 Validate real flask UP/DOWN clearances:** the inlet must remain
+  submerged during liquid withdrawal and clear of stir bar/bottom. At UP,
+  confirm intended headspace/tip position. Record the reviewed settings and
+  operator/date in the local YAML or run notes. Reinspect after any change.
 
-  At safe UP, the tip must sit where the gas exchanges are intended. The 8 mL
-  initial withdrawal and the 5 mL/5 mL cleanup happen at UP; if the reaction
-  must stay under N2, UP must keep the tip in the N2 headspace, below the
-  septum.
-- [ ] **A9 Record** the final UP and DOWN values, who reviewed them, and the
-  date in `arduino.local.yaml`. Changing either value later repeats A8.
-
-Motor heating: the driver stays enabled, holding current, for the whole
-experiment; nothing disables it between cycles. Check motor and driver
-temperature during F, and review the DM542S standstill-current setting and the
-`vertical_axis_safe_when_disabled` answer.
+This setup is supervised-only. Software bounds and STOP do not replace physical
+limit switches or the existing driver-power disconnect for unattended use.
 
 ## B. Chemyx pump (independent)
 
@@ -172,8 +147,8 @@ connection-only preflight (`arduino\docs\TEST_04_GUIDE.md`).
 
 | Mode | Instruments required | Physical action | Expected PASS lines |
 |---|---|---|---|
-| `--needle-only` | Arduino and Chemyx (needle motion is interlocked to a confirmed Chemyx STOP) | home, UP, DOWN, UP | Arduino connection, Needle homing, Needle UP, Needle DOWN, Needle UP again |
-| `--pump-only` | Arduino and Chemyx | home and UP, then withdraw 0.5 mL and infuse 0.5 mL at UP (`three_instrument.test_*_ml`) | Chemyx connection, Needle homing, Chemyx withdraw, Chemyx infuse |
+| `--needle-only` | Arduino and Chemyx (needle motion is interlocked to a confirmed Chemyx STOP) | return to software HOME, UP, DOWN, UP | Arduino connection, software HOME return, Needle UP, Needle DOWN, Needle UP again |
+| `--pump-only` | Arduino and Chemyx | return to software HOME and UP, then withdraw 0.5 mL and infuse 0.5 mL at UP (`three_instrument.test_*_ml`) | Chemyx connection, software HOME return, Chemyx withdraw, Chemyx infuse |
 | `--nmr-only` | NMR only (no serial port opened) | one acquisition of the current flow-cell contents | NMR connection, NMR acquisition, NMR data retrieval, NMR processing, NMR analysis |
 | `--process-only --input-dx <file>` | none | none | NMR processing, NMR analysis |
 
@@ -258,7 +233,7 @@ All values live in YAML; no code changes are needed.
 | Plateau rule | `analysis.plateau_*` | +5 % / -2 %, 3 intervals | Needs four valid measurements in the same stage |
 | Pump rate and volumes | `pump.rate_ml_min`, `workflow.cycle` | 5 mL/min; 8/5/13/5/5 mL | Cycle must return to 0 mL net (enforced) |
 | Repeat rounds | `workflow.repeat_addition_rounds` | 1 | |
-| Sample DOWN | `arduino.local.yaml` `motion.sample_down_position_steps` | unset | A8 |
+| Sample DOWN | `arduino.local.yaml` `needle.down_position` | -1 example only | A9 |
 
 Cycle-time estimate at the current settings: withdraw 8 mL (98 s), withdraw
 5 mL (62 s), settle (300 s), infuse 13 mL (158 s), withdraw 5 mL (62 s), and
@@ -301,8 +276,8 @@ come on top, so expect roughly 14-15 min. F replaces this with a measured value.
 
 ## Known limits of the software checks
 
-- Needle position is the controller's commanded position plus limit and fault
-  state, not an independent measurement.
+- Needle position is a persisted, commanded software estimate. There are no
+  physical limit inputs or encoder; missed steps and manual drift are invisible.
 - Pump "idle" is the Chemyx STOP acknowledgement after a timed move. There is
   no delivered-volume or status feedback.
 - The plateau decision uses only the tracked resonance in 5.70-5.90 ppm.

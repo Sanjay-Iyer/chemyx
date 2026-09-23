@@ -1,33 +1,25 @@
-# System Overview
+# Needle controller architecture
 
-The subsystem is intentionally isolated under `arduino/`; production Chemyx,
-NMR, and experiment scripts are not changed.
+The UNO R4 sketch accepts sequence-numbered serial `PING`, `STATUS`, `JOG`,
+`STOP`, and runtime configuration commands. Its sole motor GPIO outputs are
+D3 STEP and D4 DIR. It bounds steps, speed, acceleration, elapsed motion time,
+and serial responses. Firmware pulse counts reset with the board; they are not
+the persistent needle position.
 
-## Reused repository interfaces
+`arduino/python/controller.py` verifies READY identity and ACK/DONE sequencing
+and sends the existing JOG command. `arduino/python/needle_state.py` adds
+software HOME=0, UP-positive logical movement, configurable bounds and
+step-per-unit conversion, an atomic durable JSON state, explicit manual HOME
+confirmation, and fail-closed uncertainty on interrupted movement. It is
+used by the needle operator CLI, staged Test 3/4B, and both three-instrument
+Si6 entry points. The same COM-port process lock prevents competing live
+sessions. Chemyx and NMR implementations are unchanged.
 
-- Chemyx: `chemyx_lab.instruments.chemyx.Pump` and its existing mock serial.
-- NMR: `chemyx_lab.instruments.nmr.NmrRpcClient`; Test 4A uses the existing
-  `ping()` readiness call, while 4B delegates acquisition to the existing
-  `run_nmr_acquisition()` path and existing experiment configuration.
-- Configuration: `chemyx_lab.config.read_mapping_config`, machine YAML,
-  `load_pump_config`, and `load_nmr_settings`.
-- Persistence: atomic JSON and Git commit discovery from the runtime journal
-  utilities; run folders follow the repository's timestamped-run convention.
+Staged Test 1 checks Arduino serial/LED only. Test 2 exercises a decoupled
+motor. Test 3 runs supervised software-position UP/DOWN cycles. Test 4A checks
+all three connections; Test 4B uses the tracked needle in a sequential pump
+and NMR diagnostic. Matching prior live result records remain a staged-test
+requirement, but no ENABLE/switch commissioning or switch preflight exists.
 
-## Layers
-
-1. Firmware owns fail-safe pins, bounded command input, nonblocking pulses,
-   limits, movement timeout, communication-loss fault, STOP, and fault latch.
-2. `transport.py` bounds serial lines and read/write time.
-3. `protocol.py` parses READY, ACK, DONE, ERR, and EVENT.
-4. `controller.py` validates identity and sequence IDs and keeps motion denied
-   by default.
-5. `config.py`, prerequisite result records, port collision checks, and the
-   process lock block unsafe live dispatch before opening motion paths.
-6. Four scripts run synchronously; there are no threads, async jobs,
-   multiprocessing, or overlapping instrument commands.
-
-The firmware's `commanded_position_steps` is a command-derived estimate, not a
-physical measurement. Without an encoder, completed step commands cannot prove
-physical position or mechanical accuracy.
-
+See `arduino/README.md` and `arduino/docs/FIRMWARE.md` for commands and the
+explicit limits of this supervised-only design.

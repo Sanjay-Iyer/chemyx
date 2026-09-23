@@ -17,7 +17,7 @@ class FakeArduinoTransport:
         scenario: str = "normal",
         device: str = "needle_controller",
         board: str = "uno_r4_minima",
-        version: str = "1.1.0",
+        version: str = "1.2.0",
         homed: bool = False,
         motion_commissioned: bool = False,
         limits_commissioned: bool = False,
@@ -110,7 +110,7 @@ class FakeArduinoTransport:
             self.fault = "INJECTED"
             self._rx.append(f"ERR {response_sequence} FAULT_LATCHED")
             return
-        if self.limits_commissioned and self.limit_up and self.limit_down and verb in {"ENABLE", "HOME", "JOG", "MOVE_ABS"}:
+        if self.version != "1.2.0" and self.limits_commissioned and self.limit_up and self.limit_down and verb in {"ENABLE", "HOME", "JOG", "MOVE_ABS"}:
             self.fault = "BOTH_LIMITS_ACTIVE"
             self.position_known = False
             self._rx.append("EVENT FAULT BOTH_LIMITS_ACTIVE")
@@ -202,14 +202,16 @@ class FakeArduinoTransport:
         return " ".join(
             [
                 f"enabled={str(self.enabled).lower()}",
+                "enable_output_present=false",
                 f"moving={str(self.moving).lower()}",
                 f"led={'on' if self.led else 'off'}",
                 f"homed={str(self.homed).lower()}",
                 f"position_known={str(self.position_known).lower()}",
                 f"commanded_position_steps={self.position_steps}",
                 "position_is_commanded_only=true",
-                f"limit_up={str(self.limit_up if self.limits_commissioned else False).lower()}",
-                f"limit_down={str(self.limit_down if self.limits_commissioned else False).lower()}",
+                f"limit_up={str(self.limit_up if self.limits_commissioned and self.version != '1.2.0' else False).lower()}",
+                f"limit_down={str(self.limit_down if self.limits_commissioned and self.version != '1.2.0' else False).lower()}",
+                "physical_limits_present=false",
                 f"fault={self.fault}",
                 f"motion_commissioned={str(self.motion_commissioned).lower()}",
                 f"limits_commissioned={str(self.limits_commissioned).lower()}",
@@ -243,6 +245,9 @@ class FakeArduinoTransport:
         if len(values) != 6 or any(value not in (0, 1) for value in values):
             self._rx.append(f"ERR {sequence} MALFORMED_COMMAND")
             return
+        if values[1]:
+            self._rx.append(f"ERR {sequence} PHYSICAL_LIMITS_UNAVAILABLE")
+            return
         if not self._accept(sequence, "CONFIG_IO"):
             return
         self._pending_io = tuple(bool(value) for value in values)
@@ -265,9 +270,9 @@ class FakeArduinoTransport:
             len(values) != 4
             or any(value < 0 for value in values)
             or values[0] > 200000
-            or values[1] > 5000
+            or values[1] > 100
             or values[2] > 50000
-            or values[3] > 5000
+            or values[3] > 100
         ):
             self._rx.append(f"ERR {sequence} OUT_OF_RANGE")
             return
@@ -320,6 +325,9 @@ class FakeArduinoTransport:
         )
 
     def _home(self, sequence: int) -> None:
+        if self.version == "1.2.0":
+            self._rx.append(f"ERR {sequence} PHYSICAL_HOME_UNAVAILABLE")
+            return
         if not self.enabled:
             self._rx.append(f"ERR {sequence} DRIVER_DISABLED")
             return
@@ -355,16 +363,16 @@ class FakeArduinoTransport:
         except ValueError:
             self._rx.append(f"ERR {sequence} MALFORMED_COMMAND")
             return
-        if steps < 0 and self.limit_up:
+        if self.version != "1.2.0" and steps < 0 and self.limit_up:
             self._rx.append(f"ERR {sequence} LIMIT_UP_ACTIVE")
             return
-        if steps > 0 and self.limit_down:
+        if self.version != "1.2.0" and steps > 0 and self.limit_down:
             self._rx.append(f"ERR {sequence} LIMIT_DOWN_ACTIVE")
             return
-        if steps > 0 and self.limit_up:
+        if self.version != "1.2.0" and steps > 0 and self.limit_up:
             self.limit_up = False
             self._rx.append("EVENT LIMIT_UP INACTIVE")
-        if steps < 0 and self.limit_down:
+        if self.version != "1.2.0" and steps < 0 and self.limit_down:
             self.limit_down = False
             self._rx.append("EVENT LIMIT_DOWN INACTIVE")
         if not self._accept(sequence, command):
@@ -395,14 +403,16 @@ class FakeArduinoTransport:
             if self.maximum_travel_steps <= 0 or not 0 <= target <= self.maximum_travel_steps:
                 self._rx.append(f"ERR {sequence} TRAVEL_LIMIT")
                 return
-        if self.position_known:
-            self.position_steps += steps
+        self.position_steps += steps
         self._rx.append(
             f"DONE {sequence} position_steps={self.position_steps} "
             f"position_known={str(self.position_known).lower()}"
         )
 
     def _move_absolute(self, sequence: int, command: str) -> None:
+        if self.version == "1.2.0":
+            self._rx.append(f"ERR {sequence} USE_HOST_LOGICAL_POSITION")
+            return
         if not self.homed or not self.position_known:
             self._rx.append(f"ERR {sequence} NOT_HOMED")
             return

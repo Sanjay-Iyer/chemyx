@@ -20,6 +20,9 @@ python -B scripts\02_si6_experiment.py --mock
 
 `01` diagnoses the needle, Chemyx, NMR acquisition, retrieval, and processing.
 `02` runs the configured Si6 sampling stages. Both default to validation only;
+the active needle firmware is 1.2.0 on the validated D3 STEP / D4 DIR wiring,
+with supervised Python software-position tracking (see
+[Arduino needle controller](arduino/README.md)).
 `--mock` contacts no hardware and writes to `results/runs/si6_mock/`. `--live`
 requires commissioning, reviewed positions, and an attended confirmation, and
 writes to `results/runs/si6/<stamp>_si6_live` (or `_diagnostic_<test>_live`).

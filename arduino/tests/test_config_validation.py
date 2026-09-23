@@ -18,21 +18,21 @@ def test_example_config_accepts_placeholders(base_config):
     assert base_config["arduino"]["baud_rate"] == 115200
 
 
-def test_test2_blocks_without_signal_interface(base_config):
-    assert "Verified open-collector Arduino-to-stepper-driver interface" in missing_test2(base_config)
+def test_test2_requires_review_of_validated_wiring(base_config):
+    assert "Operator review of validated D3 STEP / D4 DIR wiring" in missing_test2(base_config)
 
 
-def test_test2_blocks_without_motor_current(commissioned_config):
+def test_test2_does_not_require_driver_setting_changes(commissioned_config):
     commissioned_config["motor"]["rated_phase_current_a"] = None
-    assert "Motor rated phase current" in missing_test2(commissioned_config)
+    commissioned_config["driver"]["enable_active_low"] = None
+    assert missing_test2(commissioned_config) == []
 
 
-def test_test3_blocks_without_both_limits(commissioned_config):
+def test_test3_does_not_require_physical_limits(commissioned_config):
     commissioned_config["limits"]["upper_installed"] = False
     commissioned_config["limits"]["lower_installed"] = False
     missing = missing_test3(commissioned_config, test2_record_valid=True)
-    assert "Upper normally closed limit switch installed" in missing
-    assert "Lower normally closed limit switch installed" in missing
+    assert missing == []
 
 
 def test_hardware_fingerprint_changes_with_wiring(commissioned_config):
@@ -46,9 +46,9 @@ def test_test2_fingerprint_survives_axis_coupling_and_limit_install(commissioned
     original = hardware_fingerprint(commissioned_config, "test_02_unloaded_motor")
     changed = deepcopy(commissioned_config)
     changed["motor"]["mechanically_disconnected_for_test_02"] = False
-    changed["limits"]["upper_installed"] = not changed["limits"]["upper_installed"]
+    changed["limits"]["upper_installed"] = True
     assert hardware_fingerprint(changed, "test_02_unloaded_motor") == original
-    assert hardware_fingerprint(changed, "test_03_needle_axis") != hardware_fingerprint(
+    assert hardware_fingerprint(changed, "test_03_needle_axis") == hardware_fingerprint(
         commissioned_config, "test_03_needle_axis"
     )
 
@@ -70,7 +70,7 @@ def test_canonical_example_selects_runtime_firmware():
     path = Path(__file__).resolve().parents[1] / "configs" / "arduino.example.yaml"
     cfg = load_arduino_config(path)
     assert cfg["arduino"]["expected_device"] == "needle_controller"
-    assert cfg["arduino"]["expected_version"] == "1.1.0"
+    assert cfg["arduino"]["expected_version"] == "1.2.0"
     assert cfg["firmware"]["runtime_configurable"] is True
     assert cfg["firmware"]["motion_enabled"] is False
     assert cfg["firmware"]["limits_enabled"] is False

@@ -19,13 +19,13 @@ def commissioned_config(base_config: dict, tmp_path: Path) -> dict:
     cfg = deepcopy(base_config)
     cfg["arduino"]["port"] = "COM_A"
     cfg["firmware"]["motion_enabled"] = True
-    cfg["firmware"]["limits_enabled"] = True
+    cfg["firmware"]["limits_enabled"] = False
     cfg["signal_interface"].update(
         {
-            "installed": True,
-            "interface_type": "verified discrete NPN open collector",
+            "installed": False,
+            "interface_type": "direct_validated_bridge",
             "wiring_reviewed": True,
-            "signal_inverted": True,
+            "signal_inverted": False,
             "dm542_signal_voltage_v": 5,
         }
     )
@@ -45,7 +45,7 @@ def commissioned_config(base_config: dict, tmp_path: Path) -> dict:
             "current_switch_setting": "reviewed-test-setting",
             "microstep_setting": "reviewed-test-setting",
             "microsteps_per_full_step": 4,
-            "enable_active_low": True,
+            "enable_active_low": None,
         }
     )
     cfg["motion"].update(
@@ -56,23 +56,14 @@ def commissioned_config(base_config: dict, tmp_path: Path) -> dict:
             "safe_up_position_steps": 100,
             "test_down_position_steps": 500,
             "maximum_travel_steps": 1000,
-            "maximum_speed_steps_s": 300,
+            "maximum_speed_steps_s": 100,
             "maximum_acceleration_steps_s2": 300,
             "test_02_steps": 200,
-            "test_02_speed_steps_s": 300,
-            "home_speed_steps_s": 100,
+            "test_02_speed_steps_s": 100,
+            "home_speed_steps_s": None,
         }
     )
-    cfg["limits"].update(
-        {
-            "upper_installed": True,
-            "lower_installed": True,
-            "upper_active_low": False,
-            "lower_active_low": False,
-            "upper_state_change_tested": True,
-            "lower_state_change_tested": True,
-        }
-    )
+    cfg["needle"].update({"steps_per_unit": 20, "up_step_sign": 1})
     cfg["safety"].update(
         {
             "fuse_installed": True,

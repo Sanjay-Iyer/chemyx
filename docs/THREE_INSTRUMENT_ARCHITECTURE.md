@@ -24,7 +24,7 @@ been validated on physical instruments. Do not use them for an unattended run.
 
 | Function | Module |
 |---|---|
-| Needle | `arduino.python.controller.NeedleController`; firmware `arduino/firmware/needle_controller/needle_controller.ino` 1.1.0 |
+| Needle | `arduino.python.needle_state.TrackedNeedle` over the serial controller; firmware `arduino/firmware/needle_controller/needle_controller.ino` 1.2.0 |
 | Chemyx pump | `chemyx_lab.instruments.chemyx.Pump`; timed, STOP-confirmed moves in `si6_automated_nmr.run_safe_metered_move` |
 | NMR acquisition and retrieval | `chemyx_lab.workflows.instrument_operations.run_nmr_acquisition` (NMReady iFlow RPC) |
 | NMR processing | `scripts/nmr/process_fid.py` via `si6_automated_nmr.run_process_fid_postprocessing`, restricted to the tracked window |
@@ -83,7 +83,7 @@ enters the time series or the plateau window.
 | Same, but pump or needle state cannot be proven before cleanup | Uncertain | No automatic motion; pump STOP and needle STOP attempted | `recovery_cleanup` not_attempted, `manual_inspection_required` (uncertain): `physical_state_uncertain` |
 | Cleanup itself fails | Uncertain | Stop; no further motion | `recovery_cleanup` failed: `physical_state_uncertain` |
 | Pump STOP unconfirmed or pump error | Uncertain | No needle motion | `physical_state_uncertain` |
-| Needle fault, limit fault, lost Arduino link | Needle position unknown | No pump motion | `physical_state_uncertain` |
+| Needle fault, STOP during movement, lost Arduino link | Needle software position uncertain | No pump motion | `physical_state_uncertain` |
 | Operator Ctrl+C during a cycle, or journal failure | Mid-cycle | No automatic motion | `manual_inspection_required` |
 | Operator declines a reagent checkpoint | At rest | Run ends (exit 3) | `terminal_noncompletion` |
 
@@ -123,11 +123,11 @@ event records the same identity.
 ## Configuration model
 
 - `configs/machines/00_machine.local.yaml`: Chemyx COM port and NMR endpoint.
-- `arduino/configs/arduino.local.yaml`: Arduino COM identity, wiring,
-  commissioning values, limits, and named UP/DOWN positions. Pass it with
-  `--arduino-config` on every live run; both scripts default to the
-  uncommissioned `arduino.example.yaml`. `sample_down_position_steps` stays
-  unset until commissioned; the Test 3 DOWN position is never reused live.
+- `arduino/configs/arduino.local.yaml`: Arduino COM identity, validated D3/D4
+  wiring review, steps per logical unit, UP direction sign, software bounds,
+  and named UP/DOWN positions. Pass it with `--arduino-config` on every live
+  run; both scripts default to the uncommissioned `arduino.example.yaml`.
+  `runs/arduino/needle_state.json` holds the durable software position estimate.
 - `configs/experiments/02_si6_automated_nmr.yaml`: cycle volumes and settle
   time, stage intervals and durations, repeat count, pump rate and syringe, NMR
   settings, tracked window, plateau thresholds, and output folder. Its operator
@@ -152,10 +152,11 @@ The ordered operator procedure is
 [LIVE_COMMISSIONING_CHECKLIST.md](LIVE_COMMISSIONING_CHECKLIST.md). Before
 enabling a live integrated workflow:
 
-1. Electrically commission D2 STEP, D3 DIR, D4 ENABLE, D5 upper limit, and D6
-   lower limit with the required signal interface.
-2. Upload firmware 1.1.0 and verify identity with connection-only Test 1.
-3. Complete the staged Arduino motion tests and commission UP and sample DOWN.
+1. Review the already-validated D3 STEP / D4 DIR wiring. Do not add ENABLE or
+   limit-switch wires or change driver settings for this supervised demo.
+2. Upload firmware 1.2.0 and verify identity with connection-only Test 1.
+3. Complete staged Arduino motion tests; calibrate logical UP/DOWN and
+   explicitly confirm software HOME after physical inspection.
 4. Verify the Chemyx and NMR independently.
 5. Run Level 1 live, then one short attended Level 2 cycle, before any
    multi-hour run.

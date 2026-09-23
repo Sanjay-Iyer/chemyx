@@ -9,7 +9,7 @@ def test_one_active_runtime_configured_firmware():
     source = sketches[0].read_text(encoding="utf-8")
     assert "COMMERCIAL_RUNTIME_CONFIG" not in source
     assert 'const char *DEVICE_NAME = "needle_controller";' in source
-    assert 'const char *FIRMWARE_VERSION = "1.1.0";' in source
+    assert 'const char *FIRMWARE_VERSION = "1.2.0";' in source
     for command in (
         "CONFIG_IO",
         "CONFIG_LIMITS",

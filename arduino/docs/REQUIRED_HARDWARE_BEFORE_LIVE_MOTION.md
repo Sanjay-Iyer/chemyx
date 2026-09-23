@@ -1,39 +1,22 @@
-# Required Hardware Before Live Motion
+# Supervised D3/D4 demo prerequisites
 
-## Before Test 2
+Do not add wiring or change DM542S switch settings. Review and record the
+already-working D3 STEP / D4 DIR wiring, the 24 V driver-power disconnect, and
+the actual free movement of the axis before commanding a live move.
 
-- Verified open-collector/open-drain Arduino-to-DM542T interface and exact type.
-- Interface-specific wiring diagram and completed review.
-- Confirmed DM542T 5 V signal-selector position and explicit inversion.
-- Exact NEMA 17 model, datasheet phase current, and identified coil pairs.
-- Exact 24 V supply current rating.
-- Recorded DM542T current and microstep switch settings.
-- Numeric microsteps-per-full-step matching those switches; Test 3 recomputes
-  `steps_per_mm = full_steps_per_revolution * microsteps_per_full_step / lead`.
-- Fuse, professionally completed wiring, and an emergency driver-power
-  disconnect.
-- Motor mechanically disconnected from the needle axis.
-- Operator confirmation that the unloaded shaft can rotate safely.
-- Firmware compile-time motion commissioning enabled only after this review,
-  with the matching YAML flag set true.
+The current software requires **no ENABLE wire and no upper/lower limit
+switches**. The staged unloaded Test 2 still requires a mechanically decoupled
+motor and an operator who can safely observe its shaft. Test 3 requires an
+inspected connected needle axis and a prior matching Test 2 result. Configure
+and physically verify `needle.steps_per_unit`, `needle.up_step_sign`,
+`needle.min_position`, `needle.max_position`, and the named UP/DOWN positions.
+Do not copy a guessed calibration from an example file. The old 90-degree =
+200-step bench example is evidence of a motor move, not evidence of safe
+needle travel.
 
-## Additional items before Test 3
-
-- A successful matching live Test 2 result record.
-- Upper and lower normally closed limit switches.
-- Interactive active/released verification of both switches.
-- Mechanical hard stops.
-- Verified lead-screw lead, motor steps/revolution, microsteps, and calculated
-  steps/mm.
-- Verified safe UP, conservative test DOWN, and maximum travel positions.
-- Conservative speed/acceleration and home backoff.
-- Documented emergency power disconnect.
-- Evidence the vertical mechanism cannot fall dangerously when holding torque
-  is removed.
-
-Test 4B additionally requires matching live Tests 1-3 and Test 4A, explicit
-selection of approved opposite-direction/equal-volume pump actions from the
-existing experiment YAML, the existing configured 1D NMR diagnostic, positive
-settling delays, expected artifact suffix, and continuity since Test 3. Null or
-false values block live dispatch, and the whole plan must fit its pre-action
-runtime budget.
+If no trusted state file exists, physically place/inspect the needle at the
+chosen HOME, then run explicit `confirm-home`. A restart reloads the saved
+estimate; if the axis may have been moved manually or while unpowered,
+reinspect and confirm HOME again. For a supervised demonstration only: there
+is no physical homing or collision protection, and software limits are not a
+substitute for hardware protection in unattended operation.
