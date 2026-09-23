@@ -2,8 +2,8 @@
 # process_fid.py merges this over the tracked configs/nmr/analysis.yaml.
 input:
   paths:
-    - results/raw/nmr/REPLACE_WITH_EXISTING_DATASET_DIRECTORY
+    - results/raw/nmr/06-09-26 # Existing example dataset; update for this laptop.
 
 output:
   directory: results/processed/nmr # Change if this laptop uses another path
-  run_name: null
+  run_name: null # Optional: null lets the processor name each run automatically.

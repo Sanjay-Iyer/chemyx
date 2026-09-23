@@ -1,7 +1,8 @@
 # Full example for Test 4. All motion-related placeholders intentionally block
 # live Test 4B. Test 4A needs only the Arduino endpoint and valid machine config.
+# COM3 appeared as the Arduino on the 2026-09-23 home laptop; verify it here.
 arduino:
-  port: null
+  port: COM3 # Update if this laptop assigns the Arduino another COM port.
   baud_rate: 115200
   expected_device: needle_controller
   expected_board: uno_r4_minima
@@ -12,13 +13,13 @@ arduino:
   command_timeout_s: 10.0
   overall_timeout_s: 59.0
   fingerprint:
-    vid: null
-    pid: null
-    serial_number: null
-    manufacturer: null
+    vid: 0x2341 # Observed Arduino USB VID on home laptop; verify per device.
+    pid: 0x0069 # Observed Arduino USB PID on home laptop; verify per device.
+    serial_number: null # Optional; do not guess another device's serial.
+    manufacturer: null # Optional; do not guess this string.
 
 firmware:
-  motion_enabled: false
+  motion_enabled: false # Arm only after supervised wiring/motion review.
   limits_enabled: false
   runtime_configurable: true
   version: 1.2.0
@@ -26,7 +27,7 @@ firmware:
 signal_interface:
   installed: false
   interface_type: direct_validated_bridge
-  wiring_reviewed: false
+  wiring_reviewed: false # Confirm the actual D3 STEP / D4 DIR wiring.
   signal_inverted: false
   dm542_signal_voltage_v: null
 
@@ -49,24 +50,24 @@ driver:
 
 motion:
   # Firmware 1.2.0 preserves the proven bridge timing: at most 100 steps/s.
-  maximum_speed_steps_s: null
-  maximum_acceleration_steps_s2: null
-  test_02_steps: null
-  test_02_speed_steps_s: null
+  maximum_speed_steps_s: null # Verify safe axis speed; firmware cap is 100.
+  maximum_acceleration_steps_s2: null # Verify on the actual motor/axis.
+  test_02_steps: null # Choose only with motor mechanically unloaded.
+  test_02_speed_steps_s: null # Verify unloaded speed; firmware cap is 100.
 
 needle:
-  min_position: -3
-  max_position: 5
+  min_position: -3 # Example logical bound, NOT a verified physical limit.
+  max_position: 5 # Example logical bound, NOT a verified physical limit.
   home_position: 0
-  up_position: 1
-  down_position: -1
+  up_position: 1 # Verify physical clearance before moving here.
+  down_position: -1 # Verify physical clearance before moving here.
   steps_per_unit: null # physically verify before live motion
   up_step_sign: null # +1 if bridge-forward is UP, otherwise -1
-  state_path: runs/arduino/needle_state.json
+  state_path: runs/arduino/needle_state.json # Local software estimate; never copy between rigs.
 
 safety:
   fuse_installed: false
-  emergency_disconnect_documented: false
+  emergency_disconnect_documented: false # Confirm accessible 24 V disconnect first.
   mechanical_hard_stops_installed: false
   vertical_axis_safe_when_disabled: null
   hard_runtime_limit_s: 120
@@ -77,12 +78,12 @@ safety:
 integrated:
   machine_config_path: configs/machines/00_machine.local.yaml
   experiment_config_path: configs/experiments/02_si6_automated_nmr.yaml
-  pump_action_cycle_index: null
-  pump_return_cycle_index: null
-  post_motion_settle_s: null
-  post_pump_settle_s: null
-  nmr_diagnostic: null
-  expected_nmr_artifact_suffix: null
+  pump_action_cycle_index: null # Select only after reviewing the real liquid path.
+  pump_return_cycle_index: null # Select a physically valid opposite return.
+  post_motion_settle_s: null # Confirm required physical settling time.
+  post_pump_settle_s: null # Confirm required physical settling time.
+  nmr_diagnostic: null # Confirm an available instrument diagnostic.
+  expected_nmr_artifact_suffix: null # Confirm the actual NMR output type.
 
 results:
   run_root_dir: runs/arduino

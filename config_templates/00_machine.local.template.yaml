@@ -1,14 +1,14 @@
 # Copy to configs/machines/00_machine.local.yaml on each computer.
-# Fill in only verified endpoints. Null deliberately avoids using a historical
-# COM port or NMR address on a different laptop.
+# COM6 and 169.254.30.54 were used on the earlier work-laptop rig. They are
+# examples, NOT proof of this laptop's endpoints. Verify both before live use.
 chemyx:
-  serial_port: null # REQUIRED for live pump use: verify the pump's COM port
+  serial_port: "COM6" # Update to this laptop's verified Chemyx COM port.
   baud_rate: 115200 # VERIFY against the pump configuration
   timeout_seconds: 2.0
   response_delay_seconds: 0.2
 
 nmr:
-  host: null # REQUIRED for live NMR use: verify IP address or hostname
+  host: "169.254.30.54" # Update to this rig's verified NMR address.
   port: 5000 # VERIFY against the NMR RPC service
   scheme: http
   timeout_seconds: 10.0
@@ -16,7 +16,7 @@ nmr:
   max_wait_seconds: 300.0
 
 valve:
-  serial_port: null # Optional: only set if the separate valve is installed
+  serial_port: null # Optional; leave unset unless the separate valve is installed.
   baud_rate: 19200
   positions: 2
   timeout_seconds: 1.0

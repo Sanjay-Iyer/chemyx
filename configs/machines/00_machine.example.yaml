@@ -21,7 +21,7 @@ nmr:
   max_wait_seconds: 300.0
 
 valve:
-  serial_port: "REPLACE_WITH_VALVE_COM_PORT"
+  serial_port: null # Optional; set only after identifying the separate valve's COM port.
   baud_rate: 19200
   positions: 2
   timeout_seconds: 1.0

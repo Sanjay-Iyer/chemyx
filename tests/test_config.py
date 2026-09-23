@@ -165,19 +165,37 @@ def test_checked_in_yaml_templates_have_no_duplicate_keys():
         yaml.load(path.read_text(encoding="utf-8"), Loader=StrictLoader)
 
 
-def test_new_laptop_yaml_templates_load_with_their_runtime_parsers():
+def test_new_laptop_yaml_templates_load_with_their_runtime_parsers(tmp_path):
+    from shutil import copyfile
+
     from arduino.python.config import load_arduino_config
+    from arduino.python.discovery import PortInfo, resolve_arduino_port
 
     root = config.REPO_ROOT / "config_templates"
-    arduino = load_arduino_config(root / "arduino.local.template.yaml")
+    copied_arduino = tmp_path / "arduino.local.yaml"
+    copyfile(root / "arduino.local.template.yaml", copied_arduino)
+    arduino = load_arduino_config(copied_arduino)
     integrated = load_arduino_config(root / "integrated_hello_world.local.template.yaml")
     machine = config.load_machine_config(root / "00_machine.local.template.yaml")
     analysis = config.read_mapping_config(root / "analysis.local.template.yaml", "NMR local template")
 
-    assert arduino["arduino"]["port"] is None
+    assert arduino["arduino"]["port"] == "COM3"
+    assert arduino["arduino"]["fingerprint"] == {
+        "vid": 0x2341,
+        "pid": 0x0069,
+        "serial_number": None,
+        "manufacturer": None,
+    }
+    selected = resolve_arduino_port(
+        arduino["arduino"]["port"],
+        arduino["arduino"]["fingerprint"],
+        ports=[PortInfo(device="COM3", vid=0x2341, pid=0x0069)],
+    )
+    assert selected.device == "COM3"
     assert arduino["needle"]["steps_per_unit"] is None
     assert arduino["needle"]["up_step_sign"] is None
     assert integrated["integrated"]["machine_config_path"] == "configs/machines/00_machine.local.yaml"
-    assert machine.chemyx.serial_port is None
-    assert machine.nmr.host is None
-    assert analysis["input"]["paths"]
+    assert integrated["arduino"]["fingerprint"] == arduino["arduino"]["fingerprint"]
+    assert machine.chemyx.serial_port == "COM6"
+    assert machine.nmr.host == "169.254.30.54"
+    assert analysis["input"]["paths"] == ["results/raw/nmr/06-09-26"]
