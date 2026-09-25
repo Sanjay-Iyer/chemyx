@@ -33,6 +33,8 @@ class CommandResult:
     command: str
     fields: dict[str, str]
     detail: str = ""
+    ack_raw: str = ""
+    done_raw: str = ""
 
 
 class NeedleController:
@@ -122,7 +124,7 @@ class NeedleController:
             self.transport.close()
         self._opened_at = None
 
-    def _validate_identity(self, fields: dict[str, str]) -> None:
+    def _validate_identity(self, fields: dict[str, str], source: str = "READY") -> None:
         required = {"device": self.expected_device, "board": self.expected_board}
         if self.expected_version is not None:
             required["version"] = self.expected_version
@@ -130,10 +132,10 @@ class NeedleController:
             actual = fields.get(field)
             if actual != expected:
                 raise IdentityMismatch(
-                    f"READY {field} mismatch: expected {expected!r}, received {actual!r}"
+                    f"{source} {field} mismatch: expected {expected!r}, received {actual!r}"
                 )
         if not fields.get("version"):
-            raise IdentityMismatch("READY did not include a firmware version")
+            raise IdentityMismatch(f"{source} did not include a firmware version")
 
     def _deadline(self, duration_s: float) -> float:
         deadline = time.monotonic() + max(0.01, float(duration_s))
@@ -184,6 +186,7 @@ class NeedleController:
             dispatch_callback,
         )
         ack_seen = False
+        ack_raw = ""
         while time.monotonic() < deadline:
             response = self._read_response(deadline)
             if response is None:
@@ -209,6 +212,7 @@ class NeedleController:
                         f"expected verb {verb!r}, received {response.command!r}"
                     )
                 ack_seen = True
+                ack_raw = response.raw
                 continue
             if response.kind == "DONE":
                 if not ack_seen:
@@ -217,7 +221,7 @@ class NeedleController:
                     "arduino_command_done",
                     extra={"sequence": sequence, "command": normalized, "fields": response.fields},
                 )
-                return CommandResult(sequence, normalized, response.fields, response.detail)
+                return CommandResult(sequence, normalized, response.fields, response.detail, ack_raw, response.raw)
         if not ack_seen:
             raise AckTimeout(f"Timed out waiting for ACK {sequence} {normalized}")
         raise DoneTimeout(f"Timed out waiting for DONE {sequence} {normalized}")
@@ -252,6 +256,17 @@ class NeedleController:
         if result.detail.upper() != "PONG" and result.fields.get("reply", "").upper() != "PONG":
             raise ProtocolError(f"PING did not return PONG: {result}")
         return result
+
+    def identify(self) -> dict[str, str]:
+        """Read-only identity query; READY remains mandatory before any command."""
+        fields = self.command("IDENTITY").fields
+        self._validate_identity(fields, "IDENTITY")
+        if not fields.get("driver"):
+            raise IdentityMismatch("IDENTITY did not include a driver model")
+        for name in ("device", "board", "version"):
+            if fields[name] != self.identity[name]:
+                raise IdentityMismatch(f"IDENTITY {name} differs from READY")
+        return fields
 
     def status(self) -> dict[str, str]:
         fields = self.command("STATUS").fields

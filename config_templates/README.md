@@ -8,6 +8,10 @@ Never overwrite a local file that already contains reviewed settings. An
 offline installer may already have created `00_machine.local.yaml` from the
 older example; inspect it before using any instrument.
 
+After flashing Arduino firmware 1.2.1, set both `arduino.expected_version`
+and `firmware.version` to `1.2.1` in any existing ignored Arduino local YAML.
+Do not replace a reviewed local file with the template just to update version.
+
 ## Copy once
 
 PowerShell commands below create a runtime file only if it is missing:

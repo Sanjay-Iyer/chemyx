@@ -1,5 +1,5 @@
 /*
-  Canonical runtime-configured needle controller 1.2.0 for Arduino UNO R4
+  Canonical runtime-configured needle controller 1.2.1 for Arduino UNO R4
   Minima. This is the only active sketch in the repository.
 
   Motion remains disabled after every reset until the host applies reviewed
@@ -10,12 +10,13 @@
 #include <errno.h>
 #include <ctype.h>
 #include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 const char *DEVICE_NAME = "needle_controller";
 const char *BOARD_NAME = "uno_r4_minima";
-const char *FIRMWARE_VERSION = "1.2.0";
+const char *FIRMWARE_VERSION = "1.2.1";
 const char *DRIVER_MODEL = "DM542S";
 
 bool runtimeMotionCommissioned = false;
@@ -41,6 +42,7 @@ const uint8_t DIR_PIN = 4;
 const size_t INPUT_CAPACITY = 96;
 const long MAX_COMMAND_STEPS = 200000L;
 const uint8_t MAX_SERIAL_BYTES_PER_LOOP = 32;
+const unsigned long USB_HOST_SETTLE_MS = 250UL;
 // Preserve the proven bridge's 5 ms HIGH / 5 ms LOW pulse timing at top speed.
 const unsigned long ABSOLUTE_MAX_SPEED_STEPS_S = 100UL;
 const unsigned long ABSOLUTE_MAX_ACCELERATION_STEPS_S2 = 50000UL;
@@ -65,6 +67,9 @@ const unsigned long HOME_LIMIT_STABLE_MS = 10UL;
 char inputBuffer[INPUT_CAPACITY];
 size_t inputLength = 0;
 bool discardingOversizedLine = false;
+bool serialHostConnected = false;
+bool readyAnnouncedForHost = false;
+unsigned long serialHostConnectedAtMs = 0;
 
 bool driverEnabled = false;
 bool moving = false;
@@ -161,6 +166,39 @@ void printLimitEvent(const char *name, bool active) {
   Serial.print(name);
   Serial.print(" ");
   Serial.println(active ? "ACTIVE" : "INACTIVE");
+}
+
+void printReadyIdentity() {
+  char line[96];
+  snprintf(line, sizeof(line), "READY device=%s board=%s version=%s",
+           DEVICE_NAME, BOARD_NAME, FIRMWARE_VERSION);
+  Serial.println(line);
+}
+
+void serviceSerialConnection() {
+  // UNO R4 Minima's USB Serial becomes true when the CDC host opens the port.
+  // Allow the host's read endpoint to settle before the first USB write.
+  // Announce once per connection, including when setup finished long ago.
+  bool connected = (bool)Serial;
+  if (connected && !serialHostConnected) {
+    serialHostConnected = true;
+    readyAnnouncedForHost = false;
+    serialHostConnectedAtMs = millis();
+    inputLength = 0;
+    discardingOversizedLine = false;
+  }
+  if (connected && !readyAnnouncedForHost &&
+      millis() - serialHostConnectedAtMs >= USB_HOST_SETTLE_MS) {
+    printReadyIdentity();
+    Serial.println("EVENT HOST_CONNECTED");
+    readyAnnouncedForHost = true;
+  } else if (!connected && serialHostConnected) {
+    serialHostConnected = false;
+    readyAnnouncedForHost = false;
+    inputLength = 0;
+    discardingOversizedLine = false;
+    // No event can be delivered safely after the host has disconnected.
+  }
 }
 
 void stopPulseGeneration(bool positionUncertain) {
@@ -552,6 +590,7 @@ void handleConfigApply(long sequence, char **savePointer) {
   pendingIoReceived = false;
   pendingLimitsReceived = false;
   printDone(sequence, "runtime_configured=true enabled=false position_known=false");
+  Serial.println("EVENT CONFIG_APPLIED");
 }
 
 void handleCommand(char *line) {
@@ -588,11 +627,23 @@ void handleCommand(char *line) {
     } else {
       printDone(sequence, positionKnown ? "stopped=true position_known=true" : "stopped=true position_known=false");
     }
+    Serial.print("EVENT STOP_RECEIVED interrupted=");
+    Serial.println(interrupted ? "true" : "false");
     return;
   }
   if (strcmp(command, "PING") == 0) {
     if (strtok_r(NULL, " ", &savePointer) != NULL) { printError(sequence, "MALFORMED_COMMAND"); return; }
     printAck(sequence, "PING"); printDone(sequence, "PONG"); return;
+  }
+  if (strcmp(command, "IDENTITY") == 0) {
+    if (strtok_r(NULL, " ", &savePointer) != NULL) { printError(sequence, "MALFORMED_COMMAND"); return; }
+    printAck(sequence, "IDENTITY");
+    Serial.print("DONE "); Serial.print(sequence);
+    Serial.print(" device="); Serial.print(DEVICE_NAME);
+    Serial.print(" board="); Serial.print(BOARD_NAME);
+    Serial.print(" version="); Serial.print(FIRMWARE_VERSION);
+    Serial.print(" driver="); Serial.println(DRIVER_MODEL);
+    return;
   }
   if (strcmp(command, "STATUS") == 0) {
     if (strtok_r(NULL, " ", &savePointer) != NULL) { printError(sequence, "MALFORMED_COMMAND"); return; }
@@ -691,13 +742,11 @@ void setup() {
   setDriverEnabled(false);
   Serial.begin(115200);
   lastCommunicationMs = millis();
-  Serial.print("READY device="); Serial.print(DEVICE_NAME);
-  Serial.print(" board="); Serial.print(BOARD_NAME);
-  Serial.print(" version="); Serial.println(FIRMWARE_VERSION);
 }
 
 void loop() {
-  serviceSerial();
+  serviceSerialConnection();
+  if (readyAnnouncedForHost) serviceSerial();
   serviceMovement();
   serviceBlink();
 }

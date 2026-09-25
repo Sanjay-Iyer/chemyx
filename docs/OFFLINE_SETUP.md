@@ -23,7 +23,7 @@ comes from the scripts that ran on the real hardware:
 | Ethernet cable | NMR | Direct to the NMR or through the lab switch |
 | 24 V DC adapter with its inline switch | DM542S needle driver | Existing rig |
 
-The Arduino keeps its sketch through power cycles, so uploading firmware 1.2.0
+The Arduino keeps its sketch through power cycles, so uploading firmware 1.2.1
 before going offline is simplest. `offline\arduino\` lets the offline laptop
 compile and re-upload anyway: the sketch needs only the Arduino core (no
 third-party libraries). The UNO R4 Minima uploads with dfu-util to USB
@@ -167,7 +167,7 @@ From now on, run every command from `C:\code\chemyx_pump` with
 ### Needle (Arduino UNO R4 Minima + DM542S)
 
 The `dm542s_hello_world` scripts below are historical bring-up notes using
-the older bridge serial protocol. The active 1.2.0 controller deliberately
+the older bridge serial protocol. The active 1.2.1 controller deliberately
 preserves the same validated **D3 STEP / D4 DIR** wiring but uses a different
 serial protocol and Python persistent software-position tracker. Do not mix
 old scripts with new firmware. There is no ENABLE connection or upper/lower
@@ -250,7 +250,7 @@ section 8.
    ```
 
 Steps 5 and 6 apply only to the archived bridge rig. Do not run them against
-firmware 1.2.0; use section A of the commissioning checklist instead.
+firmware 1.2.1; use section A of the commissioning checklist instead.
 
 5. **Needle serial (legacy bridge only).** Keep the 24 V supply off for this check. Expect
    `PASS: Arduino serial communication is working`.

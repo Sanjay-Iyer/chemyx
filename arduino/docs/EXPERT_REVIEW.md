@@ -2,7 +2,7 @@
 
 > Historical review from 2026-08-03. It describes the superseded D2/D3/D4
 > switch-and-ENABLE design. It is **not** the live commissioning procedure for
-> firmware 1.2.0. Use `arduino/README.md` and `arduino/docs/FIRMWARE.md` for
+> firmware 1.2.1. Use `arduino/README.md` and `arduino/docs/FIRMWARE.md` for
 > the current validated D3 STEP / D4 DIR supervised demo.
 
 Review date: 2026-08-03  

@@ -97,6 +97,21 @@ class NeedleStateStore:
             return backup
         raise MotionInterlockError("Needle state is valid; corrupt-state recovery is not appropriate")
 
+    def invalidate_for_manual_jog(self) -> None:
+        """A relative jog cannot preserve a previously trusted logical HOME."""
+        try:
+            state = self.load()
+        except PositionUncertainError:
+            self.quarantine_corrupt()
+            state = NeedleState()
+        self.save(replace(
+            state,
+            logical_position=None,
+            position_valid=False,
+            last_updated=_timestamp(),
+            reason="manual_jog_untracked",
+        ))
+
 
 class TrackedNeedle:
     """Logical UP-positive API around the existing serial JOG implementation."""

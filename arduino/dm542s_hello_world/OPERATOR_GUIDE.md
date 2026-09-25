@@ -1,7 +1,7 @@
 # Operator Guide — Needle Motion Rig
 
 > **LEGACY SERIAL PROTOCOL:** This guide describes the older D3 STEP / D4 DIR
-> bridge commands. Active firmware 1.2.0 uses the same pins but a different
+> bridge commands. Active firmware 1.2.1 uses the same pins but a different
 > serial protocol and persistent Python state. Do not run these legacy scripts
 > against the active firmware; use `arduino/README.md`.
 

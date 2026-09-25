@@ -2,7 +2,7 @@
 
 The only active sketch is
 `arduino/firmware/needle_controller/needle_controller.ino` for the Arduino UNO
-R4 Minima. It identifies as `needle_controller` version `1.2.0`.
+R4 Minima. It identifies as `needle_controller` version `1.2.1`.
 
 | Arduino pin | Existing connection |
 | --- | --- |
@@ -12,7 +12,7 @@ R4 Minima. It identifies as `needle_controller` version `1.2.0`.
 No ENABLE connection, upper limit switch, lower limit switch, or other Arduino
 GPIO connection is required. **Do not rewire the proven setup or change driver
 switch settings to use this sketch.** The legacy bridge used D3/D4 too; its
-positive/forward movement held DIR LOW. Version 1.2.0 preserves that direction
+positive/forward movement held DIR LOW. Version 1.2.1 preserves that direction
 and the established 5 ms HIGH / 5 ms LOW pulse timing at a maximum of 100
 steps/s, while adding bounded serial acknowledgements.
 
@@ -48,6 +48,21 @@ With 24 V motor power **off**, the verified Arduino COM port substituted for
 powershell -ExecutionPolicy Bypass -File offline\arduino_toolchain.ps1 -Upload -Port COMx
 ```
 
-Do not upload from this development computer. On the instrument laptop, first
-verify the D3/D4 wiring and intended movement direction. See
+Upload only to the intentionally connected UNO R4 Minima with motor power off,
+after verifying its COM port and the board selection. On the instrument laptop,
+first verify the D3/D4 wiring and intended movement direction. See
 `arduino/docs/TEST_03_GUIDE.md` for the supervised software-HOME procedure.
+
+The 1.2.1 sketch announces `READY device=needle_controller
+board=uno_r4_minima version=1.2.1` once after each USB serial host connection,
+after a short non-blocking USB-settle interval. It does not require a reset and
+does not send READY continuously. `1 IDENTITY` is a read-only diagnostic:
+
+```text
+ACK 1 IDENTITY
+DONE 1 device=needle_controller board=uno_r4_minima version=1.2.1 driver=DM542S
+```
+
+`EVENT HOST_CONNECTED`, `EVENT CONFIG_APPLIED`, existing `EVENT FAULT ...`, and
+`EVENT STOP_RECEIVED interrupted=...` are low-frequency, parser-compatible
+diagnostics. A disconnected host cannot receive a disconnect event.

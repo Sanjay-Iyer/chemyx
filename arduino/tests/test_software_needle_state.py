@@ -24,7 +24,7 @@ def make_needle(tmp_path: Path, *, scenario: str = "normal"):
     cfg["needle"].update(steps_per_unit=20, up_step_sign=1)
     cfg["motion"].update(maximum_speed_steps_s=100, maximum_acceleration_steps_s2=300)
     fake = FakeArduinoTransport(runtime_configurable=True, scenario=scenario)
-    controller = NeedleController(fake, expected_version="1.2.0", allow_motion=True)
+    controller = NeedleController(fake, expected_version="1.2.1", allow_motion=True)
     controller.open()
     controller.configure_runtime(cfg)
     needle = TrackedNeedle(controller, cfg, state_path=tmp_path / "needle_state.json")
@@ -70,7 +70,7 @@ def test_restart_and_return_home(tmp_path):
     assert json.loads((tmp_path / "needle_state.json").read_text())["logical_position"] == 2
     needle.close()
     fake2 = FakeArduinoTransport(runtime_configurable=True)
-    controller2 = NeedleController(fake2, expected_version="1.2.0", allow_motion=True)
+    controller2 = NeedleController(fake2, expected_version="1.2.1", allow_motion=True)
     controller2.open()
     controller2.configure_runtime(cfg)
     restarted = TrackedNeedle(controller2, cfg, state_path=tmp_path / "needle_state.json")

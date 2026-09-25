@@ -85,7 +85,7 @@ arduino\firmware\needle_controller\needle_controller.ino
 
 This is a standalone copy of the repository's current one-upload firmware:
 `arduino\firmware\needle_controller\needle_controller.ino`.
-Its device identity is `needle_controller`, version `1.1.0`.
+Its device identity is `needle_controller`, version `1.2.1`.
 
 1. Disconnect the DM542 driver, motor, needle mechanism, and other external
    wiring. For this check, use only `Laptop -> USB-C cable -> UNO R4 Minima`.
@@ -97,7 +97,8 @@ Its device identity is `needle_controller`, version `1.1.0`.
 The firmware boots with motion and limits uncommissioned, numeric motion limits
 at zero, and the driver disabled. For this smoke test, keep the DM542 driver,
 motor, needle mechanism, limit switches, and all other external wiring
-disconnected. The Python smoke test sends only `PING`; it sends no runtime
+disconnected. The Python smoke test sends only `PING` and the read-only
+`IDENTITY` command; it sends no runtime
 configuration, enable, home, jog, or movement command.
 
 List the ports:
@@ -115,11 +116,19 @@ python smoke_test\03_smoke_arduino.py --port COM3
 Expected exchange:
 
 ```text
-RX startup: READY device=needle_controller board=uno_r4_minima version=1.1.0
-TX: 1 PING
+Serial port opened.
+RX startup: READY device=needle_controller board=uno_r4_minima version=1.2.1
+READY: expected device, board, and firmware version observed.
+TX: b'1 PING\n'
+RX: EVENT HOST_CONNECTED
 RX: ACK 1 PING
 RX: DONE 1 PONG
 PASS: the laptop exchanged sequenced PING/PONG with the Arduino.
+TX: b'2 IDENTITY\n'
+RX: ACK 2 IDENTITY
+RX: DONE 2 device=needle_controller board=uno_r4_minima version=1.2.1 driver=DM542S
+IDENTITY: expected device, board, firmware version, and driver confirmed.
+No motor command was sent.
 ```
 
 If a different response appears, the port is communicating but different
@@ -131,7 +140,8 @@ rate is 115200, and Serial Monitor is closed.
 
 - Chemyx PASS: the selected COM port accepted a read-only command and replied.
 - NMR PASS: the local RPC server answered all three read-only HTTP requests.
-- Arduino PASS: the uploaded smoke firmware exchanged the expected PING/PONG.
+- Arduino PASS: the uploaded firmware announced the expected READY identity,
+  exchanged PING/PONG, and answered the read-only IDENTITY query.
 
 A PASS isolates later failures from basic laptop-to-instrument communication.
 It does not validate tubing, pump direction, delivered volume, NMR acquisition,

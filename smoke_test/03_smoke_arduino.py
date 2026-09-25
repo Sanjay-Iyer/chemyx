@@ -1,4 +1,4 @@
-"""USB serial PING/PONG test for canonical needle-controller firmware 1.1.0."""
+"""Non-motion READY, PING/PONG, and IDENTITY diagnostic for firmware 1.2.1."""
 
 from __future__ import annotations
 
@@ -24,9 +24,25 @@ def list_ports() -> int:
     return 0
 
 
-def main() -> int:
+EXPECTED_IDENTITY = {
+    "device": "needle_controller",
+    "board": "uno_r4_minima",
+    "version": "1.2.1",
+}
+
+
+def identity_fields(line: str) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for token in line.split():
+        if "=" in token:
+            key, value = token.split("=", 1)
+            fields[key] = value
+    return fields
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Send a non-motion PING to canonical needle firmware 1.1.0."
+        description="Check READY, PING/PONG, and read-only IDENTITY on needle firmware 1.2.1."
     )
     parser.add_argument("--port", help="verified Arduino COM port, for example COM3")
     parser.add_argument("--baud", type=int, default=115200)
@@ -40,7 +56,7 @@ def main() -> int:
     parser.add_argument(
         "--list-ports", action="store_true", help="list COM ports and exit"
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.list_ports:
         return list_ports()
@@ -61,20 +77,25 @@ def main() -> int:
             timeout=0.25,
             write_timeout=2.0,
         ) as connection:
+            print("Serial port opened.")
             deadline = time.monotonic() + max(0.1, args.startup_seconds)
-            ready_seen = False
+            ready_fields: dict[str, str] | None = None
             while time.monotonic() < deadline:
                 raw = connection.readline()
                 if not raw:
                     continue
                 line = raw.decode("ascii", errors="replace").strip()
                 print(f"RX startup: {line}")
-                if line == (
-                    "READY device=needle_controller "
-                    "board=uno_r4_minima version=1.1.0"
-                ):
-                    ready_seen = True
+                if line.startswith("READY "):
+                    ready_fields = identity_fields(line)
                     break
+
+            if ready_fields is None:
+                print("READY: not observed during the startup window.")
+            elif all(ready_fields.get(key) == value for key, value in EXPECTED_IDENTITY.items()):
+                print("READY: expected device, board, and firmware version observed.")
+            else:
+                print(f"READY: unexpected identity {ready_fields!r}.")
 
             payload = b"1 PING\n"
             print(f"TX: {payload!r}")
@@ -82,35 +103,67 @@ def main() -> int:
             connection.flush()
 
             deadline = time.monotonic() + max(0.1, args.timeout)
-            received: list[str] = []
             ack_seen = False
+            pong_seen = False
             while time.monotonic() < deadline:
                 raw = connection.readline()
                 if not raw:
                     continue
                 line = raw.decode("ascii", errors="replace").strip()
-                received.append(line)
                 print(f"RX: {line}")
                 if line == "ACK 1 PING":
                     ack_seen = True
                     continue
                 if line == "DONE 1 PONG" and ack_seen:
                     print("PASS: the laptop exchanged sequenced PING/PONG with the Arduino.")
-                    if ready_seen:
-                        print("Firmware identity confirmed: needle_controller 1.1.0.")
-                    else:
-                        print("WARNING: PING passed, but the startup READY identity was not observed.")
-                    print("No motor command was sent.")
-                    return 0
+                    pong_seen = True
+                    break
+            if not pong_seen:
+                print("FAIL: expected ACK 1 PING then DONE 1 PONG were not received.")
+                print("No motor command was sent.")
+                return 1
+
+            payload = b"2 IDENTITY\n"
+            print(f"TX: {payload!r}")
+            connection.write(payload)
+            connection.flush()
+            deadline = time.monotonic() + max(0.1, args.timeout)
+            identity_ack_seen = False
+            queried_fields: dict[str, str] | None = None
+            while time.monotonic() < deadline:
+                raw = connection.readline()
+                if not raw:
+                    continue
+                line = raw.decode("ascii", errors="replace").strip()
+                print(f"RX: {line}")
+                if line == "ACK 2 IDENTITY":
+                    identity_ack_seen = True
+                elif line.startswith("DONE 2 ") and identity_ack_seen:
+                    queried_fields = identity_fields(line)
+                    break
+                elif line.startswith("ERR 2 "):
+                    break
+
+            if queried_fields is None:
+                print("IDENTITY: no valid response; firmware version is unverified.")
+            elif all(queried_fields.get(key) == value for key, value in EXPECTED_IDENTITY.items()) and queried_fields.get("driver") == "DM542S":
+                print("IDENTITY: expected device, board, firmware version, and driver confirmed.")
+            else:
+                print(f"IDENTITY: unexpected identity {queried_fields!r}.")
+
+            print("No motor command was sent.")
+            if ready_fields is None or queried_fields is None:
+                return 1
+            if any(ready_fields.get(key) != value or queried_fields.get(key) != value
+                   for key, value in EXPECTED_IDENTITY.items()):
+                return 1
+            return 0 if queried_fields.get("driver") == "DM542S" else 1
     except (serial.SerialException, OSError, ValueError) as exc:
         print(f"FAIL: could not communicate with the Arduino on {args.port}: {exc}")
+        print("No motor command was sent.")
         return 1
 
-    print("FAIL: the expected 'ACK 1 PING' then 'DONE 1 PONG' replies were not received.")
-    if received:
-        print("The board responded, but it may have different firmware loaded.")
-    else:
-        print("No complete serial line was received.")
+    print("No motor command was sent.")
     return 1
 
 

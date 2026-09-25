@@ -1,9 +1,10 @@
 # Live commissioning checklist: three-instrument Si6 workflow
 
-Status on 2026-09-22: **software, mock, and offline-bundle verified on the home
-laptop; not live-hardware verified.** Firmware 1.2.0 requires a fresh compile with the bundled
-toolchain but has not been uploaded. The integrated workflow has never
-contacted the Arduino, Chemyx, or NMR.
+Status on 2026-09-23: **software, mock, offline-bundle, and USB-only Arduino
+Test 1 verified on the home laptop.** Firmware 1.2.1 was uploaded to the
+connected UNO R4 Minima and passed repeated Test 1 runs with the motor/driver
+disconnected. The work-laptop rig and integrated workflow remain unverified;
+the integrated workflow has never contacted the Arduino, Chemyx, or NMR together.
 
 Work top to bottom. Each stage must pass before the next begins. Record the
 date, operator, result, and run folder for every step.
@@ -35,7 +36,7 @@ date, operator, result, and run folder for every step.
 | Python wheels | **Ready** | `offline\build_offline_bundle.ps1`: 27 pinned wheels, offline `--no-index` install proven; `offline\BUNDLE_MANIFEST.txt` |
 | Python installer | **Ready** | `offline\installers\python-3.11.9-amd64.exe`, PSF signature checked |
 | Arduino CLI and UNO R4 core | **Ready** | `offline\arduino_toolchain.ps1 -Build`: arduino-cli 1.5.1 (SHA-256 checked), `arduino:renesas_uno` 1.6.0, gcc 7-2017q4, dfu-util; firmware compiled with the network blocked. The repository path must be 50 characters or fewer (for example `C:\code\chemyx_pump`); the bundled compiler fails in deeper folders |
-| Firmware | **Compiled, not uploaded** | 47,828 bytes flash (18 %), 4,608 bytes RAM; no third-party Arduino library |
+| Firmware | **Compiled and uploaded on the USB-only home setup; work-laptop upload still pending** | 56,264 bytes sketch flash (21 %), 4,612 bytes RAM; no third-party Arduino library |
 | Chemyx USB-serial driver | **Missing** | Must be exported on the laptop where the pump already works: `offline\serial_drivers.ps1 -Export` (Administrator) |
 | Arduino drivers | Built into Windows 10/11 for the COM port; bootloader driver ships in the core (`post_install.bat`) | Install only if an upload cannot find the DFU device |
 | Source tree | **Not committed** | Copy with robocopy (docs/OFFLINE_SETUP.md), or commit the untracked files first |
@@ -53,7 +54,7 @@ transferred copy.
 
 ## A. Arduino and needle
 
-The active firmware is 1.2.0: **D3 STEP, D4 DIR only**. Keep the already-working
+The active firmware is 1.2.1: **D3 STEP, D4 DIR only**. Keep the already-working
 wiring and driver settings. There is no ENABLE connection or physical upper or
 lower switch. Python HOME=0 and positions are software estimates, not encoder
 or physical homing measurements. See `arduino/docs/FIRMWARE.md`.
@@ -66,7 +67,7 @@ or physical homing measurements. See `arduino/docs/FIRMWARE.md`.
 - [ ] **A3 Upload with 24 V off and the actual Arduino COM port:**
   `powershell -ExecutionPolicy Bypass -File offline\arduino_toolchain.ps1 -Upload -Port COMx`.
 - [ ] **A4 Test 1 connection:** run `arduino/scripts/test_01_arduino_connection.py
-  --config arduino/configs/arduino.local.yaml --live`. READY must report 1.2.0.
+  --config arduino/configs/arduino.local.yaml --live`. READY must report 1.2.1.
 - [ ] **A5 Test 2 decoupled motor:** run its preflight, then attended live
   forward/reverse test. Verify actual shaft direction and the physical 24 V
   disconnect. Firmware ENABLE/DISABLE only arm software; they do not switch

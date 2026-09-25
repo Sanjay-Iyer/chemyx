@@ -48,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
     def runner(_run_dir):
         if mode == "live":
             require_live("ARDUINO TEST 1", test1_missing(cfg))
-            confirm_live("RUN ARDUINO TEST 1")
+            confirm_live("RUN")
         deadline = HardDeadline(min(59.0, cfg["arduino"]["overall_timeout_s"]))
         with controller_session(cfg, mode, allow_motion=False) as controller:
             failure_context["firmware_version"] = controller.identity.get("version")

@@ -5,7 +5,7 @@ from arduino.python.protocol import bool_field, parse_response
 
 
 def test_parse_ready_identity():
-    result = parse_response("READY device=needle_controller board=uno_r4_minima version=1.2.0")
+    result = parse_response("READY device=needle_controller board=uno_r4_minima version=1.2.1")
     assert result.kind == "READY"
     assert result.fields["board"] == "uno_r4_minima"
 
@@ -15,6 +15,11 @@ def test_parse_ack_done_error_and_event():
     assert parse_response("DONE 4 position_steps=200").fields["position_steps"] == "200"
     assert parse_response("ERR 5 NOT_HOMED").code == "NOT_HOMED"
     assert parse_response("EVENT LIMIT_UP ACTIVE").kind == "EVENT"
+    assert parse_response("EVENT HOST_CONNECTED").detail == "HOST_CONNECTED"
+    assert parse_response("EVENT CONFIG_APPLIED").detail == "CONFIG_APPLIED"
+    stop = parse_response("EVENT STOP_RECEIVED interrupted=false")
+    assert stop.kind == "EVENT"
+    assert stop.fields["interrupted"] == "false"
 
 
 @pytest.mark.parametrize("line", ["", "WHAT 1", "ACK nope PING", "DONE 1 bad==value"])

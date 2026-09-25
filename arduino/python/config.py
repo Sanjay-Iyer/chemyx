@@ -70,7 +70,7 @@ DEFAULTS: dict[str, Any] = {
         "baud_rate": 115200,
         "expected_device": "needle_controller",
         "expected_board": "uno_r4_minima",
-        "expected_version": "1.2.0",
+        "expected_version": "1.2.1",
         "ready_timeout_s": 5.0,
         "read_timeout_s": 0.1,
         "write_timeout_s": 1.0,
@@ -82,7 +82,7 @@ DEFAULTS: dict[str, Any] = {
         "motion_enabled": False,
         "limits_enabled": False,
         "runtime_configurable": True,
-        "version": "1.2.0",
+        "version": "1.2.1",
     },
     "signal_interface": {},
     "motor": {},
@@ -169,7 +169,7 @@ def validate_config_structure(cfg: dict[str, Any]) -> None:
         if not isinstance(cfg["firmware"].get(key), bool):
             raise ConfigurationError(f"firmware.{key} must be true or false")
     if cfg["firmware"]["limits_enabled"]:
-        raise ConfigurationError("Firmware 1.2.0 has no physical limit inputs; set firmware.limits_enabled=false")
+        raise ConfigurationError("Firmware 1.2.1 has no physical limit inputs; set firmware.limits_enabled=false")
     if cfg["signal_interface"].get("signal_inverted") not in (None, False):
         raise ConfigurationError("Validated D3/D4 demo uses non-inverted STEP/DIR signals")
     fingerprint = cfg["arduino"].get("fingerprint")

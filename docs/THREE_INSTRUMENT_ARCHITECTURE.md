@@ -24,7 +24,7 @@ been validated on physical instruments. Do not use them for an unattended run.
 
 | Function | Module |
 |---|---|
-| Needle | `arduino.python.needle_state.TrackedNeedle` over the serial controller; firmware `arduino/firmware/needle_controller/needle_controller.ino` 1.2.0 |
+| Needle | `arduino.python.needle_state.TrackedNeedle` over the serial controller; firmware `arduino/firmware/needle_controller/needle_controller.ino` 1.2.1 |
 | Chemyx pump | `chemyx_lab.instruments.chemyx.Pump`; timed, STOP-confirmed moves in `si6_automated_nmr.run_safe_metered_move` |
 | NMR acquisition and retrieval | `chemyx_lab.workflows.instrument_operations.run_nmr_acquisition` (NMReady iFlow RPC) |
 | NMR processing | `scripts/nmr/process_fid.py` via `si6_automated_nmr.run_process_fid_postprocessing`, restricted to the tracked window |
@@ -154,7 +154,7 @@ enabling a live integrated workflow:
 
 1. Review the already-validated D3 STEP / D4 DIR wiring. Do not add ENABLE or
    limit-switch wires or change driver settings for this supervised demo.
-2. Upload firmware 1.2.0 and verify identity with connection-only Test 1.
+2. Upload firmware 1.2.1 and verify identity with connection-only Test 1.
 3. Complete staged Arduino motion tests; calibrate logical UP/DOWN and
    explicitly confirm software HOME after physical inspection.
 4. Verify the Chemyx and NMR independently.

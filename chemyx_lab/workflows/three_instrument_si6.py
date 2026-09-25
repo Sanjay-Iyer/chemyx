@@ -663,7 +663,7 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
     lock = None
     settings = arduino_cfg["arduino"]
     if mock:
-        transport = FakeArduinoTransport(runtime_configurable=True, version=settings.get("expected_version") or "1.2.0")
+        transport = FakeArduinoTransport(runtime_configurable=True, version=settings.get("expected_version") or "1.2.1")
     else:
         selected = resolve_arduino_port(settings.get("port"), settings.get("fingerprint"))
         lock = PortProcessLock(selected.device).acquire()
