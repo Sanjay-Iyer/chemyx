@@ -1146,15 +1146,11 @@ def operator_checkpoint(
             **fields,
         )
     try:
-        if not sys.stdin.isatty():
-            raise OperatorAbortError(
-                f"Operator checkpoint requires an interactive terminal: {prompt}"
-            )
         if (
             input(
-                f"\nOPERATOR ACTION: {prompt}\nType yes when complete: "
+                f"\nOPERATOR ACTION: {prompt}\nPress y when complete: "
             ).strip().lower()
-            != "yes"
+            not in ("y", "yes")
         ):
             raise OperatorAbortError(
                 "Operator did not confirm the required action"
@@ -1808,7 +1804,7 @@ def main(argv: list[str] | None = None) -> int:
         print("Dry run only. No hardware was opened.")
         print(f"Journal-backed dry-run results: {paths.run_dir}")
         return 0
-    if not sys.stdin.isatty() or input("Type RUN SI6 to create the run and connect to hardware: ").strip() != "RUN SI6":
+    if input("Start the live Si6 run? [y/N]: ").strip().lower() not in ("y", "yes"):
         outcome = RunOutcome(
             TerminalStatus.OPERATOR_ABORTED,
             "Operator aborted before connecting to hardware.",

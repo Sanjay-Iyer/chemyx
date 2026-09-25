@@ -23,7 +23,7 @@ from arduino.python.config import require_live, test2_missing
 from arduino.python.results import unresolved_live_motion_failure
 from arduino.python.workflows import HardDeadline, run_test_02
 
-DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "configs" / "arduino.example.yaml"
+DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "configs" / "arduino.local.yaml"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -67,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
             if unresolved_live_motion_failure(run_cfg["results"]["run_root_dir"], run_cfg):
                 missing.append("Documented operator inspection after the latest failed live motion")
             require_live("LIVE MOTOR TEST", missing)
-            confirm_live("RUN ARDUINO TEST 2")
+            confirm_live("Run Arduino Test 2")
         deadline = HardDeadline(min(120.0, run_cfg["safety"]["hard_runtime_limit_s"]))
         with controller_session(
             run_cfg,
@@ -92,18 +92,13 @@ def main(argv: list[str] | None = None) -> int:
             }
             observations["operator_acceptance"] = "MOCK ONLY"
         else:
+            # Demo mode: no typed observations; the operator watches the shaft.
             observations = {
-                key: bounded_console_input(f"Record {key.replace('_', ' ')}: ", deadline)
+                key: "not recorded (demo)"
                 for key in ("direction", "noise", "vibration", "temperature", "approximate_return_position")
             }
-            if any(not value for value in observations.values()):
-                raise RuntimeError("Every Test 2 observation must be recorded")
-            acceptance = bounded_console_input(
-                "Type ACCEPT TEST 2 OBSERVATIONS after reviewing the unloaded motor: ", deadline
-            )
-            if acceptance != "ACCEPT TEST 2 OBSERVATIONS":
-                raise RuntimeError("Test 2 observations were not accepted")
-            observations["operator_acceptance"] = acceptance
+            observations["operator_acceptance"] = "demo"
+            print("Motor moved forward then back. Watch the shaft; no observations need typing.")
         confirmations = {
             "motor_mechanically_disconnected": run_cfg["motor"].get("mechanically_disconnected_for_test_02", False),
             "shaft_safe_to_rotate": run_cfg["safety"].get("operator_shaft_safe_confirmed", False),

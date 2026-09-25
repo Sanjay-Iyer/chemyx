@@ -20,7 +20,7 @@ from _common import (
 from arduino.python.config import require_live, test1_missing
 from arduino.python.workflows import HardDeadline, run_test_01
 
-DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "configs" / "arduino.example.yaml"
+DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "configs" / "arduino.local.yaml"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -48,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
     def runner(_run_dir):
         if mode == "live":
             require_live("ARDUINO TEST 1", test1_missing(cfg))
-            confirm_live("RUN")
+            confirm_live("Run Arduino Test 1")
         deadline = HardDeadline(min(59.0, cfg["arduino"]["overall_timeout_s"]))
         with controller_session(cfg, mode, allow_motion=False) as controller:
             failure_context["firmware_version"] = controller.identity.get("version")

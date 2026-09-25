@@ -35,7 +35,7 @@ from chemyx_lab import config as lab_config
 from chemyx_lab.instruments.chemyx import Pump
 from chemyx_lab.instruments.nmr import NmrRpcClient, NmrRpcConfig
 
-DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "configs" / "integrated_hello_world.example.yaml"
+DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "configs" / "integrated_hello_world.local.yaml"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -159,7 +159,7 @@ def main(argv: list[str] | None = None) -> int:
         def preflight_runner(_run_dir):
             if mode == "live":
                 require_live("INTEGRATED TEST 4A", _preflight_live_missing(run_cfg))
-                confirm_live("RUN ARDUINO TEST 4A")
+                confirm_live("Run Arduino Test 4A")
             deadline = HardDeadline(min(59.0, run_cfg["arduino"]["overall_timeout_s"]))
             machine, pump, nmr = _machine_objects(run_cfg, mode)
             deadline.check("Test 4A setup")
@@ -215,7 +215,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("Live NMR diagnostic must be explicitly 'si6_configured_1d'")
             if pump_action is None or pump_return is None:
                 raise ValueError("Live integration requires approved forward and return pump actions")
-            confirm_live("RUN ARDUINO TEST 4B")
+            confirm_live("Run Arduino Test 4B")
         if pump_action is None:
             raise ValueError("No approved pump diagnostic action selected")
         interlock = SequentialInstrumentInterlock()

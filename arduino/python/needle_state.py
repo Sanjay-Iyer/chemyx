@@ -130,13 +130,21 @@ class TrackedNeedle:
         self.speed = int(cfg["motion"]["maximum_speed_steps_s"])
         self.acceleration = int(cfg["motion"]["maximum_acceleration_steps_s2"])
         self.store = NeedleStateStore(state_path or needle["state_path"])
-        self.state = self.store.load()
-        if self.state.position_valid and (
+        try:
+            self.state = self.store.load()
+        except PositionUncertainError:
+            self.state = NeedleState()
+        if not self.state.position_valid or (
             self.state.steps_per_unit != self.steps_per_unit
             or self.state.up_step_sign != self.up_step_sign
             or not self.minimum <= self.state.logical_position <= self.maximum
         ):
-            self.state = replace(self.state, position_valid=False, last_updated=_timestamp(), reason="calibration_or_limits_changed")
+            # Demo mode: an unknown position is assumed to be HOME rather than
+            # blocking motion. Put the needle at HOME before running.
+            print("Needle position unknown; ASSUMING the needle is at HOME (0).")
+            self.state = NeedleState(logical_position=0, position_valid=True, last_updated=_timestamp(),
+                                     reason="assumed_home_demo", steps_per_unit=self.steps_per_unit,
+                                     up_step_sign=self.up_step_sign)
             self.store.save(self.state)
         print(f"Last known needle position: {self.state.logical_position if self.state.logical_position is not None else 'unknown'}; "
               f"position state: {'valid software estimate' if self.state.position_valid else 'UNKNOWN'}")

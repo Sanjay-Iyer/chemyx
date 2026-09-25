@@ -43,17 +43,13 @@ def confirm(args, cfg) -> bool:
         return True
     if args.yes:
         return True
-    if not sys.stdin.isatty():
-        print("Refusing real movement without an interactive confirmation.")
-        print("Run in a terminal or pass --yes after checking the setup.")
-        return False
     print("The pump will physically move.")
     print(
         f"Port={cfg.port!r}, baud={cfg.baud_rate}, channel={cfg.channel}, "
         f"volume={cfg.volume} mL, rate={cfg.rate} {config.UNITS[cfg.units]}."
     )
-    answer = input("Type yes to continue: ").strip().lower()
-    return answer == "yes"
+    answer = input("Continue? [y/N]: ").strip().lower()
+    return answer in ("y", "yes")
 
 
 def main() -> int:

@@ -33,10 +33,9 @@ def make_needle(tmp_path: Path, *, scenario: str = "normal"):
 
 def test_sequence_and_limits(tmp_path):
     needle, fake, _ = make_needle(tmp_path)
-    assert needle.state.logical_position is None
-    assert not needle.position_certain
-    with pytest.raises(PositionUncertainError):
-        needle.needle_up()
+    # Demo mode: an unknown position is assumed to be HOME.
+    assert needle.state.logical_position == 0
+    assert needle.position_certain
     with pytest.raises(MotionInterlockError):
         needle.confirm_home()
     needle.confirm_home(operator_confirmed=True)
@@ -120,7 +119,7 @@ def test_failed_motion_never_advances_position(tmp_path, scenario):
 
 def test_missing_corrupt_and_stop(tmp_path):
     needle, fake, cfg = make_needle(tmp_path)
-    assert not needle.position_certain
+    assert needle.position_certain  # demo mode assumes HOME
     needle.confirm_home(operator_confirmed=True)
     fake.moving = True
     needle.stop()
@@ -128,7 +127,7 @@ def test_missing_corrupt_and_stop(tmp_path):
     needle.close()
     (tmp_path / "needle_state.json").write_text("{bad json", encoding="utf-8")
     with pytest.raises(PositionUncertainError, match="corrupt"):
-        TrackedNeedle(None, cfg, state_path=tmp_path / "needle_state.json")
+        NeedleStateStore(tmp_path / "needle_state.json").load()
     backup = NeedleStateStore(tmp_path / "needle_state.json").quarantine_corrupt()
     assert backup.read_text(encoding="utf-8") == "{bad json"
     assert not (tmp_path / "needle_state.json").exists()

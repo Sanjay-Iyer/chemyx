@@ -56,7 +56,7 @@ REVIEW_BLOCKING = {
     RecoveryClassification.PHYSICAL_STATE_UNCERTAIN,
     RecoveryClassification.JOURNAL_CORRUPT,
 }
-STAGE_DECISIONS = {"CONTINUE": "continue", "ADVANCE": "advance", "ABORT": "abort"}
+STAGE_DECISIONS = {"CONTINUE": "continue", "ADVANCE": "advance", "ABORT": "abort", "C": "continue", "A": "advance", "Q": "abort"}
 
 
 class VerificationError(RuntimeError):
@@ -622,17 +622,13 @@ def prepare(workflow_path: Path, machine_path: Path, arduino_path: Path, *, mock
         positions(arduino_cfg, mock=mock)
     pump_cfg, nmr_cfg = base.build_instrument_settings(raw, machine_path)
     if not mock and require_needle_live:
-        root = arduino_cfg["results"]["run_root_dir"]
-        records = {name: matching_live_result(root, test, arduino_cfg) is not None for name, test in (
-            ("test_02", "test_02_unloaded_motor"), ("test_03", "test_03_needle_axis"))}
-        missing = test3_missing(arduino_cfg, test2_record_valid=records["test_02"])
-        if unresolved_live_motion_failure(root, arduino_cfg):
-            missing.append("Unresolved live motion failure requires inspection clearance")
-        if missing:
-            raise LiveExecutionBlocked("Three-instrument needle preflight", missing)
+        # Demo mode: staged-commissioning records and previous-run review are
+        # advisory; only the settings needed to actually move are required.
         if not pump_cfg.port or not nmr_cfg.host:
             raise ValueError("Live Chemyx serial port and NMR host must be configured")
-        check_previous_run_review(raw, acknowledged_review)
+        review = unresolved_previous_live_run(raw)
+        if review is not None:
+            print(f"NOTE: previous live run {review.run_dir.name} ended {review.classification.value}; continuing (demo mode).")
     return raw, arduino_cfg, pump_cfg, nmr_cfg
 
 
@@ -871,7 +867,7 @@ def operator_stage_decision(stage: base.Stage, outcome: base.RunOutcome, *, inpu
     )
     try:
         for _ in range(3):
-            answer = input_fn("Type CONTINUE, ADVANCE, or ABORT: ").strip().upper()
+            answer = input_fn("c = continue, a = advance, q = abort: ").strip().upper()
             if answer in STAGE_DECISIONS:
                 return STAGE_DECISIONS[answer]
             print("Unrecognized answer.")

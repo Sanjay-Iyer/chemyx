@@ -26,7 +26,7 @@ workflow:
       volume_ml: 8.0
       note: Needle must be out of solution.
     - action: operator          # needle DOWN
-      prompt: Lower the needle into the reaction solution, then type yes.
+      prompt: Lower the needle into the reaction solution, then press y.
     - action: withdraw          # 5 mL sample, needle DOWN
       volume_ml: 5.0
     - action: pause             # settle before NMR (seconds)
@@ -36,7 +36,7 @@ workflow:
     - action: infuse            # 13 mL return, needle still DOWN
       volume_ml: 13.0
     - action: operator          # needle UP
-      prompt: Raise the needle out of the reaction solution, then type yes.
+      prompt: Raise the needle out of the reaction solution, then press y.
     - action: withdraw          # 5 mL cleanup, needle UP
       volume_ml: 5.0
     - action: infuse            # 5 mL cleanup, needle UP
@@ -54,7 +54,7 @@ workflow:
   # CONTINUE the stage, ADVANCE to the next reagent checkpoint, or ABORT.
   initial_stage:
     name: initial_reaction
-    operator_prompt: "Commissioning F1: solvent-only single cycle. Confirm the flask and needle are ready, then type yes."
+    operator_prompt: "Commissioning F1: solvent-only single cycle. Confirm the flask and needle are ready, then press y."
     interval_minutes: 5          # commissioning: short interval
     measure_immediately: true
     # Legacy workflow only; the three-instrument workflow uses
@@ -65,7 +65,7 @@ workflow:
   # First Si-H addition, then repeat the acetone/Si-H pair as desired.
   first_addition_stage:
     name: first_diphenyl_silane
-    operator_prompt: Add diphenyl silane, then type yes.
+    operator_prompt: Add diphenyl silane, then press y.
     interval_minutes: 15
     measure_immediately: false
     plateau_stopping_enabled: true
@@ -73,13 +73,13 @@ workflow:
   repeat_addition_rounds: 1     # acetone + diphenyl silane pairs
   repeating_stages:
     - name: acetone
-      operator_prompt: Add acetone, then type yes.
+      operator_prompt: Add acetone, then press y.
       interval_minutes: 15
       measure_immediately: false
       plateau_stopping_enabled: true
       max_hours: 2
     - name: diphenyl_silane
-      operator_prompt: Add diphenyl silane, then type yes.
+      operator_prompt: Add diphenyl silane, then press y.
       interval_minutes: 15
       measure_immediately: false
       plateau_stopping_enabled: true

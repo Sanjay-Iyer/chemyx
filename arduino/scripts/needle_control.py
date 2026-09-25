@@ -15,7 +15,7 @@ from arduino.python.manual_jog import execute_manual_jog, manual_runtime_config,
 from arduino.python.needle_state import NeedleStateStore, TrackedNeedle
 
 
-DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "configs" / "arduino.example.yaml"
+DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "configs" / "arduino.local.yaml"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -45,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Requested speed ceiling: {plan.speed_steps_s} steps/s; ramp: {plan.acceleration_steps_s2} steps/s^2")
         print("Inspect clear travel and keep the 24 V driver-power disconnect within reach.")
         if args.live:
-            confirm_live(f"MANUAL {plan.direction.upper()} {abs(plan.signed_steps)}")
+            confirm_live(f"Manual {plan.direction.upper()} {abs(plan.signed_steps)} steps")
         with controller_session(manual_cfg, mode_name, allow_motion=True, apply_runtime_config=True) as controller:
             state_path = Path(cfg["results"]["run_root_dir"]) / "mock_needle_state.json" if args.mock else Path(cfg["needle"]["state_path"])
             try:
@@ -62,13 +62,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.steps is not None or args.speed != 100 or args.acceleration != 500:
         parser.error("--steps/--speed/--acceleration are only for manual-up/manual-down")
     if args.live and action not in ("status", "stop"):
-        if cfg["signal_interface"].get("wiring_reviewed") is not True:
-            raise SystemExit("Review the validated D3/D4 wiring and set signal_interface.wiring_reviewed=true")
-        if cfg["safety"].get("emergency_disconnect_documented") is not True:
-            raise SystemExit("Document the physical 24 V driver-power disconnect before motion")
-        if cfg["firmware"].get("motion_enabled") is not True:
-            raise SystemExit("Set firmware.motion_enabled=true after supervised review")
-        confirm_live("CONFIRM NEEDLE AT HOME ZERO" if action == "confirm-home" else f"MOVE NEEDLE {action.upper()}")
+        cfg["firmware"]["motion_enabled"] = True
+        confirm_live("Set current needle position as HOME=0" if action == "confirm-home" else f"Move needle {action.upper()}")
     if args.mock:
         cfg["firmware"]["motion_enabled"] = True
         cfg["needle"].update({"steps_per_unit": cfg["needle"].get("steps_per_unit") or 20,

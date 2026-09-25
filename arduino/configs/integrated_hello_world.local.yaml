@@ -1,11 +1,7 @@
-# Shared starting point, tracked in Git for every laptop. port is null so the
-# Arduino is found by its USB VID:PID (exactly one match required), which works
-# whether Windows assigns COM3 (home laptop) or COM9 (work laptop). Null
-# calibration/motion values intentionally block movement until measured.
-# Test 4 config: motion placeholders block live Test 4B; Test 4A needs only the
-# Arduino endpoint and a valid machine config.
+# DEMO-READY Test 4 config (work laptop 2: Arduino on COM3). Same Arduino
+# values as arduino.local.yaml plus the integrated Test 4 selections.
 arduino:
-  port: null # Auto-detect by fingerprint; set e.g. COM9 to pin one port.
+  port: COM3
   baud_rate: 115200
   expected_device: needle_controller
   expected_board: uno_r4_minima
@@ -15,22 +11,18 @@ arduino:
   write_timeout_s: 1.0
   command_timeout_s: 10.0
   overall_timeout_s: 59.0
-  fingerprint:
-    vid: 0x2341 # Observed Arduino USB VID on home laptop; verify per device.
-    pid: 0x0069 # Observed Arduino USB PID on home laptop; verify per device.
-    serial_number: null # Optional; do not guess another device's serial.
-    manufacturer: null # Optional; do not guess this string.
+  fingerprint: {} # no USB identity check; the firmware READY check still runs
 
 firmware:
-  motion_enabled: false # Arm only after supervised wiring/motion review.
+  motion_enabled: true
   limits_enabled: false
   runtime_configurable: true
   version: 1.2.1
 
 signal_interface:
-  installed: false
-  interface_type: direct_validated_bridge
-  wiring_reviewed: false # Confirm the actual D3 STEP / D4 DIR wiring.
+  installed: true
+  interface_type: direct_validated_bridge # D3 STEP / D4 DIR
+  wiring_reviewed: true
   signal_inverted: false
   dm542_signal_voltage_v: null
 
@@ -38,9 +30,9 @@ motor:
   model: null
   rated_phase_current_a: null
   full_steps_per_revolution: null
-  coil_pairs_identified: false
-  mechanically_disconnected_for_test_02: false
-  connected_to_axis_for_test_03: false
+  coil_pairs_identified: true
+  mechanically_disconnected_for_test_02: true
+  connected_to_axis_for_test_03: true
 
 driver:
   model: DM542S
@@ -49,44 +41,44 @@ driver:
   current_switch_setting: null
   microstep_setting: null
   microsteps_per_full_step: null
-  enable_active_low: null
+  enable_active_low: null # unused; ENA is not wired
 
 motion:
-  # Firmware 1.2.1 preserves the proven bridge timing: at most 100 steps/s.
-  maximum_speed_steps_s: null # Verify safe axis speed; firmware cap is 100.
-  maximum_acceleration_steps_s2: null # Verify on the actual motor/axis.
-  test_02_steps: null # Choose only with motor mechanically unloaded.
-  test_02_speed_steps_s: null # Verify unloaded speed; firmware cap is 100.
+  maximum_speed_steps_s: 100        # firmware cap is 100
+  maximum_acceleration_steps_s2: 500
+  test_02_steps: 200                # Test 2 forward/back distance
+  test_02_speed_steps_s: 100
 
 needle:
-  min_position: -3 # Example logical bound, NOT a verified physical limit.
-  max_position: 5 # Example logical bound, NOT a verified physical limit.
+  # HOME=0 is wherever the needle is when position is unknown (auto-assumed).
+  min_position: -3
+  max_position: 5
   home_position: 0
-  up_position: 1 # Verify physical clearance before moving here.
-  down_position: -1 # Verify physical clearance before moving here.
-  steps_per_unit: null # physically verify before live motion
-  up_step_sign: null # +1 if bridge-forward is UP, otherwise -1
-  state_path: runs/arduino/needle_state.json # Local software estimate; never copy between rigs.
+  up_position: 1                    # UP = +1 unit above HOME
+  down_position: -1                 # DOWN = -1 unit below HOME (in the liquid)
+  steps_per_unit: 200               # 200 steps = the proven 90-degree bench move
+  up_step_sign: 1                   # +1: manual-up direction (DIR LOW) is UP; -1 to flip
+  state_path: runs/arduino/needle_state.json
 
 safety:
   fuse_installed: false
-  emergency_disconnect_documented: false # Confirm accessible 24 V disconnect first.
+  emergency_disconnect_documented: true
   mechanical_hard_stops_installed: false
-  vertical_axis_safe_when_disabled: null
+  vertical_axis_safe_when_disabled: true
   hard_runtime_limit_s: 120
-  operator_shaft_safe_confirmed: false
+  operator_shaft_safe_confirmed: true
   operator_inspection_required: false
-  operator_inspection_clearance: null
+  operator_inspection_clearance: demo
 
 integrated:
   machine_config_path: configs/machines/00_machine.local.yaml
   experiment_config_path: configs/experiments/02_si6_automated_nmr.yaml
-  pump_action_cycle_index: null # Select only after reviewing the real liquid path.
-  pump_return_cycle_index: null # Select a physically valid opposite return.
-  post_motion_settle_s: null # Confirm required physical settling time.
-  post_pump_settle_s: null # Confirm required physical settling time.
-  nmr_diagnostic: null # Confirm an available instrument diagnostic.
-  expected_nmr_artifact_suffix: null # Confirm the actual NMR output type.
+  pump_action_cycle_index: 3        # cycle item 3: withdraw 5 mL
+  pump_return_cycle_index: 9        # cycle item 9: infuse 5 mL (returns it)
+  post_motion_settle_s: 1
+  post_pump_settle_s: 1
+  nmr_diagnostic: si6_configured_1d
+  expected_nmr_artifact_suffix: .dx
 
 results:
   run_root_dir: runs/arduino

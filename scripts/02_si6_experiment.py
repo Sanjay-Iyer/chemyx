@@ -17,7 +17,7 @@ def main(argv=None) -> int:
     modes.add_argument("--live", action="store_true")
     parser.add_argument("--workflow-config", type=Path, default=config.REPO_ROOT / "configs/experiments/02_si6_automated_nmr.yaml")
     parser.add_argument("--machine-config", type=Path, default=config.REPO_ROOT / "configs/machines/00_machine.local.yaml")
-    parser.add_argument("--arduino-config", type=Path, default=config.REPO_ROOT / "arduino/configs/arduino.example.yaml")
+    parser.add_argument("--arduino-config", type=Path, default=config.REPO_ROOT / "arduino/configs/arduino.local.yaml")
     parser.add_argument("--mock-cycles-per-stage", type=int, default=4)
     parser.add_argument("--acknowledge-review", metavar="RUN_ID", help="after reconciling a previous live run that requires review, name it to allow this live run")
     args = parser.parse_args(argv)
@@ -37,7 +37,7 @@ def main(argv=None) -> int:
         if args.mock_cycles_per_stage < 1:
             raise ValueError("--mock-cycles-per-stage must be positive")
         if args.live:
-            if not sys.stdin.isatty() or input("Type RUN SI6 THREE INSTRUMENTS to contact hardware: ").strip() != "RUN SI6 THREE INSTRUMENTS":
+            if input("Start the live Si6 experiment? [y/N]: ").strip().lower() not in ("y", "yes"):
                 raise RuntimeError("Live run not confirmed")
         identity = si6.RunIdentity("si6", args.mock)
         with si6.open_services(raw, arduino, pump, nmr, identity=identity, fast_mock_processing=args.mock, acknowledged_review=args.acknowledge_review) as services:

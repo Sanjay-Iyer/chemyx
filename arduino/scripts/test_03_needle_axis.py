@@ -23,7 +23,7 @@ from arduino.python.needle_state import TrackedNeedle
 from arduino.python.results import matching_live_result, unresolved_live_motion_failure
 from arduino.python.workflows import HardDeadline, run_test_03, validate_axis_geometry
 
-DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "configs" / "arduino.example.yaml"
+DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "configs" / "arduino.local.yaml"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -86,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
                 missing.append("Documented operator inspection after the latest failed live motion")
             require_live("LIVE NEEDLE AXIS TEST", missing)
             validate_axis_geometry(run_cfg)
-            confirm_live("RUN ARDUINO TEST 3")
+            confirm_live("Run Arduino Test 3")
         deadline = HardDeadline(min(120.0, run_cfg["safety"]["hard_runtime_limit_s"]))
         with controller_session(
             run_cfg,
@@ -99,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
             needle = TrackedNeedle(controller, run_cfg, state_path=run_dir / "mock_needle_state.json" if mode == "mock" else None)
             if mode == "mock" or args.confirm_home:
                 if mode == "live":
-                    confirm_live("CONFIRM NEEDLE AT HOME ZERO")
+                    confirm_live("Set current needle position as HOME=0")
                 needle.confirm_home(operator_confirmed=True)
             state = run_test_03(needle, run_cfg, deadline)
             return state, controller.identity.get("version"), {"software_home_confirmed": mode == "mock" or args.confirm_home}, serialized_events(controller)

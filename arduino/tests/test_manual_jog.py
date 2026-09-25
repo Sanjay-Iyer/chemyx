@@ -142,5 +142,5 @@ def test_live_manual_jog_requires_interactive_direction_confirmation_before_port
         cwd=ROOT, stdin=subprocess.PIPE, text=True, capture_output=True, timeout=15,
     )
     assert proc.returncode != 0
-    assert "Interactive confirmation: MANUAL UP 200" in proc.stderr
+    assert "Manual UP 200 steps cancelled" in proc.stderr
     assert not (tmp_path / "needle_state.json").exists()

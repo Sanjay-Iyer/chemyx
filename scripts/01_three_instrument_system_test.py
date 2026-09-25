@@ -20,7 +20,7 @@ def main(argv=None) -> int:
         selection.add_argument(f"--{name}-only" if name != "all" else "--all", dest="selection", action="store_const", const=name)
     parser.add_argument("--workflow-config", type=Path, default=config.REPO_ROOT / "configs/experiments/02_si6_automated_nmr.yaml")
     parser.add_argument("--machine-config", type=Path, default=config.REPO_ROOT / "configs/machines/00_machine.local.yaml")
-    parser.add_argument("--arduino-config", type=Path, default=config.REPO_ROOT / "arduino/configs/arduino.example.yaml")
+    parser.add_argument("--arduino-config", type=Path, default=config.REPO_ROOT / "arduino/configs/arduino.local.yaml")
     parser.add_argument("--input-dx", type=Path, help="existing JCAMP file for --process-only")
     parser.add_argument("--acknowledge-review", metavar="RUN_ID", help="after reconciling a previous live run that requires review, name it to allow this live run")
     args = parser.parse_args(argv)
@@ -35,7 +35,7 @@ def main(argv=None) -> int:
             print("Configuration valid. No hardware opened; choose --mock or --live.")
             return 0
         if args.live and selected != "process":
-            if not sys.stdin.isatty() or input("Type RUN THREE INSTRUMENT TEST to contact hardware: ").strip() != "RUN THREE INSTRUMENT TEST":
+            if input("Contact the live instruments? [y/N]: ").strip().lower() not in ("y", "yes"):
                 raise RuntimeError("Live run not confirmed")
         if selected == "process":
             source = args.input_dx or (si6.MOCK_NMR_FIXTURE if args.mock else None)

@@ -55,12 +55,14 @@ def load_cli_config(args: argparse.Namespace) -> dict:
     return cfg
 
 
-def confirm_live(exact_text: str, input_fn: Callable[[str], str] = input) -> None:
-    if not sys.stdin.isatty():
-        raise LiveExecutionBlocked("Live confirmation", [f"Interactive confirmation: {exact_text}"])
-    answer = input_fn(f"Type {exact_text} to continue: ").strip()
-    if answer != exact_text:
-        raise LiveExecutionBlocked("Live confirmation", [f"Exact confirmation text: {exact_text}"])
+def confirm_live(action: str, input_fn: Callable[[str], str] = input) -> None:
+    """Demo confirmation: a single y (or yes) proceeds; anything else cancels."""
+    try:
+        answer = input_fn(f"{action} - continue? [y/N]: ").strip().lower()
+    except EOFError:
+        answer = ""
+    if answer not in ("y", "yes"):
+        raise LiveExecutionBlocked("Live confirmation", [f"{action} cancelled (answer y to proceed)"])
 
 
 def bounded_console_input(prompt: str, deadline) -> str:
