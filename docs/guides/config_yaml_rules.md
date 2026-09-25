@@ -47,8 +47,8 @@ machine-specific state around.
 
 Corollary: config files are for *parameters*, never for machine-specific
 addresses or secrets. Those follow the existing pattern in
-`docs/CONFIGURATION.md` — a git-ignored `*.local.yaml` copied from a checked-in
-`*.example.yaml`.
+`docs/CONFIGURATION.md` — a `*.local.yaml` (tracked as the shared starting
+point) derived from a checked-in `*.example.yaml` or template.
 
 ### 3. A missing default config is fine; a missing named one is an error
 

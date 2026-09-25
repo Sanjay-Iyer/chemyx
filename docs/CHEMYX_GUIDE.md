@@ -4,7 +4,7 @@ Chemyx communication is isolated in `chemyx_lab/instruments/chemyx.py`.
 
 ## Configuration
 
-Set the serial port in ignored local machine config:
+Set the serial port in the local machine config (`configs/machines/00_machine.local.yaml`):
 
 ```yaml
 chemyx:

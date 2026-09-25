@@ -4,7 +4,7 @@ NMR RPC communication is isolated in `chemyx_lab/instruments/nmr.py`.
 
 ## Configuration
 
-Set the NMR endpoint in ignored local machine config:
+Set the NMR endpoint in the local machine config (`configs/machines/00_machine.local.yaml`):
 
 ```yaml
 nmr:

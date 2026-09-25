@@ -1,5 +1,5 @@
 # Copy this file to configs/nmr/analysis.local.yaml and edit it once per laptop.
-# The local file is ignored by Git and is merged over the shared analysis.yaml.
+# The local file is tracked as a starting point and merged over analysis.yaml.
 # Raw and processed trees below are ignored by Git and can differ by laptop.
 
 input:

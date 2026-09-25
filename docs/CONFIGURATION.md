@@ -1,9 +1,9 @@
 # Configuration
 
 The canonical experiment configuration is
-`configs/experiments/02_si6_automated_nmr.yaml`. Machine-specific addresses stay
-in ignored `configs/machines/00_machine.local.yaml`, copied from
-`00_machine.example.yaml` on the work laptop.
+`configs/experiments/02_si6_automated_nmr.yaml`. Machine-specific addresses live
+in the tracked starting point `configs/machines/00_machine.local.yaml`; verify
+its ports on each laptop before live use.
 
 ## Workflow 02 vocabulary
 

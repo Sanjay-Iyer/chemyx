@@ -2,14 +2,17 @@
 
 Run these commands from the repository root. Files in this directory are
 **tracked, ready-to-edit templates**, but scripts do not read them here. Copy
-each needed file to the exact runtime path below, then edit the copy. Runtime
-`*.local.yaml` files are ignored by Git; create them separately on each laptop.
+each needed file to the exact runtime path below, then edit the copy. The
+runtime `*.local.yaml` files are now **tracked in Git** as the shared starting
+point, so a fresh clone or `git pull` already has them. Commit a local change
+only when it should apply on every laptop. The Arduino files use `port: null`
+and find the board by USB VID:PID, so the same file works on COM3 or COM9.
 Never overwrite a local file that already contains reviewed settings. An
 offline installer may already have created `00_machine.local.yaml` from the
 older example; inspect it before using any instrument.
 
 After flashing Arduino firmware 1.2.1, set both `arduino.expected_version`
-and `firmware.version` to `1.2.1` in any existing ignored Arduino local YAML.
+and `firmware.version` to `1.2.1` in the Arduino local YAML.
 Do not replace a reviewed local file with the template just to update version.
 
 ## Copy once
@@ -130,5 +133,5 @@ These tracked files are not duplicated in this template directory:
 `configs/experiments/*.local.yaml` files are optional per-run variations, not
 fixed runtime requirements; the complete tracked Si6 recipe above is their
 source. Do not invent a new experiment recipe just to set COM ports or NMR data
-paths. The example/template directory itself is not ignored by `.gitignore`;
-only the runtime local destinations are ignored.
+paths. Neither the templates nor the runtime local destinations are ignored by
+`.gitignore`.

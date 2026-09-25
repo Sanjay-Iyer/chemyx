@@ -32,7 +32,7 @@ Monitor. It sends only `PING` and `IDENTITY`. A normal Test 1 prints
 firmware version 1.2.1, LED off, motor disabled, and no motion attempt. If
 READY is absent or the version differs, stop before motion tests. After
 flashing 1.2.1, update both `arduino.expected_version` and `firmware.version`
-in the ignored local YAML to `1.2.1`; do not overwrite reviewed calibration.
+in the local YAML to `1.2.1`; do not overwrite reviewed calibration.
 
 Python's `TrackedNeedle` in `arduino/python/needle_state.py` owns logical
 position: HOME=0, UP positive, DOWN negative. It stores an atomic JSON estimate
@@ -45,8 +45,8 @@ If the JSON is corrupt, the explicit `confirm-home` action first preserves it
 as a `.corrupt-*.bak` file, then establishes a new inspected reference.
 
 Configure the Arduino COM port, physical UP direction, steps per logical unit,
-speed, named positions, and software limits in an ignored local copy of
-`arduino/configs/arduino.example.yaml`. Its default `steps_per_unit` and
+speed, named positions, and software limits in the tracked starting point
+`arduino/configs/arduino.local.yaml` (derived from `arduino.example.yaml`). Its default `steps_per_unit` and
 `up_step_sign` are deliberately null: inspect/calibrate on the rig before any
 live move. The example -3/+5 bounds are **not** verified physical limits.
 

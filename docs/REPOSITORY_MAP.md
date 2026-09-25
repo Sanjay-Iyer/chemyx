@@ -20,7 +20,7 @@ scripts/02_si6_automated_nmr.py
 - `configs/experiments/02_si6_automated_nmr.yaml`: descriptive stage, cycle,
   monitoring, pump, NMR, analysis, and output configuration.
 - `configs/machines/00_machine.example.yaml`: committed machine template.
-- `configs/machines/00_machine.local.yaml`: ignored work-laptop-specific copy.
+- `configs/machines/00_machine.local.yaml`: tracked starting point; verify ports per laptop.
 - `configs/nmr/analysis.yaml`: parameters for the standalone NMR scripts under
   `scripts/nmr/`. The convention that every script parameter lives in YAML
   rather than in command-line flags is documented in

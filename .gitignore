@@ -1,16 +1,12 @@
-# --- Per-machine local config (NEVER commit your real port) ------------------
+# --- Per-machine local config ------------------------------------------------
 config_local.py
 .env
 # Matches valve/chemyx/nmr .local.json but not the committed *.local.example.json
 configs/*.local.json
-configs/machines/*.local.yaml
-configs/machines/*.local.yml
-# Per-machine NMR input/output paths; keep the *.local.example.yaml template.
-configs/nmr/*.local.yaml
-# Commissioning and short attended-run copies of experiment configs.
-configs/experiments/*.local.yaml
-arduino/configs/*.local.yaml
-arduino/configs/*.local.yml
+# The runtime *.local.yaml files (configs/machines, configs/nmr,
+# configs/experiments, arduino/configs) are deliberately TRACKED as the shared
+# starting point for every laptop. Commit a laptop-specific change (COM port,
+# measured calibration) only when it should apply to the rig everywhere.
 
 # --- Offline-laptop bundle payload (offline/build_offline_bundle.ps1) --------
 offline/wheelhouse/

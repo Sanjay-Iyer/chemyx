@@ -1,6 +1,6 @@
 # Work-laptop instrument settings established during the original bench setup.
 # Copy this file to 00_machine.local.yaml on the instrument-connected laptop.
-# Keep 00_machine.local.yaml out of Git.
+# 00_machine.local.yaml is tracked as the shared starting point; verify its ports.
 #
 # COM6 was the proven Chemyx port, but Windows can assign a different COM number
 # after reconnecting hardware. Confirm that COM6 is listed as the pump/USB
