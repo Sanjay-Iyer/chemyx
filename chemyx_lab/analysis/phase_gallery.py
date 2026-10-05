@@ -534,7 +534,8 @@ def discover_acquisitions(validation_dir=v.DEFAULT_OUTPUT):
 def save_gallery_checkpoint(folder,*,p0_deg,p1_deg,pivot_ppm,pivot_fraction,
                             reviewer=None,notes='',role='manual_reference',
                             starting_method=None,starting_phase=None,ambiguous=False,
-                            baseline_review='not_reviewed',preserve_frozen_tables=True):
+                            baseline_review='not_reviewed',preserve_frozen_tables=True,
+                            refresh_gallery_index=True):
     """Only invoked by an explicit GUI save (or a clearly labeled software test)."""
     folder=Path(folder).resolve()
     output=v.save_manual_checkpoint(folder,p0_deg=p0_deg,p1_deg=p1_deg,pivot_ppm=pivot_ppm,
@@ -634,5 +635,6 @@ def save_gallery_checkpoint(folder,*,p0_deg,p1_deg,pivot_ppm,pivot_fraction,
         'production_vs_manual_peak_metrics.csv and completion_comparison.csv. '
         'manual_phase.csv retains full real/imaginary arrays; checkpoint.json records control and effective phase values. '
         'The completion replay uses the contributors in sequence_contributors.csv and does not establish a physical stop.\n',encoding='utf-8')
-    write_index(gallery,records)
+    if refresh_gallery_index:
+        write_index(gallery,records)
     return output

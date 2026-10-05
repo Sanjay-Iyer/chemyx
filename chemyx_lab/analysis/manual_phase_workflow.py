@@ -18,6 +18,8 @@ def saved_methods(folder):
     rows={r['method']:r for r in v.read_rows(folder/'all_phase_methods_results.csv')}
     out={}
     for method in AUTOMATIC:
+        if method not in rows:
+            continue  # A portable review may explicitly omit unavailable methods.
         with np.load(folder/'analysis'/method/'spectral_evidence.npz') as a:
             out[method]={k:a[k].copy() for k in a.files}
             out[method]['metrics']=rows[method]
@@ -96,7 +98,7 @@ def finalize_review(folder, output, manual, *, starting_method, starting_phase,
         for col,group in enumerate(groups):
             for row,component in enumerate(('real','imag')):
                 ax=axes[row,col]
-                for name in (*group,'manual'):
+                for name in (*(n for n in group if n in methods),'manual'):
                     ax.plot(ppm,getattr(methods[name]['phased'],component),
                             label='Manual [saved checkpoint]' if name=='manual' else LEGEND.get(name,name),
                             color='#000000' if name=='manual' else COLORS.get(name,'#CC79A7'),

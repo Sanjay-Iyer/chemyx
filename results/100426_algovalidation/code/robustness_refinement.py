@@ -32,6 +32,7 @@ if str(ROOT) not in sys.path:
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib import patheffects
 from matplotlib.colors import BoundaryNorm, ListedColormap
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
@@ -186,15 +187,16 @@ def late_interval_facts(d):
     risers = [m for m in AUTOMATIC if pct['fixed'][m][-2] > 0]
     droppers = [m for m in AUTOMATIC if pct['fixed'][m][-1] <= -10 and pct['picked'][m][-1] <= -10]
     drops = [-pct[key][m][-1] for m in droppers for key in SERIES]
-    others = '; '.join(f'{SHORT[m]}: {pct["picked"][m][-1]:+.1f}% picked, {pct["fixed"][m][-1]:+.1f}% fixed window'
+    others = '; '.join(f'{SHORT[m]}: {minus(pct["picked"][m][-1])}% picked, {minus(pct["fixed"][m][-1])}% fixed window'
                        for m in AUTOMATIC if m not in droppers)
+    flat = ', '.join(f'{SHORT[m]} {minus(pct["fixed"][m][-2])}%' for m in AUTOMATIC if m not in risers)
     text = (f'the fixed-window area rises {min(pct["fixed"][m][-2] for m in risers):.1f}–{max(pct["fixed"][m][-2] for m in risers):.1f}% at '
-            f'{d.clock[-2][:5]} for {len(risers)} of 7 automatic methods, and for {len(droppers)} of 7 both area definitions drop '
-            f'{min(drops):.0f}–{max(drops):.0f}% at {d.clock[-1][:5]}' + (f' ({others})' if others else ''))
+            f'{d.clock[-2][:5]} for {len(risers)} of 7 automatic methods' + (f' ({flat})' if flat else '') + f', and for {len(droppers)} of 7 both '
+            f'area definitions drop {min(drops):.0f}–{max(drops):.0f}% at {d.clock[-1][:5]}' + (f' ({others})' if others else ''))
     assert len(risers) >= 6 and len(droppers) >= 6, 'late departures no longer apply to most methods; revise the narrative'
     words = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven']
-    exceptions = '; '.join(f'{SHORT[m]} declines far less at {d.clock[-1][:5]} ({pct["picked"][m][-1]:+.1f}% picked, {pct["fixed"][m][-1]:+.1f}% '
-                           f'fixed window, versus {-min(drops):.0f}% to {-max(drops):.0f}% for the others)' for m in AUTOMATIC if m not in droppers)
+    exceptions = '; '.join(f'{SHORT[m]} declines far less at {d.clock[-1][:5]} ({minus(pct["picked"][m][-1])}% picked, {minus(pct["fixed"][m][-1])}% '
+                           f'fixed window, versus {minus(-min(drops), 0)}% to {minus(-max(drops), 0)}% for the others)' for m in AUTOMATIC if m not in droppers)
     agree = (f'{words[len(droppers)]} of the seven automatic methods\' normalized trajectories agree on the rise, the plateau-like region and the '
              'final decline' + (f'; {exceptions}' if exceptions else ''))
     return SimpleNamespace(risers=risers, droppers=droppers, text=text, agree=agree)
@@ -757,6 +759,7 @@ def evaluate_rules(d):
             modal, modal_n = modal_outcome(auto)
             qual = [r for r in detail[-len(METHODS):] if r['method'] in AUTOMATIC and r['first_qualifying_index'] is not None]
             sustained = [r for r in qual if r['later_departure_status'] == 'sustained to last acquisition']
+            final_only = [r for r in qual if r['later_departure_status'] == 'no later acquisition']
             times = [d.t[r['first_qualifying_index']] for r in qual]
             summary.append({'rule_family': rule['family'], 'family_label': FAMILY_LABEL[rule['family']],
                 'rule_id': rule['rule_id'], 'rule_label': rule['label'], 'threshold': rule['threshold'],
@@ -766,13 +769,17 @@ def evaluate_rules(d):
                 'modal_outcome': outcome_label(d, modal), 'methods_agreeing_with_modal_of_7': modal_n,
                 'distinct_outcomes': len(counts), 'modal_is_a_qualification_time': modal is not None,
                 'qualifying_automatic_methods': len(qual), 'qualifying_methods_sustained': len(sustained),
+                'qualifying_at_final_acquisition_not_assessable': len(final_only), 'qualifying_methods_assessable': len(qual)-len(final_only),
+                'sustained_methods': ', '.join(r['display_method'] for r in sustained),
                 'first_qualification_spread_hours': (max(times)-min(times)) if times else float('nan'),
                 'unphased_outcome': outcome_label(d, outcomes['unphased']),
                 'agreement_class': ('high (≥6/7)' if modal_n >= 6 else 'partial (4–5/7)' if modal_n >= 4 else 'split (≤3/7)'),
                 'interpretation': ('agree on a qualification time' if modal is not None and modal_n >= 6 else
                                    'agree that the rule never qualifies (uninformative)' if modal is None and modal_n >= 6 else
                                    'phase method changes the endpoint'),
-                'is_historical_criterion': rule['rule_id'] == 'historical_gate_5pct' and key == 'fixed'})
+                'is_historical_criterion': rule['rule_id'] == 'historical_gate_5pct' and key == 'fixed',
+                'status': 'historical criterion (unchanged)' if rule['rule_id'] == 'historical_gate_5pct' and key == 'fixed'
+                          else 'exploratory candidate; not a production endpoint'})
     return detail, summary
 
 
@@ -824,9 +831,10 @@ def threshold_sensitivity(d, grid=None):
         for x in grid:
             auto = [r['first_completion_index'] for r in table if r['area_series'] == SERIES_ID[key]
                     and r['percent_gate'] == float(x) and r['method'] in AUTOMATIC]
-            c = Counter(auto); modal, n = c.most_common(1)[0]
+            c = Counter(auto); modal, n = modal_outcome(auto)
             agreement.append({'area_series': SERIES_ID[key], 'percent_gate': float(x), 'modal_outcome': outcome_label(d, modal),
-                              'automatic_methods_agreeing': n, 'distinct_outcomes': len(c)})
+                              'automatic_methods_agreeing': n, 'distinct_outcomes': len(c),
+                              'modal_is_tied': sum(v == n for v in c.values()) > 1})
     return table, transitions, agreement
 
 
@@ -892,10 +900,27 @@ def jcamp_header(path, keys):
     return found
 
 
+def half_height(axis, y, mask):
+    """Peak height and full width at half height of a magnitude band (linear interpolation at the crossings)."""
+    idx = np.flatnonzero(mask); seg = y[idx]; k = int(np.argmax(seg)); half = seg[k]/2
+    left = right = k
+    while left > 0 and seg[left-1] >= half:
+        left -= 1
+    while right < len(seg)-1 and seg[right+1] >= half:
+        right += 1
+    def cross(inside, outside):
+        x0, x1, y0, y1 = axis[idx[outside]], axis[idx[inside]], seg[outside], seg[inside]
+        return x0+(half-y0)*(x1-x0)/(y1-y0)
+    xl = cross(left, left-1) if left > 0 else axis[idx[left]]
+    xr = cross(right, right+1) if right < len(seg)-1 else axis[idx[right]]
+    return float(seg[k]), float(abs(xr-xl))
+
+
 def internal_reference(d):
     windows = {'2ppm': (1.80, 2.35), '7ppm': (6.70, 7.30), 'target': (5.70, 5.90)}
     keys = ('.SOLVENT NAME', '$RECVR_GAIN', '$EXPERIMENT_SETTING_Receiver Gain (dB)', '$SCANS', '$X_PULSE',
-            'TEMPERATURE', '$TOTAL DURATION', 'SAMPLE DESCRIPTION', 'TITLE')
+            'TEMPERATURE', '$TOTAL DURATION', 'SAMPLE DESCRIPTION', 'TITLE', '.OBSERVE FREQUENCY')
+    _, start = endpoint_window(d)
     table = []
     for i, rec in enumerate(d.manifest):
         folder = d.base/'spectra'/rec['acquisition_id']
@@ -904,40 +929,75 @@ def internal_reference(d):
         dx = float(np.median(np.diff(axis)))
         row = {'acquisition_id': rec['acquisition_id'], 'acquisition_time': rec['acquisition_time'],
                **{f'header_{k.strip(".$").replace(" ", "_").lower()}': v for k, v in jcamp_header(rec['source_path'], keys).items()}}
+        mhz = float(row['header_observe_frequency'])
         for region, (lo, hi) in windows.items():
             mask = (axis >= lo) & (axis <= hi)
             row[f'{region}_magnitude_area_phase_invariant'] = float(np.abs(fft[mask]).sum()*dx)
+            if region != 'target':
+                height, width_ppm = half_height(axis, np.abs(fft), mask)
+                row[f'{region}_magnitude_height'] = height
+                row[f'{region}_magnitude_half_height_width_hz'] = width_ppm*mhz
             for m in METHODS:
                 with np.load(folder/STEMS[m]/'spectral_evidence.npz') as z:
                     row[f'{region}_{STEMS[m]}_quantitative_real_area'] = float(z['quantitative_real'][mask].sum()*dx)
         table.append(row)
-    mag = {r: np.array([x[f'{r}_magnitude_area_phase_invariant'] for x in table]) for r in ('2ppm', '7ppm')}
+    bands = ('2ppm', '7ppm')
+    mag = {r: np.array([x[f'{r}_magnitude_area_phase_invariant'] for x in table]) for r in bands}
+    height = {r: np.array([x[f'{r}_magnitude_height'] for x in table]) for r in bands}
+    width = {r: np.array([x[f'{r}_magnitude_half_height_width_hz'] for x in table]) for r in bands}
     real_cv = {r: {m: float(100*np.std([x[f'{r}_{STEMS[m]}_quantitative_real_area'] for x in table], ddof=1) /
-                       np.mean([x[f'{r}_{STEMS[m]}_quantitative_real_area'] for x in table])) for m in METHODS} for r in ('2ppm', '7ppm')}
+                       np.mean([x[f'{r}_{STEMS[m]}_quantitative_real_area'] for x in table])) for m in METHODS} for r in bands}
     gains = {x.get('header_recvr_gain') for x in table}; scans = {x.get('header_scans') for x in table}
     pulses = {x.get('header_x_pulse') for x in table}
+    settings = {x.get('header_experiment_setting_receiver_gain_(db)') for x in table}
     temps = [float(x['header_temperature']) for x in table if x.get('header_temperature')]
-    first_drop = {r: 100*(mag[r][1]-mag[r][0])/mag[r][0] for r in mag}
+    mhz = np.array([float(x['header_observe_frequency']) for x in table]); step_hz = np.abs(np.diff(mhz))*1e6
+    first_drop = {r: float(100*(mag[r][1]-mag[r][0])/mag[r][0]) for r in bands}
+    height_drop = {r: float(100*(height[r][1]-height[r][0])/height[r][0]) for r in bands}
+    to_last = {r: float(100*(mag[r][-1]-mag[r][0])/mag[r][0]) for r in bands}
+    window_change = {r: float(100*(mag[r][-1]-mag[r][start])/mag[r][start]) for r in bands}
+    ratio = mag['2ppm']/mag['7ppm']
+    t0, t1 = d.clock[0][:5], d.clock[1][:5]
+    assert len(gains) == len(scans) == len(pulses) == len(settings) == 1, 'acquisition settings differ between FIDs; revise the narrative'
     audit = {'decision': 'REJECTED: no strong resonance qualifies as an internal reference for these data',
-        'magnitude_area_cv_pct': {r: float(100*mag[r].std(ddof=1)/mag[r].mean()) for r in mag},
-        'magnitude_change_first_interval_pct': first_drop,
-        'magnitude_change_first_to_last_pct': {r: float(100*(mag[r][-1]-mag[r][0])/mag[r][0]) for r in mag},
+        'magnitude_area_cv_pct': {r: float(100*mag[r].std(ddof=1)/mag[r].mean()) for r in bands},
+        'magnitude_change_first_interval_pct': first_drop, 'magnitude_height_change_first_interval_pct': height_drop,
+        'magnitude_change_first_to_last_pct': to_last, 'magnitude_change_endpoint_window_pct': window_change,
+        'magnitude_half_height_width_hz': {r: [float(v) for v in width[r]] for r in bands},
+        'magnitude_area_ratio_2ppm_over_7ppm': [float(v) for v in ratio], 'magnitude_area_ratio_cv_pct': float(100*ratio.std(ddof=1)/ratio.mean()),
+        'observe_frequency_mhz': [float(v) for v in mhz], 'observe_frequency_step_hz': [float(v) for v in step_hz],
         'quantitative_real_area_cv_pct_by_method': real_cv,
-        'receiver_gain_values': sorted(g for g in gains if g), 'scan_values': sorted(s for s in scans if s),
-        'pulse_values': sorted(p for p in pulses if p), 'temperature_range_c': [min(temps), max(temps)] if temps else None,
+        'receiver_gain_values': sorted(g for g in gains if g), 'receiver_gain_setting_values': sorted(s for s in settings if s),
+        'scan_values': sorted(s for s in scans if s), 'pulse_values': sorted(p for p in pulses if p),
+        'temperature_range_c': [min(temps), max(temps)] if temps else None,
         'reasons': [
-            'No internal standard was added or recorded (configs/nmr/analysis.yaml: internal_standard null, solvent identity unknown); the JCAMP solvent field is an instrument-profile setting.',
-            'The strong bands are solvent bands (toluene per metadata) in a flow experiment; the phase-invariant magnitude areas themselves change '
-            f'by {first_drop["2ppm"]:+.1f}% (2 ppm) and {first_drop["7ppm"]:+.1f}% (7 ppm) when the target arrives (09:13→10:07), so solvent '
-            'concentration in the detected volume is not constant.',
-            'The two candidate references disagree with each other (different relative changes), so at least one is not a stable reference; '
-            'the aromatic window can also contain aromatic protons of the phenylsilane chemistry.',
-            'Receiver gain, scans, pulse width and temperature are recorded identical across all eight FIDs, so there is no documented '
-            'instrumental scaling drift to correct.',
-            'The strong-band Real areas depend on phase method and the downstream baseline (CV across time ranges '
-            f'{min(real_cv["2ppm"].values()):.1f}–{max(real_cv["2ppm"].values()):.1f}% at 2 ppm by method), so a ratio would add method dependence.'],
+            'No internal standard was added or recorded (configs/nmr/analysis.yaml: internal_standard null, solvent identity unknown); the JCAMP solvent '
+            f'field ("{table[0].get("header_solvent_name", "")}") is an instrument-profile setting, so the strong bands are consistent with that solvent '
+            'but their identity is not confirmed.',
+            f'The strong bands are not stable over the run. From {t0} to {t1} their phase-invariant magnitude areas change by {minus(first_drop["2ppm"])}% '
+            f'(2 ppm) and {minus(first_drop["7ppm"])}% (7 ppm) and their peak heights by {minus(height_drop["2ppm"])}% and {minus(height_drop["7ppm"])}%, '
+            f'while the magnitude-mode half-height widths go from {width["2ppm"][0]:.1f} to {width["2ppm"][1]:.1f} Hz and from {width["7ppm"][0]:.1f} to '
+            f'{width["7ppm"][1]:.1f} Hz (ranges over the run {width["2ppm"].min():.1f}–{width["2ppm"].max():.1f} and {width["7ppm"].min():.1f}–'
+            f'{width["7ppm"].max():.1f} Hz). By the final acquisition the areas are {minus(to_last["2ppm"])}% and {minus(to_last["7ppm"])}% from the first. '
+            f'The observe frequency shifts by {step_hz[0]:.1f} Hz at the same step (later consecutive steps at most {step_hz[1:].max():.1f} Hz; total spread '
+            f'over the later acquisitions {(mhz[1:].max()-mhz[1:].min())*1e6:.1f} Hz). The '
+            'cause is not established: a composition change cannot be distinguished from a global intensity change, so dividing the target by these '
+            'bands could remove error or add it.',
+            f'The two candidate references do not track each other: the 2 ppm/7 ppm magnitude-area ratio drifts from {ratio[0]:.3f} to {ratio[-1]:.3f} '
+            f'(CV {100*ratio.std(ddof=1)/ratio.mean():.1f}%), so at least one of them is not a stable reference. Hypothesis, not verified: the aromatic '
+            'window may also contain aromatic protons of the phenylsilane chemistry.',
+            f'Receiver gain ({next(iter(gains))} dB; setting "{next(iter(settings))}"), scans ({next(iter(scans))}) and pulse width ({next(iter(pulses))} µs) '
+            f'are recorded identical across all eight FIDs, and the temperature is constant within {max(temps)-min(temps):.4f} °C; of the other header '
+            'fields checked here only the observe frequency changes, so there is no documented instrumental scaling drift to correct.',
+            'The strong-band Real areas depend on phase method and the downstream baseline (CV across time '
+            f'{min(real_cv["2ppm"].values()):.1f}–{max(real_cv["2ppm"].values()):.1f}% at 2 ppm and {min(real_cv["7ppm"].values()):.1f}–'
+            f'{max(real_cv["7ppm"].values()):.1f}% at 7 ppm by method), so a ratio would add method dependence.',
+            f'Caution for the endpoint question: across the endpoint window ({d.clock[start][:5]}→{d.clock[-1][:5]}) the strong-band magnitude areas change by '
+            f'{minus(window_change["2ppm"])}% (2 ppm) and {minus(window_change["7ppm"])}% (7 ppm), comparable to the gates under test; whether a global '
+            'intensity drift affects the plateau test can be neither confirmed nor excluded with these data.'],
         'integration': 'sum over fixed windows 1.80–2.35 / 6.70–7.30 ppm × ppm step; magnitude from the common unphased FFT (phase-invariant); '
-                       'quantitative Real from saved arrays. Diagnostic only, not a new processing step.'}
+                       'heights and half-height widths from the magnitude spectrum; quantitative Real from saved arrays. Diagnostic only, not a '
+                       'new processing step.'}
     return table, audit
 
 
@@ -1085,7 +1145,7 @@ def fig_chemistry_vs_algorithm(pw, d, chem, intervals):
     ax.text(7.5, y0[1]-.4, f'without the weak-signal spread: {rp["R_excluding_weak_signal"]:.1f}× / {rf["R_excluding_weak_signal"]:.1f}×\n'
             f'against the largest spread: {rp["R_conservative_over_maximum_algorithm_range"]:.1f}× / '
             f'{rf["R_conservative_over_maximum_algorithm_range"]:.1f}×', va='center', fontsize=8.4, color=INK2)
-    ax.text(7.5, y0[3], f'endpoint-window change only {rp["R_endpoint_window"]:.1f}× this spread (picked)\n'
+    ax.text(9.5, y0[3], f'endpoint-window change only\n{rp["R_endpoint_window"]:.1f}× this spread (picked)\n'
             f'and {rf["R_endpoint_window"]:.1f}× (fixed window)', va='center', fontsize=9.2, color=INK)
     ax.legend(loc='center right', bbox_to_anchor=(1, .44), fontsize=8.8, frameon=False)  # empty band between the second and third groups
     ax.set_title('Size of the time change versus the algorithm effect', loc='left', fontsize=11.5)
@@ -1102,6 +1162,7 @@ def fig_chemistry_vs_algorithm(pw, d, chem, intervals):
         bx.errorbar(xx, med, yerr=[med-lo, hi-med], fmt='o' if k == 0 else 's', color=tone[key], ms=6, capsize=3.5, lw=1.4,
                     mec='white', mew=1, label=f'{SERIES_SHORT[key]}: median and min–max of 7 methods', zorder=3)
     bx.set_xticks(x, labels, fontsize=8.6); bx.set_ylabel('Change from previous acquisition (a.u.·ppm)'); tidy(bx)
+    bx.set_xlabel('Interval between acquisitions (JCAMP LONG DATE, UTC−04)')
     bx.legend(loc='lower left', fontsize=8.6, frameon=False)
     bx.set_title('Each interval: chemistry change and its spread across methods', loc='left', fontsize=11.5)
     caption(fig, 'Descriptive comparison, no significance test. Whiskers spanning zero mean methods disagree on the direction of that interval\'s change. '
@@ -1157,8 +1218,13 @@ def fig_heatmap(pw, d, dev_rows):
             side.set_visible(False)
     bar = fig.colorbar(image, cax=cax, extend='both')
     bar.set_label('Deviation from cross-method median (%)')
+    at_median = {key: Counter(min(AUTOMATIC, key=lambda m: abs(next(r['deviation_percent_from_median'] for r in dev_rows if r['area_series'] == SERIES_ID[key]
+                                                                    and r['method'] == m and r['acquisition_id'] == i))) for i in d.order) for key in SERIES}
+    top = at_median['fixed'].most_common(1)[0][0]
     caption(fig, 'Cell = 100 × (method − median of the 7 automatic methods) / median. Bold = |deviation| ≥ 5%. Colours saturate at ±10%; '
-            '* = weak target signal (median S/N below 8), where percentages are unstable. Values: tables/target_area_deviation_from_median.csv.')
+            '* = weak target signal (median S/N below 8), where percentages are unstable. With seven methods the median is always one method\'s own value, '
+            f'so every column has a 0.0 cell by construction ({SHORT[top]} in {at_median["fixed"][top]} of 8 fixed-window and {at_median["picked"][top]} of 8 '
+            'picked columns); closeness to the median is centrality, not accuracy. Values: tables/target_area_deviation_from_median.csv.')
     pw.save(fig, 'boss_summary/11_target_area_deviation_heatmap.png', 'Target-area deviation from cross-method median',
             d.base/'tables/target_area_deviation_from_median.csv')
 
@@ -1193,8 +1259,9 @@ def fig_phase_quality(pw, d, pq, assessment):
                 Patch(facecolor='white', edgecolor=INK2, hatch='....', label='partly related to the objective')]
     ax.legend(handles=handles, loc='upper center', bbox_to_anchor=(.5, -.09), fontsize=8.8, frameon=False, ncol=3)
     caption(fig, 'Median of per-acquisition 100 × (method − Unphased)/Unphased for the ~2 ppm and ~7 ppm bands (package scoring windows). (n/8) = acquisitions moving '
-            'in the bar\'s direction; consistent = ≥6/8. Categories shift with window centring, resolution and threshold (WHICH_ALGORITHM_IS_BEST.md section A; '
-            'tables/strong_peak_sensitivity_summary.csv). Lower terms favour absorptive shape only for isolated positive peaks.')
+            'in the bar\'s direction; consistent = ≥6/8. Category: '+definitions(d)['phase_category']+'. Categories shift with window centring, '
+            'resolution and threshold (WHICH_ALGORITHM_IS_BEST.md section A; tables/strong_peak_sensitivity_summary.csv). Lower terms favour absorptive '
+            'shape only for isolated positive peaks.')
     pw.save(fig, 'boss_summary/12_phase_quality_vs_unphased.png', 'Strong-peak phase quality versus Unphased',
             d.base/'tables/strong_peak_phase_quality_vs_unphased.csv')
 
@@ -1219,8 +1286,10 @@ def agreement_matrix(ax, summary, key, title):
                                        hatch=None if informative else '\\\\\\', zorder=1))
             dark = informative and n >= 6
             unit = '%/h' if r['threshold_units'] == '%/h' else '%'
-            text = (f'≤{r["threshold"]:g}{unit}\n{r["modal_outcome"][:5]} · {n}/7\n'
-                    + (f'{r["qualifying_methods_sustained"]}/{r["qualifying_automatic_methods"]} sustained' if informative else 'no endpoint'))
+            assess, na, q = r['qualifying_methods_assessable'], r['qualifying_at_final_acquisition_not_assessable'], r['qualifying_automatic_methods']
+            third = (((f'{r["qualifying_methods_sustained"]}/{assess} sustained' + (f' (+{na} final)' if na else '')) if assess else 'final point only')
+                     if informative else (f'{q}/7 ever qualify' if q else 'none qualify'))
+            text = f'≤{r["threshold"]:g}{unit}\n{r["modal_outcome"][:5]} · {n}/7\n{third}'
             ax.text(j+.48, i+.46, text, ha='center', va='center', fontsize=7.3, color='white' if dark else INK, zorder=2)
             if r['is_historical_criterion']:
                 ax.add_patch(plt.Rectangle((j-.02, i-.04), 1., 1., fill=False, edgecolor=INK, lw=2.4, zorder=3))
@@ -1234,15 +1303,20 @@ def agreement_matrix(ax, summary, key, title):
 def fig_endpoint_robustness(pw, d, summary):
     fig, ax = plt.subplots(figsize=(14.5, 9.6))
     agreement_matrix(ax, summary, 'fixed', 'Fixed-window completion area (the historical endpoint input) — 7 automatic phase methods')
-    handles = [Patch(facecolor=AGREEMENT_COLORS[n], label=f'{n}/7 methods give the same first-qualifying time') for n in (3, 4, 5, 6, 7)]
+    used = sorted({max(3, r['methods_agreeing_with_modal_of_7']) for r in summary if r['area_series'] == SERIES_ID['fixed'] and r['modal_is_a_qualification_time']})
+    handles = [Patch(facecolor=AGREEMENT_COLORS[n], label=f'{n}/7 methods give the same first-qualifying time') for n in used]
     handles += [Patch(facecolor='#e7e6e1', hatch='\\\\\\', edgecolor='white', label='most methods never qualify (uninformative agreement)'),
                 Patch(facecolor='white', edgecolor=INK, lw=2.4, label='historical criterion (5% gate)')]
     ax.legend(handles=handles, loc='upper center', bbox_to_anchor=(.42, -.01), ncol=4, fontsize=8.6, frameon=False)
-    caption(fig, 'Each cell: gate, most common first-qualifying time among the 7 automatic methods, how many share it, and how many of the qualifying methods stay '
-            'qualified at every later acquisition. Exploratory candidates; the historical rule is unchanged. Rules share the historical eligibility '
-            '(≥6 points, ≥1 h). Detail: plateau_analysis/endpoint_metric_comparison.csv.')
+    caption(fig, 'Each cell: gate, most common first-qualifying time among the 7 automatic methods and how many share it, then how many of the qualifying '
+            'methods stay qualified at every later acquisition (+n final = qualifications at the final acquisition, which cannot be assessed). Hatched cells: '
+            'most methods never qualify; the third line counts the methods that qualify at all. Every ≥6/7 agreement here falls at the earliest acquisition '
+            f'a rule can decide ({d.clock[endpoint_window(d)[0]][:5]}, or {d.clock[endpoint_window(d)[0]+1][:5]} when confirmed), so it reflects a loose '
+            'tolerance rather than a detected plateau. Columns are each rule\'s own gate steps and are not comparable across rows. Exploratory candidates; '
+            'the historical rule is unchanged. Rules share the historical eligibility (≥6 points, ≥1 h). Times: JCAMP LONG DATE (UTC−04). Picked-area '
+            'results: plateau_analysis/endpoint_outcome_matrix.png and endpoint_rule_robustness_summary.csv.')
     pw.save(fig, 'boss_summary/13_endpoint_robustness.png', 'Endpoint robustness across phase methods',
-            d.base/'plateau_analysis/endpoint_rule_robustness_summary.csv')
+            d.base/'plateau_analysis/endpoint_rule_robustness_summary.csv', layout=(0, .085, 1, .94))  # room for the five-line caption
 
 
 def outcome_cmap(d):
@@ -1269,8 +1343,9 @@ def fig_threshold_sensitivity(pw, d, table, transitions, agreement):
         for tr in (t for t in transitions if t['area_series'] == SERIES_ID[key]):
             i = METHODS.index(tr['method'])
             ax.plot([tr['transition_threshold_pct']]*2, [i-.42, i+.42], color='white', lw=1.6)
-            ax.text(tr['transition_threshold_pct']+.04, i, f'{tr["transition_threshold_pct"]:.2f}', fontsize=8.2, color=INK,
-                    va='center', ha='left', bbox=dict(boxstyle='round,pad=.15', facecolor='white', edgecolor='none', alpha=.85))
+            x = tr['transition_threshold_pct']; left = x < DECISION_GATE < x+.55  # keep the 5% line visible
+            ax.text(x-.04 if left else x+.04, i, f'{x:.2f}', fontsize=8.2, color=INK,
+                    va='center', ha='right' if left else 'left', bbox=dict(boxstyle='round,pad=.15', facecolor='white', edgecolor='none', alpha=.85))
         ax.set_yticks(range(len(METHODS)), [SHORT[m]+(' (reference)' if m == 'unphased' else '') for m in METHODS], fontsize=9.5)
         ax.set_xlabel('Percent-change gate used by the historical rule (all other gates unchanged)')
         agg = next(a for a in agreement if a['area_series'] == SERIES_ID[key] and a['percent_gate'] == 5.)
@@ -1286,7 +1361,8 @@ def fig_threshold_sensitivity(pw, d, table, transitions, agreement):
     handles.append(Line2D([], [], color=INK, lw=2.2, label='historical 5% gate'))
     axes[-1].legend(handles=handles, loc='upper center', bbox_to_anchor=(.5, -.2), ncol=len(handles), fontsize=9, frameon=False)
     caption(fig, 'Unchanged historical code (≥6 points, ≥1 h, last-4 slope gates, QC); only the percent gate varies. White ticks and labels mark the exact gate '
-            'at which a method\'s outcome flips (inclusive ≤). Values: plateau_analysis/threshold_sensitivity.csv and threshold_transitions.csv.')
+            f'at which a method\'s outcome flips (inclusive ≤). {d.clock[-1][:5]} is the final acquisition, so a completion there cannot be confirmed. Times: '
+            'JCAMP LONG DATE (UTC−04). Values: plateau_analysis/threshold_sensitivity.csv and threshold_transitions.csv.')
     pw.save(fig, 'boss_summary/14_endpoint_threshold_sensitivity.png', 'Endpoint threshold sensitivity',
             d.base/'plateau_analysis/threshold_sensitivity.csv')
 
@@ -1381,16 +1457,18 @@ def fig_internal_reference(pw, d, ref_rows, audit, sp):
             fontsize=8.6, color=INK2)
     ax.axhline(0, color=INK, lw=.9); ax.set_ylabel('Change relative to 09:13 (%)'); tidy(ax); time_axis(ax, d); ax.set_xlabel(TIME_LABEL)
     ax.set_ylim(-25, 8); ax.legend(loc='lower right', fontsize=8.6, frameon=False)
-    ax.set_title('Strong solvent bands are not constant', loc='left', fontsize=11.5)
+    ax.set_title('Strong bands (solvent identity not confirmed) are not constant', loc='left', fontsize=11.5)
     x = np.arange(len(METHODS)); w = .38
     for k, (region, color) in enumerate((('2ppm', '#184f95'), ('7ppm', '#d95926'))):
         cv = [audit['quantitative_real_area_cv_pct_by_method'][region][m] for m in METHODS]
         bx.bar(x+(k-.5)*w, cv, width=w*.92, color=color, label=f'~{region[:-3]} ppm band', zorder=2)
     bx.set_xticks(x, [SHORT[m] for m in METHODS], rotation=35, ha='right', fontsize=9)
     bx.set_ylabel('CV over 8 acquisitions of the Real band area (%)'); tidy(bx); bx.legend(fontsize=8.6, frameon=False)
-    bx.set_title('…and their Real areas depend on phase method', loc='left', fontsize=11.5)
+    bx.set_title('…and at 2 ppm their Real area depends on phase method', loc='left', fontsize=11.5)
+    drop = sorted(abs(v) for v in audit['magnitude_change_first_interval_pct'].values())
     caption(fig, 'Rejected internal reference: no internal standard was recorded; receiver gain, scans, pulse width and temperature are identical in all FIDs; '
-            'the toluene bands change when the target arrives in the flow stream. Values: tables/internal_reference_audit.csv.')
+            f'the strong-band magnitude areas fall {drop[0]:.0f}–{drop[1]:.0f}% at {d.clock[1][:5]} for a reason that is not established. Values: '
+            'tables/internal_reference_audit.csv.')
     pw.save(fig, 'plateau_analysis/internal_reference_audit.png', 'Internal-reference audit of strong bands',
             d.base/'tables/internal_reference_audit.csv')
 
@@ -1400,8 +1478,8 @@ def fig_deck_trend(pw, d, sp, chem):
     values = d.picked; s = sp['picked']; row = next(r for r in chem if r['area_series'] == 'picked_moving_boundary')
     with plt.rc_context({'font.size': 14}):
         fig, (ax, bx) = plt.subplots(1, 2, figsize=(13.33, 5.6))
-        for m in AUTOMATIC:
-            ax.plot(d.t, values[m], color='#c6c5bf', lw=1, zorder=2)
+        for k, m in enumerate(AUTOMATIC):
+            ax.plot(d.t, values[m], color='#c6c5bf', lw=1, zorder=2, label='individual automatic methods' if k == 0 else None)
         ax.fill_between(d.t, s['minimum'], s['maximum'], color=ACCENT, alpha=.18, lw=0, zorder=1, label='range of 7 automatic methods')
         ax.plot(d.t, s['median'], color=ACCENT_DARK, lw=2.6, marker='o', ms=6, mec='white', mew=1.2, zorder=4, label='cross-method median')
         ax.plot(d.t, values['unphased'], color=MUTED, lw=1.4, ls=(0, (4, 2.5)), zorder=3, label='Unphased (not in median)')
@@ -1416,6 +1494,13 @@ def fig_deck_trend(pw, d, sp, chem):
                     marker=MARKERS[m], ms=6 if MARKERS[m] != '*' else 9, mec='white', mew=.7, label=SHORT[m])
         bx.set_ylabel('Area ÷ method\'s own maximum'); bx.set_ylim(0, 1.08); tidy(bx); time_axis(bx, d)
         bx.set_title('Shape only (normalized; not quantitation)', loc='left', fontsize=15)
+        lagging = [m for m in AUTOMATIC if m not in late_interval_facts(d).droppers]
+        for m in lagging:  # the one method whose final decline differs (computed)
+            y_end = values[m][-1]/values[m].max()
+            bx.annotate(f'{SHORT[m]}: smaller final drop', xy=(d.t[-1], y_end), xytext=(d.t[2], .6), fontsize=11.5, color=INK2,
+                        arrowprops=dict(arrowstyle='->', color=INK2, lw=1))
+        for a in (ax, bx):
+            a.set_xlabel('Acquisition time (UTC−04; JCAMP LONG DATE)', fontsize=11.5)
         bx.legend(loc='lower right', fontsize=11, ncol=2, frameon=False)
         for a in (ax, bx):
             a.tick_params(labelsize=11.5); a.tick_params(axis='x', labelrotation=45)
@@ -1438,8 +1523,11 @@ def fig_deck_phase_quality(pw, d, pq, assessment):
                 overlap = r['objective_overlap']
                 hatch = '////' if overlap.startswith(('direct', 'L2')) else '....' if overlap.startswith('partly') else None
                 ax.barh(y, v, height=h*.9, color=REGION_METRIC_COLORS[(region, metric)], hatch=hatch, edgecolor='white', lw=0, zorder=2)
-                ax.text(v+(2.5 if v >= 0 else -2.5), y, f'{v:+.0f}%', va='center', ha='left' if v >= 0 else 'right', fontsize=9.5,
-                        color=INK2, zorder=3)
+                inside = abs(v) >= 30
+                ax.text(v+((-2.5 if inside else 2.5) if v >= 0 else (2.5 if inside else -2.5)), y, f'{v:+.0f}%', va='center',
+                        ha=('right' if inside else 'left') if v >= 0 else ('left' if inside else 'right'), fontsize=8.8,
+                        color='white' if inside else INK2, fontweight='bold' if inside else 'normal', zorder=3,
+                        path_effects=[patheffects.withStroke(linewidth=2.2, foreground=REGION_METRIC_COLORS[(region, metric)])] if inside else None)
             star = '*' if m in ('combined_objective_v1', 'symmetry_objective') else ''
             ax.text(178, row, assessment[m]['phase_category']+star, va='center', ha='left', fontsize=12.5, fontweight='bold', color=INK)
         ax.axvline(0, color=INK, lw=2.4, zorder=4)
@@ -1452,6 +1540,7 @@ def fig_deck_phase_quality(pw, d, pq, assessment):
         ax.set_xlabel('Median change versus Unphased, 8 acquisitions (%)'); tidy(ax, grid='x'); ax.tick_params(labelsize=12)
         handles = [Patch(facecolor=REGION_METRIC_COLORS[k], label=f'{k[0][:-3]} ppm {METRIC_LABEL[k[1]].split(" ")[0]}') for k in order]
         handles.append(Patch(facecolor='white', edgecolor=INK2, hatch='////', label='in-sample term (* category partly in-sample)'))
+        handles.append(Patch(facecolor='white', edgecolor=INK2, hatch='....', label='partly related to the objective'))
         ax.legend(handles=handles, loc='upper center', bbox_to_anchor=(.5, -.1), fontsize=11, frameon=False, ncol=2)
         pw.save(fig, 'boss_summary/.build/assets/phase_quality_deck.png', 'Strong-peak contamination versus Unphased',
                 d.base/'tables/strong_peak_phase_quality_vs_unphased.csv')
@@ -1474,8 +1563,9 @@ def fig_deck_threshold(pw, d, table, transitions, agreement):
             ax.axvline(5., color=INK, lw=2.6)
             for tr in (t for t in transitions if t['area_series'] == SERIES_ID[key]):
                 i = METHODS.index(tr['method'])
-                ax.text(tr['transition_threshold_pct']+.05, i, f'{tr["transition_threshold_pct"]:.2f}', fontsize=10.5, color=INK, va='center',
-                        ha='left', bbox=dict(boxstyle='round,pad=.12', facecolor='white', edgecolor='none', alpha=.9))
+                x = tr['transition_threshold_pct']; left = x < DECISION_GATE < x+.5  # keep the 5% line visible
+                ax.text(x-.05 if left else x+.05, i, f'{x:.2f}', fontsize=10.5, color=INK, va='center',
+                        ha='right' if left else 'left', bbox=dict(boxstyle='round,pad=.12', facecolor='white', edgecolor='none', alpha=.9))
             ax.set_yticks(range(len(METHODS)), [SHORT[m] for m in METHODS], fontsize=11.5)
             ax.set_xticks(np.arange(3, 10.01, 1.)); ax.tick_params(axis='x', labelsize=12)
             agg = next(a for a in agreement if a['area_series'] == SERIES_ID[key] and a['percent_gate'] == 5.)
@@ -1484,7 +1574,7 @@ def fig_deck_threshold(pw, d, table, transitions, agreement):
             for side in ax.spines.values():
                 side.set_visible(False)
         axes[-1].set_xlabel('Percent-change gate (%), other historical gates unchanged')
-        handles = [Patch(facecolor=c, edgecolor='#b5b4ae', label=(l if l != 'never' else 'never'))
+        handles = [Patch(facecolor=c, edgecolor='#b5b4ae', label=(f'{l} (final; unconfirmed)' if l == labels[-2] else l))
                    for l, c in zip(labels, list(OUTCOME_COLORS[:len(labels)-1])+[NEUTRAL])]
         handles.append(Line2D([], [], color=INK, lw=2.6, label='5% gate'))
         axes[-1].legend(handles=handles, loc='upper center', bbox_to_anchor=(.45, -.3), ncol=len(handles), fontsize=11.5, frameon=False,
@@ -1890,11 +1980,19 @@ def facts(d, res):
     assert A['peak_minima']['phase_category'] == 'Weak' and A['production']['phase_2ppm'] == 'Worse'
     assert all(A[m]['endpoint_category'] in ('Weak', 'Mixed') for m in METHODS)
     assert f.min_pearson > .99 and 4. < f.fx_worst_gates[0] < 6.
+    f.ep = endpoint_facts(d, res, f)
     return f
 
 
 def which_algorithm(d, res, f):
     A = f.A; sf = res.sens_facts; S = sf.S
+    rank = ['Strong', 'Acceptable', 'Mixed', 'Weak']
+    acme_pkg = sorted({r['category_acme'] for r in res.sens.summary if r['threshold_of_8'] == CONSISTENT}, key=rank.index)
+    acme_other = [r for r in res.sens.summary if r['category_acme'] not in acme_pkg]
+    acme_range = (f'ranges from {acme_pkg[0]} to {acme_pkg[-1]} at the package ≥{CONSISTENT}/8 threshold'
+                  + (' ('+'; '.join(f'{c} in {sum(r["category_acme"] == c for r in acme_other)} of the {len(res.sens.summary)} rows, at '
+                                    + ', '.join(sorted({f'≥{r["threshold_of_8"]}/8' for r in acme_other if r['category_acme'] == c}))
+                                    for c in sorted({r['category_acme'] for r in acme_other}, key=rank.index))+')' if acme_other else ''))
     eff = {(r['method'], r['region']): r for r in res.eff_summary}
     def phase_cell(m):
         a = A[m]
@@ -2032,7 +2130,7 @@ def which_algorithm(d, res, f):
         md_table(['Package scoring rule']+[SHORT[m] for m in AUTOMATIC]+['Independent Strong/Acceptable'], rule_rows), '',
         f'- **What is robust:** ACME has the smallest worst-case core-term median among the independent methods in all {sf.n_scorings} scorings (8 '
         'centring/resolution choices × 2 Real-channel terms; the consistency threshold does not affect a worst case of medians, so the '
-        f'{n_variants} rows of the summary table repeat them). Its absolute category ranges from Strong to Mixed, and with other reasonable choices '
+        f'{n_variants} rows of the summary table repeat them). Its absolute category {acme_range}, and with other reasonable choices '
         'Ernst P0 and/or DEEP are also Acceptable.',
         f'- **Combined is Strong only with the package windows**, which contain its narrower objective windows (centred within one grid point); it is Acceptable at full resolution and '
         'with a ≥7/8 rule. Symmetry falls to Mixed at full resolution.',
@@ -2105,46 +2203,195 @@ def which_algorithm(d, res, f):
     (Path(res.out)/'boss_summary/WHICH_ALGORITHM_IS_BEST.md').write_text('\n'.join(lines)+'\n', encoding='utf-8')
 
 
-def endpoint_report(d, res, f):
+def minus(x, nd=1, sign=True):
+    """Signed number with a typographic minus (U+2212)."""
+    return (f'{x:+.{nd}f}' if sign else f'{x:.{nd}f}').replace('-', '−')
+
+
+def listing(items):
+    items = list(items)
+    return f'{", ".join(items[:-1])} and {items[-1]}' if len(items) > 1 else ''.join(items)
+
+
+def gate_list(values, unit='%'):
+    return listing(f'{v:g}' for v in values)+unit
+
+
+def endpoint_facts(d, res, f):
+    """Every number the endpoint report quotes, computed from the rule tables; assertions guard the qualitative claims."""
+    first, start = endpoint_window(d)
+    FX, PK = 'completion_fixed_window', 'picked_moving_boundary'
     S = {(r['rule_id'], r['area_series']): r for r in res.summary}
-    def agree(rule, key='completion_fixed_window'):
+    rule_of = {r['rule_id']: r for r in RULES}
+    def cells(family, key):
+        return [r for r in res.summary if r['rule_family'] == family and r['area_series'] == key]
+    def informative(r):
+        return r['modal_is_a_qualification_time'] and r['methods_agreeing_with_modal_of_7'] >= 6
+    def gates(family, key):
+        return [r['threshold'] for r in cells(family, key) if informative(r)]
+    def evaluated(family, key=FX):
+        return [r['threshold'] for r in cells(family, key)]
+    def earliest(rule_id):
+        rule = rule_of[rule_id]
+        return first+(1 if rule['persistence'] and rule['family'] not in ('consecutive_2', 'consecutive_3') else 0)
+    e = SimpleNamespace(S=S, FX=FX, PK=PK, first=first, start=start)
+    # decisive interval at the first evaluable acquisition (largest of the recent adjacent changes)
+    recent = {m: f.crit[m]['recent_interval_percent_changes'] for m in METHODS}
+    position = {m: max(range(len(recent[m])), key=lambda j: abs(recent[m][j])) for m in METHODS}
+    e.decisive = {m: recent[m][position[m]] for m in METHODS}
+    e.near = [m for m in METHODS if abs(e.decisive[m]-DECISION_GATE) < 1]
+    e.near_auto = [m for m in e.near if m in AUTOMATIC]
+    assert len({position[m] for m in e.near}) == 1, 'near-gate methods no longer share the decisive interval'
+    j = position[e.near[0]]; n_recent = len(recent[e.near[0]])
+    e.decisive_from, e.decisive_to = d.clock[first-n_recent+j], d.clock[first-n_recent+j+1]
+    e.near_gap = max(abs(e.decisive[m]-DECISION_GATE) for m in e.near)
+    # continuous scan of the unchanged historical rule
+    scan = sorted((r for r in res.thr_agree if r['area_series'] == FX), key=lambda r: r['percent_gate'])
+    e.stable_from = next((r['percent_gate'] for r in scan if r['percent_gate'] > DECISION_GATE and
+                          all(x['automatic_methods_agreeing'] >= 6 for x in scan if x['percent_gate'] >= r['percent_gate'])), None)
+    e.stable_modal = {x['modal_outcome'] for x in scan if e.stable_from is not None and x['percent_gate'] >= e.stable_from}
+    pk_scan = sorted((r for r in res.thr_agree if r['area_series'] == PK), key=lambda r: r['percent_gate'])
+    at5 = next(r for r in pk_scan if abs(r['percent_gate']-DECISION_GATE) < 1e-9); k5 = pk_scan.index(at5)
+    same = lambda r: r['modal_outcome'] == at5['modal_outcome'] and r['automatic_methods_agreeing'] == at5['automatic_methods_agreeing']
+    lo = hi = k5
+    while lo > 0 and same(pk_scan[lo-1]): lo -= 1
+    while hi < len(pk_scan)-1 and same(pk_scan[hi+1]): hi += 1
+    e.pk_block = (pk_scan[lo]['percent_gate'], pk_scan[hi]['percent_gate'], at5['automatic_methods_agreeing'], at5['modal_outcome'])
+    nxt = pk_scan[hi+1] if hi+1 < len(pk_scan) else None
+    e.pk_next = (nxt['percent_gate'], nxt['automatic_methods_agreeing']) if nxt and nxt['modal_outcome'] == at5['modal_outcome'] else None
+    flips = sorted(t['transition_threshold_pct'] for t in res.transitions if t['area_series'] == FX and t['method'] in AUTOMATIC
+                   and abs(t['transition_threshold_pct']-DECISION_GATE) < 1)
+    e.flips = flips
+    # rule-family agreement
+    e.hist_gates, e.hist_evaluated = gates('historical', FX), evaluated('historical')
+    e.range_fx, e.range_pk, e.range_evaluated = gates('rolling_range', FX), gates('rolling_range', PK), evaluated('rolling_range')
+    e.cv_fx, e.cv_pk, e.cv_evaluated = gates('rolling_cv', FX), gates('rolling_cv', PK), evaluated('rolling_cv')
+    e.share = {}
+    for r in res.summary:
+        a, b = e.share.get(r['rule_family'], (0, 0)); e.share[r['rule_family']] = (a+informative(r), b+1)
+    assert max(a/b for a, b in e.share.values()) == e.share['rolling_range'][0]/e.share['rolling_range'][1],         'rolling range no longer has the highest share of gates with high agreement; revise the narrative'
+    e.range_conf_fx = gates('rolling_range_persistent', FX)
+    e.range_conf_other = [(r['threshold'], r['modal_outcome'], r['methods_agreeing_with_modal_of_7'])
+                          for r in cells('rolling_range_persistent', FX) if not informative(r)]
+    e.single_fx, e.single_evaluated = gates('consecutive_1', FX), evaluated('consecutive_1')
+    single = [r for r in cells('consecutive_1', FX) if r['modal_is_a_qualification_time'] and r['methods_agreeing_with_modal_of_7'] == 7]
+    e.single_full = [r['threshold'] for r in single]; e.single_modal = {r['modal_outcome'] for r in single}
+    e.single_sustained = max((r['qualifying_methods_sustained'] for r in single), default=0)
+    e.k2_5 = S[('consecutive_2_intervals_5pct', FX)]['methods_agreeing_with_modal_of_7']
+    e.k3_5 = S[('consecutive_3_intervals_5pct', FX)]['methods_agreeing_with_modal_of_7']
+    e.k1_5 = S[('consecutive_1_intervals_5pct', FX)]['methods_agreeing_with_modal_of_7']
+    e.hist5, e.hist5c = S[('historical_gate_5pct', FX)], S[('historical_gate_5pct_confirmed', FX)]
+    confirmed = [r for fam in ('rolling_slope_persistent', 'rolling_cv_persistent', 'rolling_range_persistent') for key in (FX, PK)
+                 for r in cells(fam, key) if informative(r)]
+    e.confirmed_n = (min(r['methods_agreeing_with_modal_of_7'] for r in confirmed), max(r['methods_agreeing_with_modal_of_7'] for r in confirmed))
+    e.confirmed_modal = {r['modal_outcome'] for r in confirmed}
+    cv_cells = [r for key in (FX, PK) for r in cells('rolling_cv', key) if informative(r)]
+    e.cv_departing = min(r['qualifying_methods_assessable']-r['qualifying_methods_sustained'] for r in cv_cells)
+    # where the high agreements fall
+    inf = [r for r in res.summary if informative(r)]
+    at_earliest = [r for r in inf if d.clock.index(r['modal_outcome']) == earliest(r['rule_id'])]
+    e.agree_fx = (sum(r['area_series'] == FX for r in at_earliest), sum(r['area_series'] == FX for r in inf))
+    e.agree_all = (len(at_earliest), len(inf))
+    words = {'historical': 'the historical rule', 'historical_persistent': 'the confirmed historical rule', 'consecutive_1': 'one interval',
+             'consecutive_2': 'two consecutive intervals', 'consecutive_3': 'three consecutive intervals'}
+    groups = {}
+    for r in res.summary:
+        if informative(r) and r not in at_earliest:
+            groups.setdefault((words.get(r['rule_family'], FAMILY_LABEL[r['rule_family']].lower()), r['area_series'], r['modal_outcome']), []).append(r['threshold'])
+    e.later_agreements = [f'{name} at {gate_list(sorted(th))} on the {"picked area" if key == PK else "fixed window"} ({t[:5]})'
+                          for (name, key, t), th in groups.items()]
+    # persistence of qualifications
+    e.max_sustained = max(r['qualifying_methods_sustained'] for r in res.summary)
+    e.sustained_rows = sum(r['qualifying_methods_sustained'] > 0 for r in res.summary); e.rows = len(res.summary)
+    e.sustained_names = sorted({n for r in res.summary for n in r['sustained_methods'].split(', ') if n})
+    e.final_only_rows = sum(r['qualifying_at_final_acquisition_not_assessable'] > 0 for r in res.summary)
+    # rolling slope (fixed window): values and CI half-widths
+    tr = {(r['area_series'], r['method'], r['acquisition_id']): r for r in res.traces}
+    slope = lambda i, m: tr[(FX, m, d.order[i])]['normalized_slope_pct_per_h']
+    e.slope_first = [slope(first, m) for m in AUTOMATIC]
+    e.slope_later = []
+    for i in range(first+1, len(d.t)):
+        big = [slope(i, m) for m in AUTOMATIC if abs(slope(i, m)) > 10]
+        if big:
+            e.slope_later.append((d.clock[i][:5], len(big), min(big), max(big)))
+    hw = [100*(r['slope_ci95_high']-r['slope_ci95_low'])/2/r['window_mean_au_ppm'] for r in res.traces
+          if 'slope_ci95_high' in r and d.order.index(r['acquisition_id']) >= first]  # acquisitions where the rules decide
+    e.ci_halfwidth = (float(np.median(hw)), float(min(hw)), float(max(hw)))
+    e.slope_gates = evaluated('rolling_slope')
+    e.slope10, e.slope15, e.slope20 = (S[(f'rolling_slope_{x}', FX)] for x in (10, 15, 20))
+    # change points
+    cps = res.cp_summary
+    def top(key, k=1):
+        return Counter(cps[key]['single_breakpoint_counts']).most_common(k)
+    e.cp_fx_full, e.cp_pk_full = top(f'{FX} / full sequence'), top(f'{PK} / full sequence', 2)
+    e.cp_pk_ratio = cps[f'{PK} / full sequence']['median_runner_up_sse_ratio']
+    e.cp_end = {key: top(f'{key} / endpoint window')[0] for key in (FX, PK)}
+    e.cp_end_points = len(d.t)-start
+    assert e.stable_from is not None and len(e.near_auto) == len(flips) and e.max_sustained <= 1, 'endpoint narrative assumptions changed'
+    assert e.agree_fx[0] == e.agree_fx[1], 'a fixed-window agreement falls after the earliest decidable acquisition; revise the narrative'
+    return e
+
+
+def endpoint_report(d, res, f):
+    e = f.ep; S = e.S; FX, PK = e.FX, e.PK
+    def sustained(r):
+        s, a, na = r['qualifying_methods_sustained'], r['qualifying_methods_assessable'], r['qualifying_at_final_acquisition_not_assessable']
+        return (f'sustained {s}/{a}' if a else 'final acquisition only') + (f', +{na} at the final acquisition' if na and a else '')
+    def agree(rule, key=FX):
         r = S[(rule, key)]
         if not r['modal_is_a_qualification_time']:
             return f'never {r["methods_agreeing_with_modal_of_7"]}/7'
-        return f'{r["modal_outcome"][:5]} {r["methods_agreeing_with_modal_of_7"]}/7 (sustained {r["qualifying_methods_sustained"]}/{r["qualifying_automatic_methods"]})'
+        return f'{r["modal_outcome"][:5]} {r["methods_agreeing_with_modal_of_7"]}/7 ({sustained(r)})'
     fam = {}
     for r in res.summary:
         fam.setdefault((r['rule_family'], r['area_series']), []).append(r)
-    def family_line(family, key='completion_fixed_window'):
+    def family_line(family, key=FX):
         cells = fam[(family, key)]
         informative = sum(c['modal_is_a_qualification_time'] and c['methods_agreeing_with_modal_of_7'] >= 6 for c in cells)
         return f'{informative}/{len(cells)} gates give ≥6/7 agreement on a qualification time'
+    t_first = d.clock[e.first]
+    near_vals = [e.decisive[m] for m in e.near_auto]
+    ref = res.ref_audit
+    drop = sorted(abs(v) for v in ref['magnitude_change_first_interval_pct'].values())
+    names = listing(e.sustained_names)
     rows_ = [
         {'Endpoint metric': 'Historical rule (unchanged, 5% gate)', 'Robust across phase methods?': f'No — {agree("historical_gate_5pct")}',
-         'Strength': 'Multi-gate (6 points, 1 h, slope, 3 intervals); already in use', 'Weakness': 'The 5% gate coincides with the 10:38→10:53 interval changes (4.80–5.60% for 4 methods); qualifications depart later'},
-        {'Endpoint metric': 'Historical rule, other gates (3–10%)', 'Robust across phase methods?': f'Only away from 5%: {family_line("historical")}',
-         'Strength': 'Shows where the rule is stable (≥6%: 6/7 at 11:08)',
+         'Strength': 'Multi-gate (6 points, 1 h, slope, 3 intervals); already in use',
+         'Weakness': f'The 5% gate coincides with the decisive {e.decisive_from[:5]}→{e.decisive_to[:5]} changes ({min(near_vals):.2f}–{max(near_vals):.2f}% '
+                     f'for {len(e.near_auto)} methods); qualifications depart later'},
+        {'Endpoint metric': 'Historical rule, other gates (3–10%)', 'Robust across phase methods?': f'Only at gates ≥{e.stable_from:.2f}%: {family_line("historical")}',
+         'Strength': f'Shows where the rule is stable: ≥6/7 for every gate from {e.stable_from:.2f}% to 10% in the continuous scan',
          'Weakness': f'Agreement minimum {f.fx_min_agreement}/7 at {f.fx_worst_gates[0]:.2f}–{f.fx_worst_gates[1]:.2f}%; no data-derived gate'},
         {'Endpoint metric': 'Historical + next-acquisition confirmation (persistence)', 'Robust across phase methods?': f'Agree only that no endpoint is reached ({agree("historical_gate_5pct_confirmed")} at 5%)',
-         'Strength': 'Prevents the early 11:08 calls that later depart', 'Weakness': 'With 8 points it removes almost every endpoint; uninformative here'},
+         'Strength': f'Prevents the early {t_first[:5]} calls that later depart', 'Weakness': 'With 8 points it removes almost every endpoint; uninformative here'},
         {'Endpoint metric': 'Consecutive intervals ≤ gate (k = 1, 2, 3)', 'Robust across phase methods?': f'k=1: {family_line("consecutive_1")}; k=2: {family_line("consecutive_2")}; k=3: {family_line("consecutive_3")}',
-         'Strength': 'Simple; k=2 or 3 adds persistence', 'Weakness': 'Single-interval agreement (7/7 at 11:08 for 5–10%) is not sustained; k=2/3 at 5% falls back to 4/7'},
+         'Strength': 'Simple; k=2 or 3 adds persistence',
+         'Weakness': f'Single-interval agreement (7/7 at {listing(sorted(t[:5] for t in e.single_modal))} for {gate_list(e.single_full)}) is not sustained '
+                     f'(at most {e.single_sustained} method); k=2/3 at 5% falls back to {e.k2_5}/7 and {e.k3_5}/7'},
         {'Endpoint metric': 'Rolling 3-point slope (normalized)', 'Robust across phase methods?': f'Partly — {family_line("rolling_slope")}',
-         'Strength': 'Uses three points; continuous measure', 'Weakness': '95% CI needs t(df=1)=12.7, so it is unusable; %/h gates are arbitrary'},
+         'Strength': 'Uses three points; continuous measure',
+         'Weakness': f'95% CI needs t(df=1)=12.7 (median half-width {e.ci_halfwidth[0]:.0f} %/h), so it is unusable; %/h gates are arbitrary'},
         {'Endpoint metric': 'Rolling 3-point CV', 'Robust across phase methods?': f'Mostly — {family_line("rolling_cv")}',
-         'Strength': 'Threshold-stable agreement (≥6/7 over 3.5–7.5%)', 'Weakness': 'Nearly equivalent to range for 3 points; not sustained after 11:08'},
+         'Strength': f'≥6/7 at {gate_list(e.cv_fx)} on the fixed window and at {len(e.cv_pk)}/{len(e.cv_evaluated)} gates on the picked area',
+         'Weakness': 'Nearly equivalent to range for 3 points; qualifications depart later; agreement falls at the earliest decidable acquisition'},
         {'Endpoint metric': 'Rolling 3-point range', 'Robust across phase methods?': f'Mostly — {family_line("rolling_range")}',
-         'Strength': '"All recent points within X%"; easiest to explain; ≥6/7 over 7.5–15% on both area definitions',
-         'Weakness': 'Qualification at 11:08 is followed by departures (fixed-window rise at 11:24, drop at 11:36); tolerance needs measured precision'},
+         'Strength': f'"All recent points within X%"; easiest to explain; ≥6/7 at {gate_list(e.range_fx)} (fixed window) and {gate_list(e.range_pk)} (picked area)',
+         'Weakness': f'Qualification at {t_first[:5]} is followed by departures (fixed-window rise, then the final drop); tolerance needs measured precision'},
         {'Endpoint metric': 'Rolling range/CV + confirmation', 'Robust across phase methods?': f'At lenient gates — range: {family_line("rolling_range_persistent")}',
-         'Strength': 'Moves calls to 11:24 with 6–7/7 agreement', 'Weakness': 'Still contradicted by the final drop at 11:36'},
+         'Strength': f'Moves calls to {listing(sorted(t[:5] for t in e.confirmed_modal))} with {e.confirmed_n[0]}–{e.confirmed_n[1]}/7 agreement',
+         'Weakness': f'Still contradicted by the final drop at {d.clock[-1][:5]}'},
         {'Endpoint metric': 'Uncertainty-aware change (absolute ΔA ÷ area uncertainty)', 'Robust across phase methods?': 'Not usable',
          'Strength': 'Right idea once precision is known', 'Weakness': f'Only a white-noise lower-bound SE exists (median {res.uncertainty["white_noise_se_median_au_ppm"]:.4f} a.u.·ppm, ~{res.uncertainty["ratio_cross_method_range_to_se"]:.0f}× smaller than the processing spread)'},
         {'Endpoint metric': 'Target ÷ internal reference', 'Robust across phase methods?': 'Rejected',
-         'Strength': 'Would remove global scaling drift', 'Weakness': 'No internal standard; solvent bands change 14–17% when the target arrives; Real band areas are phase-dependent'},
+         'Strength': 'Would remove global scaling drift',
+         'Weakness': f'No internal standard; strong-band intensity falls {drop[0]:.0f}–{drop[1]:.0f}% at {d.clock[1][:5]} for an unestablished reason; Real band areas are phase-dependent'},
         {'Endpoint metric': 'Change-point / segmented trend', 'Robust across phase methods?': 'Not informative',
          'Strength': 'Locates the rise→plateau transition', 'Weakness': 'Breakpoint differs between area definitions; the late break rests on the single final point'}]
     t5 = f.trans
+    (fx_t, fx_n), = e.cp_fx_full
+    (pk_t1, pk_n1), (pk_t2, pk_n2) = e.cp_pk_full
+    later_text = '; '.join(f'at {t} the slopes of {k}/7 methods are {minus(a, 0)} to {minus(b, 0)} %/h' for t, k, a, b in e.slope_later)
+    blk = e.pk_block
     lines = ['# Exploratory endpoint and plateau metrics — June 9 robustness study', '',
         '**Status: exploratory research metrics only.** The historical endpoint criterion is unchanged and remains the production rule. No candidate '
         'below is adopted, and no new production threshold is chosen.', '',
@@ -2153,35 +2400,53 @@ def endpoint_report(d, res, f):
         'requires ≥6 observations, ≥1 h elapsed, recent completion QC, earlier growth, the last three adjacent changes each ≤5%, and a last-four OLS '
         'slope with |slope| ≤ 5 a.u.·ppm/h and ≤ 10 %/h. It is replayed here through the unchanged `chemyx_lab.analysis.completion` code; the prefix '
         'replay reproduces the saved `completion_by_method.csv` exactly.', '',
-        'Why it is sensitive (`plateau_analysis/historical_gate_margins.csv`): at the first evaluable acquisition (11:08:23) the decisive interval '
-        f'10:38:47→10:53:46 changes by {f.interval["10:53:46"]["minimum_percent_change"]:.2f}% to {f.interval["10:53:46"]["maximum_percent_change"]:.2f}% across the seven '
-        'methods. DX metadata (4.80%), Ernst P0 (4.83%), DEEP (5.13%), ACME (5.60%) and Unphased (5.30%) all fall within 0.6 points of the 5% gate.', '',
+        f'Why it is sensitive (`plateau_analysis/historical_gate_margins.csv`): at the first evaluable acquisition ({t_first}) the decisive interval '
+        f'{e.decisive_from}→{e.decisive_to} changes by {f.interval[e.decisive_to]["minimum_percent_change"]:.2f}% to '
+        f'{f.interval[e.decisive_to]["maximum_percent_change"]:.2f}% across the seven methods. '
+        + listing(f'{SHORT[m]} ({e.decisive[m]:.2f}%)' for m in e.near)+f' all fall within {e.near_gap:.1f} points of the 5% gate.', '',
         '## Robustness summary (Task 19)', '',
         md_table(['Endpoint metric', 'Robust across phase methods?', 'Strength', 'Weakness'], rows_), '',
         'Agreement = how many of the seven automatic methods share the most common first-qualifying acquisition. "Sustained" = the qualifying methods '
-        'stay qualified at every later acquisition. Every candidate shares the historical eligibility (≥6 points, ≥1 h, QC), so differences come from '
-        'the stability test itself. Full matrix: `endpoint_metric_comparison.csv`; summary: `endpoint_rule_robustness_summary.csv`; figures '
-        '`13_endpoint_robustness.png` and `endpoint_outcome_matrix.png`.', '',
+        'stay qualified at every later acquisition; a qualification at the final acquisition cannot be assessed and is counted separately. '
+        f'Only {names} ever stays qualified to the end ({e.sustained_rows} of {e.rows} rule × area rows, never more than {e.max_sustained} method). '
+        'Every candidate shares the historical eligibility (≥6 points, ≥1 h, QC), so differences come from the stability test itself. Full matrix: '
+        '`endpoint_metric_comparison.csv`; summary: `endpoint_rule_robustness_summary.csv`; figures `13_endpoint_robustness.png` (fixed window) and '
+        '`endpoint_outcome_matrix.png` (both area definitions, every method).', '',
+        f'**Where the agreements fall.** All {e.agree_fx[1]} fixed-window cases of ≥6/7 agreement on a qualification time occur at the earliest '
+        f'acquisition at which the rule can decide ({t_first[:5]}, or {d.clock[e.first+1][:5]} when confirmation is required); across both area '
+        f'definitions {e.agree_all[0]} of {e.agree_all[1]} do (the later ones: {listing(e.later_agreements)}). High agreement therefore mostly shows that a tolerance is loose relative to the '
+        'cross-method differences; it is not evidence that a plateau was detected. The "n of N gates" counts also depend on each family\'s evaluated '
+        f'gate grid (the range grid reaches {max(e.range_evaluated):g}%, the interval grids stop at {max(e.hist_evaluated):g}%).', '',
         '## Task 12 — rolling three-point slope', '',
         'OLS slope over the three most recent acquisitions, normalized by their mean (%/h), with SE and 95% CI. With three points the CI uses '
-        't(0.975, df = 1) = 12.71 and spans tens of %/h, so it is reported but has no gating value. Evaluated gates: 5, 10, 15 and 20 %/h. '
-        'At 11:08:23 the normalized slopes are 6–19 %/h (fixed window): a 10 %/h gate splits the methods, while 15–20 %/h agree on 11:08 but are not '
-        'sustained, because the slopes reach +14 to +17 %/h at 11:24 and −26 to −34 %/h at 11:36 for most methods.', '',
+        f't(0.975, df = 1) = 12.71; at the evaluable acquisitions its half-width has a median of {e.ci_halfwidth[0]:.0f} %/h (range '
+        f'{e.ci_halfwidth[1]:.0f}–{e.ci_halfwidth[2]:.0f} %/h, both area definitions), so it '
+        f'is reported but has no gating value. Evaluated gates: {gate_list(e.slope_gates, " %/h")}. At {t_first} the normalized slopes are '
+        f'{min(e.slope_first):.0f}–{max(e.slope_first):.0f} %/h (fixed window): a 10 %/h gate splits the methods ({e.slope10["qualifying_automatic_methods"]}/7 '
+        f'ever qualify), while 15 and 20 %/h agree on {e.slope15["modal_outcome"][:5]} ({e.slope15["methods_agreeing_with_modal_of_7"]}/7 and '
+        f'{e.slope20["methods_agreeing_with_modal_of_7"]}/7) but are not sustained (only {e.slope15["qualifying_methods_sustained"]} of '
+        f'{e.slope15["qualifying_methods_assessable"]} and {e.slope20["qualifying_methods_sustained"]} of {e.slope20["qualifying_methods_assessable"]} '
+        f'qualifying methods stay qualified), because {later_text}.', '',
         '## Task 13 — rolling coefficient of variation', '',
-        'CV = SD/mean × 100 over the latest three points. Evaluated gates: 2.5, 3.5, 5 and 7.5%. Agreement is ≥6/7 on 11:08 for gates of 3.5% and '
-        'above on the fixed window, and for every gate on the picked area; qualification is followed by departure for at least 6 of 7 methods. With three points, '
-        'CV is about 0.50–0.58 × the range, so it carries almost no extra information.', '',
+        f'CV = SD/mean × 100 over the latest three points. Evaluated gates: {gate_list(e.cv_evaluated)}. Agreement is ≥6/7 on {t_first[:5]} for '
+        f'{gate_list(e.cv_fx)} on the fixed window and for {len(e.cv_pk)} of {len(e.cv_evaluated)} gates on the picked area; in every such case at least '
+        f'{e.cv_departing} of the assessable qualifying methods depart later. With three points, CV is 0.50–0.58 × the range (1/2 to 1/√3), so it carries '
+        'almost no extra information.', '',
         '## Task 14 — rolling range', '',
-        '(max − min)/mean × 100 over the latest three points: "all recent measurements are within X% of one another". Evaluated gates: 5, 7.5, 10 and 15%. '
-        'Together with the rolling CV (nearly equivalent for three points) it is the most threshold-stable metric on both area definitions: ≥6/7 '
-        f'agreement for every gate of 7.5% and above. Its weakness is shared by every rule on these data: {f.late.text}, so a plateau declared '
-        'at 11:08 does not hold.', '',
+        f'(max − min)/mean × 100 over the latest three points: "all recent measurements are within X% of one another". Evaluated gates: '
+        f'{gate_list(e.range_evaluated)}. Together with the nearly equivalent rolling CV it has the highest share of evaluated gates with ≥6/7 '
+        f'agreement across both area definitions ({e.share["rolling_range"][0]} of {e.share["rolling_range"][1]}: {gate_list(e.range_fx)} on the fixed '
+        f'window; {gate_list(e.range_pk)} on the picked area), with the caveats above: these '
+        f'agreements fall at the earliest decidable acquisition, and the counts depend on the gate grid. Its weakness is shared by every rule on these '
+        f'data: {f.late.text}, so a plateau declared at {t_first[:5]} does not hold.', '',
         '## Task 15 — persistence', '',
         'Persistence was tested two ways: (1) requiring k = 1, 2 or 3 consecutive qualifying intervals at gates of 3, 5, 7.5 and 10%; (2) requiring '
         'the full historical rule, or a rolling metric, to qualify at two consecutive acquisitions. **On this dataset persistence did not produce a '
-        'method-robust endpoint.** Going from one to two intervals lowers agreement at 5% (7/7 → 4/7). Confirming the historical rule turns its '
-        'split (4/7) into agreement that no endpoint is reached (7/7 "never"), which is uninformative. Confirmed rolling metrics at lenient gates '
-        'move the call to 11:24 with 6–7/7 agreement, but the 11:36 drop still contradicts it.', '',
+        f'method-robust endpoint.** Going from one to two intervals lowers agreement at 5% ({e.k1_5}/7 → {e.k2_5}/7). Confirming the historical rule turns '
+        f'its split ({e.hist5["methods_agreeing_with_modal_of_7"]}/7 on {e.hist5["modal_outcome"][:5]}) into agreement that no endpoint is reached '
+        f'({e.hist5c["methods_agreeing_with_modal_of_7"]}/7 "{e.hist5c["modal_outcome"]}"), which is uninformative. Confirmed rolling metrics at lenient '
+        f'gates move the call to {listing(sorted(t[:5] for t in e.confirmed_modal))} with {e.confirmed_n[0]}–{e.confirmed_n[1]}/7 agreement, but the '
+        f'{d.clock[-1][:5]} drop still contradicts it.', '',
         '## Task 16 — uncertainty-aware change', '',
         f'The only stored area uncertainty is a white-noise propagation, documented as an approximate lower bound: zero filling correlates points, and '
         f'phase, baseline and integration systematics are excluded. Its median is {res.uncertainty["white_noise_se_median_au_ppm"]:.4f} a.u.·ppm, about '
@@ -2191,33 +2456,42 @@ def endpoint_report(d, res, f):
         'empirical precision from replicate acquisitions of a static sample (same flow cell and parameters). Values: `uncertainty_aware_change.csv`.', '',
         '## Task 17 — internal reference normalization', '',
         '**Rejected:** no strong resonance qualifies as an internal reference for these data. Evidence (`internal_reference_audit.json`, `tables/internal_reference_audit.csv`, '
-        '`internal_reference_audit.png`):', '']+[f'- {reason}' for reason in res.ref_audit['reasons']]+['',
+        '`internal_reference_audit.png`):', '']+[f'- {reason}' for reason in ref['reasons']]+['',
         '## Task 18 — change-point / segmented trend', '',
         'Continuous hinge (piecewise-linear) models with breakpoints at observed acquisitions were compared with a straight line by SSE and BIC '
         '(`change_point_analysis.csv`, `change_point_summary.json`). The rise-to-plateau break lands at different acquisitions for the two area '
-        'definitions (fixed window: 10:38 for 7/7 single-break fits; picked area: 10:53 or 10:38, with the runner-up only about 5% worse). In the '
-        'endpoint window the best break (11:24 for 6/7) is defined by the single final acquisition. **With eight points this adds nothing defensible '
-        'to the endpoint question, so the analysis stops here.**', '',
+        f'definitions (fixed window: {fx_t[:5]} for {fx_n}/7 single-break fits; picked area: {pk_t1[:5]} for {pk_n1}/7 or {pk_t2[:5]} for {pk_n2}/7, with the '
+        f'runner-up only about {100*(e.cp_pk_ratio-1):.0f}% worse in SSE). In the endpoint window the best break ({e.cp_end[FX][0][:5]} for {e.cp_end[FX][1]}/7 '
+        f'on the fixed window and {e.cp_end[PK][0][:5]} for {e.cp_end[PK][1]}/7 on the picked area) is defined by the single final acquisition. The BIC '
+        f'counts only regression coefficients; counting each breakpoint location would lower ΔBIC by ln n ({math.log(e.cp_end_points):.2f} for the '
+        f'{e.cp_end_points}-point endpoint window) per break, so the reported ΔBIC values are optimistic. **With eight points this adds nothing '
+        'defensible to the endpoint question, so the analysis stops here.**', '',
         '## Task 20 — threshold sensitivity of the historical rule', '',
         'Only `percent_change_threshold` was varied, from 3% to 10% in 0.01% steps; all other gates were unchanged. Exact flip points '
         '(`threshold_transitions.csv`):', '',
         md_table(['Method', 'Fixed window (historical input)', 'Picked area (sensitivity)'],
                  [{'Method': SHORT[m],
-                   'Fixed window (historical input)': f'{t5[("completion_fixed_window", m)]:.2f}%' if ("completion_fixed_window", m) in t5 else 'no flip in 3–10%',
-                   'Picked area (sensitivity)': f'{t5[("picked_moving_boundary", m)]:.2f}%' if ("picked_moving_boundary", m) in t5 else 'no flip in 3–10%'}
+                   'Fixed window (historical input)': f'{t5[(FX, m)]:.2f}%' if (FX, m) in t5 else 'no flip in 3–10%',
+                   'Picked area (sensitivity)': f'{t5[(PK, m)]:.2f}%' if (PK, m) in t5 else 'no flip in 3–10%'}
                   for m in METHODS]), '',
-        f'**The 5% gate sits in the most sensitive region for the fixed-window input**: agreement among the automatic methods falls to '
-        f'{f.fx_min_agreement}/7 at {f.fx_worst_gates[0]:.2f}–{f.fx_worst_gates[1]:.2f}%, and four automatic methods flip between 4.80% and 5.60%. '
-        'Applied to the moving-boundary picked area, the same unchanged rule gives 6/7 agreement on 11:24:34 for any gate between 4.41% and 6.53%. '
-        'The measurement definition therefore matters as much as the threshold. This is an observation for validation, not a reason to switch inputs.', '',
+        f'**The 5% gate sits in the most sensitive region for the fixed-window input**: that region contains the agreement minimum '
+        f'({f.fx_min_agreement}/7 at {f.fx_worst_gates[0]:.2f}–{f.fx_worst_gates[1]:.2f}%) and {len(e.flips)} of the seven automatic flips '
+        f'({min(e.flips):.2f}–{max(e.flips):.2f}%); from {e.stable_from:.2f}% upward every gate gives ≥6/7 agreement. Applied to the moving-boundary picked '
+        f'area, the same unchanged rule gives {blk[2]}/7 agreement on {blk[3]} for every gate from {blk[0]:.2f}% to {blk[1]:.2f}%'
+        + (f' ({e.pk_next[1]}/7 from {e.pk_next[0]:.2f}%)' if e.pk_next else '')+'. The measurement definition therefore matters as much as the '
+        'threshold. This is an observation for validation, not a reason to switch inputs.', '',
         '## Best candidate for further validation (not a production change)', '',
         '**A rolling three-point range with a confirmation requirement, evaluated on both area definitions**, with the tolerance set from measured '
-        'acquisition-to-acquisition precision rather than a fixed 5%. Reasons: together with the nearly equivalent rolling CV it is the most '
-        'threshold-stable of the evaluated metrics across phase methods; it uses three acquisitions instead of one interval; and it is the easiest '
-        'to explain. Before any adoption it needs (1) replicate '
+        'acquisition-to-acquisition precision rather than a fixed 5%. It remains the validation target because it is the easiest rule to explain '
+        '("all recent points within X%") and uses three acquisitions instead of one interval, not because June 9 shows it to be robust: (i) the '
+        f'confirmed range reaches ≥6/7 on the historical fixed-window input only at {gate_list(e.range_conf_fx)} ({len(e.range_conf_fx)} of '
+        f'{len(e.range_evaluated)} tolerances); '
+        + '; '.join(f'at {g:g}% the modal outcome is {o} ({n}/7)' for g, o, n in e.range_conf_other)
+        + f'; (ii) its agreements fall at the earliest decidable acquisition, as every fixed-window agreement here does, which reflects a loose '
+        'tolerance rather than a detected plateau; (iii) the gate-count comparison with other families depends on the gate grids. Before any adoption it needs (1) replicate '
         'acquisitions of a static sample to set the tolerance, (2) runs with an independently confirmed endpoint, and (3) a prospective comparison '
-        f'with the historical rule. On June 9 no rule produced an endpoint that stayed qualified for more than {f.max_sustained} of 7 methods: '
-        f'{f.late.text}. This dataset may not contain a sustained plateau at all.']
+        f'with the historical rule. On June 9 no rule produced an endpoint that stayed qualified for more than {e.max_sustained} of 7 methods (only '
+        f'{names}): {f.late.text}. This dataset may not contain a sustained plateau at all.']
     (Path(res.out)/'plateau_analysis/ENDPOINT_METRICS_EXPLORATORY.md').write_text('\n'.join(lines)+'\n', encoding='utf-8')
     return rows_
 
@@ -2256,18 +2530,25 @@ def agreement_plot_audit(d, res):
 
 def boss_summary(d, res, f):
     A = f.A
+    pqm = {(r['method'], r['region'], r['metric']): r['median_percent_change_vs_unphased'] for r in res.pq}
     lines = [f'# Boss summary — {d.dataset} NMR phasing: how much does the algorithm matter?', '',
         f'**Bottom line.** The choice of phase algorithm changes peak shape and the exact target area (cross-method range {min(f.picked_range_pct):.1f}–'
         f'{max(f.picked_range_pct):.1f}% of the median for the picked area and {min(f.fixed_range_pct):.1f}–{max(f.fixed_range_pct):.1f}% for the fixed-window '
         'area, excluding the weak 09:13 spectrum), but not the chemistry: all seven '
         'automatic methods detect the ~5.8 ppm target in 8/8 spectra and trace nearly the same time course. The fragile part is the exact retrospective '
-        'endpoint, because the historical 5% gate sits inside the small spread that different algorithms produce. The next major improvement is most '
-        'likely a more robust endpoint metric rather than a search for the "correct" phase algorithm.', '',
+        'endpoint, because the historical 5% gate sits inside the small spread that different algorithms produce. The next major improvement may be a '
+        'more robust endpoint metric rather than a search for the "correct" phase algorithm; no tested candidate yet gives a sustained, method-robust '
+        'endpoint on these data.', '',
         '## The story in five points', '',
         f'1. **Phasing changes peak shape, but no method is robustly best.** On the strong ~2 and ~7 ppm bands, ACME has the smallest worst-case change '
         f'of the independent methods in every scoring variant tested and is consistently better at 7 ppm under the package scoring; its 2 ppm changes alternate with the diagnostic '
-        f'window centre. Combined reduces the evaluated terms most only with its own optimization windows (in-sample). DX metadata and Ernst P0 are worse '
-        f'than Unphased at 2 ppm; Peak minima is worse at 7 ppm. The strong-peak categories shift with reasonable scoring choices '
+        f'window centre. Combined reduces the evaluated terms most only with the package windows, which contain its own narrower objective windows '
+        f'(in-sample). DX metadata and Ernst P0 are worse than Unphased at 2 ppm; Peak minima is worse at 7 ppm; DEEP is mixed at 7 ppm (odd-Real '
+        f'{minus(pqm[("deep_phaser", "7ppm", "dispersive_metric")], 0)}%, even-Imaginary {minus(pqm[("deep_phaser", "7ppm", "even_imaginary_fraction")], 0)}%). '
+        'The two contamination terms leave out the 2 ppm negative area, which '
+        + listing(f'{SHORT[m]} ({minus(pqm[(m, "2ppm", "negative_area_fraction")], 0)}%)' for m in sorted(
+            (m for m in AUTOMATIC if pqm[(m, '2ppm', 'negative_area_fraction')] > 0), key=lambda m: -pqm[(m, '2ppm', 'negative_area_fraction')]))
+        + ' raise (median change; figure 07). The strong-peak categories shift with reasonable scoring choices '
         f'(`12_phase_quality_vs_unphased.png`; `WHICH_ALGORITHM_IS_BEST.md` section A).',
         f'2. **The scientific target is robust.** 56/56 automatic results detect it. Across methods the area differs by '
         f'{min(f.picked_range_pct):.1f}–{max(f.picked_range_pct):.1f}% of the median per acquisition (CV {min(f.picked_cv):.1f}–{max(f.picked_cv):.1f}%), '
@@ -2286,8 +2567,15 @@ def boss_summary(d, res, f):
         f'never. The decisive 10:38:47→10:53:46 change is 4.80% (DX), 5.60% (ACME) and 5.13% (DEEP) against a 5% gate '
         f'(`06_retrospective_completion.png`, `14_endpoint_threshold_sensitivity.png`).',
         '5. **Therefore** the larger remaining issue is defining an endpoint criterion that is less sensitive to small quantitative processing '
-        'differences. Multi-point rolling metrics (range or CV) agree across methods over much wider tolerance ranges, but on June 9 no rule\'s '
-        f'qualification stays valid: {f.late.text}. '
+        'differences. On the fixed-window input, rolling range and rolling CV '
+        + (f'each reach ≥6/7 agreement at {len(f.ep.range_fx)} of ' if len(f.ep.range_fx) == len(f.ep.cv_fx) else
+           f'reach ≥6/7 agreement at {len(f.ep.range_fx)} and {len(f.ep.cv_fx)} of ')
+        + f'{len(f.ep.range_evaluated)} evaluated tolerances, against {len(f.ep.hist_gates)} of {len(f.ep.hist_evaluated)} historical gates (the unchanged rule '
+        f'itself gives ≥6/7 for every gate from {f.ep.stable_from:.2f}% to 10%); these agreements fall at the earliest acquisition a rule can decide, so '
+        f'they show loose tolerances rather than a detected plateau. A single-interval rule also reaches ≥6/7 at {len(f.ep.single_fx)} of '
+        f'{len(f.ep.single_evaluated)} gates (7/7 at {len(f.ep.single_full)} of them), so the rolling metrics are not uniquely method-robust. No rule\'s '
+        f'qualification stays valid for more than {f.ep.max_sustained} of the seven '
+        f'methods (only {listing(f.ep.sustained_names)}): {f.late.text}. '
         'Validation needs replicate acquisitions and runs with a '
         'confirmed endpoint (`13_endpoint_robustness.png`, `../plateau_analysis/ENDPOINT_METRICS_EXPLORATORY.md`).', '',
         '## Which algorithm is best?', '',
@@ -2297,7 +2585,7 @@ def boss_summary(d, res, f):
         '[WHICH_ALGORITHM_IS_BEST.md](WHICH_ALGORITHM_IS_BEST.md) and [METHOD_AGREEMENT_SUMMARY.csv](METHOD_AGREEMENT_SUMMARY.csv).', '',
         '## Figures', '',
         '| # | File | What it shows |', '|---|---|---|',
-        '| 1–4 | `01_full_before_after.png` … `04_target_before_after.png` | Prespecified 11:08:23 example: Unphased (gray) against DX metadata, ACME and Combined (legends moved upper-right) |',
+        '| 1–4 | `01_full_before_after.png` … `04_target_before_after.png` | Prespecified 11:08:23 example: Unphased (gray) against DX metadata, ACME and Combined |',
         '| 5 | `05_target_area_timeseries.png` | Picked target area for every method over time |',
         '| 6 | `06_retrospective_completion.png` | Historical-rule completion outcome by method (unchanged rule) |',
         '| 7 | `07_phase_quality_changes.png` | Detailed heatmap of all four strong-peak shape terms (superseded for presentation by 12) |',
@@ -2318,6 +2606,13 @@ def boss_summary(d, res, f):
 
 def presentation_data(d, res, f, endpoint_rows):
     A = f.A
+    weak_ids = [i for i, w in zip(d.order, weak_signal(d)) if w]
+    span = lambda v: [min(v), max(v)] if v else None
+    weak_metric = lambda key: [float(d.metrics[(i, m)][key]) for i in weak_ids for m in AUTOMATIC]
+    weak_spread = {key: [r['percent_range_of_median'] for r in res.spread_rows if r['area_series'] == SERIES_ID[key] and r['acquisition_id'] in weak_ids]
+                   for key in SERIES}
+    pqm = {(r['method'], r['region'], r['metric']): r['median_percent_change_vs_unphased'] for r in res.pq}
+    neg = lambda m: pqm[(m, '2ppm', 'negative_area_fraction')]
     data = {'dataset': d.dataset, 'generated_utc': datetime.now(timezone.utc).isoformat(),
         'methods': [SHORT[m] for m in METHODS],
         'phase': [{'method': SHORT[m], 'category': A[m]['phase_category'], 'two_ppm': A[m]['phase_2ppm'], 'seven_ppm': A[m]['phase_7ppm'],
@@ -2326,7 +2621,13 @@ def presentation_data(d, res, f, endpoint_rows):
                    'fixed_range_pct_of_median': [min(f.fixed_range_pct), max(f.fixed_range_pct)],
                    'cv_pct': [min(f.picked_cv), max(f.picked_cv)], 'weak_excluded': f.weak_times, 'snr_median_abs_dev_pct': list(f.snr_range),
                    'ppm_max_offset': f.ppm_max, 'min_pairwise_pearson': f.min_pearson, 'min_pairwise_spearman': f.min_spearman,
-                   'weak_snr_threshold': d.minimum_snr},
+                   'weak_snr_threshold': d.minimum_snr, 'weak_target_snr': span(weak_metric('target_snr')),
+                   'weak_target_ppm': span(weak_metric('target_peak_ppm')), 'picked_range_at_weak_pct': weak_spread['picked'],
+                   'fixed_range_at_weak_pct': weak_spread['fixed']},
+        'phase_caveats': {'independent_methods': [SHORT[m] for m in res.sens.independent],
+                          'negative_area_2ppm_raised': [[SHORT[m], neg(m)] for m in sorted(AUTOMATIC, key=lambda m: -neg(m)) if neg(m) > 0],
+                          'deep_7ppm_odd_real_and_even_imaginary': [pqm[('deep_phaser', '7ppm', 'dispersive_metric')],
+                                                                    pqm[('deep_phaser', '7ppm', 'even_imaginary_fraction')]]},
         'chemistry_vs_algorithm': res.chem,
         'strong_peak_sensitivity': [r for r in res.sens.summary if r['threshold_of_8'] == 6 and r['odd_term'] == 'odd_real'],
         'categories': [{'method': SHORT[m], 'phase': A[m]['phase_category'], 'target': A[m]['target_trend_category'],
@@ -2340,6 +2641,11 @@ def presentation_data(d, res, f, endpoint_rows):
                      'critical_interval_pct': {SHORT[m]: f.crit[m]['recent_interval_percent_changes'] for m in METHODS},
                      'metric_table': endpoint_rows, 'uncertainty': res.uncertainty, 'internal_reference': res.ref_audit['decision']},
         'acme_higher_than_unphased': {'count': f.higher_count['acme'], 'of': 32},
+        'endpoint_agreement': {'range_fixed_gates': f.ep.range_fx, 'cv_fixed_gates': f.ep.cv_fx, 'range_evaluated': f.ep.range_evaluated,
+                               'cv_evaluated': f.ep.cv_evaluated, 'single_fixed_gates': f.ep.single_fx, 'single_evaluated': f.ep.single_evaluated,
+                               'historical_gates': f.ep.hist_gates, 'historical_evaluated': f.ep.hist_evaluated, 'historical_stable_from': f.ep.stable_from,
+                               'fixed_agreements_at_earliest': list(f.ep.agree_fx), 'max_sustained': f.ep.max_sustained,
+                               'sustained_methods': f.ep.sustained_names},
         'historical_outcome_counts': {'first_evaluable': d.clock[endpoint_window(d)[0]], 'complete_first_evaluable': f.hist_counts[0],
                                       'final_acquisition_only': f.hist_counts[1], 'never': f.hist_counts[2]},
         'last_intervals_pct': {SERIES_ID[key]: {'intervals': [f'{d.clock[-3]}→{d.clock[-2]}', f'{d.clock[-2]}→{d.clock[-1]}'],
@@ -2353,6 +2659,10 @@ def presentation_data(d, res, f, endpoint_rows):
 
 def context_for_new_llm(d, res, f, endpoint_rows):
     A = f.A
+    paths = [x.replace(chr(92), '/') for x in json.loads((d.base/'verification/ACCESS_DENIED_BASELINE.json').read_text(encoding='utf-8-sig'))['files']]
+    denied = {'total': len(paths), 'pytest_': sum('/logs/pytest_' in x for x in paths),
+              'regression': sum('/logs/additional_phase_methods/pytest_regression/' in x for x in paths)}
+    assert denied['pytest_']+denied['regression'] == denied['total'], 'access-denied baseline has files outside the two pytest folders'
     hist = '; '.join(f'{SHORT[m]} {A[m]["historical_completion"]}' for m in METHODS)
     lines = ['# Context for a new LLM — June 9 NMR algorithm-validation package', '',
         f'Package: `results/100426_algovalidation` in repository `C:\\code\\chemyx_pump`. Dataset display name: `{d.dataset}`. Written by '
@@ -2383,14 +2693,15 @@ def context_for_new_llm(d, res, f, endpoint_rows):
         'the **fixed-window completion area** (5.70–5.90 ppm, global ALS-baselined Real plus local linear footline), which is the input to the '
         'historical completion rule.', '',
         '## Major result', '',
-        'All phase methods detect the target and reproduce highly similar target-area trajectories, but peak-shape metrics and the exact '
+        'All phase methods detect the target and reproduce highly similar target-area trajectories, but peak-shape metrics and exact '
         'retrospective completion differ. There is no universal best algorithm (Option B for the target; Option C only for the exact endpoint). '
         'ACME has the smallest worst-case strong-peak change of the independent methods in every scoring variant tested, but its category is not '
         'unique under other reasonable scoring choices. Combined scores best only on the terms and windows it optimizes (in-sample), and its 2 ppm '
         'phase alternates, mainly with its objective\'s window centre. The 2 ppm diagnostic window centre itself alternates between two adjacent scoring-grid '
         'points (see `boss_summary/WHICH_ALGORITHM_IS_BEST.md` section A and `tables/strong_peak_sensitivity_summary.csv`).', '',
         '## Key verified numbers', '',
-        f'- Detection: 56/56 automatic method × acquisition results (8/8 for every method, including Unphased).',
+        f'- Detection: 56/56 automatic method × acquisition results (8/8 for each automatic method; Unphased also 8/8). At the weak 09:13 spectrum the '
+        'detected candidate is weak and not identity-confirmed.',
         f'- Picked target area, spread across the 7 automatic methods: {min(f.picked_range_pct):.2f}–{max(f.picked_range_pct):.2f}% of the median per acquisition '
         f'excluding 09:13 ({min(f.picked_range_all):.2f}–{max(f.picked_range_all):.2f}% including it); CV {min(f.picked_cv):.2f}–{max(f.picked_cv):.2f}% '
         f'excluding 09:13 ({min(f.picked_cv_all):.2f}–{max(f.picked_cv_all):.2f}% including it). '
@@ -2415,9 +2726,17 @@ def context_for_new_llm(d, res, f, endpoint_rows):
         '- Shape terms assume isolated positive absorptive bands. The custom objectives (Combined, Symmetry) partly optimize the evaluated terms.',
         '- Completion classifications are retrospective; no physical stop was established. Candidate endpoint metrics are exploratory and do not replace '
         'the historical rule.',
-        '- 2,054 protected historical files (pytest temp folders under `results/NMR_validation_100226/logs/pytest_*`) are unreadable to this '
-        'Windows account (owner-only ACLs from a different sandbox principal). The integrity check reports them as unverifiable, not unchanged, and '
-        'tolerates access denial only for the exact paths in the reviewed baseline `verification/ACCESS_DENIED_BASELINE.json` (never raw input).', '',
+        f'- {denied["total"]:,} protected historical files (pytest temp folders: {denied["pytest_"]:,} under '
+        f'`results/NMR_validation_100226/logs/pytest_*` and {denied["regression"]:,} under `logs/additional_phase_methods/pytest_regression`) are unreadable '
+        'to this Windows account (owner-only ACLs from a different sandbox principal). The integrity check reports them as unverifiable, not unchanged, '
+        'and tolerates access denial only for the exact paths in the reviewed baseline `verification/ACCESS_DENIED_BASELINE.json` (never raw input).', '',
+        '## Conventions a new LLM must keep', '',
+        '- CSV `method` columns use legacy internal keys: `production` = DX metadata, `acme`, `peak_minima`, `combined_objective_v1` = Combined, '
+        '`symmetry_objective` = Symmetry, `ernst_integral_p0` = Ernst P0, `deep_phaser` = DEEP, `unphased`. `display_method` is the user-facing name; '
+        'never surface `production` as a method name in new material.',
+        '- Repository rules (`AGENTS.md`): every saved experimental figure carries the dataset display name ("06-09-26 <title>", exactly once, via '
+        '`chemyx_lab.analysis.plot_titles.format_dataset_plot_title`) in every format and in the manifest; JCAMP acquisition metadata (`LONG DATE`) is the '
+        'only timing source, never a filename token or file-modification time, and timing plots fail closed without it.', '',
         '## Output package', '',
         '| Path | Content |', '|---|---|',
         '| `README.md` | start here; one-command rerun |',
@@ -2436,7 +2755,7 @@ def context_for_new_llm(d, res, f, endpoint_rows):
         '```', '',
         'Refinement only (reads saved tables and arrays; fast): `python code/robustness_refinement.py --output <package>`. Tests: '
         '`python -m pytest verification/test_validation_adapter.py verification/test_integrity_check.py verification/test_robustness_refinement.py -q -p no:cacheprovider`. Presentation: '
-        'see `boss_summary/PRESENTATION_BUILD.md`.', '',
+        'see `boss_summary/PRESENTATION_BUILD.md`. Final audit record (after tests write `verification/junit_*.xml` with `--junitxml`): `python code/finalize_validation_audit.py`; it recomputes every statement from the integrity check, test results, figure manifest, review notes and deck receipt, and reports passed only when the refinement-stage review notes 08–14 all end APPROVED.', '',
         '## GUI', '',
         'The manual review GUI is implemented with **PySide6 / Qt for Python** (`scripts/nmr/validation_phase_gui.py`, `scripts/nmr/phase4.py`). It '
         'loads the saved automatic methods for side-by-side comparison and allows editable P0/P1 manual phasing; explicit saves become human '

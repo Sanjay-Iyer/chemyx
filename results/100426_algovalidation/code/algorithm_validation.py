@@ -543,10 +543,10 @@ class PlotWriter:
         self.args = args; self.dataset = records[0]['dataset_display_name']; self.manifest = []
         plt.rcParams.update({'font.family': 'DejaVu Sans', 'font.size': 11, 'axes.spines.top': False,
                              'axes.spines.right': False, 'savefig.facecolor': 'white'})
-    def save(self, fig, relative, title, source, acquisition=None, check=None):
+    def save(self, fig, relative, title, source, acquisition=None, check=None, layout=None):
         visible = format_dataset_plot_title(self.dataset, title)
         fig.suptitle(visible, fontsize=15, fontweight='bold')
-        fig.tight_layout(rect=self.LAYOUT)
+        fig.tight_layout(rect=layout or self.LAYOUT)  # layout: per-figure override for a longer caption
         if check is not None: check(fig)
         path = self.args.output/relative; path.parent.mkdir(parents=True, exist_ok=True)
         for attempt in range(6):  # Windows reports a transiently mapped/previewed file as EINVAL or EACCES
@@ -732,12 +732,13 @@ def figures_and_reports(args, records, data):
                 stamp+' All methods '+('target comparison' if target else 'full spectrum comparison'),args.output/'tables/per_acquisition_method_metrics.csv',ident)
         print('Detailed figures:', stamp, flush=True)
     # Sequence figure: split into two groups with identical axes and a repeated reference.
+    markers = refinement_module().MARKERS  # same method markers as figures 10, 12 and the deck
     def sequence_figure(relative):
         fig, axes = plt.subplots(2,1,figsize=(12,8),sharex=True,sharey=True)
         for ax, group in zip(axes, (METHODS[:4], ('unphased', *METHODS[4:]))):
             for method in group:
                 yy = [data[r['acquisition_id']][method]['target'].get('area', np.nan) for r in records]
-                ax.plot(times,yy,'o-',ms=4,lw=1.3,color=COLORS[method],label=LABELS[method])
+                ax.plot(times,yy,'-',marker=markers[method],ms=6 if markers[method]!='*' else 9,mec='white',mew=.6,lw=1.3,color=COLORS[method],label=LABELS[method])
             ax.legend(ncol=3,fontsize=10); ax.set_ylabel('Picked area (a.u.·ppm)'); ax.grid(alpha=.2)
         axes[-1].set_xticks(times,ticks); axes[-1].set_xlabel('Acquisition time, June 9 (UTC−04; JCAMP LONG DATE)')
         fig.text(.04,.012,'Moving-boundary regional target areas. Retrospective completion separately uses fixed 5.70–5.90 ppm global Real.',fontsize=9)
@@ -780,7 +781,8 @@ def figures_and_reports(args, records, data):
         image_=ax.imshow(mat,vmin=-100,vmax=100,cmap='RdBu_r',aspect='auto')
         ax.set_xticks(range(4),['Negative','Odd Real','Asymmetry','Even Imag'],rotation=20,ha='right');ax.set_yticks(range(7),[LABELS[m] for m in corrected]);ax.set_title(region+' median % change')
         for i in range(7):
-            for j in range(4):ax.text(j,i,f'{mat[i,j]:+.0f}%' if np.isfinite(mat[i,j]) else 'n/a',ha='center',va='center',fontsize=10,color='black')
+            for j in range(4):ax.text(j,i,(f'{mat[i,j]:+.0f}%'.replace('-0%','0%').replace('+0%','0%')) if np.isfinite(mat[i,j]) else 'n/a',ha='center',va='center',fontsize=10,
+                                      color='white' if np.isfinite(mat[i,j]) and abs(mat[i,j])>=65 else 'black')
     fig.colorbar(image_,cax=allaxes[2],label='Change vs Unphased (%)')
     fig.text(.04,.012,'Blue = lower term; red = higher. Colors saturate at ±100%; labels show actual values. Shape assumptions and reference denominators matter.',fontsize=9)
     pw.save(fig,'method_comparisons/phase_quality_change_vs_unphased.png','Strong resonance phase-quality changes versus Unphased',args.output/'tables/improvement_vs_unphased.csv')
@@ -789,7 +791,8 @@ def figures_and_reports(args, records, data):
         idx=outcome.get('completion_index')
         if idx is not None:
             ax.scatter(times[idx],i,color=COLORS[outcome['method']],s=90)
-            ax.text(times[idx]+.04,i,outcome['first_retrospective_completion'][11:19]+(' + later departure' if outcome['later_departure_warning'] else ''),va='center',fontsize=10)
+            note=(' + later departure' if outcome['later_departure_warning'] else ' — final acquisition (unconfirmed)' if idx==len(times)-1 else '')
+            ax.text(times[idx]+.04,i,outcome['first_retrospective_completion'][11:19]+note,va='center',fontsize=10)
         else:ax.text(.05,i,('Unavailable — ' if outcome['complete'] is None else 'Never qualifies — ')+outcome['status'],va='center',fontsize=10)
     ax.set_yticks(range(8),[LABELS[m] for m in METHODS]);ax.set_ylim(7.6,-.6);ax.set_xlim(0,3.65);ax.set_xticks(times,ticks,fontsize=9);ax.set_xlabel('JCAMP LONG DATE acquisition time (UTC−04)');ax.grid(axis='x',alpha=.2)
     fig.text(.03,.012,'Retrospective classification only. Wide slope CI yields moderate evidence; no physical controller stop established.',fontsize=9)
@@ -798,9 +801,9 @@ def figures_and_reports(args, records, data):
     prod=np.array([data[r['acquisition_id']]['production']['target'].get('area',np.nan) for r in records])
     for method in METHODS:
         vv=np.array([data[r['acquisition_id']][method]['target'].get('area',np.nan) for r in records])
-        axes[0].plot(times,100*(vv-prod)/np.abs(prod),'o-',ms=3,color=COLORS[method],label=LABELS[method])
-        axes[1].scatter(prod,vv,s=25,color=COLORS[method],label=LABELS[method])
-    axes[0].set_xticks(times,ticks,fontsize=8);axes[0].set_ylabel('Area difference from DX (%)');axes[0].set_xlabel('JCAMP LONG DATE acquisition time');axes[0].axhline(0,color='#999999',lw=.7)
+        axes[0].plot(times,100*(vv-prod)/np.abs(prod),'-',marker=markers[method],ms=5 if markers[method]!='*' else 8,mec='white',mew=.5,color=COLORS[method],label=LABELS[method])
+        axes[1].scatter(prod,vv,s=34 if markers[method]!='*' else 60,marker=markers[method],edgecolors='white',linewidths=.5,color=COLORS[method],label=LABELS[method])
+    axes[0].set_xticks(times,ticks,fontsize=8);axes[0].set_ylabel('Area difference from DX (%)');axes[0].set_xlabel('JCAMP LONG DATE acquisition time (UTC−04)');axes[0].axhline(0,color='#999999',lw=.7)
     axes[1].plot([0,maxarea],[0,maxarea],color='#555555',ls='--',lw=.8);axes[1].set_xlabel('DX picked area (a.u.·ppm)');axes[1].set_ylabel('Comparator area (a.u.·ppm)');axes[1].legend(ncol=2,fontsize=8)
     fig.text(.04,.012,'Secondary historical-reference view. DX metadata = stored vendor phase used by earlier processing; not ground truth. Primary view: boss_summary/08_method_spread_vs_time.png.',fontsize=9)
     pw.save(fig,'method_comparisons/target_area_agreement.png','Agreement with historical DX-metadata processing',args.output/'tables/target_area_method_comparison.csv')
@@ -964,7 +967,7 @@ def reports(args,records,data,summaries,manifest):
         f'How much does phase-algorithm choice affect the scientific conclusion? It changes lineshape and exact target area (cross-method range {spread_text}, excluding the weak 09:13 spectrum), but the broad target time series is essentially unchanged. The historical endpoint criterion is more sensitive than the underlying chemistry trend and should be evaluated for robustness. No phase method is treated as ground truth.','',
         '## One-command rerun','', 'Run from the repository in the existing ai environment. Default verifies and reuses saved numerical results while regenerating every table, figure and report, including the method-robustness refinement (`code/robustness_refinement.py`).','',
         '```powershell',command,'```','',
-        "Refinement only (reads this package's saved tables and arrays; about 20 s): `python code/robustness_refinement.py --output <package>`. Tests: `python -m pytest verification/test_validation_adapter.py verification/test_integrity_check.py verification/test_robustness_refinement.py -q -p no:cacheprovider`.",'',
+        "Refinement only (reads this package's saved tables and arrays; about 20 s): `python code/robustness_refinement.py --output <package>`. Tests: `python -m pytest verification/test_validation_adapter.py verification/test_integrity_check.py verification/test_robustness_refinement.py -q -p no:cacheprovider`. Final audit record (after tests write `verification/junit_*.xml` with `--junitxml`): `python code/finalize_validation_audit.py`; it recomputes every statement from the integrity check, test results, figure manifest, review notes and deck receipt, and reports passed only when the refinement-stage review notes 08–14 all end APPROVED.",'',
         'Append `--recompute` to invoke the existing phase estimators and quantitative functions from raw FIDs; optional offline DEEP inference requires its already-pinned local Node/runtime/model files. Failure remains explicit. No network inference or hardware access occurs. New inference artifacts go under `raw_recomputed`. Genuine manual saves remain human references and are loaded separately.','',
         'Stage controls: `--stage inputs|process|metrics|timeseries|plateau|figures|all`. These stages are for independent review; the default all executes the complete package. `--stage figures` recomputes tables as well. The initial frozen-file hash snapshot is retained; figures/all re-hashes every readable protected file and tolerates access-denied files only within the reviewed baseline `verification/ACCESS_DENIED_BASELINE.json`.','',
         'Presentation creation has a separate documented command in `boss_summary/PRESENTATION_BUILD.md`. It reads generated JSON/figures, not raw data.','',

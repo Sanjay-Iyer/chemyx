@@ -136,7 +136,7 @@ class ChemistSpectrumView:
         if name=='unphased':return self.fixed_methods['production']['unphased']
         if name=='manual':
             return self._manual_complex() if self.processing_view.currentData()=='before' else self.saved_manual_view['phased'] if self.saved_manual_view else None
-        return self.fixed_methods[name]['phased']
+        return self.fixed_methods[name]['phased'] if name in self.fixed_methods else None
 
     def _refresh_absorption_traces(self,*_):
         if not getattr(self,'processed_methods',{}) or not self.fixed_methods:return
@@ -156,7 +156,7 @@ class ChemistSpectrumView:
             elif stage=='before' or name=='unphased':y=z.real
             else:
                 # The absent manual trace stays hidden until a checkpoint exists.
-                saved=(self.saved_manual_view or self.processed_methods['production']) if name=='manual' else self.processed_methods[name]
+                saved=(self.saved_manual_view or self.processed_methods['production']) if name=='manual' else self.processed_methods.get(name,self.processed_methods['production'])
                 y=saved['baseline'] if stage=='baseline' else saved['final']
             self.real_curves[name].setData(self.model.ppm,y)
             self.imag_curves[name].setData(self.model.ppm,z.imag)
@@ -233,11 +233,11 @@ class ChemistSpectrumView:
 
     def _show_phase_quality(self):
         dialog=QtWidgets.QDialog(self);dialog.setWindowTitle('Phase quality metrics — saved evidence');dialog.resize(1200,410)
-        layout=QtWidgets.QVBoxLayout(dialog);table=QtWidgets.QTableWidget(7,8)
+        layout=QtWidgets.QVBoxLayout(dialog);table=QtWidgets.QTableWidget(len(self.fixed_methods),8)
         table.setHorizontalHeaderLabels(['Saved method','Negative fraction','Even imaginary','Odd Real / lobes',
                                         'Total imaginary residual','Asymmetry','Baseline trend penalty','Optimizer status'])
         table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        for i,name in enumerate(AUTOMATIC):
+        for i,name in enumerate(self.fixed_methods):
             row=self.fixed_methods[name]['metrics']
             status=row.get('optimizer_status','retained')
             original=self.validation_dir/'acquisitions'/self.acquisition_dir.name/'alternative_methods'/name/'optimizer.json'

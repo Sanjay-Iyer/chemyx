@@ -1,5 +1,53 @@
 # NMR analysis scripts
 
+## Phase 5: open raw data in the current validation GUI
+
+`phase5.py` uses the same phase, baseline, basic/advanced, diagnostics, and
+checkpoint controls as `validation_phase_gui.py`, with a portable raw-data
+import workflow. Start it from the repository folder that contains `scripts/`:
+
+```powershell
+conda activate llm # Work laptop; use ai on the home laptop
+python -m pip install -r requirements.txt
+python -m pip install PySide6 pyqtgraph
+python scripts\nmr\phase5.py
+```
+
+Select a raw NMReady `.dx` file in the startup picker. No previous processing
+or home-laptop validation folder is required. You can also supply the raw path:
+
+```powershell
+python scripts\nmr\phase5.py "C:\Code\chemyx_pump\chemyx\results\raw\nmr\06-09-26\CEC-PhSi2-flow(sequence-1030)-06-09-26.dx"
+```
+
+In the window, **Open raw .DX** imports another spectrum, **Process raw folder**
+imports the `.dx` files recursively and supplies an acquisition dropdown, and
+**Open saved review folder** reopens a Phase 5 or compatible validation package.
+The raw data can be anywhere on that laptop, independently of the checkout path.
+
+Each import freshly processes a copied raw FID into a unique folder below
+`results/phase5_review/` (Git-ignored). Raw inputs, older processed directories,
+and saved review results are preserved. The output folder is shown in the
+status bar and opened by **Open review output**. To reopen without preprocessing:
+
+```powershell
+python scripts\nmr\phase5.py --validation-dir "C:\path\to\results\phase5_review\review_example"
+```
+
+Automatic comparisons share the production FFT, ppm axis, baseline, and peak
+analysis. External DEEP models are not required; DEEP and any failed comparator
+are marked unavailable and disabled rather than given replacement spectra.
+Manual checkpoints are created only when you explicitly save. Metadata timing
+is required; completion replay covers only the selected files, so import a
+whole dataset for a sequence comparison. A single spectrum cannot establish
+reaction completion. The tool processes files offline and never commands lab
+hardware.
+
+Normal `process_fid.py` output folders (CSV, plots, summary JSON) are not review
+packages. There is no need to run `phase4.py` or reuse an uncertain older
+processed folder first. Transfer/update the Phase 5 source code on the work
+laptop, then import that laptop's local raw files.
+
 For the current local GUI commands and configuration precedence, see
 [the operator guide](../../docs/CREATE_NEW_EXPERIMENT.md). Final whole-run
 reporting can be repeated offline without reprocessing individual spectra:

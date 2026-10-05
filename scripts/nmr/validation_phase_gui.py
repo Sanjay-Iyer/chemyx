@@ -261,7 +261,8 @@ class ValidationPhaseWindow(ChemistBasicView,ChemistSpectrumView,phase4.Phase4Wi
         return save_gallery_checkpoint(self.acquisition_dir,p0_deg=p0,p1_deg=p1,pivot_ppm=pivot,
             pivot_fraction=self.model.pivot_fraction(pivot),reviewer=reviewer,notes=notes,role=role,
             starting_method=self.starting_method,starting_phase=self.starting_phase,
-            ambiguous=self.ambiguous_check.isChecked(),baseline_review=self.baseline_review.currentData())
+            ambiguous=self.ambiguous_check.isChecked(),baseline_review=self.baseline_review.currentData(),
+            refresh_gallery_index=getattr(self,'refresh_gallery_index',True))
 
     def _current_values(self):
         p0,p1,pivot=super()._current_values()

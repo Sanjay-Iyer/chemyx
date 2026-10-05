@@ -156,10 +156,10 @@ class ChemistBasicView:
     def _show_saved_phase_parameters(self):
         dialog=QtWidgets.QDialog(self);dialog.setWindowTitle('Saved automatic phase parameters — read only')
         dialog.resize(850,340);layout=QtWidgets.QVBoxLayout(dialog)
-        table=QtWidgets.QTableWidget(7,5)
+        table=QtWidgets.QTableWidget(len(self.fixed_methods),5)
         table.setHorizontalHeaderLabels(['Method','Stored P0 (degrees)','Stored P1 (degrees)','Direction','Pivot / convention'])
         table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        for i,name in enumerate(AUTOMATIC):
+        for i,name in enumerate(self.fixed_methods):
             row=self.fixed_methods[name]['metrics']
             for j,value in enumerate((DISPLAY[name],row['P0'],row['P1'],row['direction'],row['convention'])):
                 table.setItem(i,j,QtWidgets.QTableWidgetItem(str(value)))
