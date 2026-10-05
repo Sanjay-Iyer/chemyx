@@ -23,10 +23,11 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import os
 import sys
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Sequence
@@ -259,18 +260,21 @@ class ReviewSpectrumModel:
     because it belongs to the pipeline, not to the GUI.
     """
 
-    def __init__(self, path: Path):
-        self.load(path)
+    def __init__(self, path: Path, *, processing_settings: dict | None = None):
+        self.load(path, processing_settings=processing_settings)
 
-    def load(self, path: Path) -> None:
+    def load(self, path: Path, *, processing_settings: dict | None = None) -> None:
         path = Path(path).resolve()
         if path.suffix.lower() != ".dx" or not path.is_file():
             raise ValueError(f"Expected an existing .dx file: {path}")
+        settings = processing_settings or {}
+        self.truncation_window = settings.get("truncation_window", "none")
         inspection = build_processing_inspection(
             path,
-            line_broadening_hz=LINE_BROADENING_HZ,
-            zero_fill_points=ZERO_FILL_POINTS,
+            line_broadening_hz=settings.get("line_broadening_hz", LINE_BROADENING_HZ),
+            zero_fill_points=settings.get("zero_fill_points", ZERO_FILL_POINTS),
             inverse_phase=True,
+            truncation_window=self.truncation_window,
         )
         self.path = path
         self.metadata = dict(inspection.metadata)
@@ -371,7 +375,8 @@ class AutomatedPhaseResult:
 
     @property
     def inverse_phase(self) -> bool:
-        return self.phase_direction != "direct"
+        # nmrglue automatic phasing uses its direct convention.
+        return self.phase_direction == "inverse"
 
     def phase_text(self) -> str:
         pivot = (
@@ -456,8 +461,10 @@ def _record_for_source(summary: dict, source_filename: str) -> dict:
         raise ValueError("pipeline summary contains no records")
     for record in records:
         if str(record.get("file", "")) == source_filename:
+            if record.get("error") or record.get("phase0_deg") is None or record.get("phase1_deg") is None:
+                raise ValueError(f"No successful phased result for {source_filename}")
             return record
-    return records[0]
+    raise ValueError(f"No exact processed result for {source_filename}")
 
 
 def automated_result_from_summary(
@@ -488,6 +495,8 @@ def automated_result_from_summary(
         str(record.get("file", "")),
         search_roots=roots,
     )
+    if record.get("raw_sha256") and hashlib.sha256(source_dx.read_bytes()).hexdigest() != record["raw_sha256"]:
+        raise ValueError(f"Source content does not match the processed acquisition: {source_dx}")
 
     spectrum_csv_text = str(record.get("spectrum_csv", "") or "")
     spectrum_csv: Path | None = None
@@ -542,6 +551,12 @@ def resolve_source_dx(
     search by filename.  Failure is reported, never silently ignored.
     """
 
+    # Prefer the selected run's raw file even when an old absolute path still
+    # exists on HOME after a run was copied or relocated.
+    for root in search_roots:
+        direct = Path(root) / "raw_nmr" / filename if filename else None
+        if direct is not None and direct.is_file():
+            return direct.resolve()
     recorded = Path(recorded_path) if recorded_path else None
     if recorded is not None and recorded.is_file():
         return recorded.resolve()
@@ -601,6 +616,12 @@ def automated_spectrum(
         ppm, real = read_pipeline_spectrum_csv(result.spectrum_csv)
         return ppm, real, SPECTRUM_FROM_CSV
 
+    settings = dict(result.processing_settings, line_broadening_hz=result.line_broadening_hz,
+                    zero_fill_points=result.zero_fill_points)
+    if (model.processed_points != result.zero_fill_points
+            or model.line_broadening_hz != result.line_broadening_hz
+            or model.truncation_window != settings.get("truncation_window", "none")):
+        model = ReviewSpectrumModel(result.source_dx, processing_settings=settings)
     real = model.phased_index_zero(
         result.p0_deg, result.p1_deg, inverse=result.inverse_phase
     )
@@ -609,9 +630,9 @@ def automated_spectrum(
     return ppm, real, SPECTRUM_RECONSTRUCTED
 
 
-def _unique_run_name(output_root: Path, when: datetime | None = None) -> str:
+def _unique_run_name(output_root: Path, when: datetime | None = None, *, prefix: str = "phase4") -> str:
     stamp = (when or datetime.now()).strftime("%Y%m%d_%H%M%S_%f")
-    base = f"phase4_{stamp}"
+    base = f"{prefix}_{stamp}"
     candidate = base
     suffix = 2
     while (output_root / candidate).exists():
@@ -679,6 +700,74 @@ def run_automated_processing(
 # ---------------------------------------------------------------------------
 
 
+def _check_review_destination(path: Path, model: ReviewSpectrumModel,
+                              automated: AutomatedPhaseResult) -> None:
+    """Keep review writes outside production data and reporting directories."""
+    path = Path(path).resolve()
+    protected = [automated.output_directory.resolve()]
+    if model.path.parent.name == "raw_nmr":
+        run = model.path.parent.parent
+        protected.extend(run / name for name in ("raw_nmr", "processed_nmr", "final_nmr_summary"))
+    if path == model.path or any(path.is_relative_to(folder) for folder in protected):
+        raise ValueError("Select a separate manual-review location outside production outputs")
+
+
+def run_manual_processing(
+    *, model: ReviewSpectrumModel, automated: AutomatedPhaseResult,
+    manual: PhaseCandidate, output_root: Path,
+    pipeline_runner: Callable[[list[str]], int] = process_fid.main,
+    when: datetime | None = None,
+) -> Path:
+    """Recalculate with the existing processor and save a separate review result."""
+    output_root = Path(output_root).resolve()
+    _check_review_destination(output_root, model, automated)
+    output_root.mkdir(parents=True, exist_ok=True)
+    run_name = _unique_run_name(output_root, when, prefix="phase4_manual")
+    arguments = [str(model.path)]
+    # Replay the quantitative parameters already recorded by process_fid,
+    # through that processor's own CLI; no new numerical analysis is introduced.
+    skip = {"paths", "config", "output_dir", "run_name", "dataset_display_name",
+            "phase0", "phase1", "phase_method", "direct_phase", "export_csv"}
+    for action in process_fid._parser()._actions:
+        value = automated.processing_settings.get(action.dest)
+        if action.dest in skip or value is None or not action.option_strings:
+            continue
+        if isinstance(action, argparse.BooleanOptionalAction):
+            option = next(o for o in action.option_strings if o.startswith("--no-") == (not bool(value)))
+            arguments.append(option)
+        elif action.nargs == 0:
+            if value == action.const:
+                arguments.append(action.option_strings[0])
+        else:
+            values = value if isinstance(value, (tuple, list)) else [value]
+            arguments.extend([action.option_strings[0], *(str(v) for v in values)])
+    arguments.extend([
+        "--output-dir", str(output_root), "--run-name", run_name,
+        "--dataset-display-name", model.dataset_display_name,
+        "--phase-method", "manual", "--phase0",
+        str(model.effective_p0(manual.p0_deg, manual.p1_deg, manual.pivot_ppm)),
+        "--phase1", str(manual.p1_deg), "--export-csv",
+    ])
+    # Manual controls use the inverse convention, including a conversion when
+    # the loaded production result used direct/automatic phasing.
+    code = pipeline_runner(arguments)
+    if code != 0:
+        raise RuntimeError(f"Manual process_fid.py analysis failed with exit code {code}")
+    output = output_root / run_name
+    result = automated_result_from_summary(
+        output / f"{run_name}_summary.json", source_filename=model.path.name,
+        search_roots=[model.path.parent.parent], produced_by_phase4=True,
+    )
+    review = save_phase_review(output / "manual_phase_review.json", model=model,
+                              automated=automated, manual=manual, when=when)
+    payload = json.loads(review.read_text(encoding="utf-8"))
+    payload["analysis_role"] = "manual_review"
+    payload["manual_analysis"] = result.to_payload()
+    payload["manual_analysis_tables"] = [p.name for p in sorted(output.glob("*.csv"))]
+    review.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return output
+
+
 def save_phase_review(
     path: Path,
     *,
@@ -696,6 +785,14 @@ def save_phase_review(
     """
 
     path = Path(path)
+    _check_review_destination(path, model, automated)
+    if path.exists():
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except (ValueError, UnicodeError):
+            existing = {}
+        if not isinstance(existing, dict) or existing.get("schema") != PHASE_REVIEW_SCHEMA:
+            raise ValueError("Refusing to overwrite an existing non-review file")
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "schema": PHASE_REVIEW_SCHEMA,
@@ -704,6 +801,8 @@ def save_phase_review(
         "review_only": True,
         "source_dx": str(model.path),
         "source_filename": model.path.name,
+        "source_sha256": hashlib.sha256(model.path.read_bytes()).hexdigest(),
+        "source_run": model.path.parent.parent.name if model.path.parent.name == "raw_nmr" else "",
         "dataset_display_name": model.dataset_display_name,
         "automated": automated.to_payload(),
         "manual": None if manual is None else asdict(manual),
@@ -738,7 +837,8 @@ def load_phase_review(
             f"not a supported phase review file (expected {PHASE_REVIEW_SCHEMA})"
         )
     automated = AutomatedPhaseResult.from_payload(payload["automated"])
-    roots = list(search_roots) + [
+    run_name = str(payload.get("source_run", ""))
+    roots = [Path(root) / run_name for root in search_roots if run_name] + list(search_roots) + [
         automated.output_directory,
         automated.output_directory.parent,
         Path(path).parent,
@@ -748,6 +848,9 @@ def load_phase_review(
         str(payload.get("source_filename", "")),
         search_roots=roots,
     )
+    if payload.get("source_sha256") and hashlib.sha256(source_dx.read_bytes()).hexdigest() != payload["source_sha256"]:
+        raise ValueError("The located source does not match this saved phase review")
+    automated = replace(automated, source_dx=source_dx)
     manual_payload = payload.get("manual")
     manual = (
         None
@@ -793,10 +896,11 @@ def automated_as_candidate(
     """
 
     pivot = model.stored_pivot_ppm if pivot_ppm is None else float(pivot_ppm)
+    sign = 1 if result.inverse_phase else -1
     return PhaseCandidate(
         name=name,
-        p0_deg=model.p0_at_pivot(result.p0_deg, result.p1_deg, pivot),
-        p1_deg=float(result.p1_deg),
+        p0_deg=model.p0_at_pivot(sign * result.p0_deg, sign * result.p1_deg, pivot),
+        p1_deg=float(sign * result.p1_deg),
         pivot_ppm=pivot,
     )
 
@@ -824,7 +928,7 @@ class Acquisition:
         # ASCII only: these labels are also printed to Windows consoles, which
         # default to cp1252 and raise on decorative glyphs.
         mark = (
-            "[processed]" if self.has_automated_result else "[not yet processed]"
+            "[processed]" if self.has_automated_result else "[UNPROCESSED]"
         )
         return f"{self.source_dx.name}  {mark}"
 
@@ -853,7 +957,6 @@ def _find_analysis_for(run_directory: Path, source_dx: Path) -> tuple[
     processed = run_directory / "processed_nmr"
     if not processed.is_dir():
         return None, None
-    best: tuple[Path, Path] | None = None
     for analysis_dir in sorted(p for p in processed.iterdir() if p.is_dir()):
         summary = analysis_dir / f"{analysis_dir.name}_summary.json"
         if not summary.is_file():
@@ -862,12 +965,11 @@ def _find_analysis_for(run_directory: Path, source_dx: Path) -> tuple[
             payload = json.loads(summary.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
-        files = {str(item.get("file", "")) for item in payload.get("records", [])}
-        if source_dx.name in files:
+        records = payload.get("records", [])
+        if any(item.get("file") == source_dx.name and not item.get("error")
+               and item.get("phase0_deg") is not None and item.get("phase1_deg") is not None for item in records):
             return analysis_dir, summary
-        if best is None:
-            best = (analysis_dir, summary)
-    return best if best is not None else (None, None)
+    return None, None
 
 
 def discover_acquisitions(run_directory: Path) -> list[Acquisition]:
@@ -1062,6 +1164,7 @@ class Phase4Window(QtWidgets.QMainWindow):
         self.automated_trace: tuple[np.ndarray, np.ndarray] | None = None
         self.automated_provenance = ""
         self.output_directory: Path | None = None
+        self.last_manual_output: Path | None = None
         self._busy = False
         self._updating_candidate_list = False
         self._build_ui()
@@ -1162,7 +1265,7 @@ class Phase4Window(QtWidgets.QMainWindow):
             autoDownsample=True,
             clipToView=True,
         )
-        self.automated_plot = self._new_plot("Automated — Script Result")
+        self.automated_plot = self._new_plot("Automated — After Production Phase Correction")
         self.automated_curve = self.automated_plot.plot(
             pen=pg.mkPen(AUTOMATED_PEN, width=1.2),
             autoDownsample=True,
@@ -1238,6 +1341,10 @@ class Phase4Window(QtWidgets.QMainWindow):
         self.copy_button.setEnabled(False)
         self.copy_button.clicked.connect(self._copy_automated_to_manual)
         grid.addWidget(self.copy_button, 4, 0, 1, 2)
+        self.manual_analysis_button = QtWidgets.QPushButton("Recalculate & Save Manual Analysis")
+        self.manual_analysis_button.setEnabled(False)
+        self.manual_analysis_button.clicked.connect(self._recalculate_manual)
+        grid.addWidget(self.manual_analysis_button, 5, 0, 1, 2)
         return box
 
     def _phase_control(self, layout, row: int, label: str):
@@ -1336,6 +1443,18 @@ class Phase4Window(QtWidgets.QMainWindow):
     def _set_automated(
         self, result: AutomatedPhaseResult | None, note: str = ""
     ) -> None:
+        if result is not None:
+            if result.source_dx.resolve() != self.model.path:
+                raise ValueError("Processed result belongs to a different source acquisition")
+            settings = dict(result.processing_settings, line_broadening_hz=result.line_broadening_hz,
+                            zero_fill_points=result.zero_fill_points)
+            if (self.model.processed_points != result.zero_fill_points
+                    or self.model.line_broadening_hz != result.line_broadening_hz
+                    or self.model.truncation_window != settings.get("truncation_window", "none")):
+                self.model.load(self.model.path, processing_settings=settings)
+                self._load_model_into_controls()
+            if result.dataset_display_name:
+                self.model.dataset_display_name = result.dataset_display_name
         self.automated = result
         if result is None:
             self.automated_trace = None
@@ -1349,6 +1468,7 @@ class Phase4Window(QtWidgets.QMainWindow):
             self.automated_curve.setData(ppm, real)
             self.overlay_automated.setData(ppm, real)
         self.copy_button.setEnabled(result is not None)
+        self.manual_analysis_button.setEnabled(result is not None and not self._busy)
         self.save_automated_candidate_button.setEnabled(result is not None)
         self.save_review_button.setEnabled(result is not None)
         self._update_plots()
@@ -1413,6 +1533,8 @@ class Phase4Window(QtWidgets.QMainWindow):
                 ]
             )
         lines.append("")
+        if self.last_manual_output is not None:
+            lines.append(f"Manual analysis   : {self.last_manual_output}")
         lines.append("Review only — no instrument, pump or needle is contacted.")
         lines.append("The source .dx is never modified.")
         self.information.setPlainText("\n".join(lines))
@@ -1487,18 +1609,21 @@ class Phase4Window(QtWidgets.QMainWindow):
         self, path: Path, automated: AutomatedPhaseResult | None = None
     ) -> None:
         try:
-            self.model.load(path)
+            self.model.load(path, processing_settings=(dict(
+                automated.processing_settings, line_broadening_hz=automated.line_broadening_hz,
+                zero_fill_points=automated.zero_fill_points) if automated is not None else None))
         except Exception as exc:  # noqa: BLE001 - surfaced to the chemist
             QtWidgets.QMessageBox.critical(self, "Could not open DX file", str(exc))
             return
         self.phase_candidates.clear()
+        self.last_manual_output = None
         self._rebuild_candidate_list()
         self._load_model_into_controls()
         self._set_automated(automated)
         if automated is None:
             self.status.setText(
                 f"Loaded {path.name}. Original spectrum shown; no automated "
-                "result yet."
+                "result yet (UNPROCESSED)."
             )
 
     def _browse_runs(self) -> None:
@@ -1640,6 +1765,41 @@ class Phase4Window(QtWidgets.QMainWindow):
         self.status.setText(
             "Manual controls now hold the automated phase. Adjust to fine-tune."
         )
+
+    def _recalculate_manual(self) -> None:
+        if self._busy or self.automated is None:
+            return
+        if self.output_directory is None:
+            QtWidgets.QMessageBox.information(
+                self, "Choose a review output directory",
+                "Select an output directory outside production outputs first.",
+            )
+            return
+        manual = PhaseCandidate("Manual", *self._current_values())
+        self._busy = True
+        self.manual_analysis_button.setEnabled(False)
+        self.run_button.setEnabled(False)
+        self.status.setText("Recalculating baseline, peaks, integration and QC from manual phase…")
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+        QtWidgets.QApplication.processEvents()
+        try:
+            self.last_manual_output = run_manual_processing(
+                model=self.model, automated=self.automated, manual=manual,
+                output_root=self.output_directory,
+            )
+            self._refresh_information()
+            self.status.setText(
+                f"Manual analysis saved separately: {self.last_manual_output}. "
+                "Inspect its peaks_simple and peak_qc_log_window CSVs; production result unchanged."
+            )
+        except Exception as exc:  # noqa: BLE001
+            QtWidgets.QMessageBox.critical(self, "Manual analysis failed", str(exc))
+            self.status.setText(f"Manual analysis failed: {exc}")
+        finally:
+            QtWidgets.QApplication.restoreOverrideCursor()
+            self._busy = False
+            self.manual_analysis_button.setEnabled(self.automated is not None)
+            self.run_button.setEnabled(True)
 
     def _save_candidate(self) -> None:
         p0_deg, p1_deg, pivot_ppm = self._current_values()

@@ -1,5 +1,9 @@
 # YAML templates for a new laptop
 
+For complete experiment recipes (standard, 30/60-minute, mixed intervals,
+one-cycle attended, or long monitoring), see [experiments/](experiments/README.md)
+and the [new-experiment guide](../docs/CREATE_NEW_EXPERIMENT.md).
+
 Run these commands from the repository root. Files in this directory are
 **tracked, ready-to-edit templates**, but scripts do not read them here. Copy
 each needed file to the exact runtime path below, then edit the copy. The

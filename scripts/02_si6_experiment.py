@@ -7,6 +7,7 @@ from pathlib import Path
 
 import _bootstrap  # noqa: F401
 from chemyx_lab import config
+from chemyx_lab.analysis.final_nmr_summary import summarize_run
 from chemyx_lab.workflows import three_instrument_si6 as si6
 
 
@@ -43,6 +44,12 @@ def main(argv=None) -> int:
         with si6.open_services(raw, arduino, pump, nmr, identity=identity, fast_mock_processing=args.mock, acknowledged_review=args.acknowledge_review) as services:
             outcome = si6.run_experiment(services, mock_cycles_per_stage=args.mock_cycles_per_stage)
             print(f"Results: {services.paths.run_dir}")
+        # Reporting runs only after the instrument session has closed. A report
+        # failure must not change the experiment's existing outcome or exit code.
+        try:
+            print(f"Final NMR summary: {summarize_run(services.paths.run_dir)}")
+        except Exception as exc:
+            print(f"Final NMR summary unavailable ({type(exc).__name__}: {exc}); rerun scripts/nmr/summarize_run.py on this folder.")
         print(f"Si6 EXPERIMENT: {outcome.status.value}: {outcome.message}")
         return outcome.exit_code
     except BaseException as exc:

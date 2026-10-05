@@ -32,6 +32,17 @@ results/processed/archive/
 .gitignore
 
 # --- Generated run outputs ---------------------------------------------------
+# Keep experimental results local. Existing tracked files remain tracked.
+/results/*
+!/results/README.md
+!/results/raw/
+# This validation runner currently imports its implementation from results.
+# Keep only that source code eligible; plots, data, and logs stay local.
+!/results/100426_algovalidation/
+/results/100426_algovalidation/*
+!/results/100426_algovalidation/code/
+/results/100426_algovalidation/code/*
+!/results/100426_algovalidation/code/*.py
 runs/nmr_plots/
 results/runs/
 runs/arduino/
@@ -54,6 +65,7 @@ __pycache__/
 .ruff_cache/
 # Disposable pytest --basetemp folders from earlier sessions.
 test_tmp_*/
+.codex_pytest_temp_*/
 arduino/.test-tmp*/
 
 # --- Virtual environments ----------------------------------------------------
@@ -62,6 +74,8 @@ venv/
 env/
 ENV/
 .venv*/
+deep_env/
+node_modules/
 
 # --- Packaging / build artifacts ---------------------------------------------
 *.egg-info/

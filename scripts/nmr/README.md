@@ -1,5 +1,16 @@
 # NMR analysis scripts
 
+For the current local GUI commands and configuration precedence, see
+[the operator guide](../../docs/CREATE_NEW_EXPERIMENT.md). Final whole-run
+reporting can be repeated offline without reprocessing individual spectra:
+
+```powershell
+python scripts/nmr/summarize_run.py results/runs/si6/<run-folder>
+```
+
+This writes CSV/QC overviews and three dataset-titled PNGs to
+`<run-folder>/final_nmr_summary/`, reusing saved results and real-spectrum exports.
+
 For the focused 5.7 ppm kinetics, completion-decision logic, slide/paper figure
 sets, and exact acquisition-time provenance, see
 [`docs/NMR_TARGET_PEAK_WORKFLOW.md`](../../docs/NMR_TARGET_PEAK_WORKFLOW.md).

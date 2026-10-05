@@ -695,6 +695,9 @@ def analyze_timepoint(dx_path: Path, paths: RunPaths, analysis: dict[str, Any], 
             "Peak Review", configured_name=str(metadata["dataset_display_name"])
         )
     spectrum = build_magnitude_spectrum(dx_path, line_broadening_hz=float(analysis.get("line_broadening_hz", 0.3)))
+    from chemyx_lab.analysis.phase_audit import retain_monitoring_audit
+    retain_monitoring_audit(dx_path, result, analysis, metadata,
+                           paths.run_dir / "monitoring_audit" / dx_path.stem)
     spectrum_rows = [
         {"iteration": metadata["iteration"], "stage": metadata["stage"],
          "elapsed_hours": metadata["elapsed_hours"], "ppm": float(ppm),

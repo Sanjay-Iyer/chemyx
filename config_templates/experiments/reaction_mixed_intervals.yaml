@@ -1,0 +1,118 @@
+# Copy to configs/experiments/<your_name>.yaml.
+# Mixed cadence: initial 60 min, first addition 30 min, later additions 60 min.
+# Validate: python scripts/02_si6_experiment.py --workflow-config <copy>
+# This file cannot select live mode. Arduino geometry/COM/IP stay in local YAML.
+
+# TIMING AND SAMPLE CYCLE
+# Stage interval_minutes (min) is start-to-start; max_hours is h.
+# measure_immediately=true starts at stage entry. Edit reagent prompts as needed.
+# Leave cycle ACTION ORDER unchanged. Volumes are mL; pause is seconds.
+# Return volume balances both withdrawals; cleanup withdraw/infuse must match.
+# max_measurements is omitted: interval and duration determine the count.
+workflow:
+  name: reaction_mixed_intervals
+  description: 'Mixed cadence: initial 60 min, first addition 30 min, later additions
+    60 min.'
+  cycle:
+  - action: withdraw
+    volume_ml: 8.0
+    note: Needle must be out of solution.
+  - action: operator
+    prompt: Lower the needle into the reaction solution, then press y.
+  - action: withdraw
+    volume_ml: 5.0
+  - action: pause
+    seconds: 300
+    note: Increase this if more NMR scans require a longer equilibration.
+  - action: nmr
+  - action: infuse
+    volume_ml: 13.0
+  - action: operator
+    prompt: Raise the needle out of the reaction solution, then press y.
+  - action: withdraw
+    volume_ml: 5.0
+  - action: infuse
+    volume_ml: 5.0
+  pump_extra_seconds: 2.0
+  # STAGE TIMING: edit these values for your experiment.
+  initial_stage:
+    name: initial_reaction
+    operator_prompt: Add catalyst and starting reagents, mix under N2, then press
+      y.
+    interval_minutes: 60
+    measure_immediately: false
+    plateau_stopping_enabled: false
+    max_hours: 8
+  first_addition_stage:
+    name: first_diphenyl_silane
+    operator_prompt: Add diphenyl silane, then press y.
+    interval_minutes: 30
+    measure_immediately: false
+    plateau_stopping_enabled: true
+    max_hours: 4
+  repeat_addition_rounds: 1
+  repeating_stages:
+  - name: acetone
+    operator_prompt: Add acetone, then press y.
+    interval_minutes: 60
+    measure_immediately: false
+    plateau_stopping_enabled: true
+    max_hours: 6
+  - name: diphenyl_silane
+    operator_prompt: Add diphenyl silane, then press y.
+    interval_minutes: 60
+    measure_immediately: false
+    plateau_stopping_enabled: true
+    max_hours: 6
+# PUMP: global for this run
+# Rate is mL/min with units below; diameter is the actual syringe ID in mm.
+# Capacity/margin are mL. Revalidate balance/capacity after changing volumes.
+pump:
+  channel: 1
+  syringe_diameter_mm: 20.0
+  syringe_capacity_ml: 20.0
+  initial_retained_volume_ml: 0.0
+  syringe_safety_margin_ml: 1.0
+  units: mL/min
+  rate_ml_min: 5.0
+  default_volume_ml: 5.0
+# NMR: GLOBAL, identical in EVERY stage
+# Common edits: scans, receiver_gain, target_ppm. Keep iflow/fid, auto_gain=false.
+# Center/width are ppm; acquisition timeout belongs in machine YAML.
+nmr:
+  route: iflow
+  result_type: fid
+  scans: 2
+  receiver_gain: 12.0
+  auto_gain: false
+  spectral_center: 5.0
+  sweep_width: 20.0
+  target_ppm: 5.8
+# ANALYSIS AND PLATEAU
+# detection_window_ppm is a HALF-width around nmr.target_ppm.
+# Workflow SNR/prominence gates also require process_fid QC to pass.
+# 3 stable intervals need 4 valid points; a decline beyond 2% resets stability.
+# integration/plot windows and line_broadening here are legacy/magnitude settings.
+# Phase/baseline/width QC: configs/nmr/analysis.yaml (not this section).
+analysis:
+  detection_window_ppm: 0.1
+  integration_window_ppm: 0.1
+  plot_window_ppm: 0.5
+  line_broadening_hz: 0.3
+  min_peak_snr: 5.0
+  min_prominence_snr: 3.0
+  min_peak_area: 0.0
+  area_epsilon: 1.0e-12
+  plateau_max_growth_percent: 5.0
+  plateau_max_decline_percent: 2.0
+  plateau_consecutive_intervals: 3
+# OUTPUT: live root; mocks use its _mock sibling
+output:
+  run_root_dir: results/runs/si6
+# THREE-INSTRUMENT OPTIONS
+# Initial early stop below overrides the initial-stage legacy flag above.
+# Test volumes affect Level 1 diagnostics only, not the full sample cycle.
+three_instrument:
+  test_withdraw_ml: 0.5
+  test_infuse_ml: 0.5
+  initial_plateau_stopping_enabled: true

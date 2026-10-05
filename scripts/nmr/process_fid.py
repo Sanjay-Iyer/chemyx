@@ -496,6 +496,40 @@ def _get_plotting():
     return plt
 
 
+def process_spectrum_for_peaks(spectrum, args, analysis_ppm=None):
+    """Shared, unchanged baseline/detection path for production and phase review.
+
+    Reference resolution remains the responsibility of the caller. Exposing
+    this path lets validation change phase alone while reusing every numerical
+    downstream operation used by main().
+    """
+    analysis_ppm = spectrum.ppm_axis if analysis_ppm is None else analysis_ppm
+    quantitative_real = spectrum.real
+    if args.baseline_method in {"abd-linear", "polynomial"}:
+        display_order = 1 if args.baseline_method == "abd-linear" else args.baseline_order
+        quantitative_real, _, _, _ = subtract_abd_polynomial_baseline(
+            spectrum.real, sections=args.abd_sections, noise_factor=args.abd_noise_factor,
+            window_points=args.abd_window_points, polynomial_order=display_order)
+    elif args.baseline_method == "asymmetric_least_squares":
+        quantitative_real = spectrum.real - asymmetric_least_squares_baseline(spectrum.real)
+    diagnostic_magnitude = spectrum.magnitude
+    if args.normalization == "max":
+        scale = float(max(abs(quantitative_real)))
+        if not scale > 0:
+            raise ValueError("maximum normalization scale is not positive")
+        quantitative_real = quantitative_real / scale
+        diagnostic_magnitude = diagnostic_magnitude / scale
+    detection_trace = diagnostic_magnitude if args.detection_trace == "magnitude" else quantitative_real
+    picked = pick_spectrum_region(
+        analysis_ppm, detection_trace, region_min_ppm=args.region_min,
+        region_max_ppm=args.region_max, min_prominence_snr=args.min_prominence_snr,
+        min_distance_ppm=args.min_peak_distance_ppm, min_width_ppm=args.min_peak_width_ppm,
+        baseline_polynomial_order=args.baseline_order,
+        smoothing_window_ppm=args.smoothing_window_ppm,
+        quantitative_intensity=quantitative_real, source=spectrum.source)
+    return quantitative_real, diagnostic_magnitude, picked
+
+
 def _plot_real(
     ppm,
     real,
@@ -993,7 +1027,7 @@ def _round_csv_numbers(out_dir: Path, skip: set[str]) -> None:
     already deliberately formatted and are left alone.
     """
     for path in sorted(out_dir.rglob("*.csv")):
-        if path.name in skip:
+        if path.name in skip or "phase_audit" in path.relative_to(out_dir).parts:
             continue
         with path.open(newline="", encoding="utf-8") as handle:
             rows = list(csv.reader(handle))
@@ -1056,6 +1090,20 @@ def _prefix_output_files(out_dir: Path) -> dict[str, str]:
         target = path.with_name(prefix + path.name)
         path.rename(target)
         renamed[str(path)] = str(target)
+    # Keep the lossless audit's figure links valid after the usual run prefix pass.
+    for original, target in renamed.items():
+        if Path(original).name != "plot_manifest.csv" or "phase_audit" not in Path(original).parts:
+            continue
+        with Path(target).open(newline="", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            columns = reader.fieldnames
+            rows = list(reader)
+        for row in rows:
+            row["path"] = renamed.get(row["path"], row["path"])
+        with Path(target).open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=columns)
+            writer.writeheader()
+            writer.writerows(rows)
     return renamed
 
 
@@ -1754,62 +1802,17 @@ def main(argv: list[str] | None = None) -> int:
                 applied_shift_hz = (
                     reference_shift * spectrum.observe_frequency_mhz
                 )
-            quantitative_real = spectrum.real
-            if args.baseline_method in {"abd-linear", "polynomial"}:
-                # "abd-linear" keeps the conservative straight-line baseline;
-                # "polynomial" follows the curved solvent tail (e.g. toluene's
-                # wing under the ~5.8 peak) with the configured order so the
-                # displayed baseline sits near zero instead of bowing negative.
-                display_order = 1 if args.baseline_method == "abd-linear" else args.baseline_order
-                quantitative_real, _, _, _ = subtract_abd_polynomial_baseline(
-                    spectrum.real,
-                    sections=args.abd_sections,
-                    noise_factor=args.abd_noise_factor,
-                    window_points=args.abd_window_points,
-                    polynomial_order=display_order,
-                )
-            elif args.baseline_method == "asymmetric_least_squares":
-                quantitative_real = (
-                    spectrum.real
-                    - asymmetric_least_squares_baseline(spectrum.real)
-                )
-            diagnostic_magnitude = spectrum.magnitude
-            if args.normalization == "max":
-                scale = float(max(abs(quantitative_real)))
-                if not scale > 0:
-                    raise ValueError("maximum normalization scale is not positive")
-                quantitative_real = quantitative_real / scale
-                diagnostic_magnitude = diagnostic_magnitude / scale
-            # Which trace peaks are FOUND on. The magnitude spectrum is always
-            # positive and never needs phasing, but a real resonance can sit on
-            # its rising background as a mere shoulder -- so peaks get missed
-            # outright, or located on the flank instead of the apex, which then
-            # corrupts every height, width, and area derived from them. The
-            # phased, baseline-corrected real trace is where a peak actually
-            # looks like a peak, so detection defaults to it.
-            detection_trace = (
-                diagnostic_magnitude
-                if args.detection_trace == "magnitude"
-                else quantitative_real
-            )
-            picked = pick_spectrum_region(
-                analysis_ppm,
-                detection_trace,
-                region_min_ppm=args.region_min,
-                region_max_ppm=args.region_max,
-                min_prominence_snr=args.min_prominence_snr,
-                min_distance_ppm=args.min_peak_distance_ppm,
-                min_width_ppm=args.min_peak_width_ppm,
-                baseline_polynomial_order=args.baseline_order,
-                smoothing_window_ppm=args.smoothing_window_ppm,
-                quantitative_intensity=quantitative_real,
-                source=path,
-            )
+            quantitative_real, diagnostic_magnitude, picked = process_spectrum_for_peaks(
+                spectrum, args, analysis_ppm)
             timestamp, timestamp_source = parse_acquisition_timestamp(
                 spectrum.metadata, path
             )
             timestamp_text = timestamp.isoformat() if timestamp else ""
             safe = _safe_name(path.stem)
+            from chemyx_lab.analysis.phase_audit import retain_phase_audit
+            retain_phase_audit(spectrum, args, analysis_ppm, quantitative_real, picked,
+                               out_dir / "phase_audit" / safe,
+                               dataset=args.dataset_display_name)
             positions = tuple(peak.peak_ppm for peak in picked.peaks)
             plot_candidates = []
             for peak in picked.peaks:

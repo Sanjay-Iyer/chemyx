@@ -63,6 +63,8 @@ archive/           Git-tracked retired workflows
 
 ## Documentation
 
+- [Create a new experiment and use offline NMR GUIs](docs/CREATE_NEW_EXPERIMENT.md)
+- [Copyable experiment recipes](config_templates/experiments/README.md)
 - [Quickstart](docs/QUICKSTART.md)
 - [Offline Laptop Setup](docs/OFFLINE_SETUP.md)
 - [YAML template and destination guide](config_templates/README.md)
