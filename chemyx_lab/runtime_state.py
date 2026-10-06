@@ -45,6 +45,9 @@ class DerivedRunState:
     last_operation: dict[str, Any] | None = None
     physical_state_certainty: str = "certain"
     estimated_retained_syringe_volume_ml: float = 0.0
+    default_pump_channel: int | None = None
+    pump_channels: dict[str, dict[str, Any]] = field(default_factory=dict)
+    reagent_doses: dict[str, dict[str, Any]] = field(default_factory=dict)
     completed_cycle_count: int = 0
     plateau_progress: dict[str, Any] = field(default_factory=dict)
     monitoring_progress: dict[str, Any] = field(default_factory=dict)
@@ -128,12 +131,14 @@ def replay_journal(path: Path) -> ReplayResult:
 
     operation_states: dict[str, str] = {}
     operation_records: dict[str, dict[str, Any]] = {}
+    operation_channels: dict[str, Any] = {}
     event_ids: set[str] = set()
     expected_sequence = 1
     canonical_run_id: str | None = None
     terminal_seen = False
     last_cycle_status: str | None = None
     needle_motion_open = False
+    stage_actions_open = False
 
     for record in parsed:
         sequence = record.get("sequence")
@@ -223,8 +228,26 @@ def replay_journal(path: Path) -> ReplayResult:
                         sequence,
                     )
                 operation_states[operation_id] = lifecycle
+                channel = record.get("channel")
+                if operation_id in operation_channels and operation_channels[operation_id] != channel:
+                    _issue(result.errors, "inconsistent_operation_channel", f"Operation {operation_id} changes Chemyx channel", sequence)
+                operation_channels.setdefault(operation_id, channel)
                 operation_records[operation_id] = record
                 result.state.last_operation = _operation_summary(record)
+                channel_state = None
+                if channel is not None and (type(channel) is not int or channel not in (0, 1, 2)):
+                    _issue(result.errors, "invalid_operation_channel", f"Invalid Chemyx channel {channel!r}", sequence)
+                elif channel is not None:
+                    channel_state = result.state.pump_channels.setdefault(str(channel), {})
+                    channel_state["last_operation"] = _operation_summary(record)
+                    if lifecycle == "dispatch_started" and record.get("operation_type") in {"withdraw", "infuse"}:
+                        channel_state["motion_active"] = True
+                    if record.get("operation_type") == "pump_stop" and lifecycle in FINAL_OPERATION_STATES:
+                        channel_state["last_stop_status"] = record.get("result_classification")
+                        if lifecycle == "completed":
+                            channel_state["motion_active"] = False
+                    if lifecycle == "uncertain" or record.get("physical_state_certainty") == "uncertain":
+                        channel_state["uncertain"] = True
                 if lifecycle not in FINAL_OPERATION_STATES:
                     result.state.active_operation = _operation_summary(record)
                 elif (
@@ -243,7 +266,18 @@ def replay_journal(path: Path) -> ReplayResult:
                         isinstance(value, (int, float))
                         and math.isfinite(float(value))
                     ):
-                        result.state.estimated_retained_syringe_volume_ml = float(value)
+                        if channel_state is not None:
+                            channel_state["retained_volume_ml"] = float(value)
+                            action = record.get("operation_type")
+                            if action in {"withdraw", "infuse"}:
+                                key = "cumulative_withdrawn_ml" if action == "withdraw" else "cumulative_infused_ml"
+                                volume = (record.get("requested_parameters") or {}).get("volume", 0)
+                                if isinstance(volume, (int, float)) and not isinstance(volume, bool) and math.isfinite(volume) and volume >= 0:
+                                    channel_state[key] = channel_state.get(key, 0.0) + float(volume)
+                                else:
+                                    _issue(result.errors, "invalid_transfer_volume", "Completed transfer volume is invalid", sequence)
+                        if result.state.default_pump_channel is None or channel == result.state.default_pump_channel:
+                            result.state.estimated_retained_syringe_volume_ml = float(value)
                 if (
                     lifecycle == "uncertain"
                     or record.get("physical_state_certainty") == "uncertain"
@@ -255,6 +289,24 @@ def replay_journal(path: Path) -> ReplayResult:
             result.state.current_workflow_phase = (
                 record.get("new_state") or record.get("workflow_phase")
             )
+            if result.state.last_applied_sequence == 0 and "pump_channels" in record:
+                try:
+                    default = record["default_pump_channel"]
+                    channels = record["pump_channels"]
+                    if type(default) is not int or default not in (0, 1, 2) or not isinstance(channels, dict):
+                        raise ValueError("invalid default or channel mapping")
+                    for ch, settings in channels.items():
+                        if str(ch) not in {"0", "1", "2"} or not isinstance(settings, dict):
+                            raise ValueError("invalid channel settings")
+                        volume = settings.get("retained_volume_ml")
+                        if not isinstance(volume, (int, float)) or isinstance(volume, bool) or not math.isfinite(volume) or volume < 0:
+                            raise ValueError("invalid initial retained volume")
+                    initial_volume = channels[str(default)]["retained_volume_ml"]
+                    result.state.default_pump_channel = default
+                    result.state.pump_channels = {str(ch): dict(settings) for ch, settings in channels.items()}
+                    result.state.estimated_retained_syringe_volume_ml = float(initial_volume)
+                except (KeyError, TypeError, ValueError) as exc:
+                    _issue(result.errors, "invalid_initial_channels", f"Invalid initial Chemyx state: {exc}", sequence)
             initial_volume = record.get(
                 "expected_retained_volume_before_ml"
             )
@@ -266,10 +318,38 @@ def replay_journal(path: Path) -> ReplayResult:
                 result.state.estimated_retained_syringe_volume_ml = float(
                     initial_volume
                 )
+        elif event_type in {"experiment_reserved", "dose_dispatch_intent", "dose_confirmed"}:
+            dose_id = record.get("dose_id")
+            status = {"experiment_reserved": "RESERVED", "dose_dispatch_intent": "DISPATCH_INTENT", "dose_confirmed": "CONFIRMED"}[event_type]
+            previous = result.state.reagent_doses.get(str(dose_id), {}).get("status")
+            expected = {"RESERVED": None, "DISPATCH_INTENT": "RESERVED", "CONFIRMED": "DISPATCH_INTENT"}[status]
+            if not isinstance(dose_id, str) or not dose_id or previous != expected:
+                _issue(result.errors, "dose_lifecycle_invalid", "Reagent dose lifecycle is duplicated or out of order", sequence)
+            prior = result.state.reagent_doses.get(str(dose_id), {})
+            if previous is not None and (record.get("experiment_id") != prior.get("experiment_id") or record.get("configuration_sha256") != prior.get("configuration_sha256")):
+                _issue(result.errors, "dose_identity_mismatch", "Dose experiment/config identity changed within the journal", sequence)
+            if status == "CONFIRMED":
+                move = operation_records.get(record.get("pump_operation_id"), {})
+                params = move.get("requested_parameters", {})
+                matched_stop = any(e.get("operation_type") == "pump_stop" and e.get("parent_operation_id") == move.get("operation_id")
+                    and e.get("channel") == 2 and e.get("lifecycle_state") == "completed" and e.get("result_classification") == "succeeded"
+                    and prior.get("intent_sequence", sequence) < e.get("sequence", 0) < move.get("sequence", 0) for e in operation_records.values())
+                if not (move.get("lifecycle_state") == "completed" and move.get("operation_type") == "infuse" and move.get("channel") == 2
+                        and move.get("sequence") == record.get("pump_completion_sequence") and move.get("sequence", 0) > prior.get("intent_sequence", sequence)
+                        and params.get("volume") == record.get("volume_ml") and params.get("rate") == record.get("rate_ml_min")
+                        and record.get("volume_ml") == prior.get("volume_ml") and record.get("rate_ml_min") == prior.get("rate_ml_min")
+                        and move.get("result_classification") == "positively_confirmed" and matched_stop):
+                    _issue(result.errors, "dose_completion_unproven", "Dose confirmation lacks its matched addressed move/STOP and configured parameters", sequence)
+            result.state.reagent_doses[str(dose_id)] = {"status": status, "experiment_id": record.get("experiment_id"),
+                "sequence": sequence, "channel": record.get("channel"), "volume_ml": record.get("volume_ml"),
+                "rate_ml_min": record.get("rate_ml_min"), "configuration_sha256": record.get("configuration_sha256"),
+                "intent_sequence": sequence if status == "DISPATCH_INTENT" else prior.get("intent_sequence")}
         elif event_type == "cycle_completed":
             result.state.completed_cycle_count += 1
         elif event_type == "cycle_status":
             last_cycle_status = record.get("status")
+        elif event_type == "stage_actions_status":
+            stage_actions_open = record.get("status") != "COMPLETE"
         elif event_type == "manual_inspection_required":
             result.state.manual_inspection_required = True
             if record.get("physical_state_certainty") == "uncertain":
@@ -278,6 +358,15 @@ def replay_journal(path: Path) -> ReplayResult:
             # A commanded move without its verified completion leaves the
             # needle position unknown.
             needle_motion_open = record.get("result_classification") == "started"
+        elif event_type == "pump_configuration":
+            channel = record.get("channel")
+            if type(channel) is not int or channel not in (0, 1, 2):
+                _issue(result.errors, "invalid_configuration_channel", "Pump configuration has an invalid channel", sequence)
+            else:
+                channel_state = result.state.pump_channels.setdefault(str(channel), {})
+                for key in ("syringe_diameter_mm", "rate", "units"):
+                    if key in record:
+                        channel_state[key] = record[key]
         elif event_type == "analysis_result":
             if record.get("result_classification") == "valid":
                 result.state.last_valid_analysis_result = record.get(
@@ -351,6 +440,12 @@ def replay_journal(path: Path) -> ReplayResult:
             "A commanded needle move has no verified completion; the needle "
             "position is unknown",
         )
+    if stage_actions_open:
+        result.state.manual_inspection_required = True
+        _issue(result.warnings, "stage_actions_incomplete", "A one-time stage action sequence did not complete; inspect both syringes, needle, tubing, and sample")
+    if any(dose["status"] == "DISPATCH_INTENT" for dose in result.state.reagent_doses.values()):
+        result.state.manual_inspection_required = True
+        _issue(result.warnings, "reagent_dose_uncertain", "Reagent dispatch intent lacks confirmed completion; inspect ledger and journal, never replay automatically")
     if last_cycle_status in INCOMPLETE_CYCLE_STATUSES:
         result.state.manual_inspection_required = True
         _issue(
@@ -370,6 +465,9 @@ def replay_journal(path: Path) -> ReplayResult:
             ):
                 result.state.physical_state_certainty = "uncertain"
                 result.state.manual_inspection_required = True
+                channel = record.get("channel")
+                if type(channel) is int and channel in (0, 1, 2):
+                    result.state.pump_channels.setdefault(str(channel), {})["uncertain"] = True
     if result.incomplete_operations:
         result.state.active_operation = result.incomplete_operations[-1]
     return result
@@ -380,6 +478,7 @@ def _operation_summary(record: dict[str, Any]) -> dict[str, Any]:
         "operation_id",
         "parent_operation_id",
         "operation_type",
+        "channel",
         "lifecycle_state",
         "workflow_phase",
         "cycle_number",

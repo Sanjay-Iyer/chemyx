@@ -323,7 +323,7 @@ def test_process_fid_runs_for_one_acquisition_with_unique_output(tmp_path):
     assert output == (
         tmp_path
         / "processed_nmr"
-        / "081626_phsi4_sample_8scan_ga_full_spectrum"
+        / ("081626_phsi4_sample_8scan_ga_" + __import__("hashlib").sha256(dx_path.stem.encode()).hexdigest()[:12] + "_full_spectrum")
     )
 
 

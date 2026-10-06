@@ -48,6 +48,8 @@ from .instrument_operations import (
     run_nmr_acquisition,
     sleep_with_progress,
 )
+from . import pump_channels
+from ..analysis.stage_completion import validate_completion
 
 
 DEFAULT_CONFIG = config.REPO_ROOT / "configs" / "experiments" / "02_si6_automated_nmr.yaml"
@@ -63,6 +65,10 @@ TIME_SERIES_COLUMNS = [
     "file", "target_ppm", "peak_ppm", "peak_height", "peak_area", "snr",
     "prominence", "prominence_snr", "width_ppm", "baseline", "noise",
     "growth_percent", "peak_clear", "plateau", "plot_file", "error",
+    "timestamp_source", "dataset_display_name", "raw_path", "processed_path", "phase_evidence_path",
+    "raw_sha256", "completion_area", "area_uncertainty", "measurement_valid", "signal_classification",
+    "metric_source", "qc_failure_reasons", "completion_evidence_path", "trend", "normalized_area",
+    "nmr_scans", "receiver_gain", "auto_gain",
 ]
 
 
@@ -128,6 +134,9 @@ class PumpSafetyState:
     last_stop_status: StopStatus | None = None
     last_stop_error: str | None = None
     persistence_errors: list[str] | None = None
+    channel: int | None = None
+    cumulative_withdrawn_ml: float = 0.0
+    cumulative_infused_ml: float = 0.0
 
     def mark_uncertain(self, reason: str) -> None:
         self.uncertain = True
@@ -164,6 +173,9 @@ class Stage:
     # False when max_measurements was derived from max_hours, so the stage
     # duration rather than a count governs when monitoring ends.
     max_measurements_explicit: bool = True
+    before_monitoring: tuple[dict[str, Any], ...] = ()
+    after_monitoring: tuple[dict[str, Any], ...] = ()
+    completion: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -231,7 +243,7 @@ def load_si6_config(path: Path) -> dict[str, Any]:
     raw = config.read_mapping_config(path, "Si6 experiment config")
     required = {"workflow", "pump", "nmr", "analysis", "output"}
     missing = sorted(required - set(raw))
-    unknown = sorted(set(raw) - required - {"three_instrument"})
+    unknown = sorted(set(raw) - required - {"three_instrument", "simulation"})
     if missing:
         raise ValueError(f"Missing Si6 config section(s): {', '.join(missing)}")
     if unknown:
@@ -250,6 +262,7 @@ def load_si6_config(path: Path) -> dict[str, Any]:
             "name", "description", "cycle", "pump_extra_seconds",
             "initial_stage", "first_addition_stage",
             "repeat_addition_rounds", "repeating_stages",
+            "experiment_id", "initial_needle_position",
         },
         "workflow",
     )
@@ -260,7 +273,7 @@ def load_si6_config(path: Path) -> dict[str, Any]:
         event = _mapping(event, f"workflow.cycle[{index}]")
         _reject_unknown(
             event,
-            {"action", "volume_ml", "seconds", "prompt", "note"},
+            {"action", "volume_ml", "seconds", "prompt", "note", "channel", "rate_ml_min", "position"},
             f"workflow.cycle[{index}]",
         )
         action = str(event.get("action", "")).lower()
@@ -272,6 +285,7 @@ def load_si6_config(path: Path) -> dict[str, Any]:
             raise ValueError("Pause seconds cannot be negative")
         if action == "operator" and not str(event.get("prompt", "")).strip():
             raise ValueError(f"cycle[{index}] operator action needs a prompt")
+        pump_channels.validate_operation(raw, event, f"workflow.cycle[{index}]")
 
     stages = build_stages(workflow)
     if not stages:
@@ -279,13 +293,13 @@ def load_si6_config(path: Path) -> dict[str, Any]:
     analysis = _mapping(raw["analysis"], "analysis")
     _reject_unknown(
         _mapping(raw["pump"], "pump"),
-        {
-            "channel", "syringe_diameter_mm", "syringe_capacity_ml",
-            "initial_retained_volume_ml", "syringe_safety_margin_ml",
-            "units", "rate_ml_min", "default_volume_ml",
-        },
+        pump_channels.PUMP_FIELDS,
         "pump",
     )
+    pump_channels.channel_definitions(raw)
+    for stage in stages:
+        pump_channels.validate_stage_actions(raw, list(stage.before_monitoring), f"{stage.name}.before_monitoring")
+        pump_channels.validate_stage_actions(raw, list(stage.after_monitoring), f"{stage.name}.after_monitoring")
     _reject_unknown(
         _mapping(raw["nmr"], "nmr"),
         {
@@ -302,6 +316,7 @@ def load_si6_config(path: Path) -> dict[str, Any]:
             "min_prominence_snr", "min_peak_area", "area_epsilon",
             "plateau_max_growth_percent", "plateau_max_decline_percent",
             "plateau_consecutive_intervals",
+            "measurement_qc",
         },
         "analysis",
     )
@@ -325,6 +340,15 @@ def load_si6_config(path: Path) -> dict[str, Any]:
     result_type = str(raw["nmr"].get("result_type", "fid")).lower()
     if result_type != "fid":
         raise ValueError("nmr.result_type must be 'fid' for automated processing")
+    if any(stage.completion for stage in stages):
+        from .si6_profile import validate_profile
+        validate_profile(raw, stages)
+    if "simulation" in raw:
+        section = _mapping(raw["simulation"], "simulation")
+        _reject_unknown(section, {"fixture_file", "acquisition_seconds"}, "simulation")
+        if not config.resolve_repo_path(section.get("fixture_file", "")).is_file():
+            raise ValueError("simulation.fixture_file must exist")
+        _positive(section.get("acquisition_seconds"), "simulation.acquisition_seconds")
     validate_syringe_capacity(raw)
     return raw
 
@@ -339,6 +363,11 @@ def validate_syringe_capacity(
     Two repetitions are checked by default so a non-zero end-of-cycle balance
     cannot be hidden by validating just one cycle.
     """
+    if pump_channels.uses_channel_extension(raw):
+        if repetitions < 1:
+            raise ValueError("capacity validation repetitions must be at least 1")
+        requirements = pump_channels.validate_channel_capacity(raw, build_stages(raw["workflow"]))
+        return CapacityRequirement(**requirements[pump_channels.default_channel(raw)])
     pump = _mapping(raw.get("pump"), "pump")
     if "syringe_capacity_ml" not in pump:
         raise ValueError(
@@ -435,9 +464,14 @@ def _parse_stage(value: Any, label: str) -> Stage:
             "name", "operator_prompt", "interval_minutes", "max_hours",
             "measure_immediately", "plateau_stopping_enabled",
             "max_measurements",
+            "before_monitoring", "after_monitoring",
+            "completion",
         },
         f"workflow.{label}",
     )
+    for key in ("before_monitoring", "after_monitoring"):
+        if not isinstance(section.get(key, []), list):
+            raise ValueError(f"workflow.{label}.{key} must be a list")
     name = str(section.get("name", "")).strip()
     prompt = str(section.get("operator_prompt", "")).strip()
     if not name or not prompt:
@@ -485,6 +519,9 @@ def _parse_stage(value: Any, label: str) -> Stage:
         plateau_stopping_enabled=plateau_enabled,
         max_measurements=max_measurements,
         max_measurements_explicit=explicit,
+        before_monitoring=tuple(section.get("before_monitoring", [])),
+        after_monitoring=tuple(section.get("after_monitoring", [])),
+        completion=validate_completion(section["completion"]) if "completion" in section else None,
     )
 
 
@@ -571,14 +608,15 @@ def create_run_paths(
 
 def build_instrument_settings(raw: dict[str, Any], machine_path: Path) -> tuple[config.PumpConfig, config.NmrSettings]:
     machine = config.load_machine_config(machine_path)
-    pump = raw["pump"]
+    channel = pump_channels.default_channel(raw)
+    pump = pump_channels.channel_definitions(raw)[channel]
     nmr = raw["nmr"]
     pump_values = dict(
         port=machine.chemyx.serial_port,
         baud_rate=machine.chemyx.baud_rate,
         timeout=machine.chemyx.timeout_seconds,
         response_delay=machine.chemyx.response_delay_seconds,
-        channel=pump["channel"], diameter=pump["syringe_diameter_mm"],
+        channel=channel, diameter=pump["syringe_diameter_mm"],
         units=pump["units"], rate=pump["rate_ml_min"],
         volume=pump["default_volume_ml"],
     )
@@ -723,9 +761,13 @@ def run_process_fid_postprocessing(
     """
 
     output_root = paths.run_dir / "processed_nmr"
-    acquisition_stamp = dx_path.stem[:15]
+    # Full identity avoids collisions between stage-named acquisitions. A short
+    # digest keeps Windows paths manageable while preserving the whole identity.
+    acquisition_stamp = dx_path.stem[:15] + "_" + hashlib.sha256(dx_path.stem.encode()).hexdigest()[:12]
     run_name = f"{dataset_display_name}_{acquisition_stamp}_full_spectrum"
     output_dir = output_root / run_name
+    if output_dir.exists():
+        raise AnalysisInconclusiveError(f"Refusing to overwrite existing acquisition processing: {output_dir}")
     command = [
         sys.executable,
         "-B",
@@ -875,6 +917,7 @@ def attempt_emergency_stop(
         "workflow_phase": workflow_phase,
         "cycle_number": cycle_number,
         "requested_parameters": {"command": "stop"},
+        "channel": state.channel if state.channel is not None else getattr(pump, "channel", None),
     }
     if recorder is not None:
         try:
@@ -891,7 +934,7 @@ def attempt_emergency_stop(
         except BaseException as exc:
             state.record_persistence_error(exc)
     try:
-        response = pump.stop()
+        response = pump.stop() if state.channel is None else pump.stop(channel=state.channel)
     except BaseException as exc:
         state.last_stop_status = StopStatus.FAILED
         state.last_stop_error = f"{type(exc).__name__}: {exc}"
@@ -1000,6 +1043,7 @@ def run_safe_metered_move(
         "physical_state_effect": True,
         "workflow_phase": workflow_phase,
         "cycle_number": cycle_number,
+        "channel": pump_cfg.channel,
         "requested_parameters": {
             "volume": abs(float(volume_ml)),
             "rate": float(pump_cfg.rate),
@@ -1021,13 +1065,14 @@ def run_safe_metered_move(
             **journal_fields,
         )
     print(
-        f"     {direction} {abs(volume_ml):.4g} mL at "
+        f"     CHEMYX channel={pump_cfg.channel} {direction} {abs(volume_ml):.4g} mL at "
         f"{pump_cfg.rate:.4g} {config.UNITS[pump_cfg.units]}"
     )
     start_attempted = False
     completion_durable = False
     try:
-        print("     volume ->", repr(pump.set_volume(signed_volume)))
+        device_volume = signed_volume * (1000 if pump_cfg.units in (2, 3) else 1)
+        print("     volume ->", repr(pump.set_volume(device_volume)))
         state.motion_active = True
         start_attempted = True
         print("     start  ->", repr(pump.start(delay=0)))
@@ -1761,6 +1806,8 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_CODES[TerminalStatus.VALIDATION_FAILURE]
     try:
         raw = load_si6_config(args.workflow_config)
+        if pump_channels.uses_channel_extension(raw):
+            raise ValueError("Per-operation channels and stage actions require scripts/02_si6_experiment.py (three-instrument runner)")
         pump_cfg, nmr_cfg = build_instrument_settings(raw, args.machine_config)
         root = Path(raw["output"]["run_root_dir"])
         effective_config_hash, workflow_identity_hash = (

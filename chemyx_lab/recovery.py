@@ -123,6 +123,7 @@ def inspect_run(run_dir: Path, *, rebuild_state: bool = False) -> InspectionResu
         is RecoveryClassification.CLEAN_NONPHYSICAL_INTERRUPTION
         and replay.valid
         and state.physical_state_certainty == "certain"
+        and not state.reagent_doses
     )
     return InspectionResult(
         run_dir,
@@ -150,6 +151,15 @@ def format_inspection(result: InspectionResult) -> str:
         )
         return "\n".join(lines)
     state = result.replay.state
+    for channel, settings in sorted(state.pump_channels.items()):
+        lines.append(
+            f"Chemyx channel {channel}: retained={settings.get('retained_volume_ml', 'unknown')} mL, "
+            f"infused={settings.get('cumulative_infused_ml', 0):g} mL, "
+            f"withdrawn={settings.get('cumulative_withdrawn_ml', 0):g} mL, "
+            f"uncertain={settings.get('uncertain', False)}"
+        )
+    for dose_id, dose in state.reagent_doses.items():
+        lines.append(f"Reagent dose {dose_id}: {dose['status']}; channel={dose.get('channel')}, volume={dose.get('volume_ml')} mL; automatic resume/replay unavailable")
     lines.extend(
         [
             f"Last durable sequence: {state.last_applied_sequence}",

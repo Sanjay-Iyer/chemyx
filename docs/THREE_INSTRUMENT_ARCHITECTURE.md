@@ -57,6 +57,15 @@ needle is at the position the SOP requires, and every needle move first
 verifies a confirmed Chemyx STOP; the Arduino motion guard refuses motion while
 the pump is moving or uncertain.
 
+Transfers can override the configured default Chemyx channel. One serial
+connection serves sequential operations; each configured channel has its own
+syringe settings, retained volume, delivery totals, motion/uncertainty, and STOP
+evidence. The needle guard checks all channels. Each repeated cycle must balance
+every channel independently. Stage `before_monitoring` and `after_monitoring`
+lists run once outside the sampling loop for doses, waits, needle moves, or
+additional NMR; boundary NMR uses a separate series label for plateau evaluation.
+See [configuration, one-time dose example, and recovery](CHEMYX_CHANNEL_WORKFLOW.md).
+
 ## NMR measurement
 
 The tracked resonance is 5.8 +/- 0.10 ppm (5.70-5.90 ppm), the window in

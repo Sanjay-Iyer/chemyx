@@ -35,6 +35,7 @@ class MockChemyxSerial:
             "running": False,
             "paused": False,
         }
+        self.channel_states = {0: self.state, 1: dict(self.state), 2: dict(self.state)}
 
     @property
     def in_waiting(self):
@@ -84,8 +85,11 @@ class MockChemyxSerial:
 
     def _handle(self, line):
         parts = line.split()
+        channel = 0
         if parts and len(parts[0]) == 1 and parts[0] in "1234":
+            channel = int(parts[0])
             parts = parts[1:]
+        self.state = self.channel_states.setdefault(channel, dict(self.channel_states[0]))
         if not parts:
             return
         cmd = " ".join(parts).lower()

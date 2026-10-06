@@ -18,6 +18,12 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def resolve_repo_path(value: str | Path) -> Path:
+    """Resolve portable resources from the source repository, independent of cwd."""
+    path = Path(value)
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
 def _env(name: str, default, cast=str):
     raw = os.environ.get(name)
     if raw is None or raw.strip() == "":

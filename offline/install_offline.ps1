@@ -130,7 +130,27 @@ $requiredRelativePaths = @(
     "tests\test_three_instrument_si6.py",
     "docs\THREE_INSTRUMENT_ARCHITECTURE.md",
     "docs\LIVE_COMMISSIONING_CHECKLIST.md",
-    "docs\OFFLINE_SETUP.md"
+    "docs\OFFLINE_SETUP.md",
+    "chemyx_lab\workflows\pump_channels.py",
+    "chemyx_lab\workflows\dose_guard.py",
+    "chemyx_lab\workflows\si6_profile.py",
+    "chemyx_lab\workflows\si6_simulation.py",
+    "chemyx_lab\analysis\stage_completion.py",
+    "chemyx_lab\analysis\stage_measurement.py",
+    "chemyx_lab\analysis\si6_stage_reports.py",
+    "chemyx_lab\testing\fixtures\si6_two_stage_trends.json",
+    "config_templates\experiments\si6_two_stage_nominal.yaml",
+    "config_templates\experiments\si6_two_stage_fast_sim.yaml",
+    "config_templates\experiments\si6_two_stage_stage1_development.yaml",
+    "config_templates\experiments\si6_two_stage_stage2_development.yaml",
+    "config_templates\machines\si6_instrument_settings.example.yaml",
+    "scripts\validate_si6_offline.py",
+    "docs\OFFLINE_DEPLOYMENT.md",
+    "docs\OFFLINE_REQUIREMENTS.md",
+    "docs\SI6_TWO_STAGE_OPERATOR_GUIDE.md",
+    "docs\SI6_WORKFLOW_VALIDATOR.md",
+    "docs\SI6_TWO_STAGE_CONFIGURATION.md",
+    "docs\SI6_TWO_STAGE_VALIDATION_REPORT.md"
 )
 foreach ($relativePath in $requiredRelativePaths) {
     if (-not (Test-Path (Join-Path $repo $relativePath))) {
@@ -156,6 +176,8 @@ if ($LASTEXITCODE -ne 0) { throw "Workflow validation failed." }
 if ($LASTEXITCODE -ne 0) { throw "Three-instrument diagnostic configuration validation failed." }
 & $venvPython -B scripts\02_si6_experiment.py --machine-config $localConfig
 if ($LASTEXITCODE -ne 0) { throw "Three-instrument experiment configuration validation failed." }
+& $venvPython -B scripts\validate_si6_offline.py
+if ($LASTEXITCODE -ne 0) { throw "Two-stage portable resource validation failed." }
 
 Write-Host "[7/7] Needle firmware toolchain"
 if (Test-Path (Join-Path $offline "arduino\arduino-cli.exe")) {
@@ -179,6 +201,8 @@ if ($RunTests) {
     if ($LASTEXITCODE -ne 0) { throw "Level 1 mock workflow failed." }
     & $venvPython -B scripts\02_si6_experiment.py --mock --machine-config $localConfig
     if ($LASTEXITCODE -ne 0) { throw "Level 2 mock workflow failed." }
+    & $venvPython -B scripts\validate_si6_offline.py --simulate
+    if ($LASTEXITCODE -ne 0) { throw "Two-stage mock workflow failed." }
 }
 
 Write-Host ""

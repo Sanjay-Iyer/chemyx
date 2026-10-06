@@ -46,6 +46,8 @@ results/processed/archive/
 runs/nmr_plots/
 results/runs/
 runs/arduino/
+# Durable physical-experiment reservations: copy with rig/run history, never reset to replay.
+runtime/si6_doses/
 # Experimental inputs are machine-local. Keep only the documented folder
 # skeleton so results/raw/nmr exists after clone/pull.
 results/raw/**

@@ -1,0 +1,15 @@
+# Per-rig connection layer. Copy to configs/machines/si6_work.local.yaml.
+# Identify actual devices; these are deliberately unset for a new rig.
+# Do not copy a needle position state from a different physical rig.
+chemyx:
+  serial_port: null
+  baud_rate: 115200
+  timeout_seconds: 2.0
+  response_delay_seconds: 0.2
+nmr:
+  host: null
+  port: 5000
+  scheme: http
+  timeout_seconds: 10.0
+  poll_seconds: 2.0
+  max_wait_seconds: 600.0

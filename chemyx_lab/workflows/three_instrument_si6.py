@@ -12,23 +12,24 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import math
 import re
 import shutil
 import sys
+import time
 from contextlib import contextmanager
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from functools import partial
 from pathlib import Path
 from typing import Any, Callable
 
 from arduino.python.protocol import bool_field
-from arduino.python.config import load_arduino_config, test3_missing
+from arduino.python.config import load_arduino_config
 from arduino.python.needle_state import TrackedNeedle
 from arduino.python.controller import NeedleController
 from arduino.python.discovery import resolve_arduino_port
 from arduino.python.errors import LiveExecutionBlocked, PositionUncertainError
-from arduino.python.results import matching_live_result, unresolved_live_motion_failure
 from arduino.python.run_lock import PortProcessLock
 from arduino.python.transport import SerialTransport
 from arduino.mock.fake_arduino import FakeArduinoTransport
@@ -40,8 +41,13 @@ from ..instruments.chemyx import Pump
 from ..instruments.nmr import NmrRpcClient, NmrRpcConfig
 from ..recovery import RecoveryClassification, inspect_run
 from ..runtime_journal import JournalError
-from ..runtime_state import write_json_atomic
+from ..runtime_state import replay_journal, write_json_atomic
 from . import si6_automated_nmr as base
+from . import pump_channels
+from .dose_guard import DoseGuard
+from ..analysis.stage_completion import completion_evidence
+from ..analysis.stage_measurement import fixed_window_measurement
+from ..analysis.si6_stage_reports import write_stage_reports
 
 # A real spectrum acquired through this workflow's iFlow acquisition path on
 # 2026-08-10. Production process_fid finds the tracked resonance in it at
@@ -108,7 +114,7 @@ class RunIdentity:
 
 def run_root(raw: dict[str, Any], identity: RunIdentity) -> Path:
     """Live results use output.run_root_dir; mocks use a sibling ``_mock`` folder."""
-    root = Path(raw["output"]["run_root_dir"])
+    root = config.resolve_repo_path(raw["output"]["run_root_dir"])
     return root.with_name(f"{root.name}_mock") if identity.mock else root
 
 
@@ -136,6 +142,11 @@ def cycle_values(raw: dict[str, Any]) -> dict[str, float]:
     expected = ["withdraw", "operator", "withdraw", "pause", "nmr", "infuse", "operator", "withdraw", "infuse"]
     if actions != expected:
         raise ValueError("Three-instrument cycle requires withdraw, DOWN, withdraw, pause, NMR, infuse, UP, withdraw, infuse in that order")
+    for index, position in ((1, "DOWN"), (6, "UP")):
+        if events[index].get("position", position) != position:
+            raise ValueError(f"Sampling cycle needle event {index + 1} must command {position}")
+    if raw["workflow"].get("initial_needle_position", "UP") != "UP":
+        raise ValueError("Sampling requires initial needle UP")
     return {
         "initial_withdraw_ml": float(events[0]["volume_ml"]),
         "sample_withdraw_ml": float(events[2]["volume_ml"]),
@@ -230,6 +241,8 @@ def analyze_tracked_resonance(dx_path: Path, processed_dir: Path, paths: base.Ru
         values = {key: float(simple[0][key]) for key in ("peak_ppm", "integrated_area", "intensity", "snr", "prominence_snr", "width_hz")}
     except (KeyError, TypeError, ValueError) as exc:
         raise base.AnalysisInconclusiveError(f"process_fid tracked row for {dx_path.name} is unreadable: {exc}") from exc
+    if not all(math.isfinite(value) for value in values.values()):
+        raise base.AnalysisInconclusiveError("Nonfinite production peak metrics cannot pass QC")
     target = float(metadata["target_ppm"])
     half_width = float(analysis["detection_window_ppm"])
     reasons = []
@@ -257,6 +270,7 @@ def analyze_tracked_resonance(dx_path: Path, processed_dir: Path, paths: base.Ru
         "snr": values["snr"], "prominence": "", "prominence_snr": values["prominence_snr"],
         "width_ppm": width_ppm, "baseline": "", "noise": "",
         "peak_clear": not reasons, "qc_failure_reasons": "; ".join(reasons),
+        "rejected_candidate_count": sum(row.get("qc_pass") != "True" for row in window),
         "metric_source": "process_fid tracked window", "plot_file": "", "error": "",
     })
     region_plot = _region_plot(processed_dir, dx_path)
@@ -295,6 +309,22 @@ class Services:
     plot_manifest: list[dict[str, Any]] | None = None
     # The NMR sub-step in progress, so a failure names exactly where it failed.
     measurement_step: str | None = None
+    channel_configs: dict[int, config.PumpConfig] = field(default_factory=dict)
+    channel_states: dict[int, base.PumpSafetyState] = field(default_factory=dict)
+    simulation: Any = None
+    dose_guard: Any = None
+    transition_evidence: dict | None = None
+    last_acquisition_completed_monotonic: float | None = None
+
+    @property
+    def states(self) -> dict[int, base.PumpSafetyState]:
+        return self.channel_states or {self.pump_cfg.channel: self.state}
+
+    def stop_all(self, *, stage: str | None = None, cycle: int | None = None) -> None:
+        # Stop a possibly moving channel first. Failure on one never skips another.
+        for ch, state in sorted(self.states.items(), key=lambda item: not item[1].motion_active):
+            state.channel = ch
+            base.attempt_emergency_stop(self.pump, state, self.recorder, workflow_phase=stage, cycle_number=cycle)
 
     @property
     def mock(self) -> bool:
@@ -304,15 +334,16 @@ class Services:
     def dataset_name(self) -> str:
         return self.paths.run_dir.name
 
-    def record(self, name: str, **fields: Any) -> None:
-        self.recorder.record(name, **fields)
+    def record(self, name: str, **fields: Any) -> dict:
+        return self.recorder.record(name, **fields)
 
     def assert_pump_idle(self) -> None:
-        if self.state.motion_active or self.state.uncertain:
-            raise VerificationError("Pump motion or physical-state uncertainty blocks needle movement")
-        # The Chemyx protocol's STOP acknowledgement is the available idle evidence.
-        if self.state.last_stop_status is not base.StopStatus.SUCCEEDED:
-            raise VerificationError("Chemyx STOP has not been positively confirmed")
+        for ch, state in self.states.items():
+            if state.motion_active or state.uncertain or state.persistence_errors:
+                raise VerificationError(f"Chemyx channel {ch} motion or physical-state uncertainty blocks movement")
+            # The Chemyx protocol's STOP acknowledgement is the available idle evidence.
+            if state.last_stop_status is not base.StopStatus.SUCCEEDED:
+                raise VerificationError(f"Chemyx channel {ch} STOP has not been positively confirmed")
 
     def move_needle(self, label: str) -> dict[str, str]:
         self.assert_pump_idle()
@@ -324,31 +355,64 @@ class Services:
         self.record("needle_transition", workflow_phase="needle", target=label, target_steps=target, verified_status=status, result_classification="completed")
         return status
 
-    def pump_move(self, direction: str, volume: float, needle_label: str, *, stage: str, cycle: int) -> None:
+    def pump_move(self, direction: str, volume: float, needle_label: str, *, stage: str, cycle: int, channel: int | None = None, rate_ml_min: float | None = None) -> None:
+        if direction not in {"withdraw", "infuse"}:
+            raise ValueError("Pump direction must be withdraw or infuse")
+        volume = pump_channels.positive(volume, "pump operation.volume_ml")
+        if needle_label not in {"UP", "DOWN"}:
+            raise ValueError("Pump operation needle position must be UP or DOWN")
+        event = {"action": direction, "volume_ml": volume}
+        if channel is not None:
+            event["channel"] = channel
+        if rate_ml_min is not None:
+            event["rate_ml_min"] = rate_ml_min
+        pump_channels.validate_operation(self.raw, event, "pump operation")
+        ch = pump_channels.operation_channel(self.raw, event)
+        cfg = (self.channel_configs or {self.pump_cfg.channel: self.pump_cfg})[ch]
+        if rate_ml_min is not None:
+            cfg = replace(cfg, rate=float(rate_ml_min))
+        pump_channels.validate_rate(cfg.rate, cfg.units, f"channel {ch} operation")
+        state = self.states[ch]
+        self.assert_pump_idle()
+        retained_after = state.retained_volume_ml + (volume if direction == "withdraw" else -volume)
+        pump_channels.check_volume(ch, retained_after, pump_channels.channel_definitions(self.raw)[ch])
         up, down, _ = positions(self.arduino_cfg, mock=self.mock)
         status = verify_needle(self.needle, up if needle_label == "UP" else down)
-        self.record("pump_needle_context", workflow_phase=stage, cycle_number=cycle, needle_state=needle_label, needle_status=status, operation_type=direction, requested_volume_ml=volume)
-        base.run_safe_metered_move(
-            self.pump, self.pump_cfg, direction, volume, self.state,
-            extra_seconds=float(self.raw["workflow"].get("pump_extra_seconds", 2.0)),
-            sleep_fn=self.sleep, recorder=self.recorder,
-            workflow_phase=stage, cycle_number=cycle,
-        )
-        self.state.retained_volume_ml += volume if direction == "withdraw" else -volume
+        self.record("pump_needle_context", workflow_phase=stage, cycle_number=cycle, channel=ch, needle_state=needle_label, needle_status=status, operation_type=direction, requested_volume_ml=volume)
+        # Explicitly select and configure every transfer. The driver caches units
+        # globally, so configuring here also restores the correct validation units.
+        self.pump.select_channel(ch)
+        state.channel = ch
+        try:
+            base.configure_pump(self.pump, cfg)
+            self.record("pump_configuration", workflow_phase=stage, cycle_number=cycle, channel=ch, units=config.UNITS[cfg.units], syringe_diameter_mm=cfg.diameter, rate=cfg.rate)
+            base.run_safe_metered_move(
+                self.pump, cfg, direction, volume, state,
+                extra_seconds=float(self.raw["workflow"].get("pump_extra_seconds", 2.0)),
+                sleep_fn=self.sleep, recorder=self.recorder,
+                workflow_phase=stage, cycle_number=cycle,
+            )
+            state.retained_volume_ml = retained_after
+            if direction == "withdraw":
+                state.cumulative_withdrawn_ml += volume
+            else:
+                state.cumulative_infused_ml += volume
+        finally:
+            self.pump.select_channel(self.pump_cfg.channel)
         self.assert_pump_idle()
 
-    def verify_cleanup_preconditions(self, down_steps: int, expected_retained_ml: float) -> dict[str, str]:
+    def verify_cleanup_preconditions(self, down_steps: int, expected_retained_ml: float | dict[int, float]) -> dict[str, str]:
         """Prove pump and needle state before returning the sample automatically."""
-        if self.state.persistence_errors:
+        if any(state.persistence_errors for state in self.states.values()):
             raise PhysicalStateUncertain("Journal persistence failed, so an automatic recovery could not be recorded")
         try:
             self.assert_pump_idle()
         except VerificationError as exc:
             raise PhysicalStateUncertain(f"Pump is not proven idle: {exc}") from exc
-        if abs(self.state.retained_volume_ml - expected_retained_ml) > 1e-6:
-            raise PhysicalStateUncertain(
-                f"Estimated retained volume {self.state.retained_volume_ml:g} mL is not the expected {expected_retained_ml:g} mL"
-            )
+        expected = expected_retained_ml if isinstance(expected_retained_ml, dict) else {self.pump_cfg.channel: expected_retained_ml}
+        for ch, volume in expected.items():
+            if abs(self.states[ch].retained_volume_ml - volume) > 1e-6:
+                raise PhysicalStateUncertain(f"Channel {ch} estimated retained volume {self.states[ch].retained_volume_ml:g} mL is not the expected {volume:g} mL")
         try:
             return verify_needle(self.needle, down_steps)
         except Exception as exc:
@@ -364,9 +428,10 @@ class Services:
         failed measurement can never contribute to plateau detection.
         """
         self.measurement_step = "NMR acquisition"
-        self.last_acquisition_started_at = datetime.now()
+        self.last_acquisition_started_at = self.simulation.now() if self.simulation else datetime.now()
         path = self.acquire(self.nmr_cfg, self.paths.raw_dir, label=f"{stage}_{cycle:04d}")
-        self.last_acquisition_completed_at = datetime.now()
+        self.last_acquisition_completed_at = self.simulation.now() if self.simulation else datetime.now()
+        self.last_acquisition_completed_monotonic = self.simulation.monotonic() if self.simulation else time.monotonic()
         if progress:
             progress("NMR acquisition")
         self.measurement_step = "NMR data retrieval"
@@ -389,35 +454,60 @@ class Services:
         except ValueError as exc:
             raise VerificationError("Authoritative JCAMP LONG DATE acquisition time is unavailable") from exc
         timestamp_source = "LONG DATE header"
+        if any(stage.completion for stage in base.build_stages(self.raw["workflow"])) and rows:
+            if acquired_at <= datetime.fromisoformat(rows[-1]["acquired_at"]):
+                raise VerificationError("Acquisition LONG DATE must increase strictly; repeated/backwards metadata rejected")
         if self.first_acquisition_at is None:
             self.first_acquisition_at = acquired_at
         metadata = {"iteration": cycle, "stage": stage, "stage_iteration": len([r for r in rows if r.get("stage") == stage]) + 1,
                     "elapsed_hours": (acquired_at - self.first_acquisition_at).total_seconds() / 3600,
                     "acquired_at": acquired_at.isoformat(timespec="seconds"), "timestamp_source": timestamp_source,
                     "target_ppm": self.nmr_cfg.target_ppm,
-                    "dataset_display_name": self.dataset_name}
+                    "dataset_display_name": self.dataset_name, "nmr_scans": self.nmr_cfg.scans,
+                    "receiver_gain": self.nmr_cfg.receiver_gain, "auto_gain": self.nmr_cfg.auto_gain}
         self.record("nmr_acquisition_time", workflow_phase=stage, cycle_number=cycle, acquired_at=metadata["acquired_at"], timestamp_source=timestamp_source)
         self.measurement_step = "NMR analysis"
         row, spectrum = self.analyze(path, processed, self.paths, self.raw["analysis"], metadata)
+        stage_spec = next((item for item in base.build_stages(self.raw["workflow"]) if item.name == stage), None)
+        stage_rows = [r for r in rows if r.get("stage") == stage]
+        if stage_spec and stage_spec.completion and not self.simulation:
+            try:
+                row = fixed_window_measurement(path, processed, row, self.raw["analysis"], stage_rows, reference=rows[0] if rows else None)
+            except ValueError as exc:
+                self.record("analysis_result", workflow_phase=stage, cycle_number=cycle, result_classification="invalid", error_message=str(exc))
+                raise base.AnalysisInconclusiveError(str(exc)) from exc
+        row.update(raw_path=str(path.relative_to(self.paths.run_dir)), processed_path=str(processed.relative_to(self.paths.run_dir)))
+        if row.get("phase_evidence_path"):
+            row["phase_evidence_path"] = str(Path(row["phase_evidence_path"]).relative_to(self.paths.run_dir))
         if row.get("plot_file") and row.get("plot_title"):
             if self.plot_manifest is None:
                 self.plot_manifest = []
-            self.plot_manifest.append({"file": row["plot_file"], "dataset_display_name": self.dataset_name, "visible_title": row["plot_title"], "stage": stage, "cycle_number": cycle, "measurement_valid": bool(row.get("peak_clear"))})
+            self.plot_manifest.append({"file": row["plot_file"], "dataset_display_name": self.dataset_name, "visible_title": row["plot_title"], "stage": stage, "cycle_number": cycle, "measurement_valid": bool(row.get("measurement_valid", row.get("peak_clear")))})
             self.write_manifest()
         summary = {"peak_ppm": row.get("peak_ppm"), "peak_area": row.get("peak_area"), "snr": row.get("snr"), "metric_source": row.get("metric_source")}
-        if not row.get("peak_clear"):
+        if not row.get("measurement_valid", row.get("peak_clear")):
             self.record("analysis_result", workflow_phase=stage, cycle_number=cycle, result_classification="invalid", analysis_result=summary, error_message=row.get("qc_failure_reasons"))
             raise base.AnalysisInconclusiveError(f"Tracked resonance failed the configured checks: {row.get('qc_failure_reasons') or 'unknown reason'}")
         self.measurement_step = "plateau evaluation"
-        stage_rows = [r for r in rows if r.get("stage") == stage]
         previous = float(stage_rows[-1]["peak_area"]) if stage_rows else None
         row["growth_percent"] = base.growth_percent(previous, float(row["peak_area"]), epsilon=float(self.raw["analysis"]["area_epsilon"]))
-        row["plateau"] = base.plateau_reached([*stage_rows, row], self.raw["analysis"])
+        if stage_spec and stage_spec.completion:
+            evidence = completion_evidence([*stage_rows, row], stage_spec.completion)
+            row["plateau"] = evidence["complete"]
+            row["trend"] = stage_spec.completion["trend"]
+            row["normalized_area"] = row["completion_area"] / evidence["normalization_area"] if evidence.get("normalization_area") else ""
+            evidence_path = self.paths.run_dir / "stages" / stage / "evidence" / f"{cycle:04d}.json"
+            write_json_atomic(evidence_path, evidence)
+            row["completion_evidence_path"] = str(evidence_path.relative_to(self.paths.run_dir))
+            self.record("stage_completion_evidence", workflow_phase=stage, cycle_number=cycle, evidence=evidence, result_path=row["completion_evidence_path"])
+        else:
+            row["plateau"] = base.plateau_reached([*stage_rows, row], self.raw["analysis"])
         rows.append(row)
         base.write_csv(self.paths.time_series_csv, rows, base.TIME_SERIES_COLUMNS)
-        base.append_spectra(self.paths.spectra_csv, spectrum)
+        if spectrum:
+            base.append_spectra(self.paths.spectra_csv, spectrum)
         self.record("analysis_result", workflow_phase=stage, cycle_number=cycle, result_classification="valid", analysis_result=dict(summary, growth_percent=row["growth_percent"]), plateau_progress={"plateau_reached": row["plateau"], "required_intervals": self.raw["analysis"]["plateau_consecutive_intervals"]})
-        self.last_analysis_completed_at = datetime.now()
+        self.last_analysis_completed_at = self.simulation.now() if self.simulation else datetime.now()
         self.measurement_step = None
         if progress:
             progress("NMR analysis")
@@ -427,7 +517,8 @@ class Services:
 def _record_failure(s: Services, *, stage: str, cycle: int, step: str, exc: BaseException, recovery_attempted: bool) -> None:
     """Journal a stopped cycle without letting a journal fault mask the stop."""
     needle_uncertain = not getattr(s.needle, "position_certain", True)
-    uncertain = s.state.uncertain or needle_uncertain or isinstance(exc, (PositionUncertainError, PhysicalStateUncertain))
+    states = getattr(s, "channel_states", None) or {0: s.state}
+    uncertain = any(state.uncertain for state in states.values()) or needle_uncertain or isinstance(exc, (PositionUncertainError, PhysicalStateUncertain))
     error = {"error_type": type(exc).__name__, "error_message": str(exc)}
     events: list[tuple[str, dict[str, Any]]] = []
     if recovery_attempted:
@@ -453,6 +544,17 @@ def sample_cycle(s: Services, *, stage: str, cycle: int, rows: list[dict], start
     what can be stopped and leaves the rig for manual inspection.
     """
     values = cycle_values(s.raw)
+    events = s.raw["workflow"]["cycle"]
+    expected_retained = None
+    if getattr(s, "channel_states", None):
+        expected_retained = {ch: state.retained_volume_ml for ch, state in s.channel_states.items()}
+        for index in (0, 2):
+            event = events[index]
+            ch = pump_channels.operation_channel(s.raw, event)
+            expected_retained[ch] += float(event["volume_ml"])
+    def transfer(index: int, direction: str, volume: float, needle: str) -> None:
+        overrides = {key: events[index][key] for key in ("channel", "rate_ml_min") if key in events[index]}
+        s.pump_move(direction, volume, needle, stage=stage, cycle=cycle, **overrides)
     s.record("cycle_status", workflow_phase=stage, cycle_number=cycle, status="STARTED", started_at=datetime.now().isoformat(timespec="seconds"))
     step = "verify UP"
     failure: Exception | None = None
@@ -461,11 +563,11 @@ def sample_cycle(s: Services, *, stage: str, cycle: int, rows: list[dict], start
         up, down, _ = positions(s.arduino_cfg, mock=s.mock)
         verify_needle(s.needle, up)
         step = "initial withdraw"
-        s.pump_move("withdraw", values["initial_withdraw_ml"], "UP", stage=stage, cycle=cycle)
+        transfer(0, "withdraw", values["initial_withdraw_ml"], "UP")
         step = "needle DOWN"
         s.move_needle("DOWN")
         step = "sample withdraw"
-        s.pump_move("withdraw", values["sample_withdraw_ml"], "DOWN", stage=stage, cycle=cycle)
+        transfer(2, "withdraw", values["sample_withdraw_ml"], "DOWN")
         step = "settle"
         s.sleep("NMR settle", values["settle_seconds"])
         step = "NMR measurement"
@@ -482,18 +584,18 @@ def sample_cycle(s: Services, *, stage: str, cycle: int, rows: list[dict], start
             step = "recovery precheck"
             s.record("measurement_failed", workflow_phase=stage, cycle_number=cycle, failed_step=failed_step, error_type=type(exc).__name__, error_message=str(exc), counted_toward_plateau=False, result_classification="measurement_failed")
             s.record("cycle_status", workflow_phase=stage, cycle_number=cycle, status="MEASUREMENT_FAILED", failed_step=failed_step)
-            needle_status = s.verify_cleanup_preconditions(down, values["initial_withdraw_ml"] + values["sample_withdraw_ml"])
+            needle_status = s.verify_cleanup_preconditions(down, expected_retained if expected_retained is not None else values["initial_withdraw_ml"] + values["sample_withdraw_ml"])
             s.record("recovery_cleanup", workflow_phase=stage, cycle_number=cycle, result_classification="started", failed_step=failed_step, reason="measurement failed; pump idle and needle at DOWN verified", needle_status=needle_status)
         else:
             s.record("cycle_status", workflow_phase=stage, cycle_number=cycle, status="NMR_COMPLETE", raw_path=str(path.relative_to(s.paths.run_dir)), processed_path=str(processed.relative_to(s.paths.run_dir)))
         step = "return infusion while DOWN"
-        s.pump_move("infuse", values["return_infuse_ml"], "DOWN", stage=stage, cycle=cycle)
+        transfer(5, "infuse", values["return_infuse_ml"], "DOWN")
         step = "needle UP"
         s.move_needle("UP")
         step = "cleanup withdraw"
-        s.pump_move("withdraw", values["cleanup_withdraw_ml"], "UP", stage=stage, cycle=cycle)
+        transfer(7, "withdraw", values["cleanup_withdraw_ml"], "UP")
         step = "cleanup infusion"
-        s.pump_move("infuse", values["cleanup_infuse_ml"], "UP", stage=stage, cycle=cycle)
+        transfer(8, "infuse", values["cleanup_infuse_ml"], "UP")
         step = "final idle verification"
         s.assert_pump_idle()
         s.record("cycle_status", workflow_phase=stage, cycle_number=cycle, status="CLEANUP_COMPLETE", after_measurement_failure=failure is not None)
@@ -506,7 +608,10 @@ def sample_cycle(s: Services, *, stage: str, cycle: int, rows: list[dict], start
         raise
     except BaseException as exc:
         # Stop first; journaling must never delay or prevent the stop.
-        base.attempt_emergency_stop(s.pump, s.state, s.recorder, workflow_phase=stage, cycle_number=cycle)
+        if hasattr(s, "stop_all"):
+            s.stop_all(stage=stage, cycle=cycle)
+        else:
+            base.attempt_emergency_stop(s.pump, s.state, s.recorder, workflow_phase=stage, cycle_number=cycle)
         s.needle.stop_best_effort()
         _record_failure(s, stage=stage, cycle=cycle, step=step, exc=exc, recovery_attempted=failure is not None)
         raise
@@ -595,7 +700,7 @@ def _journal_mode(run_dir: Path) -> str | None:
 
 def unresolved_previous_live_run(raw: dict[str, Any]) -> Any | None:
     """Return the latest live run's inspection when it still needs review."""
-    root = Path(raw["output"]["run_root_dir"])
+    root = config.resolve_repo_path(raw["output"]["run_root_dir"])
     if not root.is_dir():
         return None
     candidates = sorted((p for p in root.iterdir() if (p / "operation_journal.jsonl").is_file()), key=lambda p: p.name, reverse=True)
@@ -615,19 +720,36 @@ def prepare(workflow_path: Path, machine_path: Path, arduino_path: Path, *, mock
     if "three_instrument" not in raw:
         raise ValueError("Three-instrument config section is required")
     raw["workflow"]["initial_stage"]["plateau_stopping_enabled"] = raw["three_instrument"]["initial_plateau_stopping_enabled"]
+    resolved_stages = base.build_stages(raw["workflow"])
+    if any(stage.completion for stage in resolved_stages):
+        from .si6_profile import validate_profile
+        validate_profile(raw, resolved_stages)
     cycle_values(raw)
     validate_stage_policy(base.build_stages(raw["workflow"]))
     arduino_cfg = load_arduino_config(arduino_path)
     if mock or require_needle_live:
         positions(arduino_cfg, mock=mock)
     pump_cfg, nmr_cfg = base.build_instrument_settings(raw, machine_path)
+    if any(stage.completion for stage in base.build_stages(raw["workflow"])) and nmr_cfg.auto_gain:
+        raise ValueError("Resolved NMR auto_gain must be false for quantitative completion monitoring")
+    pump_channels.instrument_configs(raw, pump_cfg)
     if not mock and require_needle_live:
         # Demo mode: staged-commissioning records and previous-run review are
         # advisory; only the settings needed to actually move are required.
         if not pump_cfg.port or not nmr_cfg.host:
             raise ValueError("Live Chemyx serial port and NMR host must be configured")
+        two_stage = any(s.completion for s in base.build_stages(raw["workflow"]))
+        if two_stage:
+            if "simulation" in raw:
+                raise ValueError("A simulation template cannot be run live; select nominal/development hardware YAML")
+            if raw["workflow"]["experiment_id"].startswith("SET_"):
+                raise ValueError("Set a unique workflow.experiment_id for this physical reaction before live use")
+            check_previous_run_review(raw, acknowledged_review)
+            ledger = config.REPO_ROOT / "runtime" / "si6_doses" / f"{raw['workflow']['experiment_id']}.json"
+            if ledger.exists():
+                raise VerificationError(f"Experiment already reserved: {ledger}. Automatic restart refused; inspect and reconcile.")
         review = unresolved_previous_live_run(raw)
-        if review is not None:
+        if review is not None and not two_stage:
             print(f"NOTE: previous live run {review.run_dir.name} ended {review.classification.value}; continuing (demo mode).")
     return raw, arduino_cfg, pump_cfg, nmr_cfg
 
@@ -649,13 +771,56 @@ def check_previous_run_review(raw: dict[str, Any], acknowledged_review: str | No
 def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity, fast_mock_processing: bool = False, acknowledged_review: str | None = None):
     """One set of production interfaces for both entry points."""
     mock = identity.mock
+    # Recheck before opening transports, including callers supplying dictionaries.
+    cycle_values(raw)
+    definitions = pump_channels.channel_definitions(raw)
+    channel_configs = pump_channels.instrument_configs(raw, pump_cfg)
+    stages = base.build_stages(raw["workflow"])
+    two_stage = any(stage.completion for stage in stages)
+    if two_stage:
+        from .si6_profile import validate_profile
+        validate_profile(raw, stages)
+        if nmr_cfg.auto_gain:
+            raise ValueError("Resolved NMR auto_gain must be false for completion monitoring")
+        if any(cfg.units != 0 for cfg in channel_configs.values()):
+            raise ValueError("Resolved two-stage pump units must be mL/min")
+        if not mock:
+            if "simulation" in raw:
+                raise ValueError("Simulation settings cannot be selected live")
+            check_previous_run_review(raw, acknowledged_review)
+        elif "simulation" not in raw:
+            raise ValueError("For a complete two-stage mock use the fast simulation template")
+    for event in raw["workflow"]["cycle"]:
+        pump_channels.validate_operation(raw, event, "workflow.cycle")
+    for stage in stages:
+        pump_channels.validate_stage_actions(raw, list(stage.before_monitoring), f"{stage.name}.before_monitoring")
+        pump_channels.validate_stage_actions(raw, list(stage.after_monitoring), f"{stage.name}.after_monitoring")
+    pump_channels.validate_channel_capacity(raw, stages)
+    channel_states = {ch: base.PumpSafetyState(float(settings["initial_retained_volume_ml"]), channel=ch) for ch, settings in definitions.items()}
     paths = create_identified_run(raw, identity)
     recorder = base.create_run_recorder(paths)
     write_json_atomic(paths.run_dir / "config_snapshot.json", raw)
+    nmr_snapshot = {key: str(value) if isinstance(value, Path) else value for key, value in asdict(nmr_cfg).items()}
+    write_json_atomic(paths.run_dir / "instrument_settings_snapshot.json", {"pump_channels": {str(ch): asdict(cfg) for ch, cfg in channel_configs.items()}, "nmr": nmr_snapshot})
     write_json_atomic(paths.run_dir / "arduino_config_snapshot.json", {k: v for k, v in arduino_cfg.items() if not k.startswith("_")})
     write_json_atomic(paths.manifest_json, manifest_payload(paths, identity, raw, []))
-    recorder.record("phase_transition", previous_state=None, new_state="initializing", workflow_phase="initializing", result_classification=identity.mode, mode=identity.mode, run_kind=identity.kind, diagnostic_selection=identity.selection, acknowledged_previous_run=acknowledged_review)
-    state = base.PumpSafetyState(float(raw["pump"].get("initial_retained_volume_ml", 0)))
+    initial_channels = {
+        str(ch): {"retained_volume_ml": state.retained_volume_ml,
+                  "cumulative_withdrawn_ml": 0.0, "cumulative_infused_ml": 0.0,
+                  "syringe_capacity_ml": float(definitions[ch]["syringe_capacity_ml"]),
+                  "syringe_safety_margin_ml": float(definitions[ch]["syringe_safety_margin_ml"]),
+                  "syringe_diameter_mm": channel_configs[ch].diameter,
+                  "rate": channel_configs[ch].rate, "units": config.UNITS[channel_configs[ch].units],
+                  "motion_active": False, "uncertain": False}
+        for ch, state in channel_states.items()
+    }
+    recorder.record("phase_transition", previous_state=None, new_state="initializing", workflow_phase="initializing", result_classification=identity.mode, mode=identity.mode, run_kind=identity.kind, diagnostic_selection=identity.selection, acknowledged_previous_run=acknowledged_review, default_pump_channel=pump_cfg.channel, pump_channels=initial_channels)
+    guard = None
+    if two_stage and identity.kind == "si6":
+        guard = DoseGuard(paths.run_dir / "mock_dose_ledger" if mock else config.REPO_ROOT / "runtime" / "si6_doses", raw["workflow"]["experiment_id"], raw, paths.run_dir.name)
+        guard.reserve()  # Exclusive, durable admission BEFORE either transport.
+        recorder.record("experiment_reserved", **guard.data, ledger_path=str(guard.path))
+    state = channel_states[pump_cfg.channel]
     lock = None
     settings = arduino_cfg["arduino"]
     if mock:
@@ -667,7 +832,7 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
     # The staged-test 120 s cap does not apply to a continuously monitored
     # experiment. Keep a finite ceiling exceeding all configured stage limits.
     total_hours = sum(stage.max_hours for stage in base.build_stages(raw["workflow"]))
-    controller = NeedleController(transport, expected_device=settings["expected_device"], expected_board=settings["expected_board"], expected_version=settings.get("expected_version"), ready_timeout_s=settings["ready_timeout_s"], command_timeout_s=settings["command_timeout_s"], overall_timeout_s=max(3600, (total_hours + 2) * 3600), allow_motion=True, motion_guard=lambda: not state.motion_active and not state.uncertain)
+    controller = NeedleController(transport, expected_device=settings["expected_device"], expected_board=settings["expected_board"], expected_version=settings.get("expected_version"), ready_timeout_s=settings["ready_timeout_s"], command_timeout_s=settings["command_timeout_s"], overall_timeout_s=max(3600, (total_hours + 2) * 3600), allow_motion=True, motion_guard=lambda: all(not s.motion_active and not s.uncertain and not s.persistence_errors for s in channel_states.values()))
     # The serial response delay only matters for a real pump.
     pump = Pump(port=pump_cfg.port, baud_rate=pump_cfg.baud_rate, channel=pump_cfg.channel, units=pump_cfg.units, timeout=pump_cfg.timeout, response_delay=0 if mock else pump_cfg.response_delay, mock=mock)
     try:
@@ -683,38 +848,60 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
             tracked_cfg = arduino_cfg
             if mock:
                 tracked_cfg = dict(arduino_cfg)
-                tracked_cfg["needle"] = dict(arduino_cfg["needle"], steps_per_unit=20, up_step_sign=1)
+                tracked_cfg["needle"] = dict(arduino_cfg["needle"], steps_per_unit=1 if "simulation" in raw else 20, up_step_sign=1)
                 tracked_cfg["motion"] = dict(
                     arduino_cfg["motion"], maximum_speed_steps_s=100,
                     maximum_acceleration_steps_s2=300,
                 )
-            needle = TrackedNeedle(controller, tracked_cfg, state_path=paths.run_dir / "mock_needle_state.json" if mock else None)
+            needle = TrackedNeedle(controller, tracked_cfg, state_path=paths.run_dir / "mock_needle_state.json" if mock else None, allow_home_assumption=mock or not two_stage)
             if mock:
                 needle.confirm_home(operator_confirmed=True)
             with pump:
-                base.configure_pump(pump, pump_cfg)
-                if base.attempt_emergency_stop(pump, state, recorder) is not base.StopStatus.SUCCEEDED:
-                    raise VerificationError("Initial Chemyx STOP was not confirmed")
+                # Attempt all STOPs before configuration, even if one fails.
+                for ch, channel_state in channel_states.items():
+                    base.attempt_emergency_stop(pump, channel_state, recorder)
+                if any(s.last_stop_status is not base.StopStatus.SUCCEEDED or s.persistence_errors for s in channel_states.values()):
+                    raise VerificationError("Initial Chemyx STOP was not confirmed on every configured channel")
+                for ch, cfg in channel_configs.items():
+                    pump.select_channel(ch)
+                    base.configure_pump(pump, cfg)
+                    recorder.record("pump_configuration", workflow_phase="initializing", channel=ch, units=config.UNITS[cfg.units], syringe_diameter_mm=cfg.diameter, rate=cfg.rate)
+                pump.select_channel(pump_cfg.channel)
                 window = tracked_window(raw, nmr_cfg)
                 processor = MockProcessFid(window) if mock and fast_mock_processing else partial(base.run_process_fid_postprocessing, tracked_window=window)
-                yield Services(
+                services = Services(
                     needle=needle, pump=pump, pump_cfg=pump_cfg, nmr_cfg=nmr_cfg, raw=raw,
                     arduino_cfg=arduino_cfg, paths=paths, recorder=recorder, state=state,
                     acquire=mock_acquire if mock else base.run_nmr_acquisition, process=processor,
                     analyze=analyze_tracked_resonance,
                     sleep=(lambda _label, _seconds: None) if mock else base.sleep_with_progress,
                     identity=identity,
+                    channel_configs=channel_configs, channel_states=channel_states,
+                    dose_guard=guard,
                 )
+                if mock and "simulation" in raw:
+                    from .si6_simulation import TrendSimulation
+                    simulator = TrendSimulation(raw["simulation"], MOCK_NMR_FIXTURE)
+                    services.simulation = simulator
+                    services.acquire, services.process, services.analyze, services.sleep = simulator.acquire, simulator.process, simulator.analyze, simulator.sleep
+                try:
+                    yield services
+                except BaseException:
+                    # Stop while the connection is still open, before __exit__.
+                    services.stop_all()
+                    needle.stop_best_effort()
+                    raise
     except BaseException as exc:
         if pump.is_connected:
-            base.attempt_emergency_stop(pump, state, recorder)
+            for ch, channel_state in sorted(channel_states.items(), key=lambda item: not item[1].motion_active):
+                base.attempt_emergency_stop(pump, channel_state, recorder)
         if controller.is_open:
             if "needle" in locals():
                 needle.stop_best_effort()
             else:
                 controller.stop_best_effort()
         try:
-            recorder.record("terminal", workflow_phase="run", terminal_status="failed", result_classification=type(exc).__name__, error_message=str(exc), physical_state_certainty="uncertain" if state.uncertain else "requires_inspection")
+            recorder.record("terminal", workflow_phase="run", terminal_status="failed", result_classification=type(exc).__name__, error_message=str(exc), physical_state_certainty="uncertain" if any(s.uncertain or s.last_stop_status is not base.StopStatus.SUCCEEDED for s in channel_states.values()) else "requires_inspection")
         except BaseException:
             pass
         raise
@@ -876,6 +1063,52 @@ def operator_stage_decision(stage: base.Stage, outcome: base.RunOutcome, *, inpu
     return "abort"
 
 
+def run_stage_actions(s: Services, events: tuple[dict[str, Any], ...], *, stage: str, phase: str, cycle: int, rows: list[dict], started: datetime) -> int:
+    """Execute a configured boundary sequence once, outside repeated sampling.
+
+    Boundary NMR uses the existing acquisition/processing path and a separate
+    series label, so it does not contribute to the monitoring plateau window.
+    A failure requires review; there is no guessed reverse-dose recovery.
+    """
+    if not events:
+        return cycle
+    label = f"{stage}_{phase}"
+    pump_channels.validate_stage_actions(s.raw, list(events), label)
+    s.assert_pump_idle()
+    up, down, _ = positions(s.arduino_cfg, mock=s.mock)
+    verify_needle(s.needle, up)
+    step = "boundary start"
+    try:
+        s.record("stage_actions_status", workflow_phase=label, status="STARTED")
+        for index, event in enumerate(events, 1):
+            action = str(event["action"]).lower()
+            step = f"{phase}[{index}] {action}"
+            s.record("stage_action", workflow_phase=label, action_index=index, action=action, result_classification="started")
+            if action in {"withdraw", "infuse"}:
+                overrides = {key: event[key] for key in ("channel", "rate_ml_min") if key in event}
+                s.pump_move(action, float(event["volume_ml"]), event["needle_position"], stage=label, cycle=cycle, **overrides)
+            elif action == "needle":
+                s.move_needle(event["position"])
+            elif action == "pause":
+                s.assert_pump_idle()
+                s.sleep("stage pause", float(event["seconds"]))
+            elif action == "nmr":
+                s.assert_pump_idle()
+                verify_needle(s.needle, up if event["needle_position"] == "UP" else down)
+                cycle += 1
+                s.nmr_measurement(stage=label, cycle=cycle, rows=rows, started=started)
+            s.record("stage_action", workflow_phase=label, action_index=index, action=action, result_classification="completed")
+        s.assert_pump_idle()
+        verify_needle(s.needle, up)
+        s.record("stage_actions_status", workflow_phase=label, status="COMPLETE")
+        return cycle
+    except BaseException as exc:
+        s.stop_all(stage=label, cycle=cycle)
+        s.needle.stop_best_effort()
+        _record_failure(s, stage=label, cycle=cycle, step=step, exc=exc, recovery_attempted=False)
+        raise
+
+
 def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decision: Callable[[base.Stage, base.RunOutcome], str] | None = None) -> base.RunOutcome:
     preflight(s)
     home_and_raise(s)
@@ -884,7 +1117,7 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
     cycle = 0
     advanced: list[str] = []
     stages = base.build_stages(s.raw["workflow"])
-    if s.mock:
+    if s.mock and not s.simulation:
         stages = [replace(stage, interval_minutes=0.0001, max_hours=1, max_measurements=mock_cycles_per_stage, max_measurements_explicit=True) for stage in stages]
     def operator(prompt: str) -> None:
         if s.mock:
@@ -906,11 +1139,52 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
         return choice
     def stage_runner(stage: base.Stage) -> base.RunOutcome:
         nonlocal cycle
+        cycle = run_stage_actions(s, stage.before_monitoring, stage=stage.name, phase="before_monitoring", cycle=cycle, rows=rows, started=started)
+        def finish(outcome: base.RunOutcome) -> base.RunOutcome:
+            nonlocal cycle
+            if stage.completion and stage.after_monitoring:
+                if outcome.stage_outcome is not base.StageOutcome.PLATEAU_REACHED or not completion_evidence([r for r in rows if r["stage"] == stage.name], stage.completion)["complete"]:
+                    raise VerificationError("Reagent transition requires genuine sustained stage completion")
+                if s.dose_guard is None:
+                    raise VerificationError("Durable experiment reservation is required before dosing")
+                # Intent is durable before the first boundary physical action.
+                dose = next(e for e in stage.after_monitoring if e["action"] == "infuse")
+                s.dose_guard.mark("DISPATCH_INTENT", source_stage=stage.name, channel=2, volume_ml=dose["volume_ml"], rate_ml_min=dose["rate_ml_min"])
+                s.record("dose_dispatch_intent", **s.dose_guard.data)
+            cycle = run_stage_actions(s, stage.after_monitoring, stage=stage.name, phase="after_monitoring", cycle=cycle, rows=rows, started=started)
+            if stage.completion and stage.after_monitoring:
+                dose = next(e for e in stage.after_monitoring if e["action"] == "infuse")
+                replay = replay_journal(s.paths.journal_jsonl)
+                intent = next(e for e in reversed(replay.records) if e["event_type"] == "dose_dispatch_intent")
+                completed = [e for e in replay.records if e["sequence"] > intent["sequence"] and e.get("operation_type") == "infuse" and e.get("channel") == 2 and e.get("lifecycle_state") == "completed"]
+                if not replay.valid or len(completed) != 1:
+                    raise VerificationError("Exactly one matched durable reagent move is required")
+                move = completed[0]
+                confirmed = s.record("dose_confirmed", dose_id=s.dose_guard.data["dose_id"], experiment_id=s.dose_guard.data["experiment_id"], configuration_sha256=s.dose_guard.data["configuration_sha256"], pump_operation_id=move["operation_id"], pump_completion_sequence=move["sequence"], channel=2, volume_ml=dose["volume_ml"], rate_ml_min=dose["rate_ml_min"], result_classification="timed_move_stop_and_journal_confirmed")
+                s.dose_guard.mark("CONFIRMED", completion_journal_sequence=confirmed["sequence"], channel=2, volume_ml=dose["volume_ml"], rate_ml_min=dose["rate_ml_min"])
+                boundary = s.simulation.now() if s.simulation else s.last_acquisition_completed_at
+                # Actual dose alignment uses last metadata time plus monotonic
+                # duration from that acquisition, rather than filename timing.
+                elapsed = (boundary - s.first_acquisition_at).total_seconds() / 3600 if s.simulation else float(rows[-1]["elapsed_hours"]) + (time.monotonic() - s.last_acquisition_completed_monotonic) / 3600
+                s.transition_evidence = dict(s.dose_guard.data, elapsed_hours=elapsed, timing_source="virtual journal clock" if s.simulation else "journal boundary aligned to last JCAMP LONG DATE", confirmation_utc=confirmed["timestamp_utc"])
+                write_json_atomic(s.paths.run_dir / "transition" / "channel2_addition.json", s.transition_evidence)
+            if stage.completion:
+                write_stage_reports(s.paths, rows, stages, dataset=s.dataset_name, transition=s.transition_evidence)
+            return outcome
         def measurement(schedule: base.MeasurementSchedule) -> base.MeasurementObservation:
             nonlocal cycle
             cycle += 1
             s.record("measurement_scheduled", workflow_phase=stage.name, cycle_number=cycle, scheduled_time=schedule.scheduled_time, actual_start=schedule.actual_cycle_start, scheduling_delay_seconds=schedule.scheduling_delay_seconds)
             row = sample_cycle(s, stage=stage.name, cycle=cycle, rows=rows, started=started)
+            row.update(scheduled_measurement_number=schedule.scheduled_measurement_number,
+                       stage_started_at=schedule.stage_started_at, scheduled_measurement_time=schedule.scheduled_time,
+                       actual_cycle_start=schedule.actual_cycle_start, scheduling_delay_seconds=schedule.scheduling_delay_seconds,
+                       nmr_acquisition_started_at=s.last_acquisition_started_at.isoformat(timespec="seconds"),
+                       nmr_acquisition_completed_at=s.last_acquisition_completed_at.isoformat(timespec="seconds"),
+                       analysis_completed_at=s.last_analysis_completed_at.isoformat(timespec="seconds"))
+            base.write_csv(s.paths.time_series_csv, rows, base.TIME_SERIES_COLUMNS)
+            if stage.completion:
+                write_stage_reports(s.paths, rows, stages, dataset=s.dataset_name, transition=s.transition_evidence)
             return base.MeasurementObservation(
                 True, bool(row["plateau"]),
                 s.last_acquisition_started_at.isoformat(timespec="seconds"),
@@ -919,24 +1193,29 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
             )
         extension = 0
         while True:
-            outcome = base.run_monitoring_stage(stage, measurement, recorder=s.recorder, sleep_fn=s.sleep).outcome
+            clock = {"monotonic_fn": s.simulation.monotonic, "wall_now_fn": s.simulation.now} if s.simulation else {}
+            outcome = base.run_monitoring_stage(stage, measurement, recorder=s.recorder, sleep_fn=s.sleep, **clock).outcome
             if outcome.stage_outcome in (base.StageOutcome.PLATEAU_REACHED, base.StageOutcome.SCHEDULED_MONITORING_COMPLETED):
-                return outcome
+                return finish(outcome)
             # A limit without plateau is never taken as chemistry complete.
             s.record("stage_limit_reached", workflow_phase=stage.name, extension=extension, stage_outcome=outcome.stage_outcome.value if outcome.stage_outcome else None, plateau_reached=False, result_classification="plateau_not_reached")
+            if stage.completion:
+                return base.RunOutcome(base.TerminalStatus.ANALYSIS_INCONCLUSIVE, f"Stage {stage.name} reached its configured limit without chemical completion; transition refused.", outcome.stage_outcome)
             choice = decide(stage, outcome, extension)
             if choice == "continue":
                 extension += 1
                 continue
             if choice == "advance":
                 advanced.append(stage.name)
-                return base.RunOutcome(base.TerminalStatus.COMPLETED, f"Operator advanced past stage {stage.name} without a plateau.", base.StageOutcome.OPERATOR_ADVANCED_WITHOUT_PLATEAU)
+                return finish(base.RunOutcome(base.TerminalStatus.COMPLETED, f"Operator advanced past stage {stage.name} without a plateau.", base.StageOutcome.OPERATOR_ADVANCED_WITHOUT_PLATEAU))
             return base.RunOutcome(base.TerminalStatus.OPERATOR_ABORTED, f"Stage {stage.name} reached its limit without a plateau; the experiment was ended at a stage decision.", outcome.stage_outcome)
     try:
         outcome = base.run_stage_sequence(stages, operator, stage_runner, recorder=s.recorder)
     except MeasurementFailedAfterCleanup as exc:
         outcome = base.RunOutcome(base.TerminalStatus.ANALYSIS_INCONCLUSIVE, f"{exc}. The experiment stopped; review the failed measurement before any new run or stage.")
         s.record("terminal", workflow_phase="run", terminal_status=outcome.status.value, result_classification="measurement_failed_cleanup_completed", physical_state_certainty="certain", operator_review_required=True, failed_stage=exc.stage, failed_cycle=exc.cycle, failed_step=exc.failed_step, error_message=outcome.message)
+        if any(stage.completion for stage in stages):
+            write_stage_reports(s.paths, rows, stages, dataset=s.dataset_name, outcome=outcome, transition=s.transition_evidence)
         return outcome
     except base.OperatorAbortError as exc:
         # Reagent checkpoints only occur between stages, with the rig at rest.
@@ -946,4 +1225,8 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
     if outcome.status is base.TerminalStatus.COMPLETED and advanced:
         outcome = base.RunOutcome(base.TerminalStatus.COMPLETED, "All configured stages finished; the operator advanced without a plateau after: " + ", ".join(advanced) + ".", outcome.stage_outcome)
     s.record("terminal", workflow_phase="run", terminal_status=outcome.status.value, result_classification=outcome.stage_outcome.value if outcome.stage_outcome else outcome.status.value, physical_state_certainty="certain", stages_advanced_without_plateau=advanced or None)
+    if any(stage.completion for stage in stages):
+        figures = write_stage_reports(s.paths, rows, stages, dataset=s.dataset_name, outcome=outcome, transition=s.transition_evidence)
+        s.plot_manifest = [*(s.plot_manifest or []), *figures]
+        s.write_manifest()
     return outcome

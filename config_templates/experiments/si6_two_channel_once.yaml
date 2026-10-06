@@ -1,0 +1,102 @@
+# Complete simulation example for scripts/02_si6_experiment.py.
+# Review both syringes and the separate channel-2 reagent path before hardware use.
+# Channel 1 runs the standard sampling cycle; channel 2 doses exactly once after
+# the first monitoring stage. The second stage resumes channel-1 sampling/NMR.
+workflow:
+  name: si6_two_channel_once
+  description: Sequential channel-1 sampling, one channel-2 dose, channel-1 sampling.
+  cycle:
+    - action: withdraw
+      volume_ml: 8.0
+    - action: operator
+      prompt: Lower needle.
+    - action: withdraw
+      volume_ml: 5.0
+    - action: pause
+      seconds: 300
+    - action: nmr
+    - action: infuse
+      volume_ml: 13.0
+    - action: operator
+      prompt: Raise needle.
+    - action: withdraw
+      volume_ml: 5.0
+    - action: infuse
+      volume_ml: 5.0
+  pump_extra_seconds: 2.0
+  initial_stage:
+    name: before_dose
+    operator_prompt: Confirm sample path and both loaded syringes, then press y.
+    interval_minutes: 15
+    measure_immediately: true
+    plateau_stopping_enabled: false
+    max_hours: 0.25
+    after_monitoring:
+      - action: needle
+        position: DOWN
+      - action: infuse
+        channel: 2
+        volume_ml: 0.05
+        rate_ml_min: 0.5
+        needle_position: DOWN
+      - action: pause
+        seconds: 15
+      - action: needle
+        position: UP
+  first_addition_stage:
+    name: after_dose
+    operator_prompt: Confirm dose and readiness to resume channel-1 sampling, then press y.
+    interval_minutes: 15
+    measure_immediately: true
+    plateau_stopping_enabled: false
+    max_hours: 0.25
+  repeat_addition_rounds: 0
+  repeating_stages: []
+
+pump:
+  default_channel: 1
+  channels:
+    "1":
+      syringe_diameter_mm: 20.0
+      syringe_capacity_ml: 20.0
+      initial_retained_volume_ml: 0.0
+      syringe_safety_margin_ml: 1.0
+      units: mL/min
+      rate_ml_min: 5.0
+      default_volume_ml: 5.0
+    "2":
+      syringe_diameter_mm: 4.7
+      syringe_capacity_ml: 1.0
+      initial_retained_volume_ml: 0.5
+      syringe_safety_margin_ml: 0.1
+      units: mL/min
+      rate_ml_min: 0.5
+      default_volume_ml: 0.05
+
+nmr:
+  route: iflow
+  result_type: fid
+  scans: 2
+  receiver_gain: 12.0
+  auto_gain: false
+  spectral_center: 5.0
+  sweep_width: 20.0
+  target_ppm: 5.8
+analysis:
+  detection_window_ppm: 0.10
+  integration_window_ppm: 0.10
+  plot_window_ppm: 0.5
+  line_broadening_hz: 0.3
+  min_peak_snr: 5.0
+  min_prominence_snr: 3.0
+  min_peak_area: 0.0
+  area_epsilon: 1.0e-12
+  plateau_max_growth_percent: 5.0
+  plateau_max_decline_percent: 2.0
+  plateau_consecutive_intervals: 3
+output:
+  run_root_dir: results/runs/si6_two_channel_example
+three_instrument:
+  test_withdraw_ml: 0.5
+  test_infuse_ml: 0.5
+  initial_plateau_stopping_enabled: false

@@ -1,0 +1,112 @@
+# Editable starting criteria, NOT validated chemistry calibration.
+# Verify syringes, needle geometry, tubing and thresholds on WORK before live use.
+workflow:
+  name: si6_two_stage_fast_sim
+  description: Decreasing target, one reagent addition, conservative increasing plateau.
+  experiment_id: SIMULATION_ONLY
+  initial_needle_position: UP
+  cycle:
+    - {action: withdraw, channel: 1, volume_ml: 8.0, rate_ml_min: 5.0}
+    - {action: operator, position: DOWN, prompt: Lower needle.}
+    - {action: withdraw, channel: 1, volume_ml: 5.0, rate_ml_min: 5.0}
+    - {action: pause, seconds: 300}
+    - {action: nmr}
+    - {action: infuse, channel: 1, volume_ml: 13.0, rate_ml_min: 5.0}
+    - {action: operator, position: UP, prompt: Raise needle.}
+    - {action: withdraw, channel: 1, volume_ml: 5.0, rate_ml_min: 5.0}
+    - {action: infuse, channel: 1, volume_ml: 5.0, rate_ml_min: 5.0}
+  pump_extra_seconds: 2.0
+  initial_stage:
+    name: stage_1
+    operator_prompt: Confirm rig at rest, loaded syringes and readiness for Stage 1.
+    interval_minutes: 120
+    max_hours: 48
+    measure_immediately: true
+    plateau_stopping_enabled: true
+    completion:
+      trend: decreasing
+      minimum_points: 8
+      minimum_duration_hours: 12
+      window_points: 4
+      consecutive_confirmations: 3
+      minimum_progress_fraction: 0.95
+      low_fraction: 0.025
+      max_window_range_fraction: 0.01
+      max_abs_slope_fraction_per_hour: 0.001
+    after_monitoring:
+      - {action: needle, position: DOWN}
+      - {action: infuse, channel: 2, volume_ml: 1.8, rate_ml_min: 1.0, needle_position: DOWN}
+      - {action: needle, position: UP}
+  first_addition_stage:
+    name: stage_2
+    operator_prompt: Confirm dose evidence and readiness for Stage 2.
+    interval_minutes: 30
+    max_hours: 6
+    measure_immediately: true
+    plateau_stopping_enabled: true
+    completion:
+      trend: increasing
+      expected_duration_hours: 3
+      minimum_points: 8
+      minimum_duration_hours: 3
+      window_points: 5
+      consecutive_confirmations: 3
+      minimum_progress_fraction: 0.25
+      max_window_range_fraction: 0.02
+      max_abs_slope_fraction_per_hour: 0.012
+  repeat_addition_rounds: 0
+  repeating_stages: []
+pump:
+  default_channel: 1
+  channels:
+    "1":
+      syringe_diameter_mm: 20.0
+      syringe_capacity_ml: 20.0
+      initial_retained_volume_ml: 0.0
+      syringe_safety_margin_ml: 1.0
+      units: mL/min
+      rate_ml_min: 5.0
+      default_volume_ml: 5.0
+    "2":
+      syringe_diameter_mm: 12.06
+      syringe_capacity_ml: 5.0
+      initial_retained_volume_ml: 2.0
+      syringe_safety_margin_ml: 0.2
+      units: mL/min
+      rate_ml_min: 1.0
+      default_volume_ml: 1.8
+nmr:
+  route: iflow
+  result_type: fid
+  scans: 8
+  receiver_gain: 12.0
+  auto_gain: false
+  spectral_center: 5.0
+  sweep_width: 20.0
+  target_ppm: 5.8
+analysis:
+  detection_window_ppm: 0.10
+  integration_window_ppm: 0.10
+  plot_window_ppm: 0.5
+  line_broadening_hz: 0.3
+  min_peak_snr: 5.0
+  min_prominence_snr: 3.0
+  min_peak_area: 0.0
+  area_epsilon: 1.0e-12
+  plateau_max_growth_percent: 5.0
+  plateau_max_decline_percent: 2.0
+  plateau_consecutive_intervals: 3
+  measurement_qc:
+    noise_multiplier: 3.0
+    max_noise_fraction: 0.01
+    max_area_uncertainty_fraction: 0.005
+    undetected_max_fraction: 0.025
+output:
+  run_root_dir: results/runs/si6_two_stage_fast_sim
+three_instrument:
+  test_withdraw_ml: 0.5
+  test_infuse_ml: 0.5
+  initial_plateau_stopping_enabled: true
+simulation:
+  fixture_file: chemyx_lab/testing/fixtures/si6_two_stage_trends.json
+  acquisition_seconds: 30

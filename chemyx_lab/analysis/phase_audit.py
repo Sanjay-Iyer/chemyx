@@ -22,7 +22,10 @@ def sha256(path):
 def provenance():
     root = Path(__file__).resolve().parents[2]
     def git(*args):
-        result = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
+        try:
+            result = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
+        except OSError:
+            return "unavailable"
         return result.stdout.strip() if result.returncode == 0 else "unavailable"
     versions = {}
     for name in ("numpy", "scipy", "nmrglue", "matplotlib", "PySide6"):

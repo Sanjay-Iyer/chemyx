@@ -17,3 +17,21 @@ Scans/gain are global for each run. Pump SOP and detailed NMR processing default
 are preserved. Stage times are examples to edit for the chemistry; long duration
 does not introduce unattended operation. The standard template is equivalent
 to the existing default recipe. No template selects live mode.
+
+## Sequential channel-2 dose example
+
+[`si6_two_channel_once.yaml`](si6_two_channel_once.yaml) is a complete simulation
+recipe for channel-1 sampling, one 50 µL channel-2 dose between stages, and
+channel-1 sampling again. See
+[channel configuration and HOME simulation commands](../../docs/CHEMYX_CHANNEL_WORKFLOW.md).
+
+## Two-stage Si6
+
+`si6_two_stage_nominal.yaml` is the complete decreasing → one Ch2 dose →
+increasing plateau profile. `si6_two_stage_fast_sim.yaml` exercises that entire
+sequence on an explicit virtual clock. `si6_two_stage_stage1_development.yaml`
+and `si6_two_stage_stage2_development.yaml` are editable full-reaction development
+starting points with chemical prerequisites preserved. See
+`docs/SI6_TWO_STAGE_CONFIGURATION.md`, `docs/SI6_TWO_STAGE_OPERATOR_GUIDE.md`
+and `docs/OFFLINE_DEPLOYMENT.md`. Nominal thresholds/syringe dimensions need
+WORK calibration; controller simulation is not physical verification.

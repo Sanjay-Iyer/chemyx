@@ -1,0 +1,46 @@
+{
+  "simulation_only": true,
+  "description": "Controller trend fixtures; values are not chemical thresholds or acquired spectra.",
+  "stages": {
+    "stage_1": [
+      100,
+      80,
+      55,
+      30,
+      12,
+      5,
+      2,
+      1.5,
+      1.3,
+      1.2,
+      1.15,
+      1.1,
+      1.1,
+      1.12,
+      1.1,
+      1.1,
+      1.1,
+      1.1,
+      1.1,
+      1.1,
+      1.1,
+      1.1,
+      1.1,
+      1.1
+    ],
+    "stage_2": [
+      0,
+      25,
+      55,
+      76,
+      89,
+      91,
+      92,
+      92.5,
+      92.4,
+      92.5,
+      92.45,
+      92.5
+    ]
+  }
+}

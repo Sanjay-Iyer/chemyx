@@ -48,6 +48,11 @@ the operator to CONTINUE, ADVANCE, or ABORT.
 Validation simulates repeated complete cycles and requires maximum cumulative
 retained volume plus margin not to exceed capacity.
 
+The three-instrument runner also accepts `pump.default_channel` with independent
+`pump.channels` settings and a `channel` override on each withdraw/infuse.
+Stage `before_monitoring`/`after_monitoring` actions support one-time doses.
+See [sequential channel configuration and simulation commands](CHEMYX_CHANNEL_WORKFLOW.md).
+
 ## NMR and analysis
 
 The NMR section fixes route, FID result type, scans, receiver gain, acquired

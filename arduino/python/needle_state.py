@@ -116,7 +116,7 @@ class NeedleStateStore:
 class TrackedNeedle:
     """Logical UP-positive API around the existing serial JOG implementation."""
 
-    def __init__(self, controller: Any, cfg: dict[str, Any], *, state_path: str | Path | None = None) -> None:
+    def __init__(self, controller: Any, cfg: dict[str, Any], *, state_path: str | Path | None = None, allow_home_assumption: bool = True) -> None:
         needle = cfg["needle"]
         if needle.get("steps_per_unit") is None or needle.get("up_step_sign") is None:
             raise MotionInterlockError("Set verified needle.steps_per_unit and needle.up_step_sign before use")
@@ -139,6 +139,8 @@ class TrackedNeedle:
             or self.state.up_step_sign != self.up_step_sign
             or not self.minimum <= self.state.logical_position <= self.maximum
         ):
+            if not allow_home_assumption:
+                raise PositionUncertainError("Needle HOME is unconfirmed; physically inspect and use needle_control.py confirm-home before the two-stage experiment")
             # Demo mode: an unknown position is assumed to be HOME rather than
             # blocking motion. Put the needle at HOME before running.
             print("Needle position unknown; ASSUMING the needle is at HOME (0).")
@@ -146,6 +148,8 @@ class TrackedNeedle:
                                      reason="assumed_home_demo", steps_per_unit=self.steps_per_unit,
                                      up_step_sign=self.up_step_sign)
             self.store.save(self.state)
+        if not allow_home_assumption and self.state.reason == "assumed_home_demo":
+            raise PositionUncertainError("Demo-assumed HOME is not a confirmed physical reference; explicitly confirm-home")
         print(f"Last known needle position: {self.state.logical_position if self.state.logical_position is not None else 'unknown'}; "
               f"position state: {'valid software estimate' if self.state.position_valid else 'UNKNOWN'}")
 
