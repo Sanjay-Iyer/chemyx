@@ -24,7 +24,10 @@ def validate_profile(raw, stages):
     for stage in stages:
         if stage.completion["minimum_duration_hours"] >= stage.max_hours:
             raise ValueError("Completion minimum duration must be below stage max_hours")
-        needed = max(stage.completion["minimum_points"], stage.completion["window_points"] + stage.completion["consecutive_confirmations"] - 1)
+        # Every confirmation window must itself satisfy minimum_points. The
+        # earliest qualifying end needs the minimum/window count; subsequent
+        # confirmations each need one more observation.
+        needed = max(stage.completion["minimum_points"], stage.completion["window_points"]) + stage.completion["consecutive_confirmations"] - 1
         if stage.max_measurements < needed:
             raise ValueError("Stage has too few measurement slots for sustained completion")
     doses = [e for e in stages[0].after_monitoring if str(e["action"]).lower() in {"withdraw", "infuse", "nmr"}]

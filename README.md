@@ -12,6 +12,13 @@ Real hardware was not contacted during this restructuring.
 
 ## Three-instrument Si6 entry points
 
+For the current two-stage workflow (Channel1 sampling, one Channel2 addition,
+then Channel1 sampling), start with [Si6 start here](docs/SI6_START_HERE.md),
+[script map](docs/SI6_SCRIPT_USER_GUIDE.md) and
+[configuration guide](docs/SI6_CONFIG_USER_GUIDE.md).
+The final HOME spectral validation command is
+`python -B scripts\validate_si6_synthetic_analysis.py`.
+
 ```powershell
 python -B scripts\01_three_instrument_system_test.py
 python -B scripts\01_three_instrument_system_test.py --mock --all

@@ -27,6 +27,9 @@ RESOURCES = (
     "offline/requirements-lock.txt", "docs/OFFLINE_DEPLOYMENT.md", "docs/OFFLINE_REQUIREMENTS.md",
     "docs/SI6_TWO_STAGE_OPERATOR_GUIDE.md", "docs/SI6_WORKFLOW_VALIDATOR.md",
     "docs/SI6_TWO_STAGE_VALIDATION_REPORT.md", "docs/SI6_TWO_STAGE_CONFIGURATION.md",
+    "docs/SI6_START_HERE.md", "docs/SI6_SCRIPT_USER_GUIDE.md", "docs/SI6_CONFIG_USER_GUIDE.md",
+    "docs/SI6_SYNTHETIC_ANALYSIS_AUDIT.md", "docs/SI6_FINAL_HOME_VALIDATION_REPORT.md",
+    "scripts/validate_si6_synthetic_analysis.py", "chemyx_lab/testing/si6_synthetic_analysis.py",
 )
 
 
@@ -100,7 +103,9 @@ def main():
         result = subprocess.run([sys.executable, "-B", "-m", "pytest", "tests/test_si6_two_stage.py",
                                  "tests/test_si6_validator_gates.py", "tests/test_si6_pump_channels.py",
                                  "tests/test_three_instrument_si6.py", "tests/test_si6_monitoring.py",
-                                 "tests/test_runtime_journal.py", "-q", "-p", "no:cacheprovider",
+                                 "tests/test_runtime_journal.py", "tests/test_si6_synthetic_analysis.py",
+                                 "tests/test_si6_final_validator.py", "tests/test_si6_profile.py",
+                                 "-q", "-p", "no:cacheprovider",
                                  "--basetemp", "test_tmp_offline_tests"], cwd=config.REPO_ROOT)
         if result.returncode:
             return result.returncode
