@@ -743,8 +743,8 @@ def unresolved_previous_live_run(raw: dict[str, Any]) -> Any | None:
     return None
 
 
-def prepare(workflow_path: Path, machine_path: Path, arduino_path: Path, *, mock: bool, require_needle_live: bool = True, acknowledged_review: str | None = None):
-    raw = base.load_si6_config(workflow_path)
+def prepare(workflow_path: Path, machine_path: Path, arduino_path: Path, *, mock: bool, require_needle_live: bool = True, acknowledged_review: str | None = None, allow_soak: bool = False):
+    raw = base.load_si6_config(workflow_path, allow_soak=allow_soak)
     if "three_instrument" not in raw:
         raise ValueError("Three-instrument config section is required")
     raw["workflow"]["initial_stage"]["plateau_stopping_enabled"] = raw["three_instrument"]["initial_plateau_stopping_enabled"]
@@ -758,7 +758,7 @@ def prepare(workflow_path: Path, machine_path: Path, arduino_path: Path, *, mock
     if mock or require_needle_live:
         positions(arduino_cfg, mock=mock)
     pump_cfg, nmr_cfg = base.build_instrument_settings(raw, machine_path)
-    if any(stage.completion for stage in base.build_stages(raw["workflow"])) and nmr_cfg.auto_gain:
+    if (any(stage.completion for stage in base.build_stages(raw["workflow"])) or allow_soak) and nmr_cfg.auto_gain:
         raise ValueError("Resolved NMR auto_gain must be false for quantitative completion monitoring")
     pump_channels.instrument_configs(raw, pump_cfg)
     if not mock and require_needle_live:
@@ -767,7 +767,7 @@ def prepare(workflow_path: Path, machine_path: Path, arduino_path: Path, *, mock
         if not pump_cfg.port or not nmr_cfg.host:
             raise ValueError("Live Chemyx serial port and NMR host must be configured")
         two_stage = any(s.completion for s in base.build_stages(raw["workflow"]))
-        if two_stage:
+        if two_stage or allow_soak:
             if "simulation" in raw:
                 raise ValueError("A simulation template cannot be run live; select nominal/development hardware YAML")
             if raw["workflow"]["experiment_id"].startswith("SET_"):
@@ -777,7 +777,7 @@ def prepare(workflow_path: Path, machine_path: Path, arduino_path: Path, *, mock
             if ledger.exists():
                 raise VerificationError(f"Experiment already reserved: {ledger}. Automatic restart refused; inspect and reconcile.")
         review = unresolved_previous_live_run(raw)
-        if review is not None and not two_stage:
+        if review is not None and not (two_stage or allow_soak):
             print(f"NOTE: previous live run {review.run_dir.name} ended {review.classification.value}; continuing (demo mode).")
     return raw, arduino_cfg, pump_cfg, nmr_cfg
 
@@ -805,6 +805,14 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
     channel_configs = pump_channels.instrument_configs(raw, pump_cfg)
     stages = base.build_stages(raw["workflow"])
     two_stage = any(stage.completion for stage in stages)
+    soak = "soak_test" in raw
+    if soak:
+        from .si6_soak import configure_soak
+        configure_soak(raw)
+        if identity.kind != "soak":
+            raise ValueError("Soak configuration requires scripts/03_si6_real_soak_test.py")
+        if not mock:
+            check_previous_run_review(raw, acknowledged_review)
     if two_stage:
         from .si6_profile import validate_profile
         validate_profile(raw, stages)
@@ -846,7 +854,7 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
     }
     recorder.record("phase_transition", previous_state=None, new_state="initializing", workflow_phase="initializing", result_classification=identity.mode, mode=identity.mode, run_kind=identity.kind, diagnostic_selection=identity.selection, acknowledged_previous_run=acknowledged_review, default_pump_channel=pump_cfg.channel, pump_channels=initial_channels)
     guard = None
-    if two_stage and identity.kind == "si6":
+    if (two_stage and identity.kind == "si6") or soak:
         guard = DoseGuard(paths.run_dir / "mock_dose_ledger" if mock else config.REPO_ROOT / "runtime" / "si6_doses", raw["workflow"]["experiment_id"], raw, paths.run_dir.name)
         guard.reserve()  # Exclusive, durable admission BEFORE either transport.
         recorder.record("experiment_reserved", **guard.data, ledger_path=str(guard.path))
@@ -883,7 +891,7 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
                     arduino_cfg["motion"], maximum_speed_steps_s=100,
                     maximum_acceleration_steps_s2=300,
                 )
-            needle = TrackedNeedle(controller, tracked_cfg, state_path=paths.run_dir / "mock_needle_state.json" if mock else None, allow_home_assumption=mock or not two_stage)
+            needle = TrackedNeedle(controller, tracked_cfg, state_path=paths.run_dir / "mock_needle_state.json" if mock else None, allow_home_assumption=mock or not (two_stage or soak))
             if mock:
                 needle.confirm_home(operator_confirmed=True)
             with pump:
@@ -1094,6 +1102,19 @@ def operator_stage_decision(stage: base.Stage, outcome: base.RunOutcome, *, inpu
     return "abort"
 
 
+def confirm_channel2_action(s: Services, dose: dict, **evidence) -> dict:
+    """Match the addressed move and STOP before confirming a durable dose."""
+    replay = replay_journal(s.paths.journal_jsonl)
+    intent = next(e for e in reversed(replay.records) if e["event_type"] == "dose_dispatch_intent")
+    completed = [e for e in replay.records if e["sequence"] > intent["sequence"] and e.get("operation_type") == "infuse" and e.get("channel") == 2 and e.get("lifecycle_state") == "completed"]
+    if not replay.valid or len(completed) != 1:
+        raise VerificationError("Exactly one matched durable reagent move is required")
+    move = completed[0]
+    confirmed = s.record("dose_confirmed", dose_id=s.dose_guard.data["dose_id"], experiment_id=s.dose_guard.data["experiment_id"], configuration_sha256=s.dose_guard.data["configuration_sha256"], pump_operation_id=move["operation_id"], pump_completion_sequence=move["sequence"], channel=2, volume_ml=dose["volume_ml"], rate_ml_min=dose["rate_ml_min"], result_classification="timed_move_stop_and_journal_confirmed")
+    s.dose_guard.mark("CONFIRMED", completion_journal_sequence=confirmed["sequence"], channel=2, volume_ml=dose["volume_ml"], rate_ml_min=dose["rate_ml_min"], **evidence)
+    return confirmed
+
+
 def run_stage_actions(s: Services, events: tuple[dict[str, Any], ...], *, stage: str, phase: str, cycle: int, rows: list[dict], started: datetime) -> int:
     """Execute a configured boundary sequence once, outside repeated sampling.
 
@@ -1191,14 +1212,7 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
             cycle = run_stage_actions(s, stage.after_monitoring, stage=stage.name, phase="after_monitoring", cycle=cycle, rows=rows, started=started)
             if stage.completion and stage.after_monitoring:
                 dose = next(e for e in stage.after_monitoring if e["action"] == "infuse")
-                replay = replay_journal(s.paths.journal_jsonl)
-                intent = next(e for e in reversed(replay.records) if e["event_type"] == "dose_dispatch_intent")
-                completed = [e for e in replay.records if e["sequence"] > intent["sequence"] and e.get("operation_type") == "infuse" and e.get("channel") == 2 and e.get("lifecycle_state") == "completed"]
-                if not replay.valid or len(completed) != 1:
-                    raise VerificationError("Exactly one matched durable reagent move is required")
-                move = completed[0]
-                confirmed = s.record("dose_confirmed", dose_id=s.dose_guard.data["dose_id"], experiment_id=s.dose_guard.data["experiment_id"], configuration_sha256=s.dose_guard.data["configuration_sha256"], pump_operation_id=move["operation_id"], pump_completion_sequence=move["sequence"], channel=2, volume_ml=dose["volume_ml"], rate_ml_min=dose["rate_ml_min"], result_classification="timed_move_stop_and_journal_confirmed")
-                s.dose_guard.mark("CONFIRMED", completion_journal_sequence=confirmed["sequence"], channel=2, volume_ml=dose["volume_ml"], rate_ml_min=dose["rate_ml_min"])
+                confirmed = confirm_channel2_action(s, dose)
                 boundary = s.simulation.now() if s.simulation else s.last_acquisition_completed_at
                 # Actual dose alignment uses last metadata time plus monotonic
                 # duration from that acquisition, rather than filename timing.

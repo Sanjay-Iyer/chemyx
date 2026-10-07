@@ -247,15 +247,18 @@ class CapacityRequirement:
     end_retained_volume_ml: float
 
 
-def load_si6_config(path: Path) -> dict[str, Any]:
+def load_si6_config(path: Path, *, allow_soak: bool = False) -> dict[str, Any]:
     raw = config.read_mapping_config(path, "Si6 experiment config")
     required = {"workflow", "pump", "nmr", "analysis", "output"}
     missing = sorted(required - set(raw))
-    unknown = sorted(set(raw) - required - {"three_instrument", "simulation", "qc_reporting"})
+    unknown = sorted(set(raw) - required - {"three_instrument", "simulation", "qc_reporting"} - ({"soak_test"} if allow_soak else set()))
     if missing:
         raise ValueError(f"Missing Si6 config section(s): {', '.join(missing)}")
     if unknown:
         raise ValueError(f"Unknown Si6 config section(s): {', '.join(unknown)}")
+    if allow_soak:
+        from .si6_soak import configure_soak
+        configure_soak(raw)
     if "three_instrument" in raw:
         diagnostic = _mapping(raw["three_instrument"], "three_instrument")
         _reject_unknown(diagnostic, {"test_withdraw_ml", "test_infuse_ml", "initial_plateau_stopping_enabled", "diagnostic_channel"}, "three_instrument")
@@ -356,7 +359,7 @@ def load_si6_config(path: Path) -> dict[str, Any]:
     if any(stage.completion for stage in stages):
         from .si6_profile import validate_profile
         validate_profile(raw, stages)
-    if "peak_finding" in analysis and not all(stage.completion and stage.completion.get("method") == "area_only" for stage in stages):
+    if "peak_finding" in analysis and not allow_soak and not all(stage.completion and stage.completion.get("method") == "area_only" for stage in stages):
         raise ValueError("analysis.peak_finding requires the complete two-stage area_only profile")
     if "simulation" in raw:
         section = _mapping(raw["simulation"], "simulation")

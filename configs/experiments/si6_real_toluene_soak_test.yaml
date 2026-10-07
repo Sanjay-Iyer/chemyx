@@ -1,0 +1,131 @@
+# Toluene only: fixed count/time limits; no reaction peak or chemistry endpoint required.
+# Edit the soak_test block and nmr.scans for short/normal/overnight scenarios.
+# One physical soak ID: restart/replay is refused by the existing durable dose ledger.
+soak_test:
+  iterations: 10
+  interval_minutes: 60
+  max_hours: 12
+  channel2:
+    enabled: true
+    trigger_iteration: 5
+    volume_ml: 0.5
+    rate_ml_min: 1.0
+workflow:
+  name: si6_toluene_soak
+  description: Continuous toluene-only instrument endurance test; no chemistry endpoints.
+  experiment_id: SI6_TOLUENE_SOAK_001
+  initial_needle_position: UP
+  cycle:
+  - action: withdraw
+    channel: 1
+    volume_ml: 8.0
+    rate_ml_min: 5.0
+  - action: operator
+    position: DOWN
+    prompt: Lower needle.
+  - action: withdraw
+    channel: 1
+    volume_ml: 5.0
+    rate_ml_min: 5.0
+  - action: pause
+    seconds: 300
+  - action: nmr
+  - action: infuse
+    channel: 1
+    volume_ml: 13.0
+    rate_ml_min: 5.0
+  - action: operator
+    position: UP
+    prompt: Raise needle.
+  - action: withdraw
+    channel: 1
+    volume_ml: 5.0
+    rate_ml_min: 5.0
+  - action: infuse
+    channel: 1
+    volume_ml: 5.0
+    rate_ml_min: 5.0
+  pump_extra_seconds: 2.0
+  repeat_addition_rounds: 0
+  repeating_stages: []
+pump:
+  default_channel: 1
+  channels:
+    '1':
+      syringe_diameter_mm: 20.0
+      syringe_capacity_ml: 20.0
+      initial_retained_volume_ml: 0.0
+      syringe_safety_margin_ml: 1.0
+      units: mL/min
+      rate_ml_min: 5.0
+      default_volume_ml: 5.0
+    '2':
+      syringe_diameter_mm: 12.06
+      syringe_capacity_ml: 5.0
+      initial_retained_volume_ml: 2.0
+      syringe_safety_margin_ml: 0.2
+      units: mL/min
+      rate_ml_min: 1.0
+      default_volume_ml: 0.5
+nmr:
+  route: iflow
+  result_type: fid
+  scans: 8
+  receiver_gain: 12.0
+  auto_gain: false
+  spectral_center: 5.0
+  sweep_width: 20.0
+  target_ppm: 5.8
+analysis:
+  area_epsilon: 1.0e-12
+  peak_area:
+    method: trapezoid
+  peak_finding:
+    search:
+      enabled: true
+      half_width_ppm: 0.2
+    previous_shift:
+      enabled: true
+      maximum_ppm: 0.08
+    reference_shift:
+      enabled: false
+      maximum_ppm: 0.15
+    continuity:
+      enabled: true
+    prominence:
+      enabled: true
+      minimum_snr: 5.0
+    absolute_prominence:
+      enabled: false
+      minimum: 0.0
+    width:
+      enabled: true
+      minimum_ppm: 0.015
+      maximum_ppm: 0.167
+    separation:
+      enabled: true
+      minimum_ppm: 0.04
+qc_reporting:
+  enabled: true
+  affect_workflow: false
+  peak_filters:
+    snr:
+      enabled: true
+      minimum: 5.0
+    shoulder:
+      enabled: true
+      maximum_asymmetry: 0.5
+    previous_shift:
+      enabled: true
+      maximum_ppm: 0.08
+  measurement_qc:
+    noise_multiplier: 3.0
+    max_noise_fraction: 0.01
+    max_area_uncertainty_fraction: 0.005
+    undetected_max_fraction: 0.025
+output:
+  run_root_dir: results/runs/si6_real_soak
+three_instrument:
+  test_withdraw_ml: 0.5
+  test_infuse_ml: 0.5
+  initial_plateau_stopping_enabled: false

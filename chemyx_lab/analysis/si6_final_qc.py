@@ -112,7 +112,7 @@ def write_final_qc(paths, rows, stages, reporting, *, dataset, outcome, transiti
     for i, row in enumerate(review):
         row["plot_elapsed_hours"] = (times[i] - times[0]).total_seconds()/3600 if can_plot else None
     write_rows(directory / "qc_summary.csv", review)
-    stage_summaries = [{"stage": s.name, "endpoint": completion_evidence([r for r in rows if r["stage"] == s.name], s.completion)} for s in stages]
+    stage_summaries = [{"stage": s.name, "endpoint": completion_evidence([r for r in rows if r["stage"] == s.name], s.completion) if s.completion else None} for s in stages]
     payload = {"dataset_display_name": dataset, "status": outcome.status.value,
                "affect_workflow": False, "timing_source": "JCAMP LONG DATE only",
                "plots_available": can_plot, "stages": stage_summaries,
