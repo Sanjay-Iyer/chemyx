@@ -290,6 +290,7 @@ def june_figures(gallery,records,results,replays,manifest):
         for i,a in enumerate(group):
             trace=replay.decision_trace[i];result=results[a['acquisition_id']][method]
             trajectories.append({**timing[i],'method':method,'measurement_index':i,
+                # Historical offline phase comparison only; never live Si6 completion.
                 'fixed_completion_area':replay.measurements[i]['area'],
                 'target_peak_area':result['target']['area'],'target_snr':result['target']['snr'],
                 **trace})

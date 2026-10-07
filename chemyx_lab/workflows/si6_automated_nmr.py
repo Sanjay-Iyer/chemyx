@@ -66,9 +66,13 @@ TIME_SERIES_COLUMNS = [
     "prominence", "prominence_snr", "width_ppm", "baseline", "noise",
     "growth_percent", "peak_clear", "plateau", "plot_file", "error",
     "timestamp_source", "dataset_display_name", "raw_path", "processed_path", "phase_evidence_path",
-    "raw_sha256", "completion_area", "area_uncertainty", "measurement_valid", "signal_classification",
+    "raw_sha256", "tracking_status", "peak_position_source", "previous_peak_ppm", "shift_previous_ppm", "shift_reference_ppm",
+    "integration_left_ppm", "integration_right_ppm", "candidate_count", "candidate_audit", "tracking_evidence_path",
+    "area_uncertainty", "measurement_valid", "signal_classification",
     "metric_source", "qc_failure_reasons", "completion_evidence_path", "trend", "normalized_area",
     "nmr_scans", "receiver_gain", "auto_gain",
+    "observation_recorded", "diagnostic_notes", "asymmetry", "negative_area",
+    "phase_method", "phase_p0_deg", "phase_p1_deg", "qc_pass", "low_snr_warning", "high_noise_warning",
 ]
 
 
@@ -82,9 +86,13 @@ class TerminalStatus(str, Enum):
     PLATEAU_NOT_REACHED_WITHIN_LIMIT = "plateau_not_reached_within_limit"
     SAFETY_STOP = "safety_stop"
     UNEXPECTED_FAILURE = "unexpected_failure"
+    STAGE_1_MAX_ITERATIONS_REACHED = "STAGE_1_MAX_ITERATIONS_REACHED"
+    STAGE_2_MAX_ITERATIONS_REACHED = "STAGE_2_MAX_ITERATIONS_REACHED"
 
 
 EXIT_CODES = {
+    TerminalStatus.STAGE_1_MAX_ITERATIONS_REACHED: 10,
+    TerminalStatus.STAGE_2_MAX_ITERATIONS_REACHED: 11,
     TerminalStatus.COMPLETED: 0,
     TerminalStatus.VALIDATION_FAILURE: 2,
     TerminalStatus.OPERATOR_ABORTED: 3,
@@ -243,14 +251,18 @@ def load_si6_config(path: Path) -> dict[str, Any]:
     raw = config.read_mapping_config(path, "Si6 experiment config")
     required = {"workflow", "pump", "nmr", "analysis", "output"}
     missing = sorted(required - set(raw))
-    unknown = sorted(set(raw) - required - {"three_instrument", "simulation"})
+    unknown = sorted(set(raw) - required - {"three_instrument", "simulation", "qc_reporting"})
     if missing:
         raise ValueError(f"Missing Si6 config section(s): {', '.join(missing)}")
     if unknown:
         raise ValueError(f"Unknown Si6 config section(s): {', '.join(unknown)}")
     if "three_instrument" in raw:
         diagnostic = _mapping(raw["three_instrument"], "three_instrument")
-        _reject_unknown(diagnostic, {"test_withdraw_ml", "test_infuse_ml", "initial_plateau_stopping_enabled"}, "three_instrument")
+        _reject_unknown(diagnostic, {"test_withdraw_ml", "test_infuse_ml", "initial_plateau_stopping_enabled", "diagnostic_channel"}, "three_instrument")
+        if "diagnostic_channel" in diagnostic:
+            ch = pump_channels.channel_number(diagnostic["diagnostic_channel"])
+            if ch not in pump_channels.channel_definitions(raw):
+                raise ValueError("three_instrument.diagnostic_channel must be configured")
         for key in ("test_withdraw_ml", "test_infuse_ml"):
             _positive(diagnostic.get(key), f"three_instrument.{key}")
         _required_bool(diagnostic.get("initial_plateau_stopping_enabled"), "three_instrument.initial_plateau_stopping_enabled")
@@ -316,7 +328,7 @@ def load_si6_config(path: Path) -> dict[str, Any]:
             "min_prominence_snr", "min_peak_area", "area_epsilon",
             "plateau_max_growth_percent", "plateau_max_decline_percent",
             "plateau_consecutive_intervals",
-            "measurement_qc",
+            "measurement_qc", "peak_tracking", "peak_finding", "peak_area",
         },
         "analysis",
     )
@@ -331,8 +343,9 @@ def load_si6_config(path: Path) -> dict[str, Any]:
         "area_epsilon", "plateau_max_growth_percent",
         "plateau_max_decline_percent",
     ):
-        _nonnegative(analysis.get(key), f"analysis.{key}")
-    intervals = int(analysis.get("plateau_consecutive_intervals", 0))
+        if not ({"peak_tracking", "peak_finding"} & set(analysis)) or key in analysis:
+            _nonnegative(analysis.get(key), f"analysis.{key}")
+    intervals = int(analysis.get("plateau_consecutive_intervals", 3 if {"peak_tracking", "peak_finding"} & set(analysis) else 0))
     if intervals < 1:
         raise ValueError("analysis.plateau_consecutive_intervals must be at least 1")
     if bool(_mapping(raw["nmr"], "nmr").get("auto_gain", False)):
@@ -343,6 +356,8 @@ def load_si6_config(path: Path) -> dict[str, Any]:
     if any(stage.completion for stage in stages):
         from .si6_profile import validate_profile
         validate_profile(raw, stages)
+    if "peak_finding" in analysis and not all(stage.completion and stage.completion.get("method") == "area_only" for stage in stages):
+        raise ValueError("analysis.peak_finding requires the complete two-stage area_only profile")
     if "simulation" in raw:
         section = _mapping(raw["simulation"], "simulation")
         _reject_unknown(section, {"fixture_file", "acquisition_seconds"}, "simulation")
@@ -487,11 +502,13 @@ def _parse_stage(value: Any, label: str) -> Stage:
         section.get("plateau_stopping_enabled"),
         f"{label}.plateau_stopping_enabled",
     )
-    explicit = section.get("max_measurements") is not None
+    completion = validate_completion(section["completion"]) if "completion" in section else None
+    area_only = completion is not None and completion.get("method") == "area_only"
+    explicit = area_only or section.get("max_measurements") is not None
     if explicit:
         # An explicit count is a cap; it must still start before the ceiling.
         max_measurements = _positive_integer(
-            section.get("max_measurements"), f"{label}.max_measurements"
+            completion["max_iterations"] if area_only else section.get("max_measurements"), f"{label}.max_measurements"
         )
         last_scheduled_minutes = interval_minutes * (
             max_measurements - 1 if measure_immediately else max_measurements
@@ -521,7 +538,7 @@ def _parse_stage(value: Any, label: str) -> Stage:
         max_measurements_explicit=explicit,
         before_monitoring=tuple(section.get("before_monitoring", [])),
         after_monitoring=tuple(section.get("after_monitoring", [])),
-        completion=validate_completion(section["completion"]) if "completion" in section else None,
+        completion=completion,
     )
 
 
@@ -752,6 +769,7 @@ def run_process_fid_postprocessing(
     *,
     runner: Callable[..., Any] = subprocess.run,
     tracked_window: tuple[float, float] | None = None,
+    peak_tracking: dict | None = None,
 ) -> Path:
     """Run full-spectrum processing for one automated NMR acquisition.
 
@@ -784,6 +802,10 @@ def run_process_fid_postprocessing(
         "--region-max",
         f"{PROCESS_FID_REGION[1]:g}",
     ]
+    if peak_tracking is not None:
+        tracking_path = paths.run_dir / "peak_tracking_config.json"
+        tracking_path.write_text(json.dumps(peak_tracking, indent=2), encoding="utf-8")
+        command += ["--peak-tracking-config", str(tracking_path.resolve())]
     if tracked_window is not None:
         command += [
             "--simple-restrict-to-window",
@@ -1574,6 +1596,8 @@ def run_monitoring_stage(
                 outcome, measurement_number, attempts, valid_count
             )
 
+        if stage.completion and stage.completion.get("method") == "area_only" and measurement_number == stage.max_measurements:
+            break # Consuming the final slot reports the iteration limit first.
         if analysis_finished_monotonic >= hard_deadline:
             outcome = maximum_duration_outcome(stage)
             if recorder is not None:

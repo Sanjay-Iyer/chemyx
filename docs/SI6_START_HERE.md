@@ -13,10 +13,10 @@ python -B scripts\validate_si6_offline.py --copy-test --run-tests
 ```
 
 The first command validates numeric completion, synthetic processed spectra,
-all false-stop examples and the full shared mock workflow. It saves a new
+historical counterexamples and the full shared mock workflow. It saves a new
 `test_tmp_si6_synthetic_validation/<timestamp>/REPORT.md`, CSV traces, spectral
-evidence, journal and dataset-titled PNG/SVG/PDF figures. Stage2's **test-only**
-ceiling is9h to permit the longer trajectory; nominal remains6h. Acquisition
+evidence, journal and dataset-titled PNG/SVG/PDF figures. Levels1/2 are explicitly historical offline statistical/QC counterexamples.
+Level3 runs the current area-only workflow with48/12h runtime ceilings. Acquisition
 cadences remain120/30min on a virtual clock.
 
 ## WORK1 after pulling
@@ -67,5 +67,4 @@ rerun the one command after pull/copy to regenerate them.
 
 Still unverified: physical Chemyx channel addressing/delivery, syringe calibration,
 needle travel/direction/fluid path, Arduino wiring/limits, NMR acquisition and
-real chemical endpoint thresholds. Nominal QC still rejects the retained real
-fixture. Complete supervised WORK commissioning before a live reaction.
+real chemical endpoint thresholds. QC warnings from the retained real fixture are retrospective only. Complete supervised WORK commissioning before a live reaction.

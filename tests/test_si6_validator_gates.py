@@ -7,8 +7,11 @@ import json
 import numpy as np
 import pytest
 
+from copy import deepcopy
+from chemyx_lab.analysis.peak_tracking import DEFAULTS, candidate_records
+from chemyx_lab.analysis.nmr import pick_spectrum_region
 from chemyx_lab.analysis.stage_completion import completion_evidence, validate_completion
-from chemyx_lab.analysis.stage_measurement import fixed_window_measurement
+from chemyx_lab.analysis.stage_measurement import tracked_peak_measurement
 from chemyx_lab.workflows.dose_guard import DoseGuard, DoseReplayBlocked
 
 
@@ -24,7 +27,7 @@ def rules(trend):
 
 def observations(values):
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    return [dict(peak_area=area, completion_area=area, area_uncertainty=0.001,
+    return [dict(peak_area=area, area_uncertainty=0.001,
                  measurement_valid=True, peak_clear=area > 0,
                  acquired_at=(start + timedelta(hours=i)).isoformat())
             for i, area in enumerate(values)]
@@ -61,7 +64,7 @@ def test_validator_corrupt_or_invalid_stage_evidence_never_completes(corruption)
     elif corruption == "backwards":
         rows[-1]["acquired_at"] = rows[0]["acquired_at"]
     elif corruption == "invalid":
-        rows[-1]["completion_area"] = float("nan")
+        rows[-1]["peak_area"] = float("nan")
     else:
         rows[-1]["measurement_valid"] = False
     assert not completion_evidence(rows, rules("decreasing"))["complete"]
@@ -116,14 +119,14 @@ def test_validator_invalid_production_trace_cannot_be_counted_as_absence(tmp_pat
     else:
         meta["raw_sha256"] = "wrong"
     (audit_dir / "processing_metadata.json").write_text(json.dumps(meta), encoding="utf-8")
-    reference = dict(peak_clear=True, peak_area=100, completion_area=100,
+    reference = dict(peak_clear=True, peak_area=100,
                      reference_height=100, qc_reference_area=100)
-    analysis = dict(integration_window_ppm=0.1, plot_window_ppm=0.5,
+    analysis = dict(peak_tracking=deepcopy(DEFAULTS),
                     measurement_qc=dict(noise_multiplier=3, max_noise_fraction=0.05,
                                         max_area_uncertainty_fraction=0.01,
                                         undetected_max_fraction=0.03))
     with pytest.raises(ValueError):
-        fixed_window_measurement(source, processed, row, analysis, [], reference=reference)
+        tracked_peak_measurement(source, processed, row, analysis, [], reference=reference)
 
 
 def test_validator_missing_git_is_optional_provenance(monkeypatch):
@@ -149,27 +152,33 @@ def test_validator_positive_trace_then_bounded_low_trace_are_distinct_from_faile
                 parameters={"normalization": "none"},
                 phase={"method": "stored", "p0_deg": 0, "p1_deg": 0})
     (folder / f"{prefix}processing_metadata.json").write_text(json.dumps(meta), encoding="utf-8")
-    analysis = dict(integration_window_ppm=0.1, plot_window_ppm=0.5,
+    analysis = dict(peak_tracking=deepcopy(DEFAULTS),
                     measurement_qc=dict(noise_multiplier=3, max_noise_fraction=0.01,
                                         max_area_uncertainty_fraction=0.005,
                                         undetected_max_fraction=0.025))
     peak = 100 * np.exp(-((x - 5.8) / 0.01) ** 2)
+    meta["peak_candidates"] = candidate_records(pick_spectrum_region(x, peak+noise, quantitative_intensity=peak+noise, min_prominence_snr=0, min_width_ppm=1.e-12))
+    (folder / f"{prefix}processing_metadata.json").write_text(json.dumps(meta), encoding="utf-8")
     np.savez(folder / f"{prefix}spectral_evidence.npz", region_ppm=x, regional_quantitative=peak + noise)
-    reference = fixed_window_measurement(
+    reference = tracked_peak_measurement(
         source, processed, dict(target_ppm=5.8, peak_area=2, peak_clear=True), analysis, [])
-    assert reference["measurement_valid"] and reference["completion_area"] > 0
+    assert reference["measurement_valid"] and reference["peak_area"] > 0
     np.savez(folder / f"{prefix}spectral_evidence.npz", region_ppm=x, regional_quantitative=noise)
-    low = fixed_window_measurement(
+    meta["peak_candidates"] = []
+    (folder / f"{prefix}processing_metadata.json").write_text(json.dumps(meta), encoding="utf-8")
+    low = tracked_peak_measurement(
         source, processed, dict(target_ppm=5.8, peak_area=0, peak_clear=False,
                                 qc_failure_reasons="no QC-passing peak in the tracked window"),
         analysis, [], reference=reference)
     assert low["measurement_valid"] and not low["peak_clear"]
-    assert low["signal_classification"] == "bounded_low_signal"
+    assert low["signal_classification"] == "bounded_nondetection"
     # A dispersive/cancelled target must not be classified as vanished signal.
     cancelled = 100 * (x - 5.8) / 0.01 * np.exp(-((x - 5.8) / 0.01) ** 2) + noise
     np.savez(folder / f"{prefix}spectral_evidence.npz", region_ppm=x, regional_quantitative=cancelled)
-    with pytest.raises(ValueError, match="Negative target"):
-        fixed_window_measurement(
+    meta["peak_candidates"] = candidate_records(pick_spectrum_region(x, cancelled, quantitative_intensity=cancelled, min_prominence_snr=0, min_width_ppm=1.e-12))
+    (folder / f"{prefix}processing_metadata.json").write_text(json.dumps(meta), encoding="utf-8")
+    with pytest.raises(ValueError, match="Negative|TRACKED_PEAK_LOST"):
+        tracked_peak_measurement(
             source, processed, dict(target_ppm=5.8, peak_area=0, peak_clear=False,
                                     qc_failure_reasons="no QC-passing peak in the tracked window"),
             analysis, [], reference=reference)

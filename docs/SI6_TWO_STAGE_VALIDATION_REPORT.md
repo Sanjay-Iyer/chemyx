@@ -1,3 +1,9 @@
+> Historical audit of the implementation before the tracked-area refactor.
+
+> Historical evidence before the area-only update. Current live rules and QC separation are in [SI6_AREA_ONLY_IMPLEMENTATION.md](SI6_AREA_ONLY_IMPLEMENTATION.md) and [SI6_CONFIG_USER_GUIDE.md](SI6_CONFIG_USER_GUIDE.md).
+> Its integral descriptions and source line links do not describe current Stage 1/2 behavior.
+> See [current implementation](SI6_TRACKED_PEAK_IMPLEMENTATION.md).
+
 # Independent Si6 two-stage validation
 
 Validation context: HOME laptop, 2026-10-06. The independent validator operates

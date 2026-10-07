@@ -1,0 +1,19 @@
+# Real rig: Arduino COM3 is selected separately. Only pump port differs between variants.
+chemyx:
+  serial_port: COM6
+  baud_rate: 115200
+  timeout_seconds: 2.0
+  response_delay_seconds: 0.2
+nmr:
+  host: 169.254.30.54
+  port: 5000
+  scheme: http
+  timeout_seconds: 10.0
+  poll_seconds: 2.0
+  max_wait_seconds: 300.0
+valve:
+  serial_port: null
+  baud_rate: 19200
+  positions: 2
+  timeout_seconds: 1.0
+  motion_timeout_seconds: 10.0

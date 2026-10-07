@@ -4,7 +4,7 @@
 # Verify syringes, needle geometry, tubing and thresholds on WORK before live use.
 workflow:
   name: si6_two_stage_stage1_development
-  description: Decreasing target, one reagent addition, conservative increasing plateau.
+  description: Decreasing target, one reagent addition, area-only increasing plateau; retrospective QC only.
   experiment_id: SET_UNIQUE_EXPERIMENT_ID
   initial_needle_position: UP
   cycle:
@@ -26,15 +26,12 @@ workflow:
     measure_immediately: true
     plateau_stopping_enabled: true
     completion:
+      method: area_only
       trend: decreasing
-      minimum_points: 8
-      minimum_duration_hours: 12
-      window_points: 4
-      consecutive_confirmations: 3
-      minimum_progress_fraction: 0.95
-      low_fraction: 0.025
-      max_window_range_fraction: 0.01
-      max_abs_slope_fraction_per_hour: 0.001
+      max_iterations: 20
+      near_zero_fraction: 0.025
+      consecutive_iterations: 3
+      epsilon: 1.0e-12
     after_monitoring:
       - {action: needle, position: DOWN}
       - {action: infuse, channel: 2, volume_ml: 1.8, rate_ml_min: 1.0, needle_position: DOWN}
@@ -43,19 +40,17 @@ workflow:
     name: stage_2
     operator_prompt: Confirm dose evidence and readiness for Stage 2.
     interval_minutes: 30
-    max_hours: 6
+    max_hours: 12
     measure_immediately: true
     plateau_stopping_enabled: true
     completion:
+      method: area_only
       trend: increasing
-      expected_duration_hours: 3
-      minimum_points: 8
-      minimum_duration_hours: 3
-      window_points: 5
-      consecutive_confirmations: 3
-      minimum_progress_fraction: 0.25
-      max_window_range_fraction: 0.02
-      max_abs_slope_fraction_per_hour: 0.012
+      max_iterations: 20
+      minimum_growth: {enabled: true, fraction_of_initial: 0.25}
+      relative_change_threshold: 0.02
+      consecutive_iterations: 4 # Four observations = three adjacent stable pairs, after growth.
+      epsilon: 1.0e-12
   repeat_addition_rounds: 0
   repeating_stages: []
 pump:
@@ -87,22 +82,30 @@ nmr:
   sweep_width: 20.0
   target_ppm: 5.8
 analysis:
-  detection_window_ppm: 0.10
-  integration_window_ppm: 0.10
-  plot_window_ppm: 0.5
-  line_broadening_hz: 0.3
-  min_peak_snr: 5.0
-  min_prominence_snr: 3.0
-  min_peak_area: 0.0
   area_epsilon: 1.0e-12
-  plateau_max_growth_percent: 5.0
-  plateau_max_decline_percent: 2.0
-  plateau_consecutive_intervals: 3
+  peak_area: {method: trapezoid}
+  # Live identity controls only. No SNR/height/area/noise/shoulder QC gate.
+  peak_finding:
+    search: {enabled: true, half_width_ppm: 0.2}
+    previous_shift: {enabled: true, maximum_ppm: 0.08}
+    reference_shift: {enabled: false, maximum_ppm: 0.15}
+    continuity: {enabled: true}
+    prominence: {enabled: true, minimum_snr: 5.0}
+    absolute_prominence: {enabled: false, minimum: 0.0}
+    width: {enabled: true, minimum_ppm: 0.015, maximum_ppm: 0.167}
+    separation: {enabled: true, minimum_ppm: 0.04}
+qc_reporting:
+  enabled: true
+  affect_workflow: false # Required false; diagnostics never change live control.
+  peak_filters:
+    snr: {enabled: true, minimum: 5.0}
+    shoulder: {enabled: true, maximum_asymmetry: 0.5}
+    previous_shift: {enabled: true, maximum_ppm: 0.08}
   measurement_qc:
     noise_multiplier: 3.0
     max_noise_fraction: 0.01
     max_area_uncertainty_fraction: 0.005
-    undetected_max_fraction: 0.025
+    undetected_max_fraction: 0.025 # Historical review setting; no bounded-absence live gate.
 output:
   run_root_dir: results/runs/si6_two_stage_stage1_development
 three_instrument:

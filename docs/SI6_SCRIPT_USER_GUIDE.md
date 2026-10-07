@@ -1,5 +1,8 @@
 # Si6 script user guide
 
+Current controls: [area-only configuration guide](SI6_CONFIG_USER_GUIDE.md).
+One start confirmation launches both stages and the single dose; QC is retrospective.
+
 Use [start here](SI6_START_HERE.md) first. All examples run from the repository
 root. On HOME use `conda activate ai` then `python`; on prepared offline WORK2
 replace `python` with `.venv\Scripts\python.exe`. The WORK live examples below
@@ -13,7 +16,7 @@ python -B scripts\validate_si6_offline.py --copy-test --run-tests
 python -B scripts\02_si6_experiment.py --mock --workflow-config config_templates\experiments\si6_two_stage_fast_sim.yaml
 ```
 
-Use the first for spectrum-to-endpoint proof, the second after pull/copy, and
+Use the first for historical spectrum counterexamples plus current area-only workflow proof, the second after pull/copy, and
 the third for a quick controller-fixture experiment.
 
 ## Main experiment runner
@@ -30,7 +33,7 @@ confirmation admits Stage2. Completion always finishes the sample cleanup.
 | `--arduino-config PATH` | Needle/controller YAML; default `arduino/configs/arduino.local.yaml`. |
 | no `--mock`/`--live` | Validate configuration only; no transports opened. |
 | `--mock` | Fake instruments. Use the explicit fast simulation template for directional two-stage completion. |
-| `--live` | Physical WORK execution with existing confirmation and readiness checkpoints. Simulation YAML is rejected live. |
+| `--live` | Physical WORK execution with one start confirmation. Simulation YAML is rejected live. |
 | `--mock-cycles-per-stage N` | Legacy non-virtual mock limit, default4. Does not replace the virtual fixture's nominal stage schedule. |
 | `--acknowledge-review RUN_ID` | Only after reconciling a previous flagged live run. Does not clear the dose ledger or enable automatic resume. |
 
@@ -95,7 +98,7 @@ file separately with the main runner and review its endpoint criteria on WORK.
 Level1 checks known numbers against unchanged completion. Level2 generates a
 Gaussian absorption peak near5.8ppm, small linear baseline, seeded noise and
 small ppm drift, then runs the production baseline/detector/peak-QC/table writer,
-normal tracked measurement adapter and production fixed-window integral/QC.
+continuity tracker and existing production variable-width peak area/QC.
 Level3 sends these measured spectra through the shared mock controller and dose
 guard. All seven requested counterexamples, plus an isolated point below the
 actual Stage1 low threshold, are checked at both Level1 and Level2.
@@ -178,7 +181,7 @@ another rig's state or manually edit it to permit movement.
 | `chemyx_lab/analysis/nmr.py` | Shared decoding, spectra, phase/baseline and peak/integration functions. |
 | `scripts/nmr/inspect_processing.py` | Offline inspection of existing DX series. |
 | `scripts/nmr/validation_phase_gui.py` | Offline phase review tool for reviewed spectra. |
-| `chemyx_lab/analysis/stage_measurement.py` | Retained trace/provenance/QC and consistent fixed target integral. |
+| `chemyx_lab/analysis/stage_measurement.py` | Retained trace/provenance/QC, continuous peak identity and moving peak area. |
 | `chemyx_lab/analysis/stage_completion.py` | Decreasing/increasing progress, range/slope/time and sustained-window decision. |
 | `chemyx_lab/analysis/si6_stage_reports.py` | Separate and combined stage reports with dose marker. |
 | `chemyx_lab/analysis/final_nmr_summary.py`, `scripts/nmr/summarize_run.py` | Supplemental final report after transports close. |
@@ -196,7 +199,7 @@ python -B scripts\01_three_instrument_system_test.py --mock --process-only --inp
 ```
 
 This tests processing only, not a successful two-stage reaction or commissioned
-nominal fixed-window QC. `scripts/nmr/README.md` covers additional processing tools.
+nominal tracked-area QC. `scripts/nmr/README.md` covers additional processing tools.
 
 ## Tests and documentation
 
@@ -237,7 +240,7 @@ Read [operator guide](SI6_TWO_STAGE_OPERATOR_GUIDE.md),
 | Check offline package after pull/copy | `python -B scripts\validate_si6_offline.py --copy-test --run-tests` |
 | Validate nominal settings only | Main runner with explicit nominal/run YAML and no mode flag (example above). |
 | Run real experiment | Reviewed main-runner `--live` example above, commissioned WORK only. |
-| Change Stage1 timing / Ch2 dose / scans / target | Run YAML; [config table](SI6_CONFIG_USER_GUIDE.md#what-do-i-change). |
+| Change Stage1 timing / Ch2 dose / scans / target | Run YAML; [config table](SI6_CONFIG_USER_GUIDE.md). |
 | Check stage decisions / dose | Run `stages`, `transition/channel2_addition.json`, `operation_journal.jsonl`, `final`. |
 | Inspect previous run without motion | `python -B scripts\02_si6_automated_nmr.py --inspect-run RUN_FOLDER --rebuild-state` |
 | Regenerate supplemental NMR summary | `python -B scripts\nmr\summarize_run.py RUN_FOLDER` |

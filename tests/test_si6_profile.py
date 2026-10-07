@@ -7,7 +7,7 @@ from chemyx_lab.workflows import three_instrument_si6 as si6
 
 
 def nominal():
-    return yaml.safe_load((config.REPO_ROOT / "config_templates/experiments/si6_two_stage_nominal.yaml").read_text())
+    return yaml.safe_load((config.REPO_ROOT / "chemyx_lab/testing/fixtures/si6_historical_statistical.yaml").read_text())
 
 
 def prepare_raw(raw, tmp_path):

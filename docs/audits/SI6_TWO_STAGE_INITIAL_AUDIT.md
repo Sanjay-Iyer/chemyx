@@ -1,3 +1,7 @@
+> Historical audit of the implementation before the tracked-area refactor.
+> Its integral descriptions and source line links do not describe current Stage 1/2 behavior.
+> See [current implementation](../SI6_TRACKED_PEAK_IMPLEMENTATION.md).
+
 # Si6 continuation audit — before implementation
 
 HOME inspection, 2026-10-06. No instruments are connected. This audit precedes

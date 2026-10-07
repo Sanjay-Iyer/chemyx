@@ -29,8 +29,10 @@ def main(argv=None) -> int:
         stages = si6.base.build_stages(raw["workflow"])
         for stage in stages:
             print(f"{stage.name}: every {stage.interval_minutes:g} min for up to {stage.max_hours:g} h ({stage.max_measurements} measurements), plateau stop={stage.plateau_stopping_enabled}")
-        window = float(raw["analysis"]["detection_window_ppm"])
-        print(f"Tracked resonance: {nmr.target_ppm:g} +/- {window:g} ppm; stable intervals required: {raw['analysis']['plateau_consecutive_intervals']}; repeat rounds: {raw['workflow']['repeat_addition_rounds']}")
+        window = si6.tracked_window(raw, nmr)[1]
+        confirmations = [stage.completion.get("consecutive_iterations", stage.completion.get("consecutive_confirmations")) for stage in stages if stage.completion]
+        stable_intervals = confirmations or raw["analysis"].get("plateau_consecutive_intervals", 3)
+        print(f"Tracked resonance: {nmr.target_ppm:g} +/- {window:g} ppm search; stable intervals required: {stable_intervals}; repeat rounds: {raw['workflow']['repeat_addition_rounds']}")
         print(f"Cycle values: {si6.cycle_values(raw)}")
         if not (args.mock or args.live):
             print("Configuration valid. No hardware opened; choose --mock or --live.")
@@ -38,7 +40,7 @@ def main(argv=None) -> int:
         if args.mock_cycles_per_stage < 1:
             raise ValueError("--mock-cycles-per-stage must be positive")
         if args.live:
-            if input("Start the live Si6 experiment? [y/N]: ").strip().lower() not in ("y", "yes"):
+            if input("Confirm rig at rest, loaded syringes and readiness; start the automatic live Si6 experiment? [y/N]: ").strip().lower() not in ("y", "yes"):
                 raise RuntimeError("Live run not confirmed")
         identity = si6.RunIdentity("si6", args.mock)
         with si6.open_services(raw, arduino, pump, nmr, identity=identity, fast_mock_processing=args.mock, acknowledged_review=args.acknowledge_review) as services:

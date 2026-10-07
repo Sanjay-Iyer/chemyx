@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 
 from .nmr import _build_complex_spectrum
+from .peak_tracking import candidate_records
 from .plot_titles import format_dataset_plot_title, resolve_dataset_display_name
 
 
@@ -127,6 +128,7 @@ def retain_phase_audit(spectrum, args, analysis_ppm, quantitative_real, picked, 
     meta = {**(provenance_data or provenance()), "schema": "chemyx.nmr-phase-audit.v1",
             "source_path": str(Path(spectrum.source).resolve()),
             "raw_sha256": sha256(spectrum.source), "dataset_display_name": dataset,
+            "peak_candidates": candidate_records(picked),
             "phase": params, "parameters": vars(args), "jcamp_metadata": spectrum.metadata,
             "processing_function": "scripts/nmr/process_fid.py:process_spectrum_for_peaks",
             "baseline_array_description": baseline_description,

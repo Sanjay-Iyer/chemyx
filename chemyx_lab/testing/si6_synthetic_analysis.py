@@ -21,7 +21,7 @@ from chemyx_lab import config
 from chemyx_lab.analysis.nmr import SpectrumData, read_jcamp_fid
 from chemyx_lab.analysis.phase_audit import sha256, write_json, write_rows, save_figure
 from chemyx_lab.analysis.stage_completion import completion_evidence
-from chemyx_lab.analysis.stage_measurement import fixed_window_measurement
+from chemyx_lab.analysis.stage_measurement import tracked_peak_measurement
 from chemyx_lab.analysis.nmr_validation import pipeline
 from chemyx_lab.runtime_state import replay_journal
 from chemyx_lab.workflows import three_instrument_si6 as si6
@@ -48,6 +48,11 @@ CASES = {
 
 def nominal():
     return yaml.safe_load((config.REPO_ROOT / "config_templates/experiments/si6_two_stage_nominal.yaml").read_text())
+
+
+def historical_nominal():
+    """Offline-only statistical/QC counterexamples, not live admission rules."""
+    return yaml.safe_load((config.REPO_ROOT / "chemyx_lab/testing/fixtures/si6_historical_statistical.yaml").read_text())
 
 
 def stage_config(raw, stage):
@@ -92,6 +97,8 @@ class SyntheticSpectra:
                                 processed_points=len(x), observe_frequency_mhz=frequency,
                                 phase_method="synthetic_already_phased", phase0_deg=0, phase1_deg=0)
         args = copy.copy(self.args)
+        from chemyx_lab.analysis.peak_tracking import configure_candidates, candidate_records
+        configure_candidates(args, analysis.get("peak_finding", analysis.get("peak_tracking")))
         quantitative, magnitude, picked = self.processor.process_spectrum_for_peaks(spectrum, args)
         peak_rows = []
         for p in picked.peaks:
@@ -112,6 +119,7 @@ class SyntheticSpectra:
                             ppm=x, generated_real=y, baseline=baseline,
                             quantitative_real=quantitative, diagnostic_magnitude=magnitude)
         write_json(audit / "processing_metadata.json", {
+            "peak_candidates": candidate_records(picked),
             "simulation_only": True, "validation_level": 2,
             "input_kind": "synthetic processed spectrum; copied DX metadata carrier, not synthetic raw/FID",
             "raw_sha256": sha256(source), "spectral_evidence_sha256": sha256(audit / "spectral_evidence.npz"),
@@ -124,12 +132,15 @@ class SyntheticSpectra:
             "phase_scope": "input constructed as absorption real; no raw decoding, FFT or phase optimization validated",
             "processing_function": "scripts/nmr/process_fid.py:process_spectrum_for_peaks",
         })
-        row, _carrier_diagnostic = si6.analyze_tracked_resonance(
-            source, output, SimpleNamespace(run_dir=output.parent), analysis, metadata)
-        row = fixed_window_measurement(source, output, row, analysis, prior, reference=prior[0] if prior else None)
+        row = dict(metadata)
+        if "peak_finding" in analysis:
+            from ..analysis.stage_measurement import tracked_peak_area_observation
+            row = tracked_peak_area_observation(source, output, row, analysis, prior)
+        else:
+            row = tracked_peak_measurement(source, output, row, analysis, prior, reference=prior[0] if prior else None)
         # The adapter's normal provenance refers to raw processing. Override only
         # the provenance label, never the measured value or QC decision.
-        row.update(metric_source="SIMULATION ONLY: synthetic processed trace through production fixed target integral",
+        row.update(metric_source="SIMULATION ONLY: synthetic processed trace through production tracked moving peak area",
                    generated_area=area, simulation_only=True)
         spectrum_rows = [dict(iteration=metadata["iteration"], stage=metadata["stage"],
                               elapsed_hours=metadata["elapsed_hours"], ppm=float(ppm), magnitude=float(value))
@@ -141,8 +152,8 @@ def trace_row(case, iteration, row, evidence):
     checks = evidence.get("checks", [])
     last = checks[-1] if checks else {}
     return dict(case=case, iteration=iteration, generated_metric=row.get("generated_area", row["peak_area"]),
-                measured_metric=row["completion_area"], area_uncertainty=row["area_uncertainty"],
-                acquired_at=row["acquired_at"], qc=row["measurement_valid"],
+                measured_metric=row["peak_area"], area_uncertainty=row.get("area_uncertainty", ""),
+                acquired_at=row["acquired_at"], qc=row.get("measurement_valid", "retrospective only"),
                 low_region=last.get("low_region", "insufficient points"),
                 near_observed_maximum=last.get("near_observed_maximum", "insufficient points"),
                 slope_fraction_per_hour=last.get("slope_fraction_per_hour", ""),
@@ -153,7 +164,7 @@ def trace_row(case, iteration, row, evidence):
 
 
 def validate_case(case, level, output, engine=None):
-    raw = nominal()
+    raw = historical_nominal()
     stage, values, expected = CASES[case]
     settings = stage_config(raw, stage)
     origin = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -175,7 +186,7 @@ def validate_case(case, level, output, engine=None):
                         acquired_at=stamp.isoformat(), acquired_at_source="synthetic LONG DATE metadata",
                         target_ppm=raw["nmr"]["target_ppm"], dataset_display_name=DATASET)
         if level == 1:
-            row = dict(metadata, peak_area=area, completion_area=area, generated_area=area,
+            row = dict(metadata, peak_area=area, generated_area=area,
                        peak_clear=True, measurement_valid=True, area_uncertainty=0.01)
         else:
             source = output / case / f"iteration_{index + 1}.dx"
@@ -238,7 +249,6 @@ def _validate_workflow(output, engine):
     raw = settings[0]
     # Only the test deadline/output change. Chemistry decision thresholds and
     # nominal 120/30 minute metadata cadence are exactly retained.
-    raw["workflow"]["first_addition_stage"]["max_hours"] = 9
     raw["output"]["run_root_dir"] = str(output / "workflow")
     with si6.open_services(*settings, identity=si6.RunIdentity("si6", True)) as services:
         sim = SpectralWorkflowSimulation(raw["simulation"], si6.MOCK_NMR_FIXTURE, engine)
@@ -270,10 +280,10 @@ def _validate_workflow(output, engine):
     assert stage1["evidence"]["complete"]
     assert stage1["sequence"] < intent["sequence"] < ch2[0]["sequence"] < doses[0]["sequence"] < stage2["sequence"]
     assert all(e["channel"] == 1 for e in moves if e["sequence"] > doses[0]["sequence"])
-    assert {stage: sum(r["stage"] == stage for r in rows) for stage in SUCCESS} == {"stage_1": 14, "stage_2": 16}
+    assert {stage: sum(r["stage"] == stage for r in rows) for stage in SUCCESS} == {"stage_1": 11, "stage_2": 13}
     replay = replay_journal(journal_path)
     assert replay.valid and replay.state.pump_channels["2"]["cumulative_infused_ml"] == 1.8
-    assert all(r["measurement_valid"] and r["simulation_only"] for r in rows)
+    assert all(r["observation_recorded"] and r["simulation_only"] for r in rows)
     traces = []
     for stage in SUCCESS:
         selected = [r for r in rows if r["stage"] == stage]
@@ -284,7 +294,7 @@ def _validate_workflow(output, engine):
     write_rows(output / "workflow_completion_trace.csv", traces)
     write_json(output / "workflow_evidence.json", dict(outcome=outcome.status.value, run_dir=str(run_dir),
                rows=rows, transition=transition, dose_confirmed=doses, journal=str(journal_path),
-               validation_only_stage2_max_hours=9, nominal_stage2_max_hours=6))
+               nominal_stage2_max_hours=12, completion_method="area_only"))
     print(f"PASS Level3 full shared workflow: {outcome.status.value}; one confirmed Ch2 addition")
     return dict(rows=rows, transition=transition, run_dir=str(run_dir), journal=str(journal_path), events=events, trace=traces)
 
@@ -299,10 +309,10 @@ def plots(output, cases, workflow):
         stage = result["stage"]
         rows = result["rows"]
         times = [r["elapsed_hours"] for r in rows]
-        areas = [r["completion_area"] for r in rows]
+        areas = [r["peak_area"] for r in rows]
         stop = result["completion_iteration"]
         fig, ax = plt.subplots(figsize=(9, 5), layout="constrained")
-        ax.plot(times, areas, "o-", label="Measured production fixed-window integral")
+        ax.plot(times, areas, "o-", label="Measured production tracked peak area")
         ax.plot(times, [r["generated_area"] for r in rows], "--", label="Generated input area", alpha=.6)
         if stage == "stage_1":
             ax.axhspan(0, areas[0] * .025, color="green", alpha=.15, label="Low region: <=2.5% initial")
@@ -317,13 +327,13 @@ def plots(output, cases, workflow):
     fig, ax = plt.subplots(figsize=(11, 5), layout="constrained")
     for stage in SUCCESS:
         selected = [r for r in rows if r["stage"] == stage]
-        ax.plot([r["elapsed_hours"] for r in selected], [r["completion_area"] for r in selected], "o-", label=stage.replace("_", " "))
+        ax.plot([r["elapsed_hours"] for r in selected], [r["peak_area"] for r in selected], "o-", label=stage.replace("_", " "))
         last = selected[-1]
-        ax.annotate(f"{stage} complete ({len(selected)})", (last["elapsed_hours"], last["completion_area"]),
+        ax.annotate(f"{stage} complete ({len(selected)})", (last["elapsed_hours"], last["peak_area"]),
                     xytext=(-110, 18), textcoords="offset points", fontsize=8)
     dose_hour = workflow["transition"]["elapsed_hours"]
     ax.axvline(dose_hour, ls=":", color="red", label="Ch2 1.8 mL @ 1.0 mL/min")
-    ax.set(xlabel="Hours from first synthetic JCAMP LONG DATE", ylabel="Measured fixed-window integral")
+    ax.set(xlabel="Hours from first synthetic JCAMP LONG DATE", ylabel="Measured tracked peak area")
     ax.legend(fontsize=8)
     save_figure(fig, output / "combined_workflow", DATASET, "Two Stage Workflow and Confirmed Addition", manifest)
     # Direct spectra evidence demonstrates the decreasing and increasing inputs.
@@ -344,11 +354,11 @@ def plots(output, cases, workflow):
 
 def report(output, levels, workflow, manifest):
     lines = [f"# {DATASET} validation", "", "SOFTWARE ONLY. Hardware NOT tested. Chemistry thresholds NOT commissioned.", "",
-             "Level1: known numeric metrics → unchanged completion. Level2: generated processed spectra → production baseline/picking/peak QC/tables → normal tracked adapter → production fixed-window integral/QC → unchanged completion.",
-             "Level3: those measured spectra → shared three-instrument mock controller → one journal-confirmed Ch2 dose → Stage2 completion; no manual advancement or completion override.", "",
+             "Levels 1/2 retain HISTORICAL OFFLINE statistical/QC counterexamples, using si6_historical_statistical.yaml. Their window/QC assertions are not live workflow gates.",
+             "Level3 uses CURRENT area-only completion and measured moving spectra in the shared three-instrument mock controller: one confirmed Ch2 dose, automatic Stage2 entry, retrospective QC only.", "",
              "Copied DX files carry synthetic LONG DATE timestamps only; their FIDs are unchanged real-fixture carriers. Generated arrays do not test vendor decoding, FFT, physical acquisition or phase optimization. All evidence labels identify this limitation.", "",
              "This spectrum validator explicitly selects shared configs/nmr/analysis.yaml, excluding optional per-rig analysis.local.yaml processing overrides. Such overrides require their own WORK/real-spectrum review.", "",
-             "Stage2 validation timeout alone is 9h, versus nominal6h, to admit16 observations at30min cadence. Stage1 remains120min. Completion criteria are unchanged. Shortening wall time uses a virtual clock.", "",
+             "Current full workflow: Stage1 stops at11 and Stage2 at13 measured observations, with nominal120/30min cadence and48/12h runtime ceilings. Each stage has20 iterations maximum. Wall time uses a virtual clock.", "",
              "The model uses1025 ascending points from5.0–6.5ppm, Gaussian sigma0.014ppm, baseline0.02+0.01*(ppm-5.8), seeded Gaussian noise SD0.002 and drift0.001*sin(iteration index)ppm. Production ALS is sensitive to trace resolution/shape. The initial4097-point input failed negative-lobe QC; the final geometry passes without changing any production gate. This clean model is not an instrument noise/lineshape calibration.", "",
              "## Decisions and counterexamples", "", "| Case | Level1 stop | Level2 stop | QC |", "|---|---:|---:|---|"]
     for name in CASES:
@@ -359,7 +369,7 @@ def report(output, levels, workflow, manifest):
         n = result["completion_iteration"]
         row = result["rows"][n - 1]
         previous = result["evidence"][n - 2]
-        lines += ["", f"## {name}", "", f"Completion at iteration{n}, measured area{row['completion_area']:.8f}, uncertainty{row['area_uncertainty']:.8f}, stage metadata time{row['elapsed_hours']:g}h.",
+        lines += ["", f"## {name}", "", f"Completion at iteration{n}, measured area{row['peak_area']:.8f}, uncertainty{row['area_uncertainty']:.8f}, stage metadata time{row['elapsed_hours']:g}h.",
                   f"One iteration earlier: only{sum(c['passed'] for c in previous['checks'])}/3 windows pass. Full checks:", "", "```json", json.dumps(previous, indent=2), "```", "",
                   "| Iteration | Generated | Measured | QC | Low | Near max | Slope/h | Range | Passing windows | Complete |",
                   "|---:|---:|---:|---|---|---|---:|---:|---:|---|"]
@@ -368,8 +378,8 @@ def report(output, levels, workflow, manifest):
     lines += ["", "## Conservatism", "",
               "Stage1 requires8 valid points,12h,4-point windows and3 consecutive overlapping confirmations; >=95% progress, upper signal including uncertainty <=2.5% initial, uncertainty-inclusive range <=1%, |slope| <=0.001 initial fraction/h. A single low point, a low but changing window, and a stable high signal fail.",
               "Stage2 requires8 valid points,3h,5-point windows and3 consecutive overlapping confirmations; progress >=25% of observed maximum, every lower bound >=98% of the maximum seen over the entire stage, range <=2%, |slope| <=0.012 maximum fraction/h. No growth fails progress; decline from a historical maximum fails near-maximum. The supplied short temporary plateau fails persistence/range/slope. A sufficiently long stable plateau can pass before hypothetical later growth: no algorithm observes future chemistry. expected_duration_hours3 is a hint, not a completion override.",
-              "Nominal measurement QC remains noise <=1% of initial height, uncertainty <=0.5% of initial area, multiplier3; undetected signal needs independently bounded <=2.5% initial evidence. Synthetic noise is deliberately small and does not establish real-instrument suitability. The existing real fixture remains rejected by nominal fixed-window QC; do not loosen gates based on this synthetic success.", "",
-              "## Full shared workflow", "", f"Run: `{workflow['run_dir']}`. Journal: `{workflow['journal']}`.",
+              "Nominal measurement QC remains noise <=1% of initial height, uncertainty <=0.5% of initial area, multiplier3; undetected signal needs independently bounded <=2.5% initial evidence. Synthetic noise is deliberately small and does not establish real-instrument suitability. Real spectra require separate tracked-area precision validation; do not loosen gates based on synthetic success.", "",
+              "## Current area-only full shared workflow", "", f"Run: `{workflow['run_dir']}`. Journal: `{workflow['journal']}`.",
               "Full workflow completed. Stage1 analysis precedes a single confirmed Ch2 infusion1.8mL at1.0mL/min; the receipt precedes Stage2 and Channel1 sampling resumes. Shared dose guard/replay logic is unchanged.", "",
               "Each level has per-iteration CSV and full window JSON. Level2 retains generated traces, seed/noise/drift, production tables and hashed spectral evidence for every counterexample. Figure manifest records the same visible dataset title for PNG/SVG/PDF.", "",
               "## Figures", ""]
@@ -396,7 +406,8 @@ def validate_all(output):
     report(output, levels, workflow, manifest)
     write_json(output / "SUMMARY.json", dict(simulation_only=True, checks="PASS", dataset_display_name=DATASET,
                completion_iterations={n: r["completion_iteration"] for n, r in levels[2].items()},
-               workflow_run=workflow["run_dir"], stage2_validation_max_hours=9, nominal_stage2_max_hours=6,
+               historical_counterexamples=True, workflow_completion_method="area_only",
+               workflow_run=workflow["run_dir"], nominal_stage2_max_hours=12,
                hardware_tested=False, chemistry_thresholds_commissioned=False))
     print(f"PASS all required synthetic analysis checks; report: {output / 'REPORT.md'}")
     print("SOFTWARE ONLY | HARDWARE NOT TESTED | THRESHOLDS NOT COMMISSIONED")

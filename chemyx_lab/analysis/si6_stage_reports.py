@@ -21,16 +21,29 @@ def write_stage_reports(paths, rows, stages, *, dataset, outcome=None, transitio
         summary = {"stage": stage.name, "trend": stage.completion["trend"], "measurements": len(selected),
                    "interval_minutes": stage.interval_minutes, "max_hours": stage.max_hours,
                    "dataset_display_name": dataset, "completion": evidence}
+        if selected:
+            summary.update(initial_peak_ppm=selected[0].get("peak_ppm"), current_peak_ppm=selected[-1].get("peak_ppm"),
+                           initial_area=selected[0]["peak_area"], current_area=selected[-1]["peak_area"],
+                           current_shift_previous_ppm=selected[-1].get("shift_previous_ppm"),
+                           current_shift_reference_ppm=selected[-1].get("shift_reference_ppm"),
+                           current_peak_detected=selected[-1].get("peak_clear"),
+                           current_peak_position_source=selected[-1].get("peak_position_source"),
+                           remaining_fraction=selected[-1]["peak_area"]/selected[0]["peak_area"] if selected[0]["peak_area"]>0 else None,
+                           fraction_of_observed_maximum=selected[-1]["peak_area"]/max(r["peak_area"] for r in selected) if max(r["peak_area"] for r in selected)>0 else None)
         write_json_atomic(directory / "summary.json", summary)
         summaries.append(summary)
         if selected:
             fig, ax = plt.subplots(figsize=(8, 4), layout="constrained")
             x = [float(r["elapsed_hours"]) - float(selected[0]["elapsed_hours"]) for r in selected]
-            y = [float(r["completion_area"]) for r in selected]
+            y = [float(r["peak_area"]) for r in selected]
             ax.errorbar(x, y, yerr=[float(r.get("area_uncertainty", 0)) for r in selected], fmt="o-")
-            ax.set(xlabel="Hours from first stage acquisition (JCAMP LONG DATE)", ylabel="Fixed target integral (a.u.)")
+            ax.set(xlabel="Hours from first stage acquisition (JCAMP LONG DATE)", ylabel="Tracked peak area (a.u.)")
             title = save_figure(fig, directory / "time_series", dataset, f"{stage.name} {stage.completion['trend']} Time Series", figures)
             summary["visible_title"] = title
+            fig, ax = plt.subplots(figsize=(8, 4), layout="constrained")
+            ax.plot(x, [r.get("peak_ppm", float("nan")) if r.get("peak_clear") else float("nan") for r in selected], "o-")
+            ax.set(xlabel="Hours from first stage acquisition (JCAMP LONG DATE)", ylabel="Tracked peak center (ppm)")
+            save_figure(fig, directory / "peak_ppm_time_series", dataset, f"{stage.name} Tracked Peak Position vs Time", figures)
             write_json_atomic(directory / "summary.json", summary)
     final = paths.run_dir / "final"
     final.mkdir(exist_ok=True)
@@ -39,10 +52,10 @@ def write_stage_reports(paths, rows, stages, *, dataset, outcome=None, transitio
         fig, ax = plt.subplots(figsize=(9, 4), layout="constrained")
         for stage in stages:
             selected = [r for r in rows if r["stage"] == stage.name]
-            ax.plot([r["elapsed_hours"] for r in selected], [r["completion_area"] for r in selected], "o-", label=stage.name)
+            ax.plot([r["elapsed_hours"] for r in selected], [r["peak_area"] for r in selected], "o-", label=stage.name)
         if transition and transition.get("elapsed_hours") is not None:
             ax.axvline(transition["elapsed_hours"], color="black", ls="--", label="Channel-2 addition (journal boundary)")
-        ax.set(xlabel="Hours from first acquisition (JCAMP LONG DATE)", ylabel="Fixed target integral (a.u.)")
+        ax.set(xlabel="Hours from first acquisition (JCAMP LONG DATE)", ylabel="Tracked peak area (a.u.)")
         ax.legend()
         save_figure(fig, final / "full_time_series", dataset, "Two-stage Reaction Time Series", figures)
     summary = {"schema": "chemyx.si6-two-stage-summary.v1", "dataset_display_name": dataset,

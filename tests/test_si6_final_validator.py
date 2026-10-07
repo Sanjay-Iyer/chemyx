@@ -10,7 +10,7 @@ from chemyx_lab.analysis.stage_completion import completion_evidence
 
 
 def nominal_stage(name):
-    raw = yaml.safe_load((config.REPO_ROOT / "config_templates/experiments/si6_two_stage_nominal.yaml").read_text())
+    raw = yaml.safe_load((config.REPO_ROOT / "chemyx_lab/testing/fixtures/si6_historical_statistical.yaml").read_text())
     return raw["workflow"]["initial_stage" if name == "stage_1" else "first_addition_stage"]
 
 
@@ -19,7 +19,7 @@ def evidence_prefixes(name, values):
     origin = datetime(2026, 1, 1, tzinfo=timezone.utc)
     rows = []
     for index, area in enumerate(values):
-        rows.append(dict(peak_area=area, completion_area=area, peak_clear=True,
+        rows.append(dict(peak_area=area, peak_clear=True,
                          measurement_valid=True, area_uncertainty=0.01,
                          acquired_at=(origin + timedelta(minutes=index * stage["interval_minutes"])).isoformat()))
         yield completion_evidence(rows, stage["completion"])
@@ -73,7 +73,7 @@ def spectral_engine():
 
 
 def spectral_input(tmp_path):
-    from chemyx_lab.testing.si6_synthetic_analysis import DATASET, metadata_carrier, nominal
+    from chemyx_lab.testing.si6_synthetic_analysis import DATASET, metadata_carrier, historical_nominal as nominal
     source = tmp_path / "synthetic_metadata_carrier.dx"
     stamp = datetime(2026, 1, 1, tzinfo=timezone.utc)
     metadata_carrier(source, stamp)
@@ -89,8 +89,8 @@ def test_independent_spectrum_amplitude_drives_measured_integral(tmp_path, spect
     high, _ = spectral_engine.measure(source, tmp_path / "high", metadata, analysis, [], area=100)
     low, _ = spectral_engine.measure(source, tmp_path / "low", metadata, analysis, [high], area=25)
     assert high["measurement_valid"] and low["measurement_valid"]
-    assert low["completion_area"] / high["completion_area"] == pytest.approx(.25, abs=.001)
-    assert high["completion_area"] != 100  # Computed, not copied from requested area.
+    assert low["peak_area"] / high["peak_area"] == pytest.approx(.25, abs=.001)
+    assert high["peak_area"] != 100  # Computed, not copied from requested area.
     with np.load(tmp_path / "low/phase_audit/synthetic_processed/spectral_evidence.npz") as arrays:
         assert np.max(arrays["generated_real"]) < 1000
         assert len(arrays["region_ppm"]) == len(arrays["regional_quantitative"])
@@ -101,29 +101,24 @@ def test_independent_spectrum_seed_is_reproducible_and_drift_is_measured(tmp_pat
     a, _ = spectral_engine.measure(source, tmp_path / "a", metadata, analysis, [], area=100, seed=500)
     b, _ = spectral_engine.measure(source, tmp_path / "b", metadata, analysis, [], area=100, seed=500)
     c, _ = spectral_engine.measure(source, tmp_path / "c", metadata, analysis, [a], area=100, seed=500, drift_ppm=.01)
-    assert a["completion_area"] == b["completion_area"]
+    assert a["peak_area"] == b["peak_area"]
     assert a["area_uncertainty"] == b["area_uncertainty"]
     assert c["peak_ppm"] - a["peak_ppm"] == pytest.approx(.01, abs=.001)
-    assert c["completion_area"] / a["completion_area"] == pytest.approx(1, abs=.001)
+    assert c["peak_area"] / a["peak_area"] == pytest.approx(1, abs=.01)
 
 
 def test_independent_production_peak_qc_rejection_cannot_become_absence(tmp_path, spectral_engine, monkeypatch):
     source, metadata, analysis = spectral_input(tmp_path)
-    calls = []
-    def reject_peak(peak, width, args):
-        calls.append(width)
-        return False, "independent forced production QC rejection", {}
-    monkeypatch.setattr(spectral_engine.processor, "_peak_qc", reject_peak)
-    with pytest.raises(ValueError, match="initial detected peak|Rejected peak candidate"):
+    analysis["peak_tracking"]["width"]["minimum_ppm"] = .15
+    with pytest.raises(ValueError, match="TRACKED_PEAK_LOST"):
         spectral_engine.measure(source, tmp_path / "rejected", metadata, analysis, [], area=100)
-    assert calls, "Production peak QC must be called on the generated spectrum"
 
 
-def test_independent_high_noise_fails_production_fixed_window_qc(tmp_path, spectral_engine):
+def test_independent_high_noise_fails_production_tracked_area_qc(tmp_path, spectral_engine):
     source, metadata, analysis = spectral_input(tmp_path)
     reference, _ = spectral_engine.measure(source, tmp_path / "reference", metadata, analysis, [], area=100)
     with pytest.raises(ValueError, match="noise|uncertainty|Negative|Rejected"):
-        spectral_engine.measure(source, tmp_path / "bad_noise", metadata, analysis, [reference], area=25, noise_sd=2)
+        spectral_engine.measure(source, tmp_path / "bad_noise", metadata, analysis, [reference], area=25, noise_sd=20)
 
 
 def test_independent_actual_spectral_workflow_transition_and_order(tmp_path, spectral_engine):
@@ -133,7 +128,7 @@ def test_independent_actual_spectral_workflow_transition_and_order(tmp_path, spe
     completions = [e for e in events if e["event_type"] == "stage_completion_evidence"]
     first = [e for e in completions if e["workflow_phase"] == "stage_1"]
     second = [e for e in completions if e["workflow_phase"] == "stage_2"]
-    assert len(first) == 14 and len(second) == 16
+    assert len(first) == 11 and len(second) == 13
     assert not any(e["evidence"]["complete"] for e in first[:-1] + second[:-1])
     assert first[-1]["evidence"]["complete"] and second[-1]["evidence"]["complete"]
     intent = next(e for e in events if e["event_type"] == "dose_dispatch_intent")

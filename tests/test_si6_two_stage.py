@@ -98,7 +98,7 @@ def test_scans_cadences_and_trends_honored(complete_run):
     assert [
         (e["workflow_phase"], e["interval_minutes"], e["hard_runtime_ceiling_hours"])
         for e in starts
-    ] == [("stage_1", 120, 48), ("stage_2", 30, 6)]
+    ] == [("stage_1", 120, 48), ("stage_2", 30, 12)]
     for name, hours, trend in [
         ("stage_1", 2, "decreasing"),
         ("stage_2", 0.5, "increasing"),
@@ -174,7 +174,7 @@ def test_reports_dataset_titles_manifest_and_independent_csvs(complete_run):
     with (paths.run_dir / "final/full_time_series.csv").open(newline="") as f:
         assert len(list(csv.DictReader(f))) == totals
     manifest = json.loads((paths.run_dir / "final/plot_manifest.json").read_text())
-    assert len(manifest["figures"]) == 9
+    assert len(manifest["figures"]) == 15
     for figure in manifest["figures"]:
         assert figure["dataset_display_name"] == paths.run_dir.name
         assert figure["visible_title"].startswith(paths.run_dir.name + " ")
@@ -238,7 +238,7 @@ def test_invalid_configs_rejected_before_motion(tmp_path, mutation):
     if mutation == "unknown_threshold":
         raw["workflow"]["initial_stage"]["completion"]["magic"] = True
     if mutation == "infinite_threshold":
-        raw["analysis"]["measurement_qc"]["noise_multiplier"] = float("inf")
+        raw["qc_reporting"]["measurement_qc"]["noise_multiplier"] = float("inf")
     with pytest.raises(ValueError):
         with rig(tmp_path, raw):
             pytest.fail("Invalid configuration opened services")
@@ -337,7 +337,7 @@ def test_minimum_evidence_cannot_be_overridden_by_operator_advance(
     with rig(tmp_path) as s:
         s.simulation.fixture["stages"]["stage_1"] = [100] * 24
         outcome = si6.run_experiment(s, stage_decision=lambda *_: "advance")
-        assert outcome.status is base.TerminalStatus.ANALYSIS_INCONCLUSIVE
+        assert outcome.status is base.TerminalStatus.STAGE_1_MAX_ITERATIONS_REACHED
         assert s.dose_guard.data["status"] == "RESERVED"
         assert not any(
             e["channel"] == 2 for e in transfers(events(s.paths.journal_jsonl))

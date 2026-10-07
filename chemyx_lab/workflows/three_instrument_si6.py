@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import json
 import math
 import re
 import shutil
@@ -46,8 +47,9 @@ from . import si6_automated_nmr as base
 from . import pump_channels
 from .dose_guard import DoseGuard
 from ..analysis.stage_completion import completion_evidence
-from ..analysis.stage_measurement import fixed_window_measurement
+from ..analysis.stage_measurement import tracked_peak_measurement, tracked_peak_area_observation
 from ..analysis.si6_stage_reports import write_stage_reports
+from ..analysis.si6_final_qc import write_final_qc
 
 # A real spectrum acquired through this workflow's iFlow acquisition path on
 # 2026-08-10. Production process_fid finds the tracked resonance in it at
@@ -440,6 +442,7 @@ class Services:
         self.record("nmr_retrieved", workflow_phase=stage, cycle_number=cycle, result_path=str(path.relative_to(self.paths.run_dir)), scans=self.nmr_cfg.scans)
         if progress:
             progress("NMR data retrieval")
+        area_only = "peak_finding" in self.raw["analysis"]
         self.measurement_step = "NMR processing"
         processed = self.process(path, self.paths, self.dataset_name)
         if not processed.is_dir():
@@ -449,33 +452,45 @@ class Services:
             progress("NMR processing")
         self.measurement_step = "LONG DATE metadata"
         long_date = str(read_jcamp_fid(path).metadata.get("LONG DATE", "")).strip()
+        acquired_at = None
+        timing_note = ""
         try:
             acquired_at = datetime.strptime(long_date, "%Y/%m/%d %H:%M:%S%z")
         except ValueError as exc:
-            raise VerificationError("Authoritative JCAMP LONG DATE acquisition time is unavailable") from exc
-        timestamp_source = "LONG DATE header"
-        if any(stage.completion for stage in base.build_stages(self.raw["workflow"])) and rows:
+            if not area_only:
+                raise VerificationError("Authoritative JCAMP LONG DATE acquisition time is unavailable") from exc
+            timing_note = "Authoritative JCAMP LONG DATE unavailable; time plots disabled"
+        timestamp_source = "LONG DATE header" if acquired_at else "unavailable"
+        if not area_only and any(st.completion for st in base.build_stages(self.raw["workflow"])) and rows:
             if acquired_at <= datetime.fromisoformat(rows[-1]["acquired_at"]):
                 raise VerificationError("Acquisition LONG DATE must increase strictly; repeated/backwards metadata rejected")
-        if self.first_acquisition_at is None:
+        if self.first_acquisition_at is None and acquired_at is not None:
             self.first_acquisition_at = acquired_at
         metadata = {"iteration": cycle, "stage": stage, "stage_iteration": len([r for r in rows if r.get("stage") == stage]) + 1,
-                    "elapsed_hours": (acquired_at - self.first_acquisition_at).total_seconds() / 3600,
-                    "acquired_at": acquired_at.isoformat(timespec="seconds"), "timestamp_source": timestamp_source,
+                    "elapsed_hours": (acquired_at - self.first_acquisition_at).total_seconds() / 3600 if acquired_at else None,
+                    "acquired_at": acquired_at.isoformat(timespec="seconds") if acquired_at else None, "timestamp_source": timestamp_source,
                     "target_ppm": self.nmr_cfg.target_ppm,
                     "dataset_display_name": self.dataset_name, "nmr_scans": self.nmr_cfg.scans,
                     "receiver_gain": self.nmr_cfg.receiver_gain, "auto_gain": self.nmr_cfg.auto_gain}
         self.record("nmr_acquisition_time", workflow_phase=stage, cycle_number=cycle, acquired_at=metadata["acquired_at"], timestamp_source=timestamp_source)
         self.measurement_step = "NMR analysis"
-        row, spectrum = self.analyze(path, processed, self.paths, self.raw["analysis"], metadata)
+        if ("peak_tracking" in self.raw["analysis"] or area_only) and not self.simulation:
+            row, spectrum = dict(metadata), []
+        else:
+            row, spectrum = self.analyze(path, processed, self.paths, self.raw["analysis"], metadata)
         stage_spec = next((item for item in base.build_stages(self.raw["workflow"]) if item.name == stage), None)
         stage_rows = [r for r in rows if r.get("stage") == stage]
-        if stage_spec and stage_spec.completion and not self.simulation:
+        if area_only and not self.simulation:
+            row = tracked_peak_area_observation(path, processed, row, self.raw["analysis"], rows)
+        elif stage_spec and stage_spec.completion and not self.simulation:
             try:
-                row = fixed_window_measurement(path, processed, row, self.raw["analysis"], stage_rows, reference=rows[0] if rows else None)
+                row = tracked_peak_measurement(path, processed, row, self.raw["analysis"], rows, reference=rows[0] if rows else None)
             except ValueError as exc:
-                self.record("analysis_result", workflow_phase=stage, cycle_number=cycle, result_classification="invalid", error_message=str(exc))
+                self.record("analysis_result", workflow_phase=stage, cycle_number=cycle, result_classification=getattr(exc, "status", "invalid"), error_message=str(exc), tracking_evidence=getattr(exc, "evidence", None))
                 raise base.AnalysisInconclusiveError(str(exc)) from exc
+        if area_only:
+            row["observation_recorded"] = True
+            row["diagnostic_notes"] = "; ".join(v for v in (row.get("diagnostic_notes"), timing_note) if v)
         row.update(raw_path=str(path.relative_to(self.paths.run_dir)), processed_path=str(processed.relative_to(self.paths.run_dir)))
         if row.get("phase_evidence_path"):
             row["phase_evidence_path"] = str(Path(row["phase_evidence_path"]).relative_to(self.paths.run_dir))
@@ -485,28 +500,35 @@ class Services:
             self.plot_manifest.append({"file": row["plot_file"], "dataset_display_name": self.dataset_name, "visible_title": row["plot_title"], "stage": stage, "cycle_number": cycle, "measurement_valid": bool(row.get("measurement_valid", row.get("peak_clear")))})
             self.write_manifest()
         summary = {"peak_ppm": row.get("peak_ppm"), "peak_area": row.get("peak_area"), "snr": row.get("snr"), "metric_source": row.get("metric_source")}
-        if not row.get("measurement_valid", row.get("peak_clear")):
+        if not area_only and not row.get("measurement_valid", row.get("peak_clear")):
             self.record("analysis_result", workflow_phase=stage, cycle_number=cycle, result_classification="invalid", analysis_result=summary, error_message=row.get("qc_failure_reasons"))
             raise base.AnalysisInconclusiveError(f"Tracked resonance failed the configured checks: {row.get('qc_failure_reasons') or 'unknown reason'}")
         self.measurement_step = "plateau evaluation"
         previous = float(stage_rows[-1]["peak_area"]) if stage_rows else None
-        row["growth_percent"] = base.growth_percent(previous, float(row["peak_area"]), epsilon=float(self.raw["analysis"]["area_epsilon"]))
+        row["growth_percent"] = base.growth_percent(previous, float(row["peak_area"]), epsilon=float(self.raw["analysis"].get("area_epsilon", 1.e-12)))
         if stage_spec and stage_spec.completion:
             evidence = completion_evidence([*stage_rows, row], stage_spec.completion)
             row["plateau"] = evidence["complete"]
             row["trend"] = stage_spec.completion["trend"]
-            row["normalized_area"] = row["completion_area"] / evidence["normalization_area"] if evidence.get("normalization_area") else ""
+            row["normalized_area"] = row["peak_area"] / evidence["normalization_area"] if evidence.get("normalization_area") else ""
             evidence_path = self.paths.run_dir / "stages" / stage / "evidence" / f"{cycle:04d}.json"
             write_json_atomic(evidence_path, evidence)
             row["completion_evidence_path"] = str(evidence_path.relative_to(self.paths.run_dir))
+            if row.get("tracking_evidence_path"):
+                tracking_path = Path(row["tracking_evidence_path"])
+                tracking_audit = json.loads(tracking_path.read_text(encoding="utf-8"))
+                tracking_audit["endpoint_evidence"] = evidence
+                write_json_atomic(tracking_path, tracking_audit)
             self.record("stage_completion_evidence", workflow_phase=stage, cycle_number=cycle, evidence=evidence, result_path=row["completion_evidence_path"])
         else:
-            row["plateau"] = base.plateau_reached([*stage_rows, row], self.raw["analysis"])
+            row["plateau"] = False if area_only else base.plateau_reached([*stage_rows, row], self.raw["analysis"])
+        if row.get("tracking_evidence_path"):
+            row["tracking_evidence_path"] = str(Path(row["tracking_evidence_path"]).relative_to(self.paths.run_dir))
         rows.append(row)
         base.write_csv(self.paths.time_series_csv, rows, base.TIME_SERIES_COLUMNS)
         if spectrum:
             base.append_spectra(self.paths.spectra_csv, spectrum)
-        self.record("analysis_result", workflow_phase=stage, cycle_number=cycle, result_classification="valid", analysis_result=dict(summary, growth_percent=row["growth_percent"]), plateau_progress={"plateau_reached": row["plateau"], "required_intervals": self.raw["analysis"]["plateau_consecutive_intervals"]})
+        self.record("analysis_result", workflow_phase=stage, cycle_number=cycle, result_classification="valid", analysis_result=dict(summary, growth_percent=row["growth_percent"]), plateau_progress={"plateau_reached": row["plateau"], "required_intervals": stage_spec.completion.get("consecutive_iterations", stage_spec.completion.get("consecutive_confirmations")) if stage_spec and stage_spec.completion else self.raw["analysis"].get("plateau_consecutive_intervals", 0)})
         self.last_analysis_completed_at = self.simulation.now() if self.simulation else datetime.now()
         self.measurement_step = None
         if progress:
@@ -636,15 +658,16 @@ class MockProcessFid:
     Level 1 mock runs process_fid for every measurement.
     """
 
-    def __init__(self, tracked_window: tuple[float, float]) -> None:
+    def __init__(self, tracked_window: tuple[float, float], peak_tracking: dict | None = None) -> None:
         self.tracked_window = tracked_window
+        self.peak_tracking = peak_tracking
         self.last_kind = "process_fid_full_spectrum"
 
     def __call__(self, dx_path: Path, paths: base.RunPaths, dataset_display_name: str) -> Path:
-        key = f"{hashlib.sha256(dx_path.read_bytes()).hexdigest()}:{self.tracked_window}"
+        key = f"{hashlib.sha256(dx_path.read_bytes()).hexdigest()}:{self.tracked_window}:{json.dumps(self.peak_tracking, sort_keys=True)}"
         cached = _MOCK_PROCESSED.get(key)
         if cached is None or not cached[0].is_dir():
-            processed = base.run_process_fid_postprocessing(dx_path, paths, dataset_display_name, tracked_window=self.tracked_window)
+            processed = base.run_process_fid_postprocessing(dx_path, paths, dataset_display_name, tracked_window=self.tracked_window, peak_tracking=self.peak_tracking)
             _MOCK_PROCESSED[key] = (processed, dx_path.name)
             self.last_kind = "process_fid_full_spectrum"
             return processed
@@ -665,17 +688,22 @@ class MockProcessFid:
             f"Mock fixture byte-identical to {source_name}; its production process_fid tables were reused.\n",
             encoding="utf-8",
         )
+        if self.peak_tracking is not None:
+            # The tracker needs lossless evidence, not rounded display tables.
+            shutil.copytree(source_dir / "phase_audit", output / "phase_audit")
         self.last_kind = "mock_process_fid_reused"
         return output
 
 
 def tracked_window(raw: dict[str, Any], nmr_cfg: config.NmrSettings) -> tuple[float, float]:
-    return float(nmr_cfg.target_ppm), float(raw["analysis"]["detection_window_ppm"])
+    return float(nmr_cfg.target_ppm), float(raw["analysis"].get("peak_finding", raw["analysis"].get("peak_tracking", {})).get("search", {}).get("half_width_ppm", raw["analysis"].get("detection_window_ppm", .2)))
 
 
 def validate_stage_policy(stages: list[base.Stage]) -> None:
     """Refuse an explicit measurement cap that would end a stage before its duration."""
     for stage in stages:
+        if stage.completion and stage.completion.get("method") == "area_only":
+            continue
         slots = base.duration_measurement_slots(stage.interval_minutes, stage.max_hours, stage.measure_immediately)
         if stage.max_measurements_explicit and stage.max_measurements < slots:
             last = stage.interval_minutes * (stage.max_measurements - (1 if stage.measure_immediately else 0))
@@ -785,6 +813,8 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
         if any(cfg.units != 0 for cfg in channel_configs.values()):
             raise ValueError("Resolved two-stage pump units must be mL/min")
         if not mock:
+            if not all(st.completion.get("method") == "area_only" for st in stages):
+                raise ValueError("Historical QC/statistical profiles are offline only; migrate to area_only completion and peak_finding")
             if "simulation" in raw:
                 raise ValueError("Simulation settings cannot be selected live")
             check_previous_run_review(raw, acknowledged_review)
@@ -868,7 +898,7 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
                     recorder.record("pump_configuration", workflow_phase="initializing", channel=ch, units=config.UNITS[cfg.units], syringe_diameter_mm=cfg.diameter, rate=cfg.rate)
                 pump.select_channel(pump_cfg.channel)
                 window = tracked_window(raw, nmr_cfg)
-                processor = MockProcessFid(window) if mock and fast_mock_processing else partial(base.run_process_fid_postprocessing, tracked_window=window)
+                processor = MockProcessFid(window, raw["analysis"].get("peak_finding", raw["analysis"].get("peak_tracking"))) if mock and fast_mock_processing else partial(base.run_process_fid_postprocessing, tracked_window=window, peak_tracking=raw["analysis"].get("peak_finding", raw["analysis"].get("peak_tracking")))
                 services = Services(
                     needle=needle, pump=pump, pump_cfg=pump_cfg, nmr_cfg=nmr_cfg, raw=raw,
                     arduino_cfg=arduino_cfg, paths=paths, recorder=recorder, state=state,
@@ -974,8 +1004,9 @@ def run_diagnostic(s: Services, selection: str = "all") -> list[str]:
         if selection == "pump":
             step("Needle homing", lambda: home_and_raise(s))
         d = s.raw["three_instrument"]
-        step("Chemyx withdraw", lambda: s.pump_move("withdraw", float(d["test_withdraw_ml"]), "UP", stage="diagnostic", cycle=1))
-        step("Chemyx infuse", lambda: s.pump_move("infuse", float(d["test_infuse_ml"]), "UP", stage="diagnostic", cycle=1))
+        channel = {"channel": d["diagnostic_channel"]} if "diagnostic_channel" in d else {}
+        step("Chemyx withdraw", lambda: s.pump_move("withdraw", float(d["test_withdraw_ml"]), "UP", stage="diagnostic", cycle=1, **channel))
+        step("Chemyx infuse", lambda: s.pump_move("infuse", float(d["test_infuse_ml"]), "UP", stage="diagnostic", cycle=1, **channel))
     if selection in ("all", "nmr", "process"):
         if selection != "process":
             def check_nmr():
@@ -1110,6 +1141,9 @@ def run_stage_actions(s: Services, events: tuple[dict[str, Any], ...], *, stage:
 
 
 def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decision: Callable[[base.Stage, base.RunOutcome], str] | None = None) -> base.RunOutcome:
+    configured_stages = base.build_stages(s.raw["workflow"])
+    if not s.mock and any(st.completion for st in configured_stages) and not all(st.completion and st.completion.get("method") == "area_only" for st in configured_stages):
+        raise ValueError("Live two-stage experiments require the current area_only profile")
     preflight(s)
     home_and_raise(s)
     rows: list[dict] = []
@@ -1117,10 +1151,13 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
     cycle = 0
     advanced: list[str] = []
     stages = base.build_stages(s.raw["workflow"])
+    area_only = all(st.completion and st.completion.get("method") == "area_only" for st in stages)
     if s.mock and not s.simulation:
         stages = [replace(stage, interval_minutes=0.0001, max_hours=1, max_measurements=mock_cycles_per_stage, max_measurements_explicit=True) for stage in stages]
     def operator(prompt: str) -> None:
-        if s.mock:
+        if area_only:
+            s.record("automatic_stage_entry", workflow_phase="chemistry", checkpoint=prompt, result_classification="automatic_after_start_confirmation")
+        elif s.mock:
             s.record("operator_checkpoint", workflow_phase="chemistry", checkpoint=prompt, result_classification="requested")
             s.record("operator_checkpoint", workflow_phase="chemistry", checkpoint=prompt, result_classification="confirmed", decided_by="mock")
         else:
@@ -1165,10 +1202,10 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
                 boundary = s.simulation.now() if s.simulation else s.last_acquisition_completed_at
                 # Actual dose alignment uses last metadata time plus monotonic
                 # duration from that acquisition, rather than filename timing.
-                elapsed = (boundary - s.first_acquisition_at).total_seconds() / 3600 if s.simulation else float(rows[-1]["elapsed_hours"]) + (time.monotonic() - s.last_acquisition_completed_monotonic) / 3600
+                elapsed = ((boundary - s.first_acquisition_at).total_seconds() / 3600 if s.simulation else float(rows[-1]["elapsed_hours"]) + (time.monotonic() - s.last_acquisition_completed_monotonic) / 3600) if s.first_acquisition_at is not None and rows[-1].get("elapsed_hours") is not None else None
                 s.transition_evidence = dict(s.dose_guard.data, elapsed_hours=elapsed, timing_source="virtual journal clock" if s.simulation else "journal boundary aligned to last JCAMP LONG DATE", confirmation_utc=confirmed["timestamp_utc"])
                 write_json_atomic(s.paths.run_dir / "transition" / "channel2_addition.json", s.transition_evidence)
-            if stage.completion:
+            if stage.completion and not area_only:
                 write_stage_reports(s.paths, rows, stages, dataset=s.dataset_name, transition=s.transition_evidence)
             return outcome
         def measurement(schedule: base.MeasurementSchedule) -> base.MeasurementObservation:
@@ -1183,7 +1220,7 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
                        nmr_acquisition_completed_at=s.last_acquisition_completed_at.isoformat(timespec="seconds"),
                        analysis_completed_at=s.last_analysis_completed_at.isoformat(timespec="seconds"))
             base.write_csv(s.paths.time_series_csv, rows, base.TIME_SERIES_COLUMNS)
-            if stage.completion:
+            if stage.completion and not area_only:
                 write_stage_reports(s.paths, rows, stages, dataset=s.dataset_name, transition=s.transition_evidence)
             return base.MeasurementObservation(
                 True, bool(row["plateau"]),
@@ -1199,6 +1236,9 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
                 return finish(outcome)
             # A limit without plateau is never taken as chemistry complete.
             s.record("stage_limit_reached", workflow_phase=stage.name, extension=extension, stage_outcome=outcome.stage_outcome.value if outcome.stage_outcome else None, plateau_reached=False, result_classification="plateau_not_reached")
+            if area_only:
+                status = (base.TerminalStatus.STAGE_1_MAX_ITERATIONS_REACHED if stage is stages[0] else base.TerminalStatus.STAGE_2_MAX_ITERATIONS_REACHED) if outcome.stage_outcome is base.StageOutcome.PLATEAU_NOT_REACHED_WITHIN_LIMIT else outcome.status
+                return base.RunOutcome(status, f"Stage {stage.name} ended at its configured operational limit without the area endpoint; no next stage or dose.", outcome.stage_outcome)
             if stage.completion:
                 return base.RunOutcome(base.TerminalStatus.ANALYSIS_INCONCLUSIVE, f"Stage {stage.name} reached its configured limit without chemical completion; transition refused.", outcome.stage_outcome)
             choice = decide(stage, outcome, extension)
@@ -1212,21 +1252,49 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
     try:
         outcome = base.run_stage_sequence(stages, operator, stage_runner, recorder=s.recorder)
     except MeasurementFailedAfterCleanup as exc:
-        outcome = base.RunOutcome(base.TerminalStatus.ANALYSIS_INCONCLUSIVE, f"{exc}. The experiment stopped; review the failed measurement before any new run or stage.")
+        outcome = base.RunOutcome(base.TerminalStatus.INSTRUMENT_FAILURE if area_only else base.TerminalStatus.ANALYSIS_INCONCLUSIVE, f"{exc}. The experiment stopped; review the failed measurement before any new run or stage.")
         s.record("terminal", workflow_phase="run", terminal_status=outcome.status.value, result_classification="measurement_failed_cleanup_completed", physical_state_certainty="certain", operator_review_required=True, failed_stage=exc.stage, failed_cycle=exc.cycle, failed_step=exc.failed_step, error_message=outcome.message)
-        if any(stage.completion for stage in stages):
+        if area_only:
+            final_reports(s, rows, stages, outcome)
+        elif any(stage.completion for stage in stages):
             write_stage_reports(s.paths, rows, stages, dataset=s.dataset_name, outcome=outcome, transition=s.transition_evidence)
         return outcome
     except base.OperatorAbortError as exc:
         # Reagent checkpoints only occur between stages, with the rig at rest.
         outcome = base.RunOutcome(base.TerminalStatus.OPERATOR_ABORTED, f"Operator declined a reagent checkpoint: {exc}")
         s.record("terminal", workflow_phase="run", terminal_status=outcome.status.value, result_classification="checkpoint_declined", physical_state_certainty="certain", error_message=outcome.message)
+        if area_only:
+            final_reports(s, rows, stages, outcome)
         return outcome
+    except BaseException as exc:
+        # Stop physical motion before attempting any retrospective output.
+        if area_only:
+            s.stop_all(stage="run", cycle=cycle)
+            s.needle.stop_best_effort()
+            failure_outcome = base.outcome_from_exception(exc, s.state)
+            if failure_outcome.status is base.TerminalStatus.ANALYSIS_INCONCLUSIVE:
+                failure_outcome = base.RunOutcome(base.TerminalStatus.INSTRUMENT_FAILURE, str(exc))
+            final_reports(s, rows, stages, failure_outcome)
+        raise
     if outcome.status is base.TerminalStatus.COMPLETED and advanced:
         outcome = base.RunOutcome(base.TerminalStatus.COMPLETED, "All configured stages finished; the operator advanced without a plateau after: " + ", ".join(advanced) + ".", outcome.stage_outcome)
     s.record("terminal", workflow_phase="run", terminal_status=outcome.status.value, result_classification=outcome.stage_outcome.value if outcome.stage_outcome else outcome.status.value, physical_state_certainty="certain", stages_advanced_without_plateau=advanced or None)
-    if any(stage.completion for stage in stages):
+    if area_only:
+        final_reports(s, rows, stages, outcome)
+    elif any(stage.completion for stage in stages):
         figures = write_stage_reports(s.paths, rows, stages, dataset=s.dataset_name, outcome=outcome, transition=s.transition_evidence)
         s.plot_manifest = [*(s.plot_manifest or []), *figures]
         s.write_manifest()
     return outcome
+
+
+def final_reports(s, rows, stages, outcome):
+    """Retrospective work cannot alter an already established terminal decision."""
+    try:
+        figures = write_final_qc(s.paths, rows, stages, s.raw["qc_reporting"], dataset=s.dataset_name, outcome=outcome, transition=s.transition_evidence)
+        if rows and all(r.get("acquired_at") and r.get("elapsed_hours") is not None for r in rows):
+            figures += write_stage_reports(s.paths, rows, stages, dataset=s.dataset_name, outcome=outcome, transition=s.transition_evidence)
+        s.plot_manifest = [*(s.plot_manifest or []), *figures]
+        s.write_manifest()
+    except Exception as exc:
+        print(f"Retrospective report unavailable ({type(exc).__name__}: {exc}); experiment outcome remains {outcome.status.value}.")

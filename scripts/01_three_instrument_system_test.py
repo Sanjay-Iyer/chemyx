@@ -18,6 +18,8 @@ def main(argv=None) -> int:
     selection = parser.add_mutually_exclusive_group()
     for name in ("needle", "pump", "nmr", "process", "all"):
         selection.add_argument(f"--{name}-only" if name != "all" else "--all", dest="selection", action="store_const", const=name)
+    selection.add_argument("--communications-only", dest="selection", action="store_const", const="communications", help="Open all three interfaces and ping/status them; no START, needle movement or NMR acquisition")
+    selection.add_argument("--integrated-channel-test", dest="selection", action="store_const", const="channel", help="Ping all three instruments, then run the existing small UP-position pump diagnostic on the YAML diagnostic_channel")
     parser.add_argument("--workflow-config", type=Path, default=config.REPO_ROOT / "configs/experiments/02_si6_automated_nmr.yaml")
     parser.add_argument("--machine-config", type=Path, default=config.REPO_ROOT / "configs/machines/00_machine.local.yaml")
     parser.add_argument("--arduino-config", type=Path, default=config.REPO_ROOT / "arduino/configs/arduino.local.yaml")
@@ -28,9 +30,10 @@ def main(argv=None) -> int:
     selected = args.selection or "all"
     print(f"THREE-INSTRUMENT SYSTEM TEST | {mode} | {selected}")
     try:
-        raw, arduino, pump, nmr = si6.prepare(args.workflow_config, args.machine_config, args.arduino_config, mock=not args.live or selected == "process", require_needle_live=selected not in ("nmr", "process"), acknowledged_review=args.acknowledge_review)
-        low, high = nmr.target_ppm - float(raw["analysis"]["detection_window_ppm"]), nmr.target_ppm + float(raw["analysis"]["detection_window_ppm"])
-        print(f"Arduino: {arduino['arduino']['expected_device']} {arduino['firmware']['version']}; Chemyx: configured; NMR: {nmr.route}; processing: process_fid; tracked window {low:.2f}-{high:.2f} ppm")
+        raw, arduino, pump, nmr = si6.prepare(args.workflow_config, args.machine_config, args.arduino_config, mock=not args.live or selected == "process", require_needle_live=selected not in ("nmr", "process", "communications"), acknowledged_review=args.acknowledge_review)
+        target, half = si6.tracked_window(raw, nmr)
+        low, high = target-half, target+half
+        print(f"Arduino: {arduino['arduino']['expected_device']} {arduino['firmware']['version']}; Chemyx: {pump.port}; NMR: {nmr.host}:{nmr.port} {nmr.route}; processing: process_fid; tracked window {low:.2f}-{high:.2f} ppm")
         if not (args.mock or args.live):
             print("Configuration valid. No hardware opened; choose --mock or --live.")
             return 0
@@ -52,8 +55,14 @@ def main(argv=None) -> int:
             return 0
         identity = si6.RunIdentity("diagnostic", args.mock, selected)
         with si6.open_services(raw, arduino, pump, nmr, identity=identity, acknowledged_review=args.acknowledge_review) as services:
-            si6.preflight(services, check_nmr=selected in ("all", "nmr"))
-            si6.run_diagnostic(services, selected)
+            si6.preflight(services, check_nmr=selected in ("all", "nmr", "communications", "channel"))
+            if selected in ("communications", "channel"):
+                print("[PASS] Arduino communication OK\n[PASS] Chemyx communication OK\n[PASS] NMR communication OK")
+            if selected == "channel":
+                print(f"Testing Chemyx Channel {raw['three_instrument'].get('diagnostic_channel', pump.channel)}: small withdraw/infuse with STOP")
+                si6.run_diagnostic(services, "pump")
+            elif selected != "communications":
+                si6.run_diagnostic(services, selected)
             print(f"Results: {services.paths.run_dir}")
         print("THREE-INSTRUMENT SYSTEM TEST: PASS")
         return 0

@@ -1,0 +1,65 @@
+# Existing COM3 firmware, motion calibration and needle positions preserved.
+# Physically establish and confirm HOME before integrated channel/experiment motion.
+arduino:
+  port: COM3
+  baud_rate: 115200
+  expected_device: needle_controller
+  expected_board: uno_r4_minima
+  expected_version: 1.2.1
+  ready_timeout_s: 5.0
+  read_timeout_s: 0.1
+  write_timeout_s: 1.0
+  command_timeout_s: 10.0
+  overall_timeout_s: 59.0
+  fingerprint: {}
+firmware:
+  motion_enabled: true
+  limits_enabled: false
+  runtime_configurable: true
+  version: 1.2.1
+signal_interface:
+  installed: true
+  interface_type: direct_validated_bridge
+  wiring_reviewed: true
+  signal_inverted: false
+  dm542_signal_voltage_v: null
+motor:
+  model: null
+  rated_phase_current_a: null
+  full_steps_per_revolution: null
+  coil_pairs_identified: true
+  mechanically_disconnected_for_test_02: true
+  connected_to_axis_for_test_03: true
+driver:
+  model: DM542S
+  supply_voltage_v: 24
+  supply_current_a: null
+  current_switch_setting: null
+  microstep_setting: null
+  microsteps_per_full_step: null
+  enable_active_low: null
+motion:
+  maximum_speed_steps_s: 100
+  maximum_acceleration_steps_s2: 500
+  test_02_steps: 200
+  test_02_speed_steps_s: 100
+needle:
+  min_position: -3
+  max_position: 5
+  home_position: 0
+  up_position: 1
+  down_position: -1
+  steps_per_unit: 200
+  up_step_sign: 1
+  state_path: runs/arduino/needle_state.json
+safety:
+  fuse_installed: false
+  emergency_disconnect_documented: true
+  mechanical_hard_stops_installed: false
+  vertical_axis_safe_when_disabled: true
+  hard_runtime_limit_s: 120
+  operator_shaft_safe_confirmed: true
+  operator_inspection_required: false
+  operator_inspection_clearance: demo
+results:
+  run_root_dir: runs/arduino

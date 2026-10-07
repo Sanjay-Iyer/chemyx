@@ -62,7 +62,7 @@ class TrendSimulation:
         # Production process_fid/QC is independently regression-tested; fixture
         # values are never presented as a physically processed spectrum.
         value = json.loads((processed / "SIMULATION_ONLY.json").read_text())
-        row = dict(metadata, file=path.name, peak_area=value["area"], completion_area=value["area"],
+        row = dict(metadata, file=path.name, peak_area=value["area"],
                    peak_ppm=metadata["target_ppm"], peak_clear=True, measurement_valid=True,
                    area_uncertainty=0.01, peak_height=value["area"], snr=100.0, prominence_snr=100.0,
                    metric_source="SIMULATION ONLY: deterministic controller trend fixture", error="")

@@ -20,6 +20,7 @@ OVERVIEW_COLUMNS = [
     "iteration", "stage", "nmr_attempted", "status", "acquired_at",
     "timestamp_source", "elapsed_hours", "raw_dx_file", "raw_dx_path", "processed_result",
     "peak_ppm", "peak_area", "snr", "prominence", "prominence_snr",
+    "tracking_status", "signal_classification", "peak_position_source", "area_uncertainty",
     "qc_pass", "growth_percent", "plateau", "error", "timing_error",
     "spectrum_source", "spectrum_kind",
 ]
@@ -95,8 +96,8 @@ def _collect(run: Path, warnings: list[str]) -> tuple[list[dict], dict]:
             warnings.append("Unreadable time-series iteration number; row omitted")
             continue
         row = dict(source, iteration=iteration, raw_dx_file=source.get("file", ""),
-                   nmr_attempted=True, qc_pass=_true(source.get("peak_clear")),
-                   status="valid" if _true(source.get("peak_clear")) else "qc_rejected")
+                   nmr_attempted=True, qc_pass=_true(source.get("measurement_valid", source.get("peak_clear"))),
+                   status="recorded" if _true(source.get("observation_recorded")) else "valid" if _true(source.get("measurement_valid", source.get("peak_clear"))) else "qc_rejected")
         rows[iteration] = row
     terminal = {}
     for event in _journal(run, warnings):
@@ -130,7 +131,7 @@ def _collect(run: Path, warnings: list[str]) -> tuple[list[dict], dict]:
             if classification in {"valid", "invalid"}:
                 row.update(event.get("analysis_result") or {})
                 row.update(nmr_attempted=True, qc_pass=classification == "valid",
-                           status="valid" if classification == "valid" else "qc_rejected")
+                           status="recorded" if _true(row.get("observation_recorded")) else "valid" if classification == "valid" else "qc_rejected")
                 row["plateau"] = (event.get("plateau_progress") or {}).get("plateau_reached", row.get("plateau", ""))
             if event.get("error_message"):
                 row["error"] = event["error_message"]
@@ -156,7 +157,10 @@ def _collect(run: Path, warnings: list[str]) -> tuple[list[dict], dict]:
             row["processed_result"] = str(index[raw_name].relative_to(run))
         if row.get("processed_result"):
             processed = run / row["processed_result"]
-            for table in sorted(processed.glob("*peaks_simple.csv")):
+            # Current tracked workflows have lossless evidence. Rounded simple
+            # tables are legacy diagnostics and cannot fill a failed measurement.
+            tables = [] if (processed / "tracking_evidence.json").exists() else sorted(processed.glob("*peaks_simple.csv"))
+            for table in tables:
                 try:
                     peaks = _csv(table)
                 except (OSError, csv.Error, UnicodeError) as exc:

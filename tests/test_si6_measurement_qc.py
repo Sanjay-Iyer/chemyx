@@ -10,8 +10,10 @@ import yaml
 
 from arduino.python.errors import PositionUncertainError
 from arduino.python.needle_state import TrackedNeedle
+from chemyx_lab.analysis.peak_tracking import DEFAULTS, candidate_records
+from chemyx_lab.analysis.nmr import pick_spectrum_region
 from chemyx_lab import config
-from chemyx_lab.analysis.stage_measurement import fixed_window_measurement
+from chemyx_lab.analysis.stage_measurement import tracked_peak_measurement
 from chemyx_lab.workflows import three_instrument_si6 as si6
 from chemyx_lab.workflows.si6_profile import validate_profile
 
@@ -29,14 +31,14 @@ def evidence(tmp_path, *, amplitude=10, negative=False):
         y -= amplitude * np.exp(-(((x - 5.83) / 0.015) ** 2))
     np.savez(folder / "spectral_evidence.npz", region_ppm=x, regional_quantitative=y)
     metadata = dict(
+        peak_candidates=candidate_records(pick_spectrum_region(x, y, quantitative_intensity=y, min_prominence_snr=0, min_width_ppm=1.e-12)),
         raw_sha256=hashlib.sha256(raw.read_bytes()).hexdigest(),
         parameters={"normalization": "none"},
         phase={"method": "stored", "p0_deg": 0, "p1_deg": 0},
     )
     (folder / "processing_metadata.json").write_text(json.dumps(metadata))
     analysis = dict(
-        integration_window_ppm=0.1,
-        plot_window_ppm=0.5,
+        peak_tracking=deepcopy(DEFAULTS),
         measurement_qc=dict(
             noise_multiplier=3,
             max_noise_fraction=0.01,
@@ -48,7 +50,7 @@ def evidence(tmp_path, *, amplitude=10, negative=False):
 
 
 def test_bounded_absence_uses_corrected_trace_not_zero_filled_peak(tmp_path):
-    source, processed, analysis = evidence(tmp_path, amplitude=0.01)
+    source, processed, analysis = evidence(tmp_path, amplitude=0)
     row = dict(
         target_ppm=5.8,
         peak_clear=False,
@@ -57,16 +59,16 @@ def test_bounded_absence_uses_corrected_trace_not_zero_filled_peak(tmp_path):
         rejected_candidate_count=0,
     )
     reference = dict(
-        peak_clear=True, peak_area=1, completion_area=1, reference_height=10
+        peak_clear=True, peak_area=1, reference_height=10, qc_reference_area=1, peak_ppm=5.8, integration_left_ppm=5.77, integration_right_ppm=5.83
     )
-    result = fixed_window_measurement(
+    result = tracked_peak_measurement(
         source, processed, row, analysis, [], reference=reference
     )
-    assert result["peak_area"] == 0
-    assert result["completion_area"] > 0 and result["area_uncertainty"] > 0
+    assert result["peak_area"] > 0 # censored midpoint of a noise-derived interval
+    assert result["peak_area"] > 0 and result["area_uncertainty"] > 0
     assert (
         result["measurement_valid"]
-        and result["signal_classification"] == "bounded_low_signal"
+        and result["signal_classification"] == "bounded_nondetection"
     )
 
 
@@ -76,7 +78,7 @@ def test_bounded_absence_uses_corrected_trace_not_zero_filled_peak(tmp_path):
 def test_invalid_absence_cannot_complete(tmp_path, issue):
     source, processed, analysis = evidence(
         tmp_path,
-        amplitude=10 if issue in {"cancelled", "not_low"} else 0.01,
+        amplitude=10 if issue in {"cancelled", "not_low"} else 0,
         negative=issue == "cancelled",
     )
     row = dict(
@@ -86,14 +88,16 @@ def test_invalid_absence_cannot_complete(tmp_path, issue):
         qc_failure_reasons="no QC-passing peak",
     )
     reference = dict(
-        peak_clear=True, peak_area=1, completion_area=1, reference_height=10
+        peak_clear=True, peak_area=1, reference_height=10, qc_reference_area=1, peak_ppm=5.8, integration_left_ppm=5.77, integration_right_ppm=5.83
     )
+    if issue in {"cancelled", "not_low"}:
+        analysis["peak_tracking"]["width"]["minimum_ppm"] = .1
     if issue == "nan_reference":
         reference["reference_height"] = float("nan")
     if issue == "zero_reference":
         reference["reference_height"] = 0
     with pytest.raises(ValueError):
-        fixed_window_measurement(
+        tracked_peak_measurement(
             source,
             processed,
             row,

@@ -17,12 +17,12 @@ def test_spectral_trajectories_and_counterexamples_use_measured_values(tmp_path,
     result = synthetic.validate_case(case, 2, tmp_path, engine)
     assert result["completion_iteration"] == synthetic.CASES[case][2]
     assert all(r["measurement_valid"] for r in result["rows"])
-    assert any(r["completion_area"] != r["generated_area"] for r in result["rows"])
+    assert any(r["peak_area"] != r["generated_area"] for r in result["rows"])
     with (tmp_path / f"{case}_trace.csv").open(newline="") as handle:
         traces = list(csv.DictReader(handle))
     assert len(traces) == len(result["rows"])
     if case == "stage1_below_threshold_spike":
-        assert result["rows"][3]["completion_area"] < result["rows"][0]["completion_area"] * .025
+        assert result["rows"][3]["peak_area"] < result["rows"][0]["peak_area"] * .025
         assert not any(t["completed"] for t in result["trace"])
 
 

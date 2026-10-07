@@ -324,6 +324,9 @@ statistics:
 # resonance.  Stage boundaries are accepted only when supplied explicitly;
 # this dataset does not contain reliable stage metadata, so stages is empty.
 # ---------------------------------------------------------------------------
+# Independent offline target report/replay. Its fixed integration band and
+# completion-like retrospective labels are NOT the live Si6 Stage 1/2 metric.
+# Live Si6 completion uses the experiment YAML analysis.peak_tracking block.
 target_peak:
   enabled: true
   dataset_display_name: 06-09-26

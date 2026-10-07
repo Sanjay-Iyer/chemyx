@@ -13,7 +13,9 @@ Real hardware was not contacted during this restructuring.
 ## Three-instrument Si6 entry points
 
 For the current two-stage workflow (Channel1 sampling, one Channel2 addition,
-then Channel1 sampling), start with [Si6 start here](docs/SI6_START_HERE.md),
+then Channel1 sampling), use the [real instrument runbook](docs/REAL_INSTRUMENT_RUN_COMMANDS.md) for ready-made COM4/COM6 configs and copy/paste commands.
+Current control uses moving trapezoidal area only: Stage 1 near zero for 3 observations, Stage 2 growth followed by 4 stable observations, 20 iterations maximum per stage. One start confirmation runs both stages; QC is saved in `final_qc/` for review. See the [implementation report](docs/SI6_AREA_ONLY_IMPLEMENTATION.md).
+For more detail, see [Si6 start here](docs/SI6_START_HERE.md),
 [script map](docs/SI6_SCRIPT_USER_GUIDE.md) and
 [configuration guide](docs/SI6_CONFIG_USER_GUIDE.md).
 The final HOME spectral validation command is
@@ -27,7 +29,7 @@ python -B scripts\02_si6_experiment.py --mock
 
 `01` diagnoses the needle, Chemyx, NMR acquisition, retrieval, and processing.
 `02` runs the configured Si6 sampling stages. Both default to validation only;
-the active needle firmware is 1.2.0 on the validated D3 STEP / D4 DIR wiring,
+the ready-made COM3 config expects needle firmware 1.2.1 on the existing D3 STEP / D4 DIR wiring,
 with supervised Python software-position tracking (see
 [Arduino needle controller](arduino/README.md)).
 `--mock` contacts no hardware and writes to `results/runs/si6_mock/`. `--live`
@@ -36,6 +38,8 @@ writes to `results/runs/si6/<stamp>_si6_live` (or `_diagnostic_<test>_live`).
 See
 [the exact sampling order and gates](docs/THREE_INSTRUMENT_ARCHITECTURE.md) and
 the ordered [live commissioning checklist](docs/LIVE_COMMISSIONING_CHECKLIST.md).
+
+The two-stage reaction now uses [continuity-tracked moving peak area](docs/SI6_TRACKED_PEAK_IMPLEMENTATION.md). Updated templates and migration instructions are in that guide.
 
 ## Legacy two-instrument workflow
 

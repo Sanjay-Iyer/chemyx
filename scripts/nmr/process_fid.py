@@ -427,6 +427,8 @@ def _config_defaults(argv):
     }
     defaults = {}
     for section_name, mapping in sections.items():
+        if any(a == "--peak-tracking-config" or a.startswith("--peak-tracking-config=") for a in argv) and section_name in {"peak_qc", "reference"}:
+            continue # Retrospective gates cannot affect live processing defaults.
         section = raw.get(section_name, {})
         if section is None:
             continue
@@ -1598,7 +1600,12 @@ def main(argv: list[str] | None = None) -> int:
     except ConfigError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
-    args = _parser(defaults).parse_args(effective_argv)
+    parser = _parser(defaults)
+    parser.add_argument("--peak-tracking-config", type=Path)
+    args = parser.parse_args(effective_argv)
+    if args.peak_tracking_config:
+        from chemyx_lab.analysis.peak_tracking import configure_candidates
+        configure_candidates(args, json.loads(args.peak_tracking_config.read_text(encoding="utf-8")))
     if not args.paths:
         print(
             "ERROR: no input given. Pass a .dx file or directory on the command "
@@ -1608,9 +1615,15 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     try:
-        stats_config = _statistics_config(effective_argv)
-        target_peak_config = _target_peak_config(effective_argv)
-        flattened_overlay_config = _flattened_overlay_config(effective_argv)
+        if args.peak_tracking_config:
+            # Do not even validate unrelated offline QC/statistical config here.
+            stats_config = load_statistics_config(None)
+            target_peak_config = load_target_peak_config(None)
+            flattened_overlay_config = load_flattened_overlay_config(None)
+        else:
+            stats_config = _statistics_config(effective_argv)
+            target_peak_config = _target_peak_config(effective_argv)
+            flattened_overlay_config = _flattened_overlay_config(effective_argv)
     except (
         ConfigError,
         StatisticsConfigError,
@@ -1640,6 +1653,17 @@ def main(argv: list[str] | None = None) -> int:
     statistics_enabled = bool(args.statistics or stats_config.enabled)
     # Keep the recorded provenance consistent when enabled via the CLI flag.
     stats_config = replace(stats_config, enabled=statistics_enabled)
+    if args.peak_tracking_config:
+        # Live completion has its own authoritative tracked-area reports.
+        # Standalone fixed-band statistics/retrospective replay remain available
+        # without this profile flag, and cannot be mistaken for stage endpoints.
+        statistics_enabled = False
+        stats_config = replace(stats_config, enabled=False)
+        target_peak_config = replace(target_peak_config, enabled=False)
+        # Additional display-only flattening excludes every detected feature;
+        # permissive tracking candidates include noise and are inappropriate
+        # exclusions. The authoritative ALS/regional baseline is unchanged.
+        flattened_overlay_config = replace(flattened_overlay_config, enabled=False)
     files = collect_dx_files(args.paths)
     if not files:
         print("ERROR: no .dx files found.", file=sys.stderr)
