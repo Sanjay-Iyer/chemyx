@@ -90,7 +90,7 @@ python scripts\03_si6_real_soak_test.py --live --workflow-config configs\experim
 python scripts\03_si6_real_soak_test.py --live --workflow-config configs\experiments\si6_real_toluene_soak_test.yaml --machine-config configs\machines\si6_real_COM6.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
 ```
 
-**Expected:** Enter `y` once. Each iteration runs the full existing Channel 1 sampling → NMR acquisition → processing/peak analysis → sample return → UP cleanup sequence. After iteration 5 cleanup, needle moves DOWN → Channel 2 infuses 0.5 mL → needle returns UP → sampling continues. Iteration 10 ends with cleanup, reports and `completed`.
+**Expected:** Enter `y` once. Each iteration runs the full existing Channel 1 sampling → NMR acquisition → processing/peak analysis → needle UP → sample return → UP cleanup sequence. After iteration 5 cleanup, needle moves DOWN → Channel 2 infuses 0.5 mL → needle returns UP → sampling continues. Iteration 10 ends with cleanup, reports and `completed`.
 
 No 5.8 ppm reaction peak is expected with toluene. Missing peaks record `peak_found=false`, `peak_area=0`, blank ppm/SNR/width as appropriate; analysis is still saved and the next iteration continues. No near-zero, growth, plateau or QC rule controls this test.
 
@@ -110,6 +110,7 @@ Edit only the needed values near the top of `configs/experiments/si6_real_toluen
 | `soak_test.channel2.volume_ml` | 0.5 | Test infusion volume; does not change the chemistry config. |
 | `soak_test.channel2.rate_ml_min` | 1.0 | Test infusion rate. |
 | `nmr.scans` | 8 | Scans per acquisition. |
+| `workflow.cycle` → `action: pause` → `seconds` | 10 | Pre-NMR settling delay; set 0 for immediate acquisition. |
 | `workflow.experiment_id` | SI6_TOLUENE_SOAK_001 | Unique ID for one physical soak; change for a separate test after reconciling the rig. |
 
 Examples require YAML edits only:
@@ -120,7 +121,7 @@ Examples require YAML edits only:
 | Normal | 10 | 60 | 12 | 5 | 8 |
 | Overnight | 20 | 60 | 24 | 10 | 8 |
 
-The 300-second settle and full pump cycle remain active even in the short scenario. With immediate first acquisition scheduling, 10 hourly cycles take about 9 hours plus the final cycle; 20 take about 19 hours plus the final cycle.
+The pre-NMR pause is 10 seconds, reduced from the earlier configured 300-second settling hold. It is a workflow setting, not a required NMR delay. The full pump cycle remains active in the short scenario. With immediate first acquisition scheduling, 10 hourly cycles take about 9 hours plus the final cycle; 20 take about 19 hours plus the final cycle.
 
 **Outputs:** `results/runs/si6_real_soak/<timestamp>_soak_live/` contains raw acquisitions, production `processed_nmr/` outputs, usual `time_series.csv` with timestamp/source, peak metrics, `peak_found`, `channel2_action` and separate runtime elapsed hours, journal, `soak_summary.json` and `final_qc/` reports/plots. Peak area/ppm/SNR/width plots use JCAMP LONG DATE metadata and visible dataset titles. Missing metadata omits time plots; filename or modification time is never substituted. Absent peaks still produce valid reports.
 
@@ -142,13 +143,17 @@ python scripts\02_si6_experiment.py --live --workflow-config configs\experiments
 
 **Expected:** One initial `y` → Stage 1 → area endpoint → Channel 2 **1.8 mL at 1 mL/min** → automatic Stage 2 → endpoint → final cleanup → completed. There is no Stage 2 prompt. The soak test does not alter this reaction config.
 
-Both workflows reuse Channel 1: 8 mL withdraw UP → DOWN → 5 mL withdraw → 300-second wait → NMR → 13 mL return → UP → 5 mL withdraw/5 mL infuse cleanup, at 5 mL/min. NMR remains 8 scans, gain 12, auto-gain false, center 5 ppm, sweep width 20 ppm, target 5.8 ppm.
+Both workflows reuse Channel 1: 8 mL withdraw UP → DOWN → 5 mL withdraw → 10-second wait → NMR → UP → 13 mL return → 5 mL withdraw/5 mL infuse cleanup, at 5 mL/min. NMR remains 8 scans, gain 12, auto-gain false, center 5 ppm, sweep width 20 ppm, target 5.8 ppm.
 
 Chemistry endpoints remain Stage 1: every 120 min, 20 iterations/48 hours, ≤2.5% initial area for 3 observations. Stage 2: every 30 min, 20 iterations/12 hours, ≥25% growth then 4 stable observations (3 adjacent changes ≤2%). Exhausted limits stop rather than authorize chemistry progression. QC is retrospective. Chemistry output is under `results/runs/si6_two_stage/`.
 
 ## Configuration and restart notes
 
 Machine ports/NMR settings are in `configs/machines/si6_real_COM4.yaml` and `si6_real_COM6.yaml`; Arduino positions/calibration are in `arduino/configs/arduino_real_COM3.yaml`. Workflow pump channels, sampling, acquisition, peak finding and thresholds live in their experiment YAML. Shared phase/baseline defaults are in `configs/nmr/analysis.yaml`.
+
+The current sampling cycle raises the needle UP before the 13 mL return, including controlled cleanup after an NMR failure. The shared runner must also be updated on the instrument laptop; copying only the reordered YAML onto an older runner is insufficient.
+
+Config files are loaded at startup: changing YAML does not alter a run already in progress. Apply the new pause to the matching YAML on the instrument laptop before the next run.
 
 Each soak/reaction config identifies one physical run. The existing durable ledger under `runtime/si6_doses/` refuses automatic restart, including changing COM ports; never delete dose/state evidence to bypass a block. For a separate physical run reconcile the rig and choose a new `workflow.experiment_id`. Keep dose/state history when transferring an already-used rig. Use the physical disconnect in an emergency; Ctrl+C also requests software stop.
 

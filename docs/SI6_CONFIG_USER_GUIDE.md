@@ -188,15 +188,15 @@ cycle:
   volume_ml: 5.0
   rate_ml_min: 5.0
 - action: pause
-  seconds: 300
+  seconds: 10
 - action: nmr
+- action: operator
+  position: UP
+  prompt: Raise needle.
 - action: infuse
   channel: 1
   volume_ml: 13.0
   rate_ml_min: 5.0
-- action: operator
-  position: UP
-  prompt: Raise needle.
 - action: withdraw
   channel: 1
   volume_ml: 5.0
@@ -207,8 +207,8 @@ cycle:
   rate_ml_min: 5.0
 pump_extra_seconds: 2.0
 ```
-Each cycle withdraws 8 mL UP, lowers, withdraws 5 mL, settles 300 s, acquires
-NMR, returns 13 mL DOWN, raises, then withdraws/infuses 5 mL for cleanup.
+Each cycle withdraws 8 mL UP, lowers, withdraws 5 mL, settles 10 s, acquires
+NMR, raises to UP, returns 13 mL UP, then withdraws/infuses 5 mL for cleanup.
 Cleanup finishes before a completion result can authorize a stage transition.
 Change volumes/rates while preserving balance and validated syringe capacities.
 

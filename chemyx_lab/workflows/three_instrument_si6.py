@@ -142,9 +142,11 @@ def cycle_values(raw: dict[str, Any]) -> dict[str, float]:
     events = raw["workflow"]["cycle"]
     actions = [str(item["action"]).lower() for item in events]
     expected = ["withdraw", "operator", "withdraw", "pause", "nmr", "infuse", "operator", "withdraw", "infuse"]
-    if actions != expected:
-        raise ValueError("Three-instrument cycle requires withdraw, DOWN, withdraw, pause, NMR, infuse, UP, withdraw, infuse in that order")
-    for index, position in ((1, "DOWN"), (6, "UP")):
+    raised_return = expected[:5] + ["operator", "infuse"] + expected[7:]
+    if actions not in (expected, raised_return):
+        raise ValueError("Three-instrument cycle requires withdraw, DOWN, withdraw, pause, NMR, UP/return infusion, withdraw, infuse; UP and return must be adjacent")
+    up_index, return_index = (5, 6) if actions == raised_return else (6, 5)
+    for index, position in ((1, "DOWN"), (up_index, "UP")):
         if events[index].get("position", position) != position:
             raise ValueError(f"Sampling cycle needle event {index + 1} must command {position}")
     if raw["workflow"].get("initial_needle_position", "UP") != "UP":
@@ -153,7 +155,7 @@ def cycle_values(raw: dict[str, Any]) -> dict[str, float]:
         "initial_withdraw_ml": float(events[0]["volume_ml"]),
         "sample_withdraw_ml": float(events[2]["volume_ml"]),
         "settle_seconds": float(events[3]["seconds"]),
-        "return_infuse_ml": float(events[5]["volume_ml"]),
+        "return_infuse_ml": float(events[return_index]["volume_ml"]),
         "cleanup_withdraw_ml": float(events[7]["volume_ml"]),
         "cleanup_infuse_ml": float(events[8]["volume_ml"]),
     }
@@ -567,6 +569,8 @@ def sample_cycle(s: Services, *, stage: str, cycle: int, rows: list[dict], start
     """
     values = cycle_values(s.raw)
     events = s.raw["workflow"]["cycle"]
+    raise_before_return = str(events[5]["action"]).lower() == "operator"
+    return_index = 6 if raise_before_return else 5
     expected_retained = None
     if getattr(s, "channel_states", None):
         expected_retained = {ch: state.retained_volume_ml for ch, state in s.channel_states.items()}
@@ -610,10 +614,15 @@ def sample_cycle(s: Services, *, stage: str, cycle: int, rows: list[dict], start
             s.record("recovery_cleanup", workflow_phase=stage, cycle_number=cycle, result_classification="started", failed_step=failed_step, reason="measurement failed; pump idle and needle at DOWN verified", needle_status=needle_status)
         else:
             s.record("cycle_status", workflow_phase=stage, cycle_number=cycle, status="NMR_COMPLETE", raw_path=str(path.relative_to(s.paths.run_dir)), processed_path=str(processed.relative_to(s.paths.run_dir)))
-        step = "return infusion while DOWN"
-        transfer(5, "infuse", values["return_infuse_ml"], "DOWN")
-        step = "needle UP"
-        s.move_needle("UP")
+        if raise_before_return:
+            step = "needle UP before return"
+            s.move_needle("UP")
+        return_position = "UP" if raise_before_return else "DOWN"
+        step = f"return infusion while {return_position}"
+        transfer(return_index, "infuse", values["return_infuse_ml"], return_position)
+        if not raise_before_return:
+            step = "needle UP"
+            s.move_needle("UP")
         step = "cleanup withdraw"
         transfer(7, "withdraw", values["cleanup_withdraw_ml"], "UP")
         step = "cleanup infusion"

@@ -133,6 +133,40 @@ def test_measurement_failure_with_known_state_still_runs_the_same_cleanup(tmp_pa
     assert [fields["result_classification"] for name, fields in s.events if name == "recovery_cleanup"] == ["started", "completed"]
 
 
+@pytest.mark.parametrize("failure", [None, "analysis_error", "nmr_error"])
+def test_current_cycle_raises_before_sample_return_including_recovery(tmp_path, failure):
+    s = FakeServices(tmp_path, **({failure: True} if failure else {}))
+    cycle = s.raw["workflow"]["cycle"]
+    cycle[5], cycle[6] = cycle[6], cycle[5]
+    if failure:
+        with pytest.raises(integrated.MeasurementFailedAfterCleanup):
+            integrated.sample_cycle(s, stage="current", cycle=1, rows=[], started=datetime.now())
+    else:
+        integrated.sample_cycle(s, stage="current", cycle=1, rows=[], started=datetime.now())
+    names = physical_actions(s.events)
+    assert names[-4:] == ["UP", "infuse 13 UP", "withdraw 5 UP", "infuse 5 UP"]
+    assert "infuse 13 DOWN" not in names
+    if failure:
+        all_names = [name for name, _ in s.events]
+        assert all_names.index("precheck") < all_names.index("UP") < all_names.index("infuse 13 UP")
+
+
+def test_failed_raise_blocks_sample_return(tmp_path):
+    s = FakeServices(tmp_path)
+    cycle = s.raw["workflow"]["cycle"]
+    cycle[5], cycle[6] = cycle[6], cycle[5]
+    move = s.move_needle
+    def fail_up(label):
+        if label == "UP":
+            raise RuntimeError("UP movement failed")
+        return move(label)
+    s.move_needle = fail_up
+    with pytest.raises(RuntimeError, match="UP movement failed"):
+        integrated.sample_cycle(s, stage="current", cycle=1, rows=[], started=datetime.now())
+    assert not any(name.startswith("infuse") for name, _ in s.events)
+    assert "manual_inspection_required" in [name for name, _ in s.events]
+
+
 def test_physical_failure_never_records_complete(tmp_path):
     s = FakeServices(tmp_path, pump_error=True)
     with pytest.raises(RuntimeError):

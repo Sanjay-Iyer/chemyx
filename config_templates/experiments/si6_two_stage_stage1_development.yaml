@@ -11,10 +11,10 @@ workflow:
     - {action: withdraw, channel: 1, volume_ml: 8.0, rate_ml_min: 5.0}
     - {action: operator, position: DOWN, prompt: Lower needle.}
     - {action: withdraw, channel: 1, volume_ml: 5.0, rate_ml_min: 5.0}
-    - {action: pause, seconds: 300}
+    - {action: pause, seconds: 10}
     - {action: nmr}
-    - {action: infuse, channel: 1, volume_ml: 13.0, rate_ml_min: 5.0}
     - {action: operator, position: UP, prompt: Raise needle.}
+    - {action: infuse, channel: 1, volume_ml: 13.0, rate_ml_min: 5.0}
     - {action: withdraw, channel: 1, volume_ml: 5.0, rate_ml_min: 5.0}
     - {action: infuse, channel: 1, volume_ml: 5.0, rate_ml_min: 5.0}
   pump_extra_seconds: 2.0

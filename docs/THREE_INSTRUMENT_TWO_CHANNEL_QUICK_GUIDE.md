@@ -106,7 +106,7 @@ python -B scripts\01_three_instrument_system_test.py --mock --all --workflow-con
 ### What the experiment does
 
 1. Confirm Stage 1 readiness and raise the needle to UP.
-2. Repeat the Channel 1 cycle: withdraw 8 mL UP → needle DOWN → withdraw 5 mL → settle 300 s → acquire/process NMR → infuse 13 mL DOWN → needle UP → withdraw 5 mL → infuse 5 mL. Each pump move requires confirmed STOP; cleanup finishes before stage advancement.
+2. Repeat the Channel 1 cycle: withdraw 8 mL UP → needle DOWN → withdraw 5 mL → settle 10 s → acquire/process NMR → needle UP → infuse 13 mL UP → withdraw 5 mL → infuse 5 mL. Each pump move requires confirmed STOP; cleanup finishes before stage advancement.
 3. Stage 1 samples every **120 min**, up to **20 observations**: three consecutive moving areas <=2.5% of the first area complete it. Secondary runtime ceiling: 48 h.
 4. After Stage 1 completion and cleanup, lower the needle, infuse **1.8 mL at 1 mL/min on Channel 2 once**, then raise. Durable dose confirmation admits Stage 2.
 5. Stage 2 enters automatically every **30 min**, up to **20 observations**: after 25% growth, four stable observations (three adjacent changes <=2%) complete it. Secondary runtime ceiling: 12 h. **One start confirmation; no Stage 2 prompt.**

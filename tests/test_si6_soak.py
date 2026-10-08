@@ -96,6 +96,8 @@ def test_count_missing_peak_and_channel2_once(tmp_path, monkeypatch, iterations,
         assert sum(row["channel2_action"] == "CONFIRMED" for row in rows) == 1
         assert all(row["timestamp_source"] == "LONG DATE header" for row in rows)
         events = records(s)
+        returns = [e for e in events if e["event_type"] == "pump_needle_context" and e.get("channel") == 1 and e.get("operation_type") == "infuse" and e.get("requested_volume_ml") == 13]
+        assert len(returns) == iterations and all(e["needle_state"] == "UP" for e in returns)
         transfers = [e for e in events if e.get("channel") == 2 and e.get("operation_type") == "infuse" and e.get("lifecycle_state") == "completed"]
         assert len(transfers) == 1
         assert transfers[0]["requested_parameters"]["volume"] == .5
