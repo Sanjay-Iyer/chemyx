@@ -161,7 +161,7 @@ qc_reporting:
     max_area_uncertainty_fraction: 0.005
     undetected_max_fraction: 0.025
 output:
-  run_root_dir: results/runs/si6_two_stage
+  run_root_dir: results/experiments
 three_instrument:
   test_withdraw_ml: 0.5
   test_infuse_ml: 0.5

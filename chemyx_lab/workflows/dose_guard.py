@@ -9,10 +9,10 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 from pathlib import Path
 
 from ..runtime_state import write_json_atomic
+from ..experiment_paths import safe_experiment_id
 
 
 class DoseReplayBlocked(RuntimeError):
@@ -20,9 +20,7 @@ class DoseReplayBlocked(RuntimeError):
 
 
 def validate_experiment_id(value: str) -> str:
-    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}", value):
-        raise ValueError("workflow.experiment_id must be 1–80 letters/digits/underscore/dot/hyphen")
-    return value
+    return safe_experiment_id(value)
 
 
 def configuration_digest(raw: dict) -> str:

@@ -14,6 +14,7 @@ from pathlib import Path
 
 from .nmr import read_jcamp_fid
 from .plot_titles import format_dataset_plot_title, resolve_dataset_display_name
+from ..experiment_paths import run_file, journal_path, organized
 
 
 OVERVIEW_COLUMNS = [
@@ -53,7 +54,7 @@ def _write_csv(path: Path, rows: list[dict], columns: list[str]) -> None:
 
 
 def _journal(run: Path, warnings: list[str]) -> list[dict]:
-    path = run / "operation_journal.jsonl"
+    path = journal_path(run)
     if not path.is_file():
         return []
     events = []
@@ -71,7 +72,8 @@ def _journal(run: Path, warnings: list[str]) -> list[dict]:
 
 def _processed_index(run: Path, warnings: list[str]) -> dict[str, Path]:
     result = {}
-    for table in sorted((run / "processed_nmr").rglob("*peaks_simple.csv")):
+    roots = [run / "step_1" / "nmr_processed", run / "step_2" / "nmr_processed"] if organized(run) else [run / "processed_nmr"]
+    for table in sorted(table for root in roots for table in root.rglob("*peaks_simple.csv")):
         try:
             for row in _csv(table):
                 if row.get("file"):
@@ -85,7 +87,7 @@ def _collect(run: Path, warnings: list[str]) -> tuple[list[dict], dict]:
     """Merge successful rows with failed/unfinished cycle evidence, without QC inference."""
     rows: dict[int, dict] = {}
     try:
-        measurements = _csv(run / "time_series.csv")
+        measurements = _csv(run_file(run, "time_series.csv", "final_qc/full_time_series.csv"))
     except (OSError, csv.Error, UnicodeError) as exc:
         warnings.append(f"Time-series CSV unreadable; using available journal evidence: {exc}")
         measurements = []
@@ -173,7 +175,10 @@ def _collect(run: Path, warnings: list[str]) -> tuple[list[dict], dict]:
                                 row[key] = peak.get(source, "")
         # Read metadata, never filename time or mtime. A present but bad DX
         # must not silently fall back to a laptop/journal timestamp.
-        raw = run / "raw_nmr" / raw_name if raw_name else None
+        raw = run / row["raw_path"] if row.get("raw_path") else run / "raw_nmr" / raw_name if raw_name else None
+        if organized(run) and raw_name and (raw is None or not raw.is_file()):
+            matches = [path for step in ("step_1", "step_2") for path in (run / step / "nmr_raw").glob(raw_name)]
+            raw = matches[0] if len(matches) == 1 else raw
         row["raw_dx_path"] = str(raw.relative_to(run)) if raw is not None else ""
         try:
             if raw is not None and raw.is_file():
@@ -335,7 +340,7 @@ def summarize_run(run_dir: str | Path) -> Path:
     rows, terminal = _collect(run, warnings)
     if not rows:
         raise ValueError("No iteration evidence in time_series.csv or operation_journal.jsonl")
-    manifest_path = run / "manifest.json"
+    manifest_path = run_file(run, "manifest.json", "metadata/manifest.json")
     try:
         original_manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else {}
         if not isinstance(original_manifest, dict):
@@ -368,7 +373,7 @@ def summarize_run(run_dir: str | Path) -> Path:
         "first_plateau_iteration": plateau[0]["iteration"] if plateau else "",
         "processed_spectra_available": len(spectra),
     }
-    out = run / "final_nmr_summary"
+    out = run_file(run, "final_nmr_summary", "final_qc/nmr_summary")
     out.mkdir(exist_ok=True)
     _write_csv(out / "nmr_iteration_overview.csv", rows, OVERVIEW_COLUMNS)
     _write_csv(out / "nmr_run_summary.csv", [summary], list(summary))
@@ -381,7 +386,7 @@ def summarize_run(run_dir: str | Path) -> Path:
         "plateau_source": "existing per-iteration workflow decisions; not recalculated",
         "percent_change_source": "existing within-stage growth_percent; not recalculated across stages",
         "overall_area_change_note": "Descriptive first-to-last valid area; may span reagent stages, not a plateau decision",
-        "source_files": ["time_series.csv", "operation_journal.jsonl", "processed_nmr/", "raw_nmr/"],
+        "source_files": (["final_qc/full_time_series.csv", "logs/experiment_journal.jsonl", "step_1/nmr_processed/", "step_2/nmr_processed/", "step_1/nmr_raw/", "step_2/nmr_raw/"] if organized(run) else ["time_series.csv", "operation_journal.jsonl", "processed_nmr/", "raw_nmr/"]),
     }
     (out / "manifest.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return out

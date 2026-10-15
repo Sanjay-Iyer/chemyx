@@ -2,6 +2,12 @@
 
 All known result files were retained during migration.
 
+New three-instrument chemistry executions are documented in
+[Si6 experiment outputs](SI6_EXPERIMENT_OUTPUTS.md): default
+`results/experiments/YYYYMMDD_<workflow.experiment_id>[_N]/`, with independent
+`step_1`/`step_2` data and shared metadata/logs/final QC. Existing results below
+are historical and remain in place.
+
 The `results/raw/`, `results/analysis/`, and `results/processed/` trees are now
 machine-local and ignored by Git. Files already present remain on disk, but new
 clones obtain data separately from the code repository.

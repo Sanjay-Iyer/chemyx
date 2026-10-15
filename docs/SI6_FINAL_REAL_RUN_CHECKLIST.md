@@ -79,7 +79,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File offline\install_offline.ps1
    Verify output permission without starting instruments:
 
 ```powershell
-python -c "from pathlib import Path; from tempfile import TemporaryFile; p=Path('results/runs/si6_two_stage'); p.mkdir(parents=True,exist_ok=True); f=TemporaryFile(dir=p); f.write(b'write check'); f.close(); print('Output writable')"
+python -c "from pathlib import Path; from tempfile import TemporaryFile; p=Path('results/experiments'); p.mkdir(parents=True,exist_ok=True); f=TemporaryFile(dir=p); f.write(b'write check'); f.close(); print('Output writable')"
 python scripts\02_si6_experiment.py --validate-config --workflow-config configs\experiments\si6_real_two_stage.yaml --machine-config configs\machines\si6_real_COM4.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
 ```
 
@@ -96,12 +96,18 @@ HOME=0 is **inside the flask**, UP=1 is out. DOWN is HOME=0. With no encoder or
 HOME switch, saved position and matching motor replies are software estimates.
 They do not independently prove physical needle height.
 
-If establishing HOME, physically place the stationary needle at the desired
-sampling depth first, then answer `y` to this command. It does not move the motor:
+Use the same HOME command for ordinary homing and position recovery:
 
 ```powershell
-python arduino\scripts\needle_control.py set-home --live --config arduino\configs\arduino_real_COM3.yaml
+python arduino\scripts\needle_control.py home --live --config arduino\configs\arduino_real_COM3.yaml
 ```
+
+With a valid saved reference it asks once and moves to absolute zero. If tracking
+is UNKNOWN, it checks communication/idle state, then asks you to physically place
+and verify the stationary needle at the correct sampling depth. Answer its single
+`y` to establish that position as zero **without movement**. Both paths verify
+saved-record readback and controller readiness before clearing position uncertainty.
+`set-home` remains available to explicitly redefine zero even with a valid record.
 
 If the saved reference is still valid on the same unchanged rig, keep it. Inspect
 status and exercise the absolute movements with one `y` per requested movement:
@@ -117,6 +123,15 @@ Repeated UP/DOWN commands remain at 1/0. Re-establish HOME after uncertain or
 interrupted motion, manual untracked repositioning, changed mounting/direction,
 or a power event that could have moved the mechanism. Never mark an arbitrary
 position as HOME merely to bypass a failure.
+The [HOME operating guide](../arduino/docs/HOME_RECOVERY.md) explains both paths.
+Each attempt prints a unique Arduino recovery journal, preserving prior faults
+and recording operator confirmation or completed movement. Old experiment journals
+remain unchanged. A `needle_state.json.home_pending.json` marker blocks startup
+after interrupted/failed verification; rerun HOME after inspection, do not delete
+the marker. HOME does not clear pump faults, dose reservations or unrelated
+controller faults. An unresolved STOP failure needs a verified standalone STOP
+before HOME can proceed. Status and STOP still have no prompt; the main experiment
+still has its single startup `y` and never silently resets unknown position.
 
 ## Verify communication and start
 
@@ -151,34 +166,46 @@ protected dose and cleanup with no additional prompts. No acknowledgment flags.
 
 The console reports experiment/stage/observation, operational elapsed time,
 solvent result, target area or UNAVAILABLE, endpoint and fallback status. Latest
-status is `operator_status.json` in the unique run directory. Detailed evidence:
+status is `logs/live_status.json` in the unique run directory. Detailed evidence:
 
 ```text
-results/runs/si6_two_stage/<timestamp>_si6_live[/unique suffix]/
-  metadata/run_metadata.json        ID, start commit, source hashes, UTC start/end
-  config_snapshot.json             actual recipe used
-  instrument_settings_snapshot.json
-  arduino_config_snapshot.json
-  operator_status.json             latest concise operational status
-  operation_journal.jsonl           durable operations, STOPs, errors, decisions
-  run_state.json                   reconstructible journal state
-  time_series.csv                  target/solvent/fallback/acquisition evidence
-  raw_nmr/                         original retrieved acquisitions
-  processed_nmr/                   analysis or explicit missing-sample evidence
-  stages/stage_1/                  stage tables, endpoint/solvent evidence
-  transition/channel2_addition.json
-  stages/stage_2/
-  final_qc/                        QC report, CSV/JSON and dataset-titled plots
-  final_nmr_summary/               supplemental summary after services close
+results/experiments/20261015_exp1/
+  metadata/experiment_info.json     physical ID, suffix, full path, local/UTC times
+  metadata/configuration_snapshot.yaml
+  metadata/instrument_settings_snapshot.json
+  metadata/arduino_config_snapshot.json
+  metadata/software_version.json  start commit and source hashes
+  logs/live_status.json            latest concise operational status
+  logs/experiment_journal.jsonl    durable operations, STOPs, errors, decisions
+  logs/run_state.json              reconstructible journal state
+  logs/experiment.log
+  step_1/nmr_raw/                  original retrieved acquisitions
+  step_1/nmr_processed/            analysis or missing-sample evidence
+  step_1/analysis/                 time series, endpoint/solvent/QC evidence
+  step_1/figures/                  stage plots
+  step_1/logs/operations.jsonl
+  channel_2_dose/dose_record.json
+  step_2/                         same subdirectories as step_1
+  final_qc/summary.json            final operational status and end reasons
+  final_qc/full_time_series.csv    cross-stage target/solvent/timing evidence
+  final_qc/figures/                cross-stage and QC plots
+  final_qc/nmr_summary/            supplemental summary after services close
 ```
 
 The actual run folder is printed by the CLI. Before it finishes, choose the
-newest matching live directory and verify `metadata/run_metadata.json` has the
+newest matching local start in `metadata/experiment_info.json` and verify it has the
 intended experiment ID. NMR plots use JCAMP LONG DATE only; operational elapsed
 time is separately labeled and never substituted for acquisition metadata.
 Metadata retains the shared/local processing YAML at startup; per-spectrum
 processing JSON records the actual applied numerical parameters. The Git commit
 is captured at startup, not replaced if a checkout changes while the process runs.
+
+Set `workflow.experiment_id` in the existing experiment YAML for a new physical
+reaction. `output.run_root_dir` defaults to `results/experiments` and is configurable.
+Repeated executions allocate `_1`, `_2`, etc. without overwriting; both still refer
+to the original physical ID and its canonical dose reservation. A repeated reaction
+is refused before instruments open. Folder date is captured once from local time;
+it is independent of JCAMP timing. See [output details](SI6_EXPERIMENT_OUTPUTS.md).
 
 Three missing solvent observations latch fallback for that stage. It keeps
 sampling to `max_hours` from that stage's original start, beyond the normal
@@ -197,7 +224,7 @@ count/time limit without an endpoint stops; it does not authorize a dose.
 | Missing solvent | Review warning/raw spectra and flask/liquid path. Automation follows configured fallback; it cannot diagnose evaporation uniquely. Do not treat unavailable areas as zero. |
 | NMR transport timeout/error | Run stops and performs return/cleanup only when states are proven. Inspect NMR/vendor status and the named acquisition; do not start another scan blindly. |
 | Pump uncertainty or failed STOP | Do not command needle/pump recovery. Inspect/disconnect driver power as appropriate, reconcile actual retained volumes and review the journal. |
-| Interrupted needle motion/unknown state | No automatic recovery. Inspect and physically restore a safe reference, then explicitly use `set-home`. |
+| Interrupted needle motion/unknown state | No automatic movement. Inspect and physically restore the sampling position, then run `home` and answer its single manual-reference confirmation. |
 | Interrupted Python/power loss | Preserve the entire run directory and dose/needle records. Inspect the physical rig before any command. A saved estimate cannot rule out missed steps or drift. |
 | Existing dose reservation/receipt | Do not delete it, change the ID for the same reaction or retry the dose. No automatic partial-run resume exists. Reconcile dose delivery from journal/receipt and physical contents. |
 | New, separately prepared reaction | After reconciliation, use a new experiment ID and reviewed initial volumes. Retain previous records. |
@@ -218,8 +245,8 @@ python scripts\02_si6_automated_nmr.py --inspect-run ACTUAL_RUN_DIRECTORY --rebu
 
 ## After completion
 
-Check the final console classification, `metadata/run_metadata.json`, stage-end
-reasons, `transition/channel2_addition.json`, `final_qc/qc_report.md` and the
+Check the final console classification, `metadata/experiment_info.json`, stage-end
+reasons, `channel_2_dose/dose_record.json`, `final_qc/qc_report.md` and the
 journal. Preserve raw/processed data and all physical-state/dose records. Archive
 the actual loaded YAMLs with the run. Software validation does not establish real
 dose accuracy, immersion depth, sample delivery, spectral thresholds or yield.

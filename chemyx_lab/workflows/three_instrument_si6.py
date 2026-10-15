@@ -52,6 +52,7 @@ from ..analysis.si6_stage_reports import write_stage_reports
 from ..analysis.si6_final_qc import write_final_qc
 from ..analysis.solvent_presence import solvent_config, solvent_presence, record_sample_presence
 from ..run_metadata import begin_run, finish_run, publish_observation
+from ..experiment_paths import allocate_experiment, resolve_output_root, journal_path, ExperimentRecorder
 
 # A real spectrum acquired through this workflow's iFlow acquisition path on
 # 2026-08-10. Production process_fid finds the tracked resonance in it at
@@ -117,12 +118,21 @@ class RunIdentity:
 
 
 def run_root(raw: dict[str, Any], identity: RunIdentity) -> Path:
-    """Live results use output.run_root_dir; mocks use a sibling ``_mock`` folder."""
-    root = config.resolve_repo_path(raw["output"]["run_root_dir"])
+    """Main executions share the configured root; legacy mocks use a sibling."""
+    root = resolve_output_root(raw["output"]["run_root_dir"])
+    if identity.kind == "si6" and raw.get("workflow", {}).get("experiment_id"):
+        return root
     return root.with_name(f"{root.name}_mock") if identity.mock else root
 
 
 def create_identified_run(raw: dict[str, Any], identity: RunIdentity) -> base.RunPaths:
+    if identity.kind == "si6" and raw.get("workflow", {}).get("experiment_id"):
+        stages = base.build_stages(raw["workflow"])
+        layout = allocate_experiment(run_root(raw, identity), raw["workflow"]["experiment_id"], [s.name for s in stages])
+        return base.RunPaths(layout.root, layout.root / "step_1" / "nmr_raw", layout.final_qc / "figures",
+                             layout.final_qc / "full_time_series.csv", layout.final_qc / "spectra_long.csv",
+                             layout.logs / "operations.csv", layout.metadata / "manifest.json",
+                             layout.logs / "experiment_journal.jsonl", layout.logs / "run_state.json", layout=layout)
     return base.create_run_paths(run_root(raw, identity), label=identity.label)
 
 
@@ -343,6 +353,13 @@ class Services:
     def record(self, name: str, **fields: Any) -> dict:
         return self.recorder.record(name, **fields)
 
+    def persist_rows(self, rows):
+        base.write_csv(self.paths.time_series_csv, rows, base.TIME_SERIES_COLUMNS)
+        if self.paths.layout:
+            for stage in self.paths.layout.stage_names:
+                selected = [r for r in rows if r.get("stage") == stage or r.get("stage", "").startswith(stage + "_")]
+                base.write_csv(self.paths.for_stage(stage).time_series_csv, selected, base.TIME_SERIES_COLUMNS)
+
     def assert_pump_idle(self) -> None:
         for ch, state in self.states.items():
             if state.motion_active or state.uncertain or state.persistence_errors:
@@ -441,7 +458,7 @@ class Services:
                 pass
         if self.first_acquisition_at is None and acquired is not None:
             self.first_acquisition_at = acquired
-        processed = self.paths.run_dir / "processed_nmr" / f"{path.stem}_sample_unconfirmed"
+        processed = self.paths.for_stage(stage).processed_dir / f"{path.stem}_sample_unconfirmed"
         processed.mkdir(parents=True, exist_ok=True)
         write_json_atomic(processed / "sample_presence.json", evidence)
         row = dict(iteration=cycle, stage=stage, stage_iteration=len(history)+1,
@@ -457,7 +474,7 @@ class Services:
         record_sample_presence(row, history, self.raw["solvent_monitor"], evidence)
         row["solvent_evidence_path"] = str((processed / "sample_presence.json").relative_to(self.paths.run_dir))
         endpoint = completion_evidence([*history, row], spec.completion) if spec.completion else {"complete": False}
-        evidence_path = self.paths.run_dir / "stages" / stage / "evidence" / f"{cycle:04d}.json"
+        evidence_path = self.paths.evidence_dir(stage, "evidence") / f"{cycle:04d}.json"
         write_json_atomic(evidence_path, endpoint)
         row["completion_evidence_path"] = str(evidence_path.relative_to(self.paths.run_dir))
         self.record("solvent_presence", workflow_phase=stage, cycle_number=cycle, present=False,
@@ -471,7 +488,7 @@ class Services:
                         duration_hours=spec.max_hours, result_classification="timed_fallback_latched")
         self.record("stage_completion_evidence", workflow_phase=stage, cycle_number=cycle, evidence=endpoint, result_path=row["completion_evidence_path"])
         rows.append(row)
-        base.write_csv(self.paths.time_series_csv, rows, base.TIME_SERIES_COLUMNS)
+        self.persist_rows(rows)
         self.last_analysis_completed_at = self.simulation.now() if self.simulation else datetime.now(timezone.utc)
         self.measurement_step = None
         return row, path, processed
@@ -484,7 +501,8 @@ class Services:
         """
         self.measurement_step = "NMR acquisition"
         self.last_acquisition_started_at = self.simulation.now() if self.simulation else datetime.now(timezone.utc)
-        path = self.acquire(self.nmr_cfg, self.paths.raw_dir, label=f"{stage}_{cycle:04d}")
+        stage_paths = self.paths.for_stage(stage)
+        path = self.acquire(self.nmr_cfg, stage_paths.raw_dir, label=f"{stage}_{cycle:04d}")
         self.last_acquisition_completed_at = self.simulation.now() if self.simulation else datetime.now(timezone.utc)
         self.last_acquisition_completed_monotonic = self.simulation.monotonic() if self.simulation else time.monotonic()
         if progress:
@@ -510,7 +528,7 @@ class Services:
         if sample_evidence is not None and not sample_evidence["present"]:
             return self.untrusted_sample(path, stage, cycle, rows, sample_evidence)
         self.measurement_step = "NMR processing"
-        processed = self.process(path, self.paths, self.dataset_name)
+        processed = self.process(path, stage_paths, self.dataset_name)
         if not processed.is_dir():
             raise VerificationError("NMR process_fid output directory is missing")
         self.record("analysis_result", workflow_phase=stage, cycle_number=cycle, analysis_type=getattr(self.process, "last_kind", "process_fid_full_spectrum"), result_classification="completed", result_path=str(processed.relative_to(self.paths.run_dir)))
@@ -543,7 +561,7 @@ class Services:
         if ("peak_tracking" in self.raw["analysis"] or area_only) and not self.simulation:
             row, spectrum = dict(metadata), []
         else:
-            row, spectrum = self.analyze(path, processed, self.paths, self.raw["analysis"], metadata)
+            row, spectrum = self.analyze(path, processed, stage_paths, self.raw["analysis"], metadata)
         stage_spec = next((item for item in base.build_stages(self.raw["workflow"]) if item.name == stage), None)
         stage_rows = [r for r in rows if r.get("stage") == stage]
         if area_only and not self.simulation:
@@ -559,7 +577,7 @@ class Services:
             row["diagnostic_notes"] = "; ".join(v for v in (row.get("diagnostic_notes"), timing_note) if v)
         if sample_evidence is not None:
             record_sample_presence(row, stage_rows, self.raw["solvent_monitor"], sample_evidence)
-            solvent_path = self.paths.run_dir / "stages" / stage / "solvent_evidence" / f"{cycle:04d}.json"
+            solvent_path = self.paths.evidence_dir(stage, "solvent_evidence") / f"{cycle:04d}.json"
             write_json_atomic(solvent_path, sample_evidence)
             row["solvent_evidence_path"] = str(solvent_path.relative_to(self.paths.run_dir))
             self.record("solvent_presence", workflow_phase=stage, cycle_number=cycle,
@@ -590,7 +608,7 @@ class Services:
             row["plateau"] = evidence["complete"]
             row["trend"] = stage_spec.completion["trend"]
             row["normalized_area"] = row["peak_area"] / evidence["normalization_area"] if evidence.get("normalization_area") and row["peak_area"] is not None else ""
-            evidence_path = self.paths.run_dir / "stages" / stage / "evidence" / f"{cycle:04d}.json"
+            evidence_path = self.paths.evidence_dir(stage, "evidence") / f"{cycle:04d}.json"
             write_json_atomic(evidence_path, evidence)
             row["completion_evidence_path"] = str(evidence_path.relative_to(self.paths.run_dir))
             if row.get("tracking_evidence_path"):
@@ -604,9 +622,9 @@ class Services:
         if row.get("tracking_evidence_path"):
             row["tracking_evidence_path"] = str(Path(row["tracking_evidence_path"]).relative_to(self.paths.run_dir))
         rows.append(row)
-        base.write_csv(self.paths.time_series_csv, rows, base.TIME_SERIES_COLUMNS)
+        self.persist_rows(rows)
         if spectrum:
-            base.append_spectra(self.paths.spectra_csv, spectrum)
+            base.append_spectra(stage_paths.spectra_csv, spectrum)
         self.record("analysis_result", workflow_phase=stage, cycle_number=cycle, result_classification="valid", analysis_result=dict(summary, growth_percent=row["growth_percent"]), plateau_progress={"plateau_reached": row["plateau"], "required_intervals": stage_spec.completion.get("consecutive_iterations", stage_spec.completion.get("consecutive_confirmations")) if stage_spec and stage_spec.completion else self.raw["analysis"].get("plateau_consecutive_intervals", 0)})
         self.last_analysis_completed_at = self.simulation.now() if self.simulation else datetime.now(timezone.utc)
         self.measurement_step = None
@@ -759,7 +777,7 @@ class MockProcessFid:
             self.last_kind = "process_fid_full_spectrum"
             return processed
         source_dir, source_name = cached
-        output = paths.run_dir / "processed_nmr" / f"{dx_path.stem}_mock_reused"
+        output = paths.processed_dir / f"{dx_path.stem}_mock_reused"
         output.mkdir(parents=True)
         for suffix in ("peaks_simple.csv", "peak_qc_log_window.csv"):
             table = _process_fid_table(source_dir, suffix)
@@ -803,7 +821,7 @@ def validate_stage_policy(stages: list[base.Stage]) -> None:
 
 def _journal_mode(run_dir: Path) -> str | None:
     try:
-        with (run_dir / "operation_journal.jsonl").open(encoding="utf-8") as handle:
+        with journal_path(run_dir).open(encoding="utf-8") as handle:
             first = handle.readline()
     except OSError:
         return None
@@ -818,7 +836,7 @@ def unresolved_previous_live_run(raw: dict[str, Any]) -> Any | None:
     root = config.resolve_repo_path(raw["output"]["run_root_dir"])
     if not root.is_dir():
         return None
-    candidates = sorted((p for p in root.iterdir() if (p / "operation_journal.jsonl").is_file()), key=lambda p: p.name, reverse=True)
+    candidates = sorted((p for p in root.iterdir() if journal_path(p).is_file()), key=lambda p: journal_path(p).stat().st_mtime_ns, reverse=True)
     for run_dir in candidates:
         if _journal_mode(run_dir) == "mock":
             continue
@@ -925,10 +943,12 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
     channel_states = {ch: base.PumpSafetyState(float(settings["initial_retained_volume_ml"]), channel=ch) for ch, settings in definitions.items()}
     paths = create_identified_run(raw, identity)
     recorder = base.create_run_recorder(paths)
-    write_json_atomic(paths.run_dir / "config_snapshot.json", raw)
+    if paths.layout:
+        recorder = ExperimentRecorder(recorder, paths.layout)
+    write_json_atomic(paths.metadata_dir / "config_snapshot.json", raw)
     nmr_snapshot = {key: str(value) if isinstance(value, Path) else value for key, value in asdict(nmr_cfg).items()}
-    write_json_atomic(paths.run_dir / "instrument_settings_snapshot.json", {"pump_channels": {str(ch): asdict(cfg) for ch, cfg in channel_configs.items()}, "nmr": nmr_snapshot})
-    write_json_atomic(paths.run_dir / "arduino_config_snapshot.json", {k: v for k, v in arduino_cfg.items() if not k.startswith("_")})
+    write_json_atomic(paths.metadata_dir / "instrument_settings_snapshot.json", {"pump_channels": {str(ch): asdict(cfg) for ch, cfg in channel_configs.items()}, "nmr": nmr_snapshot})
+    write_json_atomic(paths.metadata_dir / "arduino_config_snapshot.json", {k: v for k, v in arduino_cfg.items() if not k.startswith("_")})
     write_json_atomic(paths.manifest_json, manifest_payload(paths, identity, raw, []))
     begin_run(paths, raw, identity, config.REPO_ROOT, config_sources, software_version=recorder.journal.software_version)
     initial_channels = {
@@ -941,16 +961,19 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
                   "motion_active": False, "uncertain": False}
         for ch, state in channel_states.items()
     }
-    recorder.record("phase_transition", previous_state=None, new_state="initializing", workflow_phase="initializing", result_classification=identity.mode, mode=identity.mode, run_kind=identity.kind, diagnostic_selection=identity.selection, default_pump_channel=pump_cfg.channel, pump_channels=initial_channels)
+    recorder.record("phase_transition", previous_state=None, new_state="initializing", workflow_phase="initializing", result_classification=identity.mode, mode=identity.mode, run_kind=identity.kind, run_directory=str(paths.run_dir), experiment_id=raw["workflow"].get("experiment_id"), diagnostic_selection=identity.selection, default_pump_channel=pump_cfg.channel, pump_channels=initial_channels)
     state = channel_states[pump_cfg.channel]
     lock = None
     controller = pump = None
     try:
         guard = None
         if (two_stage and identity.kind == "si6") or soak:
-            guard = DoseGuard(paths.run_dir / "mock_dose_ledger" if mock else config.REPO_ROOT / "runtime" / "si6_doses", raw["workflow"]["experiment_id"], raw, paths.run_dir.name)
+            mock_ledger = run_root(raw, identity) / ".mock_dose_ledger" if paths.layout else paths.run_dir / "mock_dose_ledger"
+            guard = DoseGuard(mock_ledger if mock else config.REPO_ROOT / "runtime" / "si6_doses", raw["workflow"]["experiment_id"], raw, paths.run_dir.name)
             guard.reserve()  # Exclusive, durable admission BEFORE either transport.
             recorder.record("experiment_reserved", **guard.data, ledger_path=str(guard.path))
+            if paths.layout:
+                write_json_atomic(paths.dose_json, dict(guard.data, canonical_ledger_path=str(guard.path)))
         state = channel_states[pump_cfg.channel]
         lock = None
         settings = arduino_cfg["arduino"]
@@ -983,7 +1006,7 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
                     arduino_cfg["motion"], maximum_speed_steps_s=100,
                     maximum_acceleration_steps_s2=300,
                 )
-            needle = controller if read_only_needle else TrackedNeedle(controller, tracked_cfg, state_path=paths.run_dir / "mock_needle_state.json" if mock else None, allow_home_assumption=mock)
+            needle = controller if read_only_needle else TrackedNeedle(controller, tracked_cfg, state_path=paths.logs_dir / "mock_needle_state.json" if mock else None, allow_home_assumption=mock)
             if mock and not read_only_needle:
                 needle.confirm_home(operator_confirmed=True)
             with pump:
@@ -1225,6 +1248,8 @@ def run_stage_actions(s: Services, events: tuple[dict[str, Any], ...], *, stage:
     if not events:
         return cycle
     label = f"{stage}_{phase}"
+    if s.paths.layout:
+        s.recorder.active_phase = label
     pump_channels.validate_stage_actions(s.raw, list(events), label)
     s.assert_pump_idle()
     up, down, _ = positions(s.arduino_cfg, mock=s.mock)
@@ -1253,6 +1278,8 @@ def run_stage_actions(s: Services, events: tuple[dict[str, Any], ...], *, stage:
         s.assert_pump_idle()
         verify_needle(s.needle, up)
         s.record("stage_actions_status", workflow_phase=label, status="COMPLETE")
+        if s.paths.layout:
+            s.recorder.active_phase = stage
         return cycle
     except BaseException as exc:
         s.stop_all(stage=label, cycle=cycle)
@@ -1300,6 +1327,8 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
         return choice
     def stage_runner(stage: base.Stage) -> base.RunOutcome:
         nonlocal cycle
+        if s.paths.layout:
+            s.recorder.active_phase = stage.name
         cycle = run_stage_actions(s, stage.before_monitoring, stage=stage.name, phase="before_monitoring", cycle=cycle, rows=rows, started=started)
         def finish(outcome: base.RunOutcome) -> base.RunOutcome:
             nonlocal cycle
@@ -1313,6 +1342,7 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
                 dose = next(e for e in stage.after_monitoring if e["action"] == "infuse")
                 s.dose_guard.mark("DISPATCH_INTENT", source_stage=stage.name, transition_basis=outcome.stage_outcome.value, channel=2, volume_ml=dose["volume_ml"], rate_ml_min=dose["rate_ml_min"])
                 s.record("dose_dispatch_intent", **s.dose_guard.data)
+                write_json_atomic(s.paths.dose_json, dict(s.dose_guard.data, canonical_ledger_path=str(s.dose_guard.path)))
             cycle = run_stage_actions(s, stage.after_monitoring, stage=stage.name, phase="after_monitoring", cycle=cycle, rows=rows, started=started)
             if stage.completion and stage.after_monitoring:
                 dose = next(e for e in stage.after_monitoring if e["action"] == "infuse")
@@ -1322,7 +1352,7 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
                 # duration from that acquisition, rather than filename timing.
                 elapsed = ((boundary - s.first_acquisition_at).total_seconds() / 3600 if s.simulation else float(rows[-1]["elapsed_hours"]) + (time.monotonic() - s.last_acquisition_completed_monotonic) / 3600) if s.first_acquisition_at is not None and rows[-1].get("elapsed_hours") is not None else None
                 s.transition_evidence = dict(s.dose_guard.data, elapsed_hours=elapsed, timing_source=("unavailable: no JCAMP LONG DATE" if elapsed is None else "virtual journal clock" if s.simulation else "journal boundary aligned to last JCAMP LONG DATE"), confirmation_utc=confirmed["timestamp_utc"])
-                write_json_atomic(s.paths.run_dir / "transition" / "channel2_addition.json", s.transition_evidence)
+                write_json_atomic(s.paths.dose_json, dict(s.transition_evidence, canonical_ledger_path=str(s.dose_guard.path)))
             if stage.completion and not area_only:
                 write_stage_reports(s.paths, rows, stages, dataset=s.dataset_name, transition=s.transition_evidence)
             return outcome
@@ -1337,7 +1367,7 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
                        nmr_acquisition_started_at=s.last_acquisition_started_at.isoformat(timespec="seconds"),
                        nmr_acquisition_completed_at=s.last_acquisition_completed_at.isoformat(timespec="seconds"),
                        analysis_completed_at=s.last_analysis_completed_at.isoformat(timespec="seconds"))
-            base.write_csv(s.paths.time_series_csv, rows, base.TIME_SERIES_COLUMNS)
+            s.persist_rows(rows)
             publish_observation(s.paths, s.raw["workflow"].get("experiment_id", s.dataset_name), stage, schedule, row)
             if stage.completion and not area_only:
                 write_stage_reports(s.paths, rows, stages, dataset=s.dataset_name, transition=s.transition_evidence)
@@ -1420,8 +1450,7 @@ def final_reports(s, rows, stages, outcome):
     """Retrospective work cannot alter an already established terminal decision."""
     try:
         figures = write_final_qc(s.paths, rows, stages, s.raw["qc_reporting"], dataset=s.dataset_name, outcome=outcome, transition=s.transition_evidence)
-        if rows and all(r.get("acquired_at") and r.get("elapsed_hours") is not None for r in rows):
-            figures += write_stage_reports(s.paths, rows, stages, dataset=s.dataset_name, outcome=outcome, transition=s.transition_evidence)
+        figures += write_stage_reports(s.paths, rows, stages, dataset=s.dataset_name, outcome=outcome, transition=s.transition_evidence)
         s.plot_manifest = [*(s.plot_manifest or []), *figures]
         s.write_manifest()
     except Exception as exc:

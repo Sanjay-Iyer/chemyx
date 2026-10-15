@@ -83,7 +83,8 @@ def write_final_qc(paths, rows, stages, reporting, *, dataset, outcome, transiti
         raise ValueError("QC reporting must have affect_workflow=false")
     if not reporting["enabled"]:
         return []
-    directory = paths.run_dir / "final_qc"
+    layout = getattr(paths, "layout", None)
+    directory = layout.final_qc if layout else paths.run_dir / "final_qc"
     directory.mkdir(parents=True, exist_ok=True)
     review = [diagnostic_row(r, reporting, paths.run_dir) for r in rows]
     qc = {"max_noise_fraction": .01, "max_area_uncertainty_fraction": .005}
@@ -120,6 +121,13 @@ def write_final_qc(paths, rows, stages, reporting, *, dataset, outcome, transiti
                "plots_available": can_plot, "stages": stage_summaries,
                "transition": transition, "observations": review}
     write_json(directory / "qc_summary.json", payload)
+    if layout:
+        for stage in stages:
+            selected = [r for r in review if r["stage"] == stage.name]
+            analysis = layout.step(stage.name) / "analysis"
+            write_rows(analysis / "qc_summary.csv", selected)
+            write_json(analysis / "qc_summary.json", {"dataset_display_name": dataset, "stage": stage.name,
+                       "affect_workflow": False, "observations": selected})
     figures = []
     if can_plot:
         import matplotlib
@@ -137,7 +145,7 @@ def write_final_qc(paths, rows, stages, reporting, *, dataset, outcome, transiti
                 ax.plot([r["plot_elapsed_hours"] for r in selected], [r.get(field) if r.get(field) is not None else float("nan") for r in selected], "o-", label=stage.name)
             ax.set(xlabel="Hours from first acquisition (JCAMP LONG DATE)", ylabel=label)
             ax.legend()
-            save_figure(fig, directory / stem, dataset, title, figures)
+            save_figure(fig, (directory / "figures" if layout else directory) / stem, dataset, title, figures)
     write_json(directory / "plot_manifest.json", {"dataset_display_name": dataset, "figures": figures})
     text = [f"# {dataset} Si6 retrospective QC", "", f"Recorded experiment outcome: `{outcome.status.value}`.",
             outcome.message, "",

@@ -238,6 +238,52 @@ class RunPaths:
     manifest_json: Path
     journal_jsonl: Path | None = None
     state_json: Path | None = None
+    layout: Any = None
+    active_stage: str | None = None
+
+    @property
+    def metadata_dir(self):
+        return self.layout.metadata if self.layout else self.run_dir
+
+    @property
+    def logs_dir(self):
+        return self.layout.logs if self.layout else self.run_dir
+
+    @property
+    def processed_dir(self):
+        return self.stage_dir(self.active_stage) / "nmr_processed" if self.layout else self.run_dir / "processed_nmr"
+
+    @property
+    def analysis_dir(self):
+        return self.stage_dir(self.active_stage) / "analysis" if self.layout else self.run_dir
+
+    @property
+    def final_dir(self):
+        return self.layout.final_qc if self.layout else self.run_dir / "final"
+
+    @property
+    def status_json(self):
+        return self.logs_dir / ("live_status.json" if self.layout else "operator_status.json")
+
+    @property
+    def dose_json(self):
+        return self.layout.dose / "dose_record.json" if self.layout else self.run_dir / "transition" / "channel2_addition.json"
+
+    def stage_dir(self, stage):
+        return self.layout.step(stage) if self.layout else self.run_dir / "stages" / stage
+
+    def evidence_dir(self, stage, kind):
+        directory = self.stage_dir(stage)
+        return directory / "analysis" / kind if self.layout else directory / kind
+
+    def for_stage(self, stage):
+        if not self.layout:
+            return self
+        from dataclasses import replace
+        step = self.stage_dir(stage)
+        return replace(self, active_stage=stage, raw_dir=step / "nmr_raw", plots_dir=step / "figures",
+                       time_series_csv=step / "analysis" / "time_series.csv",
+                       spectra_csv=step / "analysis" / "spectra_long.csv", operations_csv=step / "logs" / "operations.csv")
 
 
 @dataclass(frozen=True)
@@ -797,11 +843,11 @@ def run_process_fid_postprocessing(
     QC-passing row is the workflow's measurement.
     """
 
-    output_root = paths.run_dir / "processed_nmr"
+    output_root = paths.processed_dir
     # Full identity avoids collisions between stage-named acquisitions. A short
     # digest keeps Windows paths manageable while preserving the whole identity.
     acquisition_stamp = dx_path.stem[:15] + "_" + hashlib.sha256(dx_path.stem.encode()).hexdigest()[:12]
-    run_name = f"{dataset_display_name}_{acquisition_stamp}_full_spectrum"
+    run_name = f"{acquisition_stamp}_full_spectrum" if paths.layout else f"{dataset_display_name}_{acquisition_stamp}_full_spectrum"
     output_dir = output_root / run_name
     if output_dir.exists():
         raise AnalysisInconclusiveError(f"Refusing to overwrite existing acquisition processing: {output_dir}")
@@ -822,7 +868,7 @@ def run_process_fid_postprocessing(
         f"{PROCESS_FID_REGION[1]:g}",
     ]
     if peak_tracking is not None:
-        tracking_path = paths.run_dir / "peak_tracking_config.json"
+        tracking_path = paths.metadata_dir / "peak_tracking_config.json"
         tracking_path.write_text(json.dumps(peak_tracking, indent=2), encoding="utf-8")
         command += ["--peak-tracking-config", str(tracking_path.resolve())]
     if tracked_window is not None:

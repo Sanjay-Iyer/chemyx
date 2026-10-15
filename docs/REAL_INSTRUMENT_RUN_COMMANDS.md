@@ -145,7 +145,18 @@ python scripts\02_si6_experiment.py --live --workflow-config configs\experiments
 
 Both workflows reuse Channel 1: 8 mL withdraw UP → DOWN → 5 mL withdraw → 10-second wait → NMR → UP → 13 mL return → 5 mL withdraw/5 mL infuse cleanup, at 5 mL/min. NMR remains 8 scans, gain 12, auto-gain false, center 5 ppm, sweep width 20 ppm, target 5.8 ppm.
 
-Chemistry endpoints remain Stage 1: every 120 min, 20 iterations/48 hours, ≤2.5% initial area for 4 solvent-confirmed observations. Stage 2: every 30 min, 20 iterations/4 hours, ≥25% growth then 4 stable observations (3 adjacent changes ≤2%). Without solvent-loss fallback, exhausted limits stop. Three consecutive acquisitions without both solvent signals latch timed fallback: continue sampling to 48 h / 4 h and transition automatically, with chemistry completion unverified. QC is retrospective. Chemistry output is under `results/runs/si6_two_stage/`.
+Chemistry endpoints remain Stage 1: every 120 min, 20 iterations/48 hours, ≤2.5% initial area for 4 solvent-confirmed observations. Stage 2: every 30 min, 20 iterations/4 hours, ≥25% growth then 4 stable observations (3 adjacent changes ≤2%). Without solvent-loss fallback, exhausted limits stop. Three consecutive acquisitions without both solvent signals latch timed fallback: continue sampling to 48 h / 4 h and transition automatically, with chemistry completion unverified. QC is retrospective.
+
+Chemistry results default to `results/experiments/YYYYMMDD_<workflow.experiment_id>/`.
+For example, `20261015_exp1`, then `20261015_exp1_1` and `_2` on repeated execution;
+allocation never overwrites an earlier folder. Change `workflow.experiment_id` for
+a separately prepared reaction; `output.run_root_dir` remains configurable.
+`step_1/` and `step_2/` separate raw NMR, processing, analysis, figures and operation
+logs. `channel_2_dose/dose_record.json` references the unchanged canonical physical-ID
+ledger. Overall metadata, logs and summaries are in `metadata/`, `logs/` and
+`final_qc/`. A suffix never resets dose protection. The CLI prints the exact folder;
+check its `metadata/experiment_info.json` ID, mode and local start time to identify
+the latest execution. See [the exact output tree](SI6_EXPERIMENT_OUTPUTS.md).
 
 ## Configuration and restart notes
 

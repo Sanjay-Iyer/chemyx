@@ -6,6 +6,8 @@ import hashlib
 import importlib.metadata
 import json
 import platform
+import csv
+import yaml
 
 from .runtime_state import write_json_atomic
 
@@ -15,7 +17,7 @@ def utc_now():
 
 
 def begin_run(paths, raw, identity, repository_root, config_sources=None, *, software_version=None):
-    filename = paths.run_dir / "metadata" / "run_metadata.json"
+    filename = paths.run_dir / "metadata" / ("experiment_info.json" if paths.layout else "run_metadata.json")
     versions = {}
     for package in ("pyserial", "PyYAML", "numpy", "scipy", "matplotlib", "nmrglue"):
         try:
@@ -37,14 +39,25 @@ def begin_run(paths, raw, identity, repository_root, config_sources=None, *, sof
                    git_commit=software_version, source_files_sha256=source_hashes, processing_configs_at_start=processing_configs, python_version=platform.python_version(),
                    package_versions=versions, configuration_sources=config_sources or {},
                    configuration_sha256=hashlib.sha256(json.dumps(raw, sort_keys=True).encode()).hexdigest(),
-                   configuration_snapshot="config_snapshot.json", instrument_snapshot="instrument_settings_snapshot.json",
-                   needle_snapshot="arduino_config_snapshot.json", journal="operation_journal.jsonl", status="running",
+                   configuration_snapshot=str((paths.metadata_dir / "config_snapshot.json").relative_to(paths.run_dir)), instrument_snapshot=str((paths.metadata_dir / "instrument_settings_snapshot.json").relative_to(paths.run_dir)),
+                   needle_snapshot=str((paths.metadata_dir / "arduino_config_snapshot.json").relative_to(paths.run_dir)), journal=str(paths.journal_jsonl.relative_to(paths.run_dir)), status="running",
                    position_source="software estimate; no encoder or HOME switch")
+    if paths.layout:
+        layout = paths.layout
+        payload.update(output_layout_version=1, output_directory=str(paths.run_dir),
+                       run_sequence_suffix=layout.suffix, started_at_local=layout.started_at_local.isoformat(),
+                       started_at_utc=layout.started_at_local.astimezone(timezone.utc).isoformat(),
+                       local_start_date=layout.started_at_local.strftime("%Y%m%d"),
+                       timezone_offset=layout.started_at_local.strftime("%z"), stage_names=list(layout.stage_names),
+                       stage_directories={name: str(layout.step(name).relative_to(layout.root)) for name in layout.stage_names},
+                       chemical_completion_verified=False, timed_fallback_occurred=False)
+        (layout.metadata / "configuration_snapshot.yaml").write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+        write_json_atomic(layout.metadata / "software_version.json", {k: payload[k] for k in ("git_commit", "source_files_sha256", "python_version", "package_versions")})
     write_json_atomic(filename, payload)
 
 
 def finish_run(paths):
-    filename = paths.run_dir / "metadata" / "run_metadata.json"
+    filename = paths.run_dir / "metadata" / ("experiment_info.json" if paths.layout else "run_metadata.json")
     payload = json.loads(filename.read_text(encoding="utf-8"))
     events = [json.loads(line) for line in paths.journal_jsonl.read_text(encoding="utf-8").splitlines()]
     terminal = next((e for e in reversed(events) if e["event_type"] == "terminal"), {})
@@ -54,8 +67,34 @@ def finish_run(paths):
                    stages=[{k: e[k] for k in ("workflow_phase", "result_classification", "timestamp_utc", "scheduled_measurement_number") if k in e}
                            for e in events if e["event_type"] == "stage_transition_decision"],
                    dose_confirmed=any(e["event_type"] == "dose_confirmed" for e in events))
+    if paths.layout:
+        payload["ended_at_local"] = datetime.now().astimezone().isoformat()
+        decisions = {e.get("workflow_phase"): e.get("result_classification") for e in events if e["event_type"] == "stage_transition_decision"}
+        payload["stage_end_reasons"] = {name: decisions.get(name, "not_completed") for name in paths.layout.stage_names}
+        for name in paths.layout.stage_names:
+            evidence = {"stage": name, "end_reason": payload["stage_end_reasons"][name],
+                        "events": [e for e in events if e.get("workflow_phase") == name and e["event_type"] in {"stage_transition_decision", "stage_completion_evidence", "solvent_timed_fallback", "monitoring_stage_started"}]}
+            write_json_atomic(paths.stage_dir(name) / "analysis" / "stage_completion.json", evidence)
+        payload["timed_fallback_occurred"] = bool(payload["timed_fallback_stages"]) or any(e["event_type"] == "solvent_timed_fallback" for e in events)
+        payload["chemical_completion_verified"] = payload["status"] == "completed" and not payload["timed_fallback_occurred"] and all(reason == "plateau_reached" for reason in payload["stage_end_reasons"].values())
+        payload["output_paths"] = {"time_series": str(paths.time_series_csv), "journal": str(paths.journal_jsonl),
+                                   "live_status": str(paths.status_json), "channel_2_dose": str(paths.dose_json),
+                                   "step_1": str(paths.run_dir / "step_1"), "step_2": str(paths.run_dir / "step_2")}
+        write_json_atomic(paths.layout.final_qc / "summary.json", payload)
+        with (paths.layout.final_qc / "summary.csv").open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=["experiment_id", "run_id", "stage", "end_reason", "status", "timed_fallback", "chemical_completion_verified"])
+            writer.writeheader()
+            for stage, reason in payload["stage_end_reasons"].items():
+                writer.writerow(dict(experiment_id=payload["experiment_id"], run_id=payload["run_id"], stage=stage,
+                                     end_reason=reason, status=payload["status"], timed_fallback=reason == "timed_fallback_completed", chemical_completion_verified=reason == "plateau_reached"))
+        if paths.dose_json.is_file():
+            dose = json.loads(paths.dose_json.read_text(encoding="utf-8"))
+            dose.update(command_evidence=[e for e in events if e.get("channel") == 2 or e["event_type"].startswith("dose_")],
+                        experiment_status=payload["status"], errors=[e for e in events if e.get("error_message")],
+                        record_updated_at_utc=utc_now())
+            write_json_atomic(paths.dose_json, dose)
     write_json_atomic(filename, payload)
-    status_file = paths.run_dir / "operator_status.json"
+    status_file = paths.status_json
     latest = json.loads(status_file.read_text(encoding="utf-8")) if status_file.exists() else {}
     latest.update(status=payload["status"], ended_at_utc=payload["ended_at_utc"], terminal_classification=payload["terminal_classification"],
                   dose_confirmed=payload["dose_confirmed"], timed_fallback_stages=payload["timed_fallback_stages"])
@@ -73,7 +112,7 @@ def publish_observation(paths, experiment_id, stage, schedule, row):
                    timed_fallback=bool(row.get("stage_timed_fallback")), raw_path=row.get("raw_path"),
                    processed_path=row.get("processed_path"), solvent_evidence_path=row.get("solvent_evidence_path"),
                    status="monitoring", next_action="stage transition after cleanup" if row["plateau"] else "wait for next scheduled acquisition")
-    write_json_atomic(paths.run_dir / "operator_status.json", payload)
+    write_json_atomic(paths.status_json, payload)
     area = "UNAVAILABLE" if row.get("peak_area") is None else f"{row['peak_area']:.6g}"
     print(f"EXPERIMENT: {experiment_id} | STAGE: {stage.name} | OBSERVATION: {number}\n"
           f"Operational elapsed: {elapsed:.3f} h | SOLVENT: {'DETECTED' if row.get('solvent_present', True) else 'NOT CONFIRMED'}\n"

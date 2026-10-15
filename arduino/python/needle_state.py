@@ -40,6 +40,10 @@ class NeedleStateStore:
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
 
+    @property
+    def home_pending_path(self) -> Path:
+        return self.path.with_name(self.path.name + ".home_pending.json")
+
     def load(self) -> NeedleState:
         if not self.path.exists():
             return NeedleState()
@@ -148,6 +152,8 @@ class TrackedNeedle:
         self.speed = int(cfg["motion"]["maximum_speed_steps_s"])
         self.acceleration = int(cfg["motion"]["maximum_acceleration_steps_s2"])
         self.store = NeedleStateStore(state_path or needle["state_path"])
+        if self.store.home_pending_path.exists():
+            raise PositionUncertainError("HOME recovery verification is incomplete; use needle_control.py home to re-establish the reference")
         try:
             self.state = self.store.load()
         except PositionUncertainError:

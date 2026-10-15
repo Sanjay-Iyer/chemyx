@@ -93,14 +93,15 @@ def test_isolated_missing_samples_do_not_latch():
     assert rows[-1]["solvent_missing_streak"] == 0
 
 
-def run_mock(tmp_path, monkeypatch, *, missing_stages, empty=False, recovery=False, duration1=48, duration2=4, interval1=120, interval2=30, acquisition_failure_at=None):
+def run_mock(tmp_path, monkeypatch, *, missing_stages, empty=False, recovery=False, duration1=48, duration2=4, interval1=120, interval2=30, acquisition_failure_at=None, reports=False):
     raw = base.load_si6_config(config.REPO_ROOT / "config_templates/experiments/si6_two_stage_fast_sim.yaml")
     raw["output"]["run_root_dir"] = str(tmp_path / "runs")
     for name, hours, minutes in [("initial_stage", duration1, interval1), ("first_addition_stage", duration2, interval2)]:
         raw["workflow"][name].update(max_hours=hours, interval_minutes=minutes)
     path = tmp_path / "recipe.yaml"
     path.write_text(yaml.safe_dump(raw))
-    monkeypatch.setattr(si6, "final_reports", lambda *a: None)
+    if not reports:
+        monkeypatch.setattr(si6, "final_reports", lambda *a: None)
     monkeypatch.setattr(base, "operator_checkpoint", lambda *a, **k: pytest.fail("unexpected prompt"))
     # Only sample-presence evidence is injected; the shared real pump/needle
     # mock and production scheduler, endpoints, cleanup and dose ledger run.

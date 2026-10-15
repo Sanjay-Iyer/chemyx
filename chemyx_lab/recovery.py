@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from .experiment_paths import journal_path, state_path as run_state_path
 
 from .runtime_state import (
     ReplayIssue,
@@ -53,16 +54,16 @@ class InspectionResult:
 def inspect_run(run_dir: Path, *, rebuild_state: bool = False) -> InspectionResult:
     """Inspect or explicitly rebuild projection data; never initialize hardware."""
     run_dir = Path(run_dir)
-    journal_path = run_dir / "operation_journal.jsonl"
-    state_path = run_dir / "run_state.json"
-    if not journal_path.exists():
+    journal_file = journal_path(run_dir)
+    state_path = run_state_path(run_dir)
+    if not journal_file.exists():
         return InspectionResult(
             run_dir,
             RecoveryClassification.LEGACY_RUN_WITHOUT_JOURNAL,
             snapshot_status="legacy",
         )
 
-    replay = replay_journal(journal_path)
+    replay = replay_journal(journal_file)
     diagnostics = list(replay.warnings) + list(replay.errors)
     snapshot_status = "current"
     try:

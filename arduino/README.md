@@ -35,14 +35,20 @@ flashing 1.2.1, update both `arduino.expected_version` and `firmware.version`
 in the local YAML to `1.2.1`; do not overwrite reviewed calibration.
 
 Python's `TrackedNeedle` in `arduino/python/needle_state.py` owns logical
-position: HOME=0, UP positive, DOWN negative. It stores an atomic JSON estimate
+position: HOME=0 (inside the flask), UP=1 (raised), DOWN=0 (HOME). It stores an atomic JSON estimate
 at `runs/arduino/needle_state.json` by default. The position is not measured:
 there is no encoder or physical HOME. Missing/corrupt state and failed or
-interrupted motion block further movement until inspection and explicit
-`confirm-home`. A valid saved estimate survives Python/computer restarts if
+interrupted motion block automatic movement until inspection and supervised
+`home`. A valid saved estimate survives Python/computer restarts if
 the physical axis has not moved independently.
-If the JSON is corrupt, the explicit `confirm-home` action first preserves it
-as a `.corrupt-*.bak` file, then establishes a new inspected reference.
+The same `home` command handles both situations with one `y`: a valid reference
+permits an absolute move to zero; UNKNOWN tracking requires the operator to
+physically place/verify the stationary needle at zero, then records that
+reference **without movement**. `set-home`/`confirm-home` remain explicit
+reference-setting aliases, including when a valid reference already exists.
+Corrupt JSON is preserved as `.corrupt-*.bak` after confirmation. See the
+[HOME recovery operating guide](docs/HOME_RECOVERY.md) for fault handling and
+the durable recovery journal. No acknowledgment flags are required.
 
 Configure the Arduino COM port, physical UP direction, steps per logical unit,
 speed, named positions, and software limits in the tracked starting point
@@ -50,20 +56,18 @@ speed, named positions, and software limits in the tracked starting point
 `up_step_sign` are deliberately null: inspect/calibrate on the rig before any
 live move. The example -3/+5 bounds are **not** verified physical limits.
 
-From the repository root, in the instrument laptop's `air` environment:
+From the repository root on the instrument laptop, using its verified Python
+environment and the existing calibrated COM3 configuration:
 
 ```powershell
-Copy-Item arduino\configs\arduino.example.yaml arduino\configs\arduino.local.yaml
-python arduino\scripts\test_01_arduino_connection.py --config arduino\configs\arduino.local.yaml --live
-python arduino\scripts\needle_control.py status --live --config arduino\configs\arduino.local.yaml
-python arduino\scripts\needle_control.py confirm-home --live --config arduino\configs\arduino.local.yaml
-python arduino\scripts\needle_control.py up --live --config arduino\configs\arduino.local.yaml
-python arduino\scripts\needle_control.py down --live --config arduino\configs\arduino.local.yaml
-python arduino\scripts\needle_control.py return-home --live --config arduino\configs\arduino.local.yaml
+python arduino\scripts\needle_control.py home --live --config arduino\configs\arduino_real_COM3.yaml
+python arduino\scripts\needle_control.py up --live --config arduino\configs\arduino_real_COM3.yaml
+python arduino\scripts\needle_control.py down --live --config arduino\configs\arduino_real_COM3.yaml
+python arduino\scripts\needle_control.py status --live --config arduino\configs\arduino_real_COM3.yaml
 ```
 
 The physical confirmation step must follow an actual needle inspection. Live
-motion prompts for an exact typed confirmation. `status` never moves the
+HOME and manual motion each prompt for one `y`. `status` never moves the
 needle. `stop` is also available, but the existing 24 V driver-power
 disconnect is the physical stop. `ENABLE`/`DISABLE` in this firmware only arm
 software; they do not control the driver's unwired ENA input.
@@ -80,7 +84,7 @@ python arduino\scripts\needle_control.py manual-down --steps 200 --config arduin
 
 Run **one line at a time**, observe the axis, then decide whether to run the
 other. The script prints the exact signed JOG command and pulse count before
-asking you to type `MANUAL UP 200` or `MANUAL DOWN 200`. Defaults are a
+asking for one `y`. Defaults are a
 100-steps/s ceiling (the historical bridge rate) and a 500-steps/s² firmware
 ramp. That ramp is the firmware's unloaded fallback, not a connected-axis
 measurement; use `--speed` and `--acceleration` for other reviewed values.

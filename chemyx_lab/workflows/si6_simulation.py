@@ -52,7 +52,7 @@ class TrendSimulation:
         return path
 
     def process(self, path, paths, dataset):
-        output = paths.run_dir / "processed_nmr" / f"{path.stem}_simulated_controller_fixture"
+        output = paths.processed_dir / f"{path.stem}_simulated_controller_fixture"
         output.mkdir(parents=True, exist_ok=False)
         (output / "SIMULATION_ONLY.json").write_text(json.dumps(self.last), encoding="utf-8")
         return output

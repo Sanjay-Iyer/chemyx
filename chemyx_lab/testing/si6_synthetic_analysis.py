@@ -218,7 +218,7 @@ class SpectralWorkflowSimulation(TrendSimulation):
         self.rows = []
 
     def process(self, path, paths, dataset):
-        output = paths.run_dir / "processed_nmr" / f"{path.stem}_synthetic_spectrum"
+        output = paths.processed_dir / f"{path.stem}_synthetic_spectrum"
         # Measurement needs acquisition metadata supplied by the shared runner.
         self.pending_area = self.last["area"]
         output.mkdir(parents=True, exist_ok=False)

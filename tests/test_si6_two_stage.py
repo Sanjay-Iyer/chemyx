@@ -114,7 +114,7 @@ def test_scans_cadences_and_trends_honored(complete_run):
         )
         assert all(e["timestamp_source"] == "LONG DATE header" for e in selected)
         summary = json.loads(
-            (paths.run_dir / "stages" / name / "summary.json").read_text()
+            (paths.stage_dir(name) / "analysis" / "summary.json").read_text()
         )
         assert summary["completion"]["complete"]
         assert summary["trend"] == trend
@@ -126,7 +126,7 @@ def test_exactly_one_configured_dose_between_completed_stages(complete_run):
     assert len(doses) == 1
     assert doses[0]["requested_parameters"]["volume"] == 1.8
     receipt = json.loads(
-        (paths.run_dir / "transition/channel2_addition.json").read_text()
+        paths.dose_json.read_text()
     )
     assert receipt["status"] == "CONFIRMED" and receipt["rate_ml_min"] == 1
     confirmation = next(e for e in records if e["event_type"] == "dose_confirmed")
@@ -158,11 +158,11 @@ def test_reports_dataset_titles_manifest_and_independent_csvs(complete_run):
     paths, records, _ = complete_run
     import csv
 
-    final = json.loads((paths.run_dir / "final/experiment_summary.json").read_text())
+    final = json.loads((paths.final_dir / "experiment_summary.json").read_text())
     assert final["status"] == "completed" and final["simulation_only"]
     totals = 0
     for name in ("stage_1", "stage_2"):
-        directory = paths.run_dir / "stages" / name
+        directory = paths.stage_dir(name) / "analysis"
         with (directory / "time_series.csv").open(newline="") as f:
             rows = list(csv.DictReader(f))
         assert len(rows) >= 8 and all(r["stage"] == name for r in rows)
@@ -170,16 +170,16 @@ def test_reports_dataset_titles_manifest_and_independent_csvs(complete_run):
         assert all((paths.run_dir / r["raw_path"]).is_file() for r in rows)
         totals += len(rows)
         for ext in ("png", "svg", "pdf"):
-            assert (directory / f"time_series.{ext}").is_file()
-    with (paths.run_dir / "final/full_time_series.csv").open(newline="") as f:
+            assert (paths.stage_dir(name) / "figures" / f"time_series.{ext}").is_file()
+    with paths.time_series_csv.open(newline="") as f:
         assert len(list(csv.DictReader(f))) == totals
-    manifest = json.loads((paths.run_dir / "final/plot_manifest.json").read_text())
+    manifest = json.loads((paths.final_dir / "plot_manifest.json").read_text())
     assert len(manifest["figures"]) == 15
     for figure in manifest["figures"]:
         assert figure["dataset_display_name"] == paths.run_dir.name
         assert figure["visible_title"].startswith(paths.run_dir.name + " ")
         assert Path(figure["path"]).is_file()
-    svg = (paths.run_dir / "final/full_time_series.svg").read_text()
+    svg = (paths.final_dir / "figures/full_time_series.svg").read_text()
     assert paths.run_dir.name in svg and "Channel-2 addition" in svg
     replay = replay_journal(paths.journal_jsonl)
     assert (
@@ -376,7 +376,7 @@ def test_repository_resource_paths_independent_of_cwd(tmp_path, monkeypatch):
     assert config.resolve_repo_path("configs/nmr/analysis.yaml").is_file()
     assert (
         si6.run_root(recipe(), si6.RunIdentity("si6", False))
-        == config.REPO_ROOT / "results/runs/si6_two_stage_fast_sim"
+        == config.REPO_ROOT / "results/experiments"
     )
 
 

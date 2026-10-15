@@ -4,6 +4,21 @@ The October 14 update uses one startup `y`, the existing saved Arduino HOME
 reference, and an independent solvent-presence check before chemical endpoints.
 The implementation and all validation on HOME use mocks/offline data only.
 
+The subsequent [HOME recovery update](../arduino/docs/HOME_RECOVERY.md) makes the
+existing `home` command sufficient for both known-position movement and a single
+operator-confirmed manual reference when tracking is UNKNOWN. `set-home` remains
+available; it is not an additional prerequisite before every experiment.
+
+New main experiments use [the dated output layout](SI6_EXPERIMENT_OUTPUTS.md):
+`results/experiments/20261015_exp1/`, then `_1`, `_2` without overwriting.
+Change `workflow.experiment_id` for a new physical reaction; the existing
+`output.run_root_dir` controls the root. Step-specific NMR/analysis/evidence is in
+`step_1/` and `step_2/`; `channel_2_dose/dose_record.json` references the shared
+physical-ID ledger. Metadata, journal/live status and final reports live in
+`metadata/`, `logs/` and `final_qc/`. Read the local start time and mode in
+`metadata/experiment_info.json` to select the latest run. Numeric execution suffixes
+never reset dose protection, and there are no new prompts or flags.
+
 ## Needle and manual commands
 
 HOME=0 is in the flask. UP=1 is out of the flask. DOWN is a compatibility alias
@@ -139,7 +154,7 @@ instrument-motion or required persistence checks.
 
 ## Evidence and local checks
 
-`time_series.csv` records `solvent_present`, `solvent_missing_streak`,
+Each `step_*/analysis/time_series.csv` and `final_qc/full_time_series.csv` records `solvent_present`, `solvent_missing_streak`,
 `stage_timed_fallback`, `endpoint_eligible` and `solvent_evidence_path`.
 Untrusted target areas are blank, not zero. Per-acquisition JSON retains the
 solvent peaks, noise, thresholds and raw-data hash when available. The journal

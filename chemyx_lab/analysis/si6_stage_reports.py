@@ -12,9 +12,12 @@ def write_stage_reports(paths, rows, stages, *, dataset, outcome=None, transitio
     import matplotlib.pyplot as plt
     figures = []
     summaries = []
+    layout = getattr(paths, "layout", None)
     for stage in stages:
         selected = [r for r in rows if r["stage"] == stage.name]
-        directory = paths.run_dir / "stages" / stage.name
+        step = layout.step(stage.name) if layout else paths.run_dir / "stages" / stage.name
+        directory = step / "analysis" if layout else step
+        figure_dir = step / "figures" if layout else directory
         directory.mkdir(parents=True, exist_ok=True)
         write_rows(directory / "time_series.csv", selected)
         evidence = completion_evidence(selected, stage.completion)
@@ -22,33 +25,35 @@ def write_stage_reports(paths, rows, stages, *, dataset, outcome=None, transitio
                    "interval_minutes": stage.interval_minutes, "max_hours": stage.max_hours,
                    "dataset_display_name": dataset, "completion": evidence}
         if selected:
+            areas = [r["peak_area"] for r in selected if r.get("peak_area") is not None]
+            initial, current = selected[0].get("peak_area"), selected[-1].get("peak_area")
             summary.update(initial_peak_ppm=selected[0].get("peak_ppm"), current_peak_ppm=selected[-1].get("peak_ppm"),
                            initial_area=selected[0]["peak_area"], current_area=selected[-1]["peak_area"],
                            current_shift_previous_ppm=selected[-1].get("shift_previous_ppm"),
                            current_shift_reference_ppm=selected[-1].get("shift_reference_ppm"),
                            current_peak_detected=selected[-1].get("peak_clear"),
                            current_peak_position_source=selected[-1].get("peak_position_source"),
-                           remaining_fraction=selected[-1]["peak_area"]/selected[0]["peak_area"] if selected[0]["peak_area"]>0 else None,
-                           fraction_of_observed_maximum=selected[-1]["peak_area"]/max(r["peak_area"] for r in selected) if max(r["peak_area"] for r in selected)>0 else None)
+                           remaining_fraction=current/initial if current is not None and initial is not None and initial>0 else None,
+                           fraction_of_observed_maximum=current/max(areas) if current is not None and areas and max(areas)>0 else None)
         write_json_atomic(directory / "summary.json", summary)
         summaries.append(summary)
-        if selected:
+        if selected and all(r.get("elapsed_hours") is not None for r in selected):
             fig, ax = plt.subplots(figsize=(8, 4), layout="constrained")
             x = [float(r["elapsed_hours"]) - float(selected[0]["elapsed_hours"]) for r in selected]
-            y = [float(r["peak_area"]) for r in selected]
-            ax.errorbar(x, y, yerr=[float(r.get("area_uncertainty", 0)) for r in selected], fmt="o-")
+            y = [float(r["peak_area"]) if r.get("peak_area") is not None else float("nan") for r in selected]
+            ax.errorbar(x, y, yerr=[float(r.get("area_uncertainty") or 0) for r in selected], fmt="o-")
             ax.set(xlabel="Hours from first stage acquisition (JCAMP LONG DATE)", ylabel="Tracked peak area (a.u.)")
-            title = save_figure(fig, directory / "time_series", dataset, f"{stage.name} {stage.completion['trend']} Time Series", figures)
+            title = save_figure(fig, figure_dir / "time_series", dataset, f"{stage.name} {stage.completion['trend']} Time Series", figures)
             summary["visible_title"] = title
             fig, ax = plt.subplots(figsize=(8, 4), layout="constrained")
             ax.plot(x, [r.get("peak_ppm", float("nan")) if r.get("peak_clear") else float("nan") for r in selected], "o-")
             ax.set(xlabel="Hours from first stage acquisition (JCAMP LONG DATE)", ylabel="Tracked peak center (ppm)")
-            save_figure(fig, directory / "peak_ppm_time_series", dataset, f"{stage.name} Tracked Peak Position vs Time", figures)
+            save_figure(fig, figure_dir / "peak_ppm_time_series", dataset, f"{stage.name} Tracked Peak Position vs Time", figures)
             write_json_atomic(directory / "summary.json", summary)
-    final = paths.run_dir / "final"
+    final = layout.final_qc if layout else paths.run_dir / "final"
     final.mkdir(exist_ok=True)
     write_rows(final / "full_time_series.csv", rows)
-    if rows:
+    if rows and all(r.get("elapsed_hours") is not None for r in rows):
         fig, ax = plt.subplots(figsize=(9, 4), layout="constrained")
         for stage in stages:
             selected = [r for r in rows if r["stage"] == stage.name]
@@ -57,7 +62,7 @@ def write_stage_reports(paths, rows, stages, *, dataset, outcome=None, transitio
             ax.axvline(transition["elapsed_hours"], color="black", ls="--", label="Channel-2 addition (journal boundary)")
         ax.set(xlabel="Hours from first acquisition (JCAMP LONG DATE)", ylabel="Tracked peak area (a.u.)")
         ax.legend()
-        save_figure(fig, final / "full_time_series", dataset, "Two-stage Reaction Time Series", figures)
+        save_figure(fig, (final / "figures" if layout else final) / "full_time_series", dataset, "Two-stage Reaction Time Series", figures)
     summary = {"schema": "chemyx.si6-two-stage-summary.v1", "dataset_display_name": dataset,
                "status": outcome.status.value if outcome else "running", "stages": summaries,
                "transition": transition, "timing_source": "JCAMP LONG DATE; dose boundary is journal time",

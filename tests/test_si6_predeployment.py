@@ -126,7 +126,7 @@ def test_explicit_validate_config_is_mutually_exclusive_with_live(monkeypatch):
     assert exc.value.code == 2
 
 
-@pytest.mark.parametrize("action,target", [("set-home", 0), ("home", 0), ("up", 1), ("down", 0)])
+@pytest.mark.parametrize("action,target", [("up", 1), ("down", 0)])
 @pytest.mark.parametrize("answer", ["y", "n"])
 def test_manual_live_actions_have_one_prompt_before_transport(monkeypatch, tmp_path, action, target, answer):
     module = load_script("arduino/scripts/needle_control.py", monkeypatch)
@@ -164,9 +164,13 @@ def test_stop_with_corrupt_state_still_sends_stop_and_preserves_bytes(tmp_path, 
     path.write_text("{corrupt")
     cfg["needle"]["state_path"] = str(path)
     stopped = []
+    statuses = iter([{"moving": "true"}, {"moving": "false"}])
     @contextmanager
     def session(*a, **k):
-        yield SimpleNamespace(status=lambda: {"moving": "true"}, stop=lambda: stopped.append(True))
+        def stop():
+            stopped.append(True)
+            return SimpleNamespace(fields={"stopped": "true"})
+        yield SimpleNamespace(status=lambda: next(statuses), stop=stop)
     monkeypatch.setattr(module, "load_arduino_config", lambda *a: cfg)
     monkeypatch.setattr(module, "controller_session", session)
     monkeypatch.setattr("builtins.input", lambda *a: pytest.fail("STOP prompted"))
@@ -180,14 +184,15 @@ def test_explicit_home_reset_preserves_corrupt_record_and_sends_no_motion(tmp_pa
     path = tmp_path / "state.json"
     path.write_text("{corrupt")
     cfg["needle"]["state_path"] = str(path)
+    cfg["results"]["run_root_dir"] = str(tmp_path / "manual_runs")
     @contextmanager
     def session(*a, **k):
         assert not k["allow_motion"]
-        yield SimpleNamespace(status=lambda: {"moving": "false", "fault": "NONE"}, jog=lambda *a: pytest.fail("set-home moved motor"))
+        yield SimpleNamespace(overall_timeout_s=59, ping=lambda: None, status=lambda: {"moving": "false", "fault": "NONE", "limit_up": "false", "limit_down": "false"}, jog=lambda *a: pytest.fail("set-home moved motor"))
     monkeypatch.setattr(module, "load_arduino_config", lambda *a: cfg)
     monkeypatch.setattr(module, "controller_session", session)
     prompts = []
-    monkeypatch.setattr(module, "confirm_live", lambda text: prompts.append(text))
+    monkeypatch.setattr("builtins.input", lambda text: prompts.append(text) or "y")
     assert module.main(["set-home", "--live"]) == 0
     assert len(prompts) == 1
     backup, = tmp_path.glob("state.json.corrupt-*.bak")
@@ -234,7 +239,7 @@ def test_run_metadata_and_status_expose_timed_completion_without_secrets(tmp_pat
     outcome, services, events, rows = run_mock(tmp_path, monkeypatch, missing_stages={"stage_1", "stage_2"}, empty=True,
                                               duration1=3, interval1=60, duration2=2, interval2=30)
     assert outcome.status is base.TerminalStatus.COMPLETED
-    metadata_path = services.paths.run_dir / "metadata/run_metadata.json"
+    metadata_path = services.paths.run_dir / "metadata/experiment_info.json"
     metadata = json.loads(metadata_path.read_text())
     assert metadata["experiment_id"] == "SIMULATION_ONLY"
     assert metadata["git_commit"] == events[0].get("software_version")
@@ -243,11 +248,11 @@ def test_run_metadata_and_status_expose_timed_completion_without_secrets(tmp_pat
     assert metadata["timed_fallback_stages"] == ["stage_1", "stage_2"]
     assert len(metadata["stages"]) == 2
     assert datetime.fromisoformat(metadata["ended_at_utc"]) >= datetime.fromisoformat(metadata["started_at_utc"])
-    status_path = services.paths.run_dir / "operator_status.json"
+    status_path = services.paths.status_json
     status = json.loads(status_path.read_text())
     assert status["target_area"] is None and status["timed_fallback"]
     assert status["terminal_classification"] == "timed_fallback_completed"
-    for name in (metadata_path, status_path, services.paths.journal_jsonl, services.paths.run_dir / "config_snapshot.json"):
+    for name in (metadata_path, status_path, services.paths.journal_jsonl, services.paths.metadata_dir / "config_snapshot.json"):
         assert "TEST_SECRET_MUST_NOT_BE_LOGGED" not in name.read_text()
 
 
@@ -264,7 +269,7 @@ def test_pre_transport_failure_is_logged_and_metadata_closed(tmp_path, monkeypat
     with pytest.raises(RuntimeError, match="reservation failed"):
         with si6.open_services(*prepared, identity=si6.RunIdentity("si6", True)):
             pytest.fail("entered services")
-    metadata_path, = tmp_path.rglob("metadata/run_metadata.json")
+    metadata_path, = tmp_path.rglob("metadata/experiment_info.json")
     metadata = json.loads(metadata_path.read_text())
     assert metadata["status"] == "failed" and metadata["ended_at_utc"]
 
@@ -334,7 +339,7 @@ def test_communications_check_never_assumes_home_and_disables_motion(tmp_path):
     with si6.open_services(*prepared, identity=si6.RunIdentity("diagnostic", True, "communications")) as services:
         si6.preflight(services, check_nmr=False)
         assert "logical_position" not in services.needle.status()
-        assert not (services.paths.run_dir / "mock_needle_state.json").exists()
+        assert not (services.paths.logs_dir / "mock_needle_state.json").exists()
         with pytest.raises(Exception):
             services.needle.jog(1, 100)
         assert not any(" JOG " in command for command in services.needle.transport.tx_log)

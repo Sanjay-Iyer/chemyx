@@ -60,7 +60,12 @@ def simulate():
     settings = list(si6.prepare(config.REPO_ROOT / "config_templates/experiments/si6_two_stage_fast_sim.yaml",
                                config.REPO_ROOT / "config_templates/machines/si6_instrument_settings.example.yaml",
                                config.REPO_ROOT / "arduino/configs/arduino.example.yaml", mock=True))
-    settings[0]["output"]["run_root_dir"] = "test_tmp_offline_validation/runs"
+    # Each validator invocation models a separately prepared mock rig. Within
+    # its output root the physical-ID reservation still blocks repeated dosing.
+    scratch = config.REPO_ROOT / "test_tmp_offline_validation"
+    scratch.mkdir(parents=True, exist_ok=True)
+    session = Path(tempfile.mkdtemp(prefix="mock_session_", dir=scratch))
+    settings[0]["output"]["run_root_dir"] = str(session / "runs")
     with si6.open_services(*settings, identity=si6.RunIdentity("si6", True)) as services:
         outcome = si6.run_experiment(services)
         print(f"SIMULATION: {outcome.status.value}; {services.paths.run_dir}")
@@ -95,7 +100,7 @@ def copied_directory_test():
         # Preserve a compact evidence report outside the disposable copy.
         report = config.REPO_ROOT / "test_tmp_offline_validation/copied_directory_report.json"
         report.parent.mkdir(parents=True, exist_ok=True)
-        runs = list((destination / "test_tmp_offline_validation/runs_mock").glob("*/final/experiment_summary.json"))
+        runs = list((destination / "test_tmp_offline_validation").rglob("final_qc/experiment_summary.json"))
         summary = json.loads(runs[0].read_text()) if len(runs) == 1 else None
         report.write_text(json.dumps({"copied_root": str(destination), "exit_code": result.returncode,
                                      "summary": summary, "log_tail": log.read_text()[-2000:]}, indent=2), encoding="utf-8")
@@ -123,6 +128,7 @@ def main():
                                  "tests/test_runtime_journal.py", "tests/test_si6_synthetic_analysis.py",
                                  "tests/test_si6_final_validator.py", "tests/test_si6_profile.py",
                                  "tests/test_si6_solvent_fallback.py", "tests/test_si6_predeployment.py",
+                                 "tests/test_experiment_output_paths.py", "arduino/tests/test_home_recovery.py",
                                  "-q", "-p", "no:cacheprovider",
                                  "--basetemp", str(test_temp)], cwd=config.REPO_ROOT)
         if result.returncode:

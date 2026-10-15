@@ -62,9 +62,11 @@ recovery; there is no automatic partial-run resume.
 - [Final HOME validation evidence](SI6_FINAL_HOME_VALIDATION_REPORT.md)
 - [Offline requirements](OFFLINE_REQUIREMENTS.md), [handoff](SI6_TWO_STAGE_HANDOFF.md)
 
-Normal runs use the experiment's `output.run_root_dir`; mocks use its `_mock`
-sibling. Within each run: `stages/stage_1`, `stages/stage_2`, `transition`, `final`
-and `operation_journal.jsonl`. Synthetic validation outputs are local/ignored;
+Main runs and mocks use `output.run_root_dir` (default `results/experiments`)
+with local-date plus `workflow.experiment_id`, adding `_1`, `_2` when needed.
+Within each run: `step_1`, `step_2`, `channel_2_dose`, `metadata`, `logs`, and
+`final_qc`. See [the exact output tree and dose-ID rules](SI6_EXPERIMENT_OUTPUTS.md).
+Synthetic validation outputs are local/ignored;
 rerun the one command after pull/copy to regenerate them.
 
 Still unverified: physical Chemyx channel addressing/delivery, syringe calibration,
