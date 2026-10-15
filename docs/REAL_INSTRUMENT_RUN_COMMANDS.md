@@ -31,10 +31,10 @@ python scripts\01_three_instrument_system_test.py --live --communications-only -
 Physically place and inspect the stationary needle at its existing HOME reference, then register it:
 
 ```powershell
-python arduino\scripts\needle_control.py confirm-home --live --config arduino\configs\arduino_real_COM3.yaml
+python arduino\scripts\needle_control.py set-home --live --config arduino\configs\arduino_real_COM3.yaml
 ```
 
-**Expected:** Enter `y` after inspection; logical position 0, valid true. This registers the current position; it does not search for a home switch. Existing positions remain HOME=0, UP=1, DOWN=-1, 200 steps/unit.
+**Expected:** Enter `y` after inspection; logical position 0, valid true. This registers the current position; it does not search for a home switch. Existing positions remain HOME=0 (in flask), UP=1 (out of flask), DOWN=0 (alias for HOME), 200 steps/unit.
 
 ## Step 3 — Channel 1 short integrated test
 
@@ -145,7 +145,7 @@ python scripts\02_si6_experiment.py --live --workflow-config configs\experiments
 
 Both workflows reuse Channel 1: 8 mL withdraw UP → DOWN → 5 mL withdraw → 10-second wait → NMR → UP → 13 mL return → 5 mL withdraw/5 mL infuse cleanup, at 5 mL/min. NMR remains 8 scans, gain 12, auto-gain false, center 5 ppm, sweep width 20 ppm, target 5.8 ppm.
 
-Chemistry endpoints remain Stage 1: every 120 min, 20 iterations/48 hours, ≤2.5% initial area for 3 observations. Stage 2: every 30 min, 20 iterations/12 hours, ≥25% growth then 4 stable observations (3 adjacent changes ≤2%). Exhausted limits stop rather than authorize chemistry progression. QC is retrospective. Chemistry output is under `results/runs/si6_two_stage/`.
+Chemistry endpoints remain Stage 1: every 120 min, 20 iterations/48 hours, ≤2.5% initial area for 4 solvent-confirmed observations. Stage 2: every 30 min, 20 iterations/4 hours, ≥25% growth then 4 stable observations (3 adjacent changes ≤2%). Without solvent-loss fallback, exhausted limits stop. Three consecutive acquisitions without both solvent signals latch timed fallback: continue sampling to 48 h / 4 h and transition automatically, with chemistry completion unverified. QC is retrospective. Chemistry output is under `results/runs/si6_two_stage/`.
 
 ## Configuration and restart notes
 
@@ -160,3 +160,5 @@ Each soak/reaction config identifies one physical run. The existing durable ledg
 All source/config files above are Git-trackable and require no ignored local config. They must be committed/pushed before another laptop receives them through Git. Run data and physical-state history remain local.
 
 Optional quick configuration load, without opening hardware: use the same soak command above with `--live` omitted.
+
+See [the October 14 startup and solvent-loss update](SI6_SOLVENT_FALLBACK_UPDATE.md) for the detector settings, saved HOME reference, removed acknowledgment flags and exact timed-transition rules.

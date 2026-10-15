@@ -806,22 +806,20 @@ def write_run(root, name, mode, *events):
     return run_dir
 
 
-def test_unresolved_live_run_blocks_the_next_live_run_until_acknowledged(tmp_path):
+def test_unresolved_live_run_is_advisory_without_acknowledgement_flag(tmp_path):
     root = tmp_path / "si6"
     raw = {"output": {"run_root_dir": str(root)}}
     write_run(root, "20260922_090000_si6_live", "live", ("cycle_status", {"status": "CLEANUP_COMPLETE"}), ("terminal", {"terminal_status": "completed", "physical_state_certainty": "certain"}))
-    assert integrated.check_previous_run_review(raw, None) is None
+    assert integrated.check_previous_run_review(raw) is None
     write_run(root, "20260922_100000_si6_live", "live", ("cycle_status", {"status": "STARTED"}), ("terminal", {"terminal_status": "failed", "physical_state_certainty": "requires_inspection"}))
     # A newer mock run never gates or hides a live one.
     write_run(root, "20260922_110000_si6_mock", "mock", ("cycle_status", {"status": "STARTED"}))
-    with pytest.raises(LiveExecutionBlocked, match="--acknowledge-review 20260922_100000_si6_live"):
-        integrated.check_previous_run_review(raw, None)
-    assert integrated.check_previous_run_review(raw, "20260922_100000_si6_live").run_dir.name == "20260922_100000_si6_live"
+    assert integrated.check_previous_run_review(raw).run_dir.name == "20260922_100000_si6_live"
+    assert integrated.check_previous_run_review(raw).run_dir.name == "20260922_100000_si6_live"
 
 
-def test_operator_review_after_measurement_failure_blocks_the_next_live_run(tmp_path):
+def test_previous_measurement_review_is_advisory(tmp_path):
     root = tmp_path / "si6"
     raw = {"output": {"run_root_dir": str(root)}}
     write_run(root, "20260922_120000_si6_live", "live", ("cycle_status", {"status": "CLEANUP_COMPLETE"}), ("terminal", {"terminal_status": "analysis_inconclusive", "physical_state_certainty": "certain", "operator_review_required": True}))
-    with pytest.raises(LiveExecutionBlocked, match="operator review required"):
-        integrated.check_previous_run_review(raw, None)
+    assert integrated.check_previous_run_review(raw).run_dir.name == "20260922_120000_si6_live"

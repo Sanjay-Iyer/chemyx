@@ -16,19 +16,27 @@ def main(argv=None) -> int:
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--mock", action="store_true")
     modes.add_argument("--live", action="store_true")
-    parser.add_argument("--workflow-config", type=Path, default=config.REPO_ROOT / "configs/experiments/02_si6_automated_nmr.yaml")
+    modes.add_argument("--validate-config", action="store_true", help="Configuration only; never open physical instrument connections")
+    parser.add_argument("--workflow-config", type=Path, help="Run recipe; defaults to current real two-stage YAML, or fast simulation YAML with --mock")
     parser.add_argument("--machine-config", type=Path, default=config.REPO_ROOT / "configs/machines/00_machine.local.yaml")
     parser.add_argument("--arduino-config", type=Path, default=config.REPO_ROOT / "arduino/configs/arduino.local.yaml")
     parser.add_argument("--mock-cycles-per-stage", type=int, default=4)
-    parser.add_argument("--acknowledge-review", metavar="RUN_ID", help="after reconciling a previous live run that requires review, name it to allow this live run")
     args = parser.parse_args(argv)
+    if args.workflow_config is None:
+        args.workflow_config = config.REPO_ROOT / ("config_templates/experiments/si6_two_stage_fast_sim.yaml" if args.mock else "configs/experiments/si6_real_two_stage.yaml")
     mode = "LIVE" if args.live else "MOCK" if args.mock else "VALIDATE ONLY"
     print(f"Si6 EXPERIMENT | {mode}")
     try:
-        raw, arduino, pump, nmr = si6.prepare(args.workflow_config, args.machine_config, args.arduino_config, mock=not args.live, acknowledged_review=args.acknowledge_review)
+        raw, arduino, pump, nmr = si6.prepare(args.workflow_config, args.machine_config, args.arduino_config, mock=not args.live)
+        print(f"EXPERIMENT: {raw['workflow'].get('experiment_id', raw['workflow']['name'])}\n"
+              f"Recipe: {args.workflow_config}\nMachine: {args.machine_config}\nArduino: {args.arduino_config}\n"
+              f"NMR: {nmr.host}:{nmr.port} | scans={nmr.scans} | gain={nmr.receiver_gain} | auto_gain={nmr.auto_gain}")
         stages = si6.base.build_stages(raw["workflow"])
-        for stage in stages:
-            print(f"{stage.name}: every {stage.interval_minutes:g} min for up to {stage.max_hours:g} h ({stage.max_measurements} measurements), plateau stop={stage.plateau_stopping_enabled}")
+        for index, stage in enumerate(stages, 1):
+            slots = si6.base.duration_measurement_slots(stage.interval_minutes, stage.max_hours, stage.measure_immediately)
+            print(f"STAGE {index} ({stage.name})\nSampling interval: {stage.interval_minutes:g} minutes\nTimed fallback duration: {stage.max_hours:g} hours\n"
+                  f"Normal observation cap: {stage.max_measurements}\nMaximum scheduled acquisitions within duration: {slots} (fallback; slow cycles can reduce this)\n"
+                  f"Chemical endpoint stopping enabled: {stage.plateau_stopping_enabled}")
         window = si6.tracked_window(raw, nmr)[1]
         confirmations = [stage.completion.get("consecutive_iterations", stage.completion.get("consecutive_confirmations")) for stage in stages if stage.completion]
         stable_intervals = confirmations or raw["analysis"].get("plateau_consecutive_intervals", 3)
@@ -43,7 +51,8 @@ def main(argv=None) -> int:
             if input("Confirm rig at rest, loaded syringes and readiness; start the automatic live Si6 experiment? [y/N]: ").strip().lower() not in ("y", "yes"):
                 raise RuntimeError("Live run not confirmed")
         identity = si6.RunIdentity("si6", args.mock)
-        with si6.open_services(raw, arduino, pump, nmr, identity=identity, fast_mock_processing=args.mock, acknowledged_review=args.acknowledge_review) as services:
+        with si6.open_services(raw, arduino, pump, nmr, identity=identity, fast_mock_processing=args.mock,
+                               config_sources={"workflow": str(args.workflow_config), "machine": str(args.machine_config), "arduino": str(args.arduino_config)}) as services:
             outcome = si6.run_experiment(services, mock_cycles_per_stage=args.mock_cycles_per_stage)
             print(f"Results: {services.paths.run_dir}")
         # Reporting runs only after the instrument session has closed. A report

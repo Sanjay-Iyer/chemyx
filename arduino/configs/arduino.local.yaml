@@ -52,12 +52,12 @@ motion:
   test_02_speed_steps_s: 100
 
 needle:
-  # HOME=0 is wherever the needle is when position is unknown (auto-assumed).
+  # Establish HOME=0 with needle_control.py set-home; HOME is in the liquid.
   min_position: -3
   max_position: 5
   home_position: 0
   up_position: 1                    # UP = +1 unit above HOME
-  down_position: -1                 # DOWN = -1 unit below HOME (in the liquid)
+  down_position: 0                 # DOWN is an alias for HOME, in the liquid
   steps_per_unit: 200               # 200 steps = the proven 90-degree bench move
   up_step_sign: 1                   # +1: manual-up direction (DIR LOW) is UP; -1 to flip
   state_path: runs/arduino/needle_state.json

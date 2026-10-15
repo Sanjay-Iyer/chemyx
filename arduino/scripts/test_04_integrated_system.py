@@ -231,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
             apply_runtime_config=True,
         ) as controller:
             failure_context["firmware_version"] = controller.identity.get("version")
-            needle = TrackedNeedle(controller, run_cfg, state_path=run_dir / "mock_needle_state.json" if mode == "mock" else None)
+            needle = TrackedNeedle(controller, run_cfg, state_path=run_dir / "mock_needle_state.json" if mode == "mock" else None, allow_home_assumption=mode == "mock")
             if mode == "mock":
                 needle.confirm_home(operator_confirmed=True)
                 needle.move_to(run_cfg["needle"]["up_position"])

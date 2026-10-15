@@ -12,6 +12,8 @@ def validate_profile(raw, stages):
     from ..analysis.peak_tracking import tracking_config, identification_config
     area_only = all(s.completion and s.completion.get("method") == "area_only" for s in stages)
     if area_only:
+        from ..analysis.solvent_presence import solvent_config
+        solvent_config(raw.get("solvent_monitor"))
         identification_config(raw["analysis"].get("peak_finding"))
         if raw["analysis"].get("peak_area") != {"method": "trapezoid"}:
             raise ValueError("analysis.peak_area.method must be trapezoid")

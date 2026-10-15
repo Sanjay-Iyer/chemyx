@@ -12,9 +12,12 @@ Real hardware was not contacted during this restructuring.
 
 ## Three-instrument Si6 entry points
 
+Primary deployment/operator checklist: [SI6_FINAL_REAL_RUN_CHECKLIST.md](docs/SI6_FINAL_REAL_RUN_CHECKLIST.md).
+
 For the current two-stage workflow (Channel1 sampling, one Channel2 addition,
 then Channel1 sampling), use the [real instrument runbook](docs/REAL_INSTRUMENT_RUN_COMMANDS.md) for ready-made COM4/COM6 configs and copy/paste commands.
-Current control uses moving trapezoidal area only: Stage 1 near zero for 3 observations, Stage 2 growth followed by 4 stable observations, 20 iterations maximum per stage. One start confirmation runs both stages; QC is saved in `final_qc/` for review. See the [implementation report](docs/SI6_AREA_ONLY_IMPLEMENTATION.md).
+Current control uses moving trapezoidal area only: Stage 1 near zero for 4 solvent-confirmed observations, Stage 2 growth followed by 4 stable observations, 20 normal endpoint observations maximum per stage. After 3 consecutive missing solvent acquisitions, sampling continues to the configured duration (48 h / 4 h in the real recipe), followed by automatic stage transition; chemistry completion is reported as unverified. Needle positions are HOME=0 in the flask and UP=1 out of the flask. One start confirmation runs both stages; QC is saved in `final_qc/` for review. See the [implementation report](docs/SI6_AREA_ONLY_IMPLEMENTATION.md).
+See [startup and solvent fallback update](docs/SI6_SOLVENT_FALLBACK_UPDATE.md) for exact rules and manual needle commands.
 For more detail, see [Si6 start here](docs/SI6_START_HERE.md),
 [script map](docs/SI6_SCRIPT_USER_GUIDE.md) and
 [configuration guide](docs/SI6_CONFIG_USER_GUIDE.md).

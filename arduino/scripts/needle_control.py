@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 from copy import deepcopy
+from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 
 import _bootstrap  # noqa: F401
@@ -20,7 +22,7 @@ DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / "configs" / "arduino.loca
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("status", "confirm-home", "up", "down", "return-home", "stop", "manual-up", "manual-down"))
+    parser.add_argument("action", choices=("status", "home", "set-home", "confirm-home", "up", "down", "return-home", "stop", "manual-up", "manual-down"))
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--steps", type=int, help="Positive physical STEP pulses for one manual jog")
     parser.add_argument("--speed", type=int, default=100, help="Manual jog ceiling in steps/s (default: 100)")
@@ -31,7 +33,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     cfg = load_arduino_config(args.config)
     mode_name = "live" if args.live else "mock"
-    action = args.action
+    action = {"home": "return-home", "set-home": "confirm-home"}.get(args.action, args.action)
     if action in ("manual-up", "manual-down"):
         if args.steps is None:
             parser.error("manual-up/manual-down require --steps")
@@ -70,8 +72,24 @@ def main(argv: list[str] | None = None) -> int:
                               "up_step_sign": cfg["needle"].get("up_step_sign") or 1})
         cfg["motion"].update({"maximum_speed_steps_s": cfg["motion"].get("maximum_speed_steps_s") or 100,
                               "maximum_acceleration_steps_s2": cfg["motion"].get("maximum_acceleration_steps_s2") or 300})
-    with controller_session(cfg, mode_name, allow_motion=action in ("up", "down", "return-home"), apply_runtime_config=True) as controller:
+    with controller_session(cfg, mode_name, allow_motion=action in ("up", "down", "return-home"), apply_runtime_config=action not in ("status", "stop")) as controller:
         state_path = Path(cfg["results"]["run_root_dir"]) / "mock_needle_state.json" if args.mock else Path(cfg["needle"]["state_path"])
+        if action == "stop":
+            # STOP must not depend on a readable/valid software position record.
+            try:
+                moving = controller.status().get("moving") != "false"
+            except Exception:
+                moving = True
+            controller.stop()
+            try:
+                saved = NeedleStateStore(state_path).load()
+            except PositionUncertainError:
+                print("STOP sent; corrupt position record retained. Re-establish HOME after inspection.")
+                return 0
+            if moving:
+                NeedleStateStore(state_path).save(replace(saved, position_valid=False, reason="manual_stop_during_possible_motion", last_updated=datetime.now(timezone.utc).isoformat()))
+            print("STOP sent. No HOME reference was inferred.")
+            return 0
         if action == "status":
             saved = NeedleStateStore(state_path).load()
             firmware = controller.status()
@@ -79,20 +97,27 @@ def main(argv: list[str] | None = None) -> int:
                   f"valid={str(saved.position_valid).lower()}; source=software_estimate; "
                   f"firmware moving={firmware['moving']}; fault={firmware['fault']}")
             return 0
+        if action == "confirm-home":
+            try:
+                NeedleStateStore(state_path).load()
+            except PositionUncertainError:
+                backup = NeedleStateStore(state_path).quarantine_corrupt()
+                print(f"Corrupt state retained at {backup}; explicit physical HOME reset will establish a new reference")
         try:
-            needle = TrackedNeedle(controller, cfg, state_path=state_path)
+            needle = TrackedNeedle(controller, cfg, state_path=state_path,
+                                   allow_home_assumption=args.mock or action == "confirm-home")
         except PositionUncertainError:
             if action != "confirm-home":
                 raise
             backup = NeedleStateStore(state_path).quarantine_corrupt()
             print(f"Corrupt state retained at {backup}; physically inspected HOME will establish a new reference")
-            needle = TrackedNeedle(controller, cfg, state_path=state_path)
+            needle = TrackedNeedle(controller, cfg, state_path=state_path, allow_home_assumption=True)
         if action == "confirm-home":
             needle.confirm_home(operator_confirmed=True)
         elif action == "up":
-            needle.needle_up()
+            needle.move_to(cfg["needle"]["up_position"])
         elif action == "down":
-            needle.needle_down()
+            needle.move_to(cfg["needle"]["down_position"])
         elif action == "return-home":
             needle.return_to_home()
         elif action == "stop":

@@ -180,10 +180,10 @@ def validate_config_structure(cfg: dict[str, Any]) -> None:
         if type(needle.get(key)) is not int:
             raise ConfigurationError(f"needle.{key} must be an integer")
     if needle["home_position"] != 0 or not (
-        needle["min_position"] <= needle["down_position"] < 0
+        needle["min_position"] <= needle["down_position"] <= 0
         < needle["up_position"] <= needle["max_position"]
     ):
-        raise ConfigurationError("Needle positions must satisfy min <= DOWN < HOME=0 < UP <= max")
+        raise ConfigurationError("Needle positions must satisfy min <= DOWN <= HOME=0 < UP <= max")
     if needle.get("steps_per_unit") is not None and not _positive_integer(needle["steps_per_unit"]):
         raise ConfigurationError("needle.steps_per_unit must be a positive integer")
     if needle.get("up_step_sign") is not None and (type(needle["up_step_sign"]) is not int or needle["up_step_sign"] not in (-1, 1)):

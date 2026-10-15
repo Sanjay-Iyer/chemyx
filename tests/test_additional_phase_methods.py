@@ -117,6 +117,11 @@ def test_all_added_arrays_metrics_and_protected_existing_methods():
     for name in ('protected_before.csv','raw_copies_before.csv','historical_processed_before.csv'):
         for row in v.read_rows(log/name):
             path=Path(row['path'])
+            # Old audit manifests also contain disposable pytest scratch files.
+            # They may have been removed or have another sandbox's ACLs; they
+            # are not historical experimental data or portable source evidence.
+            if any(part.startswith(('.codex_pytest_temp_', 'test_tmp_')) for part in path.parts):
+                continue
             allowed=(path.parent==gallery and path.name in allowed_indexes) or path==gallery/'MANUAL_PHASE_REVIEW_GUIDE.md'
             assert sha256(path)==row['sha256_before'] or allowed,str(path)
 
@@ -184,6 +189,10 @@ def test_explicit_checkpoint_comparison_isolated_from_real_human_reviews(tmp_pat
     # Exercise the accepted save path only inside a clearly labelled temporary
     # software fixture. No checkpoint is created in the real validation gallery.
     import shutil
+    def saved_human_checkpoints():
+        return {str(path):sha256(path) for r in g.discover_acquisitions(v.DEFAULT_OUTPUT)
+                for path in g.manual_status(v.DEFAULT_OUTPUT/'phase_validation'/r['acquisition_id'])[1]}
+    before_human_checkpoints=saved_human_checkpoints()
     source=v.DEFAULT_OUTPUT/'phase_validation/20260609_110823_d14e2a0c'
     folder=tmp_path/'SOFTWARE_FIXTURE_ONLY';folder.mkdir()
     output=folder/'manual/review_fixture';output.mkdir(parents=True)
@@ -204,7 +213,7 @@ def test_explicit_checkpoint_comparison_isolated_from_real_human_reviews(tmp_pat
     assert len(comparisons)==8 and {r['automatic_method'] for r in comparisons}==set((*g.METHODS,*a.NEW_METHODS))
     assert (output/'all_automatic_vs_manual_overlay.png').is_file()
     assert sha256(protected)==before
-    assert sum(len(g.manual_status(v.DEFAULT_OUTPUT/'phase_validation'/r['acquisition_id'])[1]) for r in g.discover_acquisitions(v.DEFAULT_OUTPUT))==0
+    assert saved_human_checkpoints()==before_human_checkpoints
 
 
 def test_actual_deep_backends_agree_and_models_are_pinned():

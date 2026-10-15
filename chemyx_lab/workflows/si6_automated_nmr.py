@@ -73,6 +73,7 @@ TIME_SERIES_COLUMNS = [
     "nmr_scans", "receiver_gain", "auto_gain",
     "observation_recorded", "diagnostic_notes", "asymmetry", "negative_area",
     "phase_method", "phase_p0_deg", "phase_p1_deg", "qc_pass", "low_snr_warning", "high_noise_warning",
+    "solvent_present", "solvent_missing_streak", "stage_timed_fallback", "endpoint_eligible", "solvent_evidence_path",
 ]
 
 
@@ -106,6 +107,7 @@ EXIT_CODES = {
 
 
 class StageOutcome(str, Enum):
+    TIMED_FALLBACK_COMPLETED = "timed_fallback_completed"
     SCHEDULED_MONITORING_COMPLETED = "scheduled_monitoring_completed"
     PLATEAU_REACHED = "plateau_reached"
     PLATEAU_NOT_REACHED_WITHIN_LIMIT = "plateau_not_reached_within_limit"
@@ -251,9 +253,12 @@ def load_si6_config(path: Path, *, allow_soak: bool = False) -> dict[str, Any]:
     raw = config.read_mapping_config(path, "Si6 experiment config")
     required = {"workflow", "pump", "nmr", "analysis", "output"}
     missing = sorted(required - set(raw))
-    unknown = sorted(set(raw) - required - {"three_instrument", "simulation", "qc_reporting"} - ({"soak_test"} if allow_soak else set()))
+    unknown = sorted(set(raw) - required - {"three_instrument", "simulation", "qc_reporting", "solvent_monitor"} - ({"soak_test"} if allow_soak else set()))
     if missing:
         raise ValueError(f"Missing Si6 config section(s): {', '.join(missing)}")
+    if "solvent_monitor" in raw:
+        from ..analysis.solvent_presence import solvent_config
+        solvent_config(raw["solvent_monitor"])
     if unknown:
         raise ValueError(f"Unknown Si6 config section(s): {', '.join(unknown)}")
     if allow_soak:
@@ -498,6 +503,11 @@ def _parse_stage(value: Any, label: str) -> Stage:
         section.get("interval_minutes"), f"{label}.interval_minutes"
     )
     max_hours = _positive(section.get("max_hours"), f"{label}.max_hours")
+    try:
+        timedelta(hours=max_hours)
+        timedelta(minutes=interval_minutes)
+    except OverflowError as exc:
+        raise ValueError(f"{label} duration/interval exceeds supported clock range") from exc
     measure_immediately = _required_bool(
         section.get("measure_immediately"), f"{label}.measure_immediately"
     )
@@ -516,7 +526,7 @@ def _parse_stage(value: Any, label: str) -> Stage:
         last_scheduled_minutes = interval_minutes * (
             max_measurements - 1 if measure_immediately else max_measurements
         )
-        if max_hours * 60 <= last_scheduled_minutes:
+        if not area_only and max_hours * 60 <= last_scheduled_minutes:
             raise ValueError(
                 f"{label}.max_hours must extend beyond the last scheduled "
                 f"measurement at {last_scheduled_minutes:g} minutes"
@@ -594,6 +604,8 @@ def _positive(value: Any, label: str) -> float:
 
 
 def _nonnegative(value: Any, label: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{label} must be a number, not Boolean")
     try:
         number = float(value)
     except (TypeError, ValueError) as exc:
@@ -611,12 +623,16 @@ def create_run_paths(
     stamp = (now or datetime.now()).strftime("%Y%m%d_%H%M%S")
     run_dir = Path(root) / f"{stamp}_{label}"
     suffix = 1
-    while run_dir.exists():
-        run_dir = Path(root) / f"{stamp}_{label}_{suffix:02d}"
-        suffix += 1
+    while True:
+        try:
+            run_dir.mkdir(parents=True)
+            break
+        except FileExistsError:
+            run_dir = Path(root) / f"{stamp}_{label}_{suffix:02d}"
+            suffix += 1
     raw_dir = run_dir / "raw_nmr"
     plots_dir = run_dir / "plots"
-    raw_dir.mkdir(parents=True)
+    raw_dir.mkdir()
     plots_dir.mkdir(parents=True)
     return RunPaths(
         run_dir, raw_dir, plots_dir, run_dir / "time_series.csv",
@@ -1425,6 +1441,7 @@ def run_monitoring_stage(
     monotonic_fn: Callable[[], float] = time.monotonic,
     wall_now_fn: Callable[[], datetime] = datetime.now,
     sleep_fn: Callable[[str, float], None] = sleep_with_progress,
+    timed_fallback_fn: Callable[[], bool] | None = None,
 ) -> MonitoringResult:
     """Run one stage on fixed start-to-start monotonic deadlines."""
     stage_started_monotonic = monotonic_fn()
@@ -1457,8 +1474,18 @@ def run_monitoring_stage(
             **monitoring_fields,
         )
 
-    for measurement_number in range(1, stage.max_measurements + 1):
-        offset = scheduled_measurement_offset_seconds(stage, measurement_number)
+    measurement_number = 0
+    def duration_outcome():
+        if timed_fallback_fn is not None and timed_fallback_fn():
+            return RunOutcome(TerminalStatus.COMPLETED,
+                              f"Stage {stage.name} completed its configured {stage.max_hours:g} h duration under solvent-loss fallback; chemistry completion unverified.",
+                              StageOutcome.TIMED_FALLBACK_COMPLETED)
+        return maximum_duration_outcome(stage)
+    while measurement_number < stage.max_measurements or (timed_fallback_fn is not None and timed_fallback_fn()):
+        measurement_number += 1
+        offset = (scheduled_measurement_offset_seconds(stage, measurement_number)
+                  if measurement_number <= stage.max_measurements else
+                  stage.interval_minutes * 60.0 * (measurement_number - (1 if stage.measure_immediately else 0)))
         scheduled_monotonic = stage_started_monotonic + offset
         scheduled_wall = stage_started_wall + timedelta(seconds=offset)
         if recorder is not None:
@@ -1470,7 +1497,7 @@ def run_monitoring_stage(
                 ),
                 **monitoring_fields,
             )
-        remaining = scheduled_monotonic - monotonic_fn()
+        remaining = min(scheduled_monotonic, hard_deadline) - monotonic_fn()
         if remaining > 0:
             sleep_fn(
                 f"until scheduled measurement {measurement_number}", remaining
@@ -1478,11 +1505,11 @@ def run_monitoring_stage(
         actual_start_monotonic = monotonic_fn()
         actual_start_wall = wall_now_fn()
         if actual_start_monotonic >= hard_deadline:
-            outcome = maximum_duration_outcome(stage)
+            outcome = duration_outcome()
             if recorder is not None:
                 recorder.record(
                     "stage_transition_decision",
-                    result_classification=StageOutcome.RUNTIME_LIMIT_REACHED.value,
+                    result_classification=outcome.stage_outcome.value,
                     scheduled_measurement_number=measurement_number,
                     **monitoring_fields,
                 )
@@ -1599,14 +1626,14 @@ def run_monitoring_stage(
                 outcome, measurement_number, attempts, valid_count
             )
 
-        if stage.completion and stage.completion.get("method") == "area_only" and measurement_number == stage.max_measurements:
+        if stage.completion and stage.completion.get("method") == "area_only" and measurement_number == stage.max_measurements and not (timed_fallback_fn is not None and timed_fallback_fn()):
             break # Consuming the final slot reports the iteration limit first.
         if analysis_finished_monotonic >= hard_deadline:
-            outcome = maximum_duration_outcome(stage)
+            outcome = duration_outcome()
             if recorder is not None:
                 recorder.record(
                     "stage_transition_decision",
-                    result_classification=StageOutcome.RUNTIME_LIMIT_REACHED.value,
+                    result_classification=outcome.stage_outcome.value,
                     scheduled_measurement_number=measurement_number,
                     **monitoring_fields,
                 )

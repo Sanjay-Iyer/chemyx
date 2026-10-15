@@ -86,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
                 missing.append("Documented operator inspection after the latest failed live motion")
             require_live("LIVE NEEDLE AXIS TEST", missing)
             validate_axis_geometry(run_cfg)
-            confirm_live("Run Arduino Test 3")
+            confirm_live("Physically placed needle at HOME=0; establish reference and run Arduino Test 3" if args.confirm_home else "Run Arduino Test 3 using saved HOME")
         deadline = HardDeadline(min(120.0, run_cfg["safety"]["hard_runtime_limit_s"]))
         with controller_session(
             run_cfg,
@@ -96,10 +96,8 @@ def main(argv: list[str] | None = None) -> int:
             apply_runtime_config=True,
         ) as controller:
             failure_context["firmware_version"] = controller.identity.get("version")
-            needle = TrackedNeedle(controller, run_cfg, state_path=run_dir / "mock_needle_state.json" if mode == "mock" else None)
+            needle = TrackedNeedle(controller, run_cfg, state_path=run_dir / "mock_needle_state.json" if mode == "mock" else None, allow_home_assumption=mode == "mock" or args.confirm_home)
             if mode == "mock" or args.confirm_home:
-                if mode == "live":
-                    confirm_live("Set current needle position as HOME=0")
                 needle.confirm_home(operator_confirmed=True)
             state = run_test_03(needle, run_cfg, deadline)
             return state, controller.identity.get("version"), {"software_home_confirmed": mode == "mock" or args.confirm_home}, serialized_events(controller)

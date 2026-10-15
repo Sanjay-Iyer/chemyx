@@ -106,6 +106,11 @@ def main() -> int:
     )
     client = NmrRpcClient(rpc_cfg)
 
+    if not args.dry_run:
+        if input("Start the live NMR acquisition? [y/N]: ").strip().lower() not in ("y", "yes"):
+            print("Acquisition declined before contacting NMR.")
+            return 3
+
     try:
         print(
             "NMR settings: "

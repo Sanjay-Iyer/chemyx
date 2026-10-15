@@ -12,8 +12,8 @@ workflow:
     volume_ml: 8.0
     rate_ml_min: 5.0
   - action: operator
-    position: DOWN
-    prompt: Lower needle.
+    position: HOME
+    prompt: Move needle to HOME (in flask).
   - action: withdraw
     channel: 1
     volume_ml: 5.0
@@ -41,7 +41,9 @@ workflow:
     name: stage_1
     operator_prompt: Confirm rig at rest, loaded syringes and readiness for Stage
       1.
+    # Stage 1 scheduled cycle-start spacing (minutes).
     interval_minutes: 120
+    # EDIT HERE: Stage 1 timed fallback duration from Stage 1 startup (hours).
     max_hours: 48
     measure_immediately: true
     plateau_stopping_enabled: true
@@ -50,23 +52,25 @@ workflow:
       trend: decreasing
       max_iterations: 20
       near_zero_fraction: 0.025
-      consecutive_iterations: 3
+      consecutive_iterations: 4
       epsilon: 1.0e-12
     after_monitoring:
     - action: needle
-      position: DOWN
+      position: HOME
     - action: infuse
       channel: 2
       volume_ml: 1.8
       rate_ml_min: 1.0
-      needle_position: DOWN
+      needle_position: HOME
     - action: needle
       position: UP
   first_addition_stage:
     name: stage_2
     operator_prompt: Automatic Stage 2 entry after confirmed Channel 2 dose.
+    # Stage 2 scheduled cycle-start spacing (minutes).
     interval_minutes: 30
-    max_hours: 12
+    # EDIT HERE: Stage 2 timed fallback duration from Stage 2 startup (hours).
+    max_hours: 4
     measure_immediately: true
     plateau_stopping_enabled: true
     completion:
@@ -162,3 +166,15 @@ three_instrument:
   test_withdraw_ml: 0.5
   test_infuse_ml: 0.5
   initial_plateau_stopping_enabled: true
+
+solvent_monitor:
+  consecutive_missing: 3
+  minimum_height: 10000.0
+  minimum_prominence: 5000.0
+  minimum_snr: 10.0
+  windows_ppm: [[1.90, 2.25], [6.80, 7.10]]
+  noise_windows_ppm: [[3.0, 4.0], [8.0, 9.0]]
+  # Center limits and agreement of shifts exclude the strong ~7.12 ppm neighbor.
+  expected_centers_ppm: [2.08, 6.99]
+  maximum_shift_ppm: [0.15, 0.10]
+  maximum_pair_shift_difference_ppm: 0.04

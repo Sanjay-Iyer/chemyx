@@ -45,19 +45,35 @@ def sanitize_error_message(value: Any, limit: int = 1000) -> str:
 
 
 def discover_git_commit(repository_root: Path) -> str | None:
-    """Read the current loose Git ref without invoking Git or any network."""
+    """Read loose/packed refs, worktrees or a verified release export, offline."""
     try:
-        head = (Path(repository_root) / ".git" / "HEAD").read_text(
-            encoding="ascii"
-        ).strip()
+        root = Path(repository_root)
+        git_dir = root / ".git"
+        if git_dir.is_file():
+            pointer = git_dir.read_text(encoding="ascii").strip()
+            if not pointer.startswith("gitdir: "):
+                return None
+            git_dir = (root / pointer[8:]).resolve()
+        if not git_dir.exists():
+            release = json.loads((root / "RELEASE_VERSION.json").read_text(encoding="utf-8"))
+            value = release.get("commit", "")
+            return value.lower() if re.fullmatch(r"[0-9a-fA-F]{40}", value) else None
+        head = (git_dir / "HEAD").read_text(encoding="ascii").strip()
         if head.startswith("ref: "):
-            ref_path = Path(repository_root) / ".git" / head[5:]
-            value = ref_path.read_text(encoding="ascii").strip()
+            common = git_dir
+            if (git_dir / "commondir").is_file():
+                common = (git_dir / (git_dir / "commondir").read_text().strip()).resolve()
+            ref_path = common / head[5:]
+            if ref_path.is_file():
+                value = ref_path.read_text(encoding="ascii").strip()
+            else:
+                refs = (common / "packed-refs").read_text(encoding="ascii").splitlines()
+                value = next((line.split()[0] for line in refs if not line.startswith(("#", "^")) and line.endswith(" " + head[5:])), "")
         else:
             value = head
         if re.fullmatch(r"[0-9a-fA-F]{40}", value):
             return value.lower()
-    except OSError:
+    except (OSError, ValueError, TypeError):
         pass
     return None
 

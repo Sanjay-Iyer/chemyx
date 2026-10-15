@@ -21,8 +21,8 @@ workflow:
     volume_ml: 8.0
     rate_ml_min: 5.0
   - action: operator
-    position: DOWN
-    prompt: Lower needle.
+    position: HOME
+    prompt: Move needle to HOME (in flask).
   - action: withdraw
     channel: 1
     volume_ml: 5.0

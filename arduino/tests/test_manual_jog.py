@@ -61,7 +61,7 @@ def test_manual_jog_sends_exactly_one_signed_command_without_home(tmp_path, dire
     state_path = tmp_path / "needle_state.json"
     NeedleStateStore(state_path).save(NeedleState(
         logical_position=1, position_valid=True, steps_per_unit=20,
-        up_step_sign=1,
+        up_step_sign=1, last_updated="2026-10-14T00:00:00+00:00", reason="motion_completed",
     ))
     observed_validity = []
     with NeedleController(

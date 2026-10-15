@@ -1,5 +1,7 @@
 # Si6 area-only configuration guide
 
+> Current startup, HOME=0/UP=1 geometry and solvent-loss fallback rules are in [SI6_SOLVENT_FALLBACK_UPDATE.md](SI6_SOLVENT_FALLBACK_UPDATE.md). After three missing solvent observations, timed operation overrides the normal count cap and permits an explicitly recorded timed transition.
+
 The full workflow uses `scripts/02_si6_experiment.py` with the selected run YAML.
 One start confirmation launches Stage 1, one Channel 2 addition, then Stage 2.
 The needle lowers/raises automatically; the cycle's `operator` entries encode
@@ -35,23 +37,22 @@ initial_stage:
     trend: decreasing
     max_iterations: 20
     near_zero_fraction: 0.025
-    consecutive_iterations: 3
+    consecutive_iterations: 4
     epsilon: 1.0e-12
   after_monitoring:
   - action: needle
-    position: DOWN
+    position: HOME
   - action: infuse
     channel: 2
     volume_ml: 1.8
     rate_ml_min: 1.0
-    needle_position: DOWN
+    needle_position: HOME
   - action: needle
     position: UP
 ```
 Stage 1 records each identified peak's area. Divide by the first Stage 1 area
-(or epsilon if it is zero). Three consecutive fractions <=0.025 complete the
-stage; a larger observation resets the count. A missing/lost tracked peak in a
-successfully processed spectrum records exactly zero. No bounded-absence,
+(or epsilon if it is zero). Four consecutive solvent-confirmed fractions <=0.025 complete the
+stage; a larger observation resets the count. A missing/lost target records zero only when both solvent signals confirm sample presence. Untrusted acquisitions have unavailable target area. No bounded-absence,
 noise, uncertainty, phase, SNR QC, minimum elapsed time, range or slope test
 participates. Reaching 20 observations without completion ends with
 `STAGE_1_MAX_ITERATIONS_REACHED` and no Channel 2 dose.
@@ -63,7 +64,7 @@ first_addition_stage:
   name: stage_2
   operator_prompt: Confirm dose evidence and readiness for Stage 2.
   interval_minutes: 30
-  max_hours: 12
+  max_hours: 4
   measure_immediately: true
   plateau_stopping_enabled: true
   completion:
@@ -91,8 +92,8 @@ Twenty observations without the endpoint end with `STAGE_2_MAX_ITERATIONS_REACHE
 
 `interval_minutes` sets cadence between scheduled cycle starts. The optional
 operational `max_hours` ceiling prevents starting another cycle after expiry:
-48 h in Stage 1 and 12 h in Stage 2. It is not a scientific minimum duration.
-Set the ceiling beyond the last scheduled start when changing count/cadence;
+48 h in Stage 1 and 4 h in Stage 2. It is not a scientific minimum duration.
+For the area-only profile the duration may precede the count cap;
 slow acquisition/cleanup can still reach the runtime ceiling first. A completing
 observation is honored after full cleanup even if it ends beyond that ceiling.
 
@@ -181,8 +182,8 @@ cycle:
   volume_ml: 8.0
   rate_ml_min: 5.0
 - action: operator
-  position: DOWN
-  prompt: Lower needle.
+  position: HOME
+  prompt: Move needle to HOME (in flask).
 - action: withdraw
   channel: 1
   volume_ml: 5.0
@@ -215,12 +216,12 @@ Change volumes/rates while preserving balance and validated syringe capacities.
 ```yaml
 after_monitoring:
 - action: needle
-  position: DOWN
+  position: HOME
 - action: infuse
   channel: 2
   volume_ml: 1.8
   rate_ml_min: 1.0
-  needle_position: DOWN
+  needle_position: HOME
 - action: needle
   position: UP
 ```

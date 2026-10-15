@@ -38,20 +38,25 @@ def validate_area_completion(value: dict) -> dict:
 
 
 def area_completion_evidence(rows: list[dict], rules: dict) -> dict:
-    """Read ONLY peak_area. Four stable observations means three adjacent pairs.
+    """Read target area only from observations with confirmed sample presence.
 
     A zero initial area uses epsilon as denominator. Stage 2's stable window
     starts at the first observation meeting growth; earlier flatness cannot count.
-    Diagnostic flags, timestamps and uncertainties are deliberately never read.
+    Missing solvent resets the consecutive window; a timed latch disables early
+    completion. Retrospective QC, timestamps and uncertainties are not gates.
     """
     count = 0
     growth_seen = not rules.get("minimum_growth", {}).get("enabled", True)
-    initial = float(rows[0]["peak_area"]) if rows else 0.0
+    trusted = [r for r in rows if r.get("solvent_present", True)]
+    initial = float(trusted[0]["peak_area"]) if trusted else 0.0
     denominator = max(abs(initial), rules["epsilon"])
     previous = None
     change = None
     growth_fraction = 0.0
     for row in rows:
+        if not row.get("solvent_present", True):
+            count, previous, change = 0, None, None
+            continue
         area = float(row["peak_area"])
         if not math.isfinite(area) or area < 0:
             raise ValueError("The recorded area signal must be finite and nonnegative")
@@ -69,15 +74,17 @@ def area_completion_evidence(rows: list[dict], rules: dict) -> dict:
             else:
                 count = 1
         previous = area
-    complete = bool(rows) and count >= rules["consecutive_iterations"]
+    fallback = any(r.get("stage_timed_fallback", False) for r in rows)
+    complete = bool(rows) and not fallback and count >= rules["consecutive_iterations"]
     return {"complete": complete, "method": "area_only", "trend": rules["trend"], "points": len(rows),
-            "criteria": dict(rules), "initial_area": initial if rows else None, "current_area": previous,
-            "normalization_area": denominator, "zero_initial_area": bool(rows) and initial == 0,
+            "criteria": dict(rules), "initial_area": initial if trusted else None, "current_area": previous,
+            "normalization_area": denominator if trusted else None, "zero_initial_area": bool(trusted) and initial == 0,
             "confirmations_required": rules["consecutive_iterations"], "confirmations_passed": count,
             "consecutive_observations": count, "growth_seen": growth_seen if rules["trend"] == "increasing" else None,
             "growth_fraction": growth_fraction if rules["trend"] == "increasing" else None,
-            "relative_change": change, "limit_reached": len(rows) >= rules["max_iterations"] and not complete,
-            "reason": "area endpoint satisfied" if complete else "area endpoint not yet satisfied"}
+            "relative_change": change, "limit_reached": len(rows) >= rules["max_iterations"] and not complete and not fallback,
+            "timed_fallback": fallback, "trusted_points": len(trusted),
+            "reason": "timed fallback; solvent/sample presence unconfirmed" if fallback else "area endpoint satisfied" if complete else "area endpoint not yet satisfied"}
 
 
 def validate_completion(value: dict) -> dict:

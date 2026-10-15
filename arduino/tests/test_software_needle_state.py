@@ -27,7 +27,7 @@ def make_needle(tmp_path: Path, *, scenario: str = "normal"):
     controller = NeedleController(fake, expected_version="1.2.1", allow_motion=True)
     controller.open()
     controller.configure_runtime(cfg)
-    needle = TrackedNeedle(controller, cfg, state_path=tmp_path / "needle_state.json")
+    needle = TrackedNeedle(controller, cfg, state_path=tmp_path / "needle_state.json", allow_home_assumption=True)
     return needle, fake, cfg
 
 
@@ -81,6 +81,25 @@ def test_restart_and_return_home(tmp_path):
     restarted.close()
 
 
+def test_automation_requires_saved_home_and_never_redefines_uncertain_position(tmp_path):
+    needle, fake, cfg = make_needle(tmp_path)
+    # A demo assumption cannot serve as the automated physical reference.
+    with pytest.raises(PositionUncertainError, match="confirmed physical reference"):
+        TrackedNeedle(needle.controller, cfg, state_path=tmp_path / "needle_state.json", allow_home_assumption=False)
+    needle.confirm_home(operator_confirmed=True)
+    needle.move_to(1)
+    reopened = TrackedNeedle(needle.controller, cfg, state_path=tmp_path / "needle_state.json", allow_home_assumption=False)
+    assert reopened.state.logical_position == 1
+    reopened.home()
+    assert reopened.state.logical_position == 0
+    reopened._save(position_valid=False, reason="motion_failed_or_interrupted")
+    before = (tmp_path / "needle_state.json").read_bytes()
+    with pytest.raises(PositionUncertainError, match="HOME is unconfirmed"):
+        TrackedNeedle(needle.controller, cfg, state_path=tmp_path / "needle_state.json", allow_home_assumption=False)
+    assert (tmp_path / "needle_state.json").read_bytes() == before
+    needle.close()
+
+
 def test_negative_return_and_state_is_invalid_before_dispatch(tmp_path):
     needle, fake, _ = make_needle(tmp_path)
     needle.confirm_home(operator_confirmed=True)
@@ -131,6 +150,22 @@ def test_missing_corrupt_and_stop(tmp_path):
     backup = NeedleStateStore(tmp_path / "needle_state.json").quarantine_corrupt()
     assert backup.read_text(encoding="utf-8") == "{bad json"
     assert not (tmp_path / "needle_state.json").exists()
+
+
+@pytest.mark.parametrize("field,value", [("last_updated", "yesterday"), ("last_updated", "2026-10-14T12:00:00"), ("reason", "motion_pending_to_1")])
+def test_valid_flag_cannot_hide_incomplete_reference_evidence(tmp_path, field, value):
+    needle, fake, cfg = make_needle(tmp_path)
+    needle.confirm_home(operator_confirmed=True)
+    path = tmp_path / "needle_state.json"
+    record = json.loads(path.read_text())
+    record[field] = value
+    path.write_text(json.dumps(record))
+    before = list(fake.tx_log)
+    with pytest.raises(PositionUncertainError):
+        TrackedNeedle(needle.controller, cfg, state_path=path, allow_home_assumption=False)
+    assert fake.tx_log == before
+    assert json.loads(path.read_text())[field] == value
+    needle.close()
 
 
 def test_firmware_wiring_and_no_switch_preflight():

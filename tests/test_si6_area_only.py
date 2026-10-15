@@ -27,11 +27,11 @@ def rules(stage):
 
 
 @pytest.mark.parametrize("stage,values,first_complete", [
-    (1, [100, 70, 40, 15, 5, 2.3, 2.0, 1.8], 8),
-    (1, [100, 50, 20, 2, 10, 2, 1.8, 1.7], 8),
+    (1, [100, 70, 40, 15, 5, 2.3, 2.0, 1.8, 1.7], 9),
+    (1, [100, 50, 20, 2, 10, 2, 1.8, 1.7, 1.6], 9),
     (1, [100]*20, None),
-    (1, [100, 0, 0, 0], 4),
-    (1, [0, 0, 0], 3),
+    (1, [100, 0, 0, 0, 0], 5),
+    (1, [0, 0, 0, 0], 4),
     (2, [1, 10, 30, 60, 90, 99, 100, 100.5, 99.8, 100.1], 9),
     (2, [1]*20, None),
     (2, [0]*20, None),
@@ -68,7 +68,7 @@ def test_profile_cannot_reintroduce_qc_or_competing_rules(tmp_path, mutation):
     elif mutation == "double_limit":
         raw["workflow"]["initial_stage"]["max_measurements"] = 20
     else:
-        raw["workflow"]["first_addition_stage"]["max_hours"] = 6
+        raw["workflow"]["first_addition_stage"]["max_hours"] = 0
     path = tmp_path / "bad.yaml"
     path.write_text(yaml.safe_dump(raw))
     with pytest.raises(ValueError):
@@ -222,17 +222,17 @@ def run_fixture(tmp_path, monkeypatch, values1, values2, *, force_qc=True, repor
 
 @pytest.mark.parametrize("force_qc,report_fails", [(False, False), (True, False), (True, True)])
 def test_full_run_qc_never_changes_transition_or_outcome(tmp_path, monkeypatch, force_qc, report_fails):
-    outcome, s, records = run_fixture(tmp_path, monkeypatch, [100, 70, 40, 15, 5, 2.3, 2, 1.8],
+    outcome, s, records = run_fixture(tmp_path, monkeypatch, [100, 70, 40, 15, 5, 2.3, 2, 1.8, 1.7],
                                       [1, 10, 30, 60, 90, 99, 100, 100.5, 99.8, 100.1], force_qc=force_qc, report_fails=report_fails)
     assert outcome.status is base.TerminalStatus.COMPLETED
-    assert [e["workflow_phase"] for e in records if e["event_type"] == "nmr_retrieved"].count("stage_1") == 8
+    assert [e["workflow_phase"] for e in records if e["event_type"] == "nmr_retrieved"].count("stage_1") == 9
     assert [e["workflow_phase"] for e in records if e["event_type"] == "nmr_retrieved"].count("stage_2") == 9
     assert len([e for e in records if e["event_type"] == "dose_confirmed"]) == 1
     assert s.dose_guard.data["status"] == "CONFIRMED"
     assert not any(e.get("terminal_status") == "analysis_inconclusive" for e in records)
     if not report_fails:
         review = json.loads((s.paths.run_dir / "final_qc/qc_summary.json").read_text())
-        assert len(review["observations"]) == 17
+        assert len(review["observations"]) == 18
         assert review["affect_workflow"] is False
         if force_qc:
             assert all("high noise" in r["qc_warnings"] for r in review["observations"])
@@ -240,21 +240,21 @@ def test_full_run_qc_never_changes_transition_or_outcome(tmp_path, monkeypatch, 
 
 @pytest.mark.parametrize("stage", [1, 2])
 def test_stage_iteration_limit_is_distinct_and_never_authorizes_extra_dose(tmp_path, monkeypatch, stage):
-    outcome, s, records = run_fixture(tmp_path, monkeypatch, [100]*20 if stage == 1 else [100, 0, 0, 0], [1]*20)
+    outcome, s, records = run_fixture(tmp_path, monkeypatch, [100]*20 if stage == 1 else [100, 0, 0, 0, 0], [1]*20)
     assert outcome.status is getattr(base.TerminalStatus, f"STAGE_{stage}_MAX_ITERATIONS_REACHED")
     assert len([e for e in records if e["event_type"] == "nmr_retrieved" and e["workflow_phase"] == f"stage_{stage}"]) == 20
     assert len([e for e in records if e["event_type"] == "dose_confirmed"]) == stage-1
 
 
 def test_processor_crash_stops_as_operational_failure_without_dosing(tmp_path, monkeypatch):
-    outcome, s, records = run_fixture(tmp_path, monkeypatch, [100, 0, 0, 0], [1, 2, 2, 2, 2], processing_failure=True)
+    outcome, s, records = run_fixture(tmp_path, monkeypatch, [100, 0, 0, 0, 0], [1, 2, 2, 2, 2], processing_failure=True)
     assert outcome.status is base.TerminalStatus.INSTRUMENT_FAILURE
     assert not any(e["event_type"] == "dose_confirmed" for e in records)
     assert s.dose_guard.data["status"] == "RESERVED"
 
 
 def test_missing_timing_disables_plots_but_not_area_control(tmp_path, monkeypatch):
-    outcome, s, records = run_fixture(tmp_path, monkeypatch, [100, 0, 0, 0], [1, 2, 2, 2, 2], missing_time=True)
+    outcome, s, records = run_fixture(tmp_path, monkeypatch, [100, 0, 0, 0, 0], [1, 2, 2, 2, 2], missing_time=True)
     assert outcome.status is base.TerminalStatus.COMPLETED
     assert len([e for e in records if e["event_type"] == "dose_confirmed"]) == 1
     report = json.loads((s.paths.run_dir / "final_qc/qc_summary.json").read_text())

@@ -163,8 +163,8 @@ def validate_stage_actions(raw: dict[str, Any], events: Any, label: str) -> None
             positive(event.get("seconds"), f"{item}.seconds", zero=True)
         if action in {"withdraw", "infuse", "nmr", "needle"}:
             key = "position" if action == "needle" else "needle_position"
-            if event.get(key) not in {"UP", "DOWN"}:
-                raise ValueError(f"{item}.{key} must explicitly be UP or DOWN")
+            if event.get(key) not in {"UP", "DOWN", "HOME"}:
+                raise ValueError(f"{item}.{key} must explicitly be UP, HOME or DOWN")
             if action == "needle":
                 position = event[key]
             elif event[key] != position:

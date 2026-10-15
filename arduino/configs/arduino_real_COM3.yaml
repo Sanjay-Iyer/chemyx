@@ -48,7 +48,7 @@ needle:
   max_position: 5
   home_position: 0
   up_position: 1
-  down_position: -1
+  down_position: 0                 # DOWN is an alias for HOME, in the liquid
   steps_per_unit: 200
   up_step_sign: 1
   state_path: runs/arduino/needle_state.json

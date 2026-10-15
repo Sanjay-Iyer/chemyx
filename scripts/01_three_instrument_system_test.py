@@ -15,6 +15,7 @@ def main(argv=None) -> int:
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--mock", action="store_true")
     modes.add_argument("--live", action="store_true")
+    modes.add_argument("--validate-config", action="store_true", help="Configuration only; no physical connections")
     selection = parser.add_mutually_exclusive_group()
     for name in ("needle", "pump", "nmr", "process", "all"):
         selection.add_argument(f"--{name}-only" if name != "all" else "--all", dest="selection", action="store_const", const=name)
@@ -24,13 +25,12 @@ def main(argv=None) -> int:
     parser.add_argument("--machine-config", type=Path, default=config.REPO_ROOT / "configs/machines/00_machine.local.yaml")
     parser.add_argument("--arduino-config", type=Path, default=config.REPO_ROOT / "arduino/configs/arduino.local.yaml")
     parser.add_argument("--input-dx", type=Path, help="existing JCAMP file for --process-only")
-    parser.add_argument("--acknowledge-review", metavar="RUN_ID", help="after reconciling a previous live run that requires review, name it to allow this live run")
     args = parser.parse_args(argv)
     mode = "LIVE" if args.live else "MOCK" if args.mock else "VALIDATE ONLY"
     selected = args.selection or "all"
     print(f"THREE-INSTRUMENT SYSTEM TEST | {mode} | {selected}")
     try:
-        raw, arduino, pump, nmr = si6.prepare(args.workflow_config, args.machine_config, args.arduino_config, mock=not args.live or selected == "process", require_needle_live=selected not in ("nmr", "process", "communications"), acknowledged_review=args.acknowledge_review)
+        raw, arduino, pump, nmr = si6.prepare(args.workflow_config, args.machine_config, args.arduino_config, mock=not args.live or selected == "process", require_needle_live=selected not in ("nmr", "process", "communications"))
         target, half = si6.tracked_window(raw, nmr)
         low, high = target-half, target+half
         print(f"Arduino: {arduino['arduino']['expected_device']} {arduino['firmware']['version']}; Chemyx: {pump.port}; NMR: {nmr.host}:{nmr.port} {nmr.route}; processing: process_fid; tracked window {low:.2f}-{high:.2f} ppm")
@@ -54,7 +54,7 @@ def main(argv=None) -> int:
             print(f"Results: {paths.run_dir}\nTHREE-INSTRUMENT SYSTEM TEST: PASS (NMR only; no serial ports opened)")
             return 0
         identity = si6.RunIdentity("diagnostic", args.mock, selected)
-        with si6.open_services(raw, arduino, pump, nmr, identity=identity, acknowledged_review=args.acknowledge_review) as services:
+        with si6.open_services(raw, arduino, pump, nmr, identity=identity) as services:
             si6.preflight(services, check_nmr=selected in ("all", "nmr", "communications", "channel"))
             if selected in ("communications", "channel"):
                 print("[PASS] Arduino communication OK\n[PASS] Chemyx communication OK\n[PASS] NMR communication OK")

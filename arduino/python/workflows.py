@@ -231,8 +231,8 @@ def validate_axis_geometry(cfg: dict[str, Any]) -> None:
         safe_up, down, minimum, maximum = values
     except (KeyError, TypeError, ValueError) as exc:
         raise ValueError("Axis positions must be configured integers") from exc
-    if not (minimum <= down < 0 < safe_up <= maximum):
-        raise ValueError("Require min <= DOWN < HOME=0 < UP <= max")
+    if not (minimum <= down <= 0 < safe_up <= maximum):
+        raise ValueError("Require min <= DOWN <= HOME=0 < UP <= max")
 
 
 @dataclass

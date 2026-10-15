@@ -25,7 +25,7 @@ def test_recipe_validates_and_preserves_sop(path, monkeypatch):
     )
     assert integrated.cycle_values(raw) == {
         "initial_withdraw_ml": 8, "sample_withdraw_ml": 5,
-        "settle_seconds": 300, "return_infuse_ml": 13,
+        "settle_seconds": 10 if path.stem.startswith("si6_two_stage_") else 300, "return_infuse_ml": 13,
         "cleanup_withdraw_ml": 5, "cleanup_infuse_ml": 5,
     }
     assert nmr.route == "iflow" and nmr.result_type == "fid" and not nmr.auto_gain

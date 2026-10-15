@@ -1,5 +1,7 @@
 # Si6: start here
 
+> Current startup, HOME=0/UP=1 geometry and solvent-loss fallback rules are in [SI6_SOLVENT_FALLBACK_UPDATE.md](SI6_SOLVENT_FALLBACK_UPDATE.md). After three missing solvent observations, timed operation overrides the normal count cap and permits an explicitly recorded timed transition.
+
 Run commands from `C:\code\chemyx_pump` (or the copied repository root).
 HOME has no instruments. Software PASS does not commission spectral endpoint
 thresholds or prove physical delivery/needle position.

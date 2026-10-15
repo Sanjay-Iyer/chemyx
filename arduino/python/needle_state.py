@@ -57,6 +57,10 @@ class NeedleStateStore:
                 raise ValueError("invalid position_valid / logical_position pair")
             if not isinstance(state.last_updated, str) or not isinstance(state.reason, str):
                 raise ValueError("invalid timestamp or reason")
+            if state.position_valid:
+                stamp = datetime.fromisoformat(state.last_updated)
+                if stamp.tzinfo is None or state.reason not in {"operator_confirmed_home", "motion_completed", "assumed_home_demo"}:
+                    raise ValueError("valid position requires an unambiguous timestamp and completed reference/motion evidence")
             if state.steps_per_unit is not None and (type(state.steps_per_unit) is not int or state.steps_per_unit <= 0):
                 raise ValueError("invalid steps_per_unit")
             if state.up_step_sign is not None and (type(state.up_step_sign) is not int or state.up_step_sign not in (-1, 1)):
@@ -116,7 +120,7 @@ class NeedleStateStore:
 class TrackedNeedle:
     """Logical UP-positive API around the existing serial JOG implementation."""
 
-    def __init__(self, controller: Any, cfg: dict[str, Any], *, state_path: str | Path | None = None, allow_home_assumption: bool = True) -> None:
+    def __init__(self, controller: Any, cfg: dict[str, Any], *, state_path: str | Path | None = None, allow_home_assumption: bool = False) -> None:
         needle = cfg["needle"]
         if needle.get("steps_per_unit") is None or needle.get("up_step_sign") is None:
             raise MotionInterlockError("Set verified needle.steps_per_unit and needle.up_step_sign before use")

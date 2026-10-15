@@ -119,7 +119,7 @@ def test_live_profile_requires_explicit_needle_home(tmp_path):
     state = tmp_path / "needle.json"
     with pytest.raises(PositionUncertainError):
         TrackedNeedle(Controller(), cfg, state_path=state, allow_home_assumption=False)
-    demo = TrackedNeedle(Controller(), cfg, state_path=state)
+    demo = TrackedNeedle(Controller(), cfg, state_path=state, allow_home_assumption=True)
     with pytest.raises(PositionUncertainError, match="Demo-assumed"):
         TrackedNeedle(Controller(), cfg, state_path=state, allow_home_assumption=False)
     demo.confirm_home(operator_confirmed=True)

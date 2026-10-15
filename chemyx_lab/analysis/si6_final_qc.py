@@ -112,8 +112,10 @@ def write_final_qc(paths, rows, stages, reporting, *, dataset, outcome, transiti
     for i, row in enumerate(review):
         row["plot_elapsed_hours"] = (times[i] - times[0]).total_seconds()/3600 if can_plot else None
     write_rows(directory / "qc_summary.csv", review)
-    stage_summaries = [{"stage": s.name, "endpoint": completion_evidence([r for r in rows if r["stage"] == s.name], s.completion) if s.completion else None} for s in stages]
-    payload = {"dataset_display_name": dataset, "status": outcome.status.value,
+    stage_summaries = [{"stage": s.name, "endpoint": completion_evidence([r for r in rows if r["stage"] == s.name], s.completion) if s.completion else None,
+                        "timed_fallback": any(r.get("stage_timed_fallback") for r in rows if r["stage"] == s.name),
+                        "configured_duration_hours": s.max_hours} for s in stages]
+    payload = {"dataset_display_name": dataset, "status": outcome.status.value, "outcome_message": outcome.message,
                "affect_workflow": False, "timing_source": "JCAMP LONG DATE only",
                "plots_available": can_plot, "stages": stage_summaries,
                "transition": transition, "observations": review}
@@ -138,6 +140,7 @@ def write_final_qc(paths, rows, stages, reporting, *, dataset, outcome, transiti
             save_figure(fig, directory / stem, dataset, title, figures)
     write_json(directory / "plot_manifest.json", {"dataset_display_name": dataset, "figures": figures})
     text = [f"# {dataset} Si6 retrospective QC", "", f"Recorded experiment outcome: `{outcome.status.value}`.",
+            outcome.message, "",
             "", "These warnings are for post-run review. They did not reject observations, delay acquisitions, authorize dosing, or change either endpoint.", "",
             f"Observations: {len(review)}; observations with warnings: {sum(bool(r['qc_warning_count']) for r in review)}.", "",
             "Time source: JCAMP LONG DATE. CSV and JSON retain candidate decisions, raw/phase evidence paths, centers, moving bounds, areas and diagnostic metrics.", ""]

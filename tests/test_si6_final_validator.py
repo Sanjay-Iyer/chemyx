@@ -128,7 +128,7 @@ def test_independent_actual_spectral_workflow_transition_and_order(tmp_path, spe
     completions = [e for e in events if e["event_type"] == "stage_completion_evidence"]
     first = [e for e in completions if e["workflow_phase"] == "stage_1"]
     second = [e for e in completions if e["workflow_phase"] == "stage_2"]
-    assert len(first) == 11 and len(second) == 13
+    assert len(first) == 12 and len(second) == 13
     assert not any(e["evidence"]["complete"] for e in first[:-1] + second[:-1])
     assert first[-1]["evidence"]["complete"] and second[-1]["evidence"]["complete"]
     intent = next(e for e in events if e["event_type"] == "dose_dispatch_intent")

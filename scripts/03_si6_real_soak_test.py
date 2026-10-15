@@ -12,15 +12,16 @@ from chemyx_lab.workflows.si6_soak import run_soak
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--live", action="store_true", help="Contact real instruments; otherwise load configuration only")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--live", action="store_true", help="Contact real instruments; otherwise load configuration only")
+    modes.add_argument("--validate-config", action="store_true", help="Validate without instrument connections")
     parser.add_argument("--workflow-config", type=Path, default=config.REPO_ROOT / "configs/experiments/si6_real_toluene_soak_test.yaml")
     parser.add_argument("--machine-config", type=Path, default=config.REPO_ROOT / "configs/machines/si6_real_COM4.yaml")
     parser.add_argument("--arduino-config", type=Path, default=config.REPO_ROOT / "arduino/configs/arduino_real_COM3.yaml")
-    parser.add_argument("--acknowledge-review", metavar="RUN_ID", help="After physical reconciliation, acknowledge a previous failed run")
     args = parser.parse_args(argv)
     try:
         prepared = si6.prepare(args.workflow_config, args.machine_config, args.arduino_config,
-                               mock=not args.live, allow_soak=True, acknowledged_review=args.acknowledge_review)
+                               mock=not args.live, allow_soak=True)
         raw, arduino, pump, nmr = prepared
         settings = raw["soak_test"]
         print(f"TOLUENE SOAK | Arduino {arduino['arduino']['port']} | Chemyx {pump.port} | NMR {nmr.host}:{nmr.port}")
@@ -32,7 +33,8 @@ def main(argv=None):
         if input("Confirm toluene-only rig, loaded syringes and confirmed HOME; start live soak? [y/N]: ").strip().lower() not in ("y", "yes"):
             print("Soak aborted before opening instruments.")
             return 3
-        with si6.open_services(*prepared, identity=si6.RunIdentity("soak", False), acknowledged_review=args.acknowledge_review) as services:
+        with si6.open_services(*prepared, identity=si6.RunIdentity("soak", False),
+                               config_sources={"workflow": str(args.workflow_config), "machine": str(args.machine_config), "arduino": str(args.arduino_config)}) as services:
             outcome = run_soak(services)
             print(f"Results: {services.paths.run_dir}")
         print(f"TOLUENE SOAK: {outcome.status.value}: {outcome.message}")

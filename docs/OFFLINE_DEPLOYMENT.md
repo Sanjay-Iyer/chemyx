@@ -1,5 +1,7 @@
 # HOME → WORK1 → offline WORK2 deployment
 
+Current operator procedure: [SI6_FINAL_REAL_RUN_CHECKLIST.md](SI6_FINAL_REAL_RUN_CHECKLIST.md). HOME can export the exact committed source plus local payload directly with `python scripts/prepare_si6_release.py --with-offline-payload` when WORK has no Git access. See [the deployment manifest](SI6_DEPLOYMENT_MANIFEST.md) for checksum/version verification and separately preserved rig state.
+
 All HOME evidence is software/simulation only. Source is portable; physical
 calibration, installed vendor software and per-rig state need explicit WORK
 verification. See `OFFLINE_REQUIREMENTS.md` for packages/drivers/resources and

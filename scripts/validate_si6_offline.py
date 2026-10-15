@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import importlib.metadata
 import json
 from pathlib import Path
@@ -16,6 +17,11 @@ from chemyx_lab.workflows import three_instrument_si6 as si6
 
 
 RESOURCES = (
+    "configs/experiments/si6_real_two_stage.yaml", "configs/experiments/si6_real_toluene_soak_test.yaml",
+    "configs/machines/si6_real_COM4.yaml", "configs/machines/si6_real_COM6.yaml", "arduino/configs/arduino_real_COM3.yaml",
+    "arduino/scripts/needle_control.py", "chemyx_lab/analysis/solvent_presence.py", "chemyx_lab/run_metadata.py",
+    "scripts/02_si6_experiment.py", "scripts/03_si6_real_soak_test.py", "scripts/verify_si6_environment.py", "scripts/prepare_si6_release.py",
+    "docs/SI6_FINAL_REAL_RUN_CHECKLIST.md", "docs/SI6_DEPLOYMENT_MANIFEST.md", "docs/SI6_PROMPT_AUDIT.md", "offline/verify_bundle.py",
     "config_templates/experiments/si6_two_stage_nominal.yaml",
     "config_templates/experiments/si6_two_stage_fast_sim.yaml",
     "config_templates/experiments/si6_two_stage_stage1_development.yaml",
@@ -41,6 +47,10 @@ def validate_resources():
         si6.prepare(config.REPO_ROOT / f"config_templates/experiments/si6_two_stage_{name}.yaml",
                     config.REPO_ROOT / "config_templates/machines/si6_instrument_settings.example.yaml",
                     config.REPO_ROOT / "arduino/configs/arduino.example.yaml", mock=True)
+    for port in ("COM4", "COM6"):
+        si6.prepare(config.REPO_ROOT / "configs/experiments/si6_real_two_stage.yaml",
+                    config.REPO_ROOT / f"configs/machines/si6_real_{port}.yaml",
+                    config.REPO_ROOT / "arduino/configs/arduino_real_COM3.yaml", mock=True)
     versions = {name: importlib.metadata.version(name) for name in
                 ("pyserial", "PyYAML", "numpy", "scipy", "matplotlib", "nmrglue", "pytest")}
     print(json.dumps({"repository_root": str(config.REPO_ROOT), "resources": "PASS", "versions": versions}, indent=2))
@@ -62,12 +72,16 @@ def copied_directory_test():
     # Copy portable source/config/resources, excluding historical outputs and
     # machine virtual environments. Actual deployment ALSO preserves rig history
     # and dose reservations; this test starts a new mock experiment only.
-    with tempfile.TemporaryDirectory(prefix="si6_new_computer_") as temporary:
+    scratch = config.REPO_ROOT / "test_tmp_offline_validation"
+    scratch.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="si6_new_computer_", dir=scratch) as temporary:
+        if not Path(temporary).resolve().is_relative_to(scratch.resolve()):
+            raise ValueError("Unsafe temporary copy path")
         destination = Path(temporary) / "portable_experiment"
         destination.mkdir()
         ignore = shutil.ignore_patterns("__pycache__", ".pytest_cache", "test_tmp_*", ".test-tmp*", ".codex_pytest_temp_*", "node_modules",
                                         "wheelhouse", "installers", "drivers", ".git", ".venv*", "*.pyc", "NanalysisData", "NMR_data", "NMRresults", ".ipynb_checkpoints")
-        for name in ("chemyx_lab", "scripts", "arduino", "configs", "config_templates", "docs", "tests", "offline", "nmr_template"):
+        for name in ("chemyx_lab", "scripts", "arduino", "configs", "config_templates", "docs", "tests", "offline", "nmr_template", "smoke_test"):
             directory_ignore = shutil.ignore_patterns("arduino", "wheelhouse", "installers", "drivers") if name == "offline" else ignore
             shutil.copytree(config.REPO_ROOT / name, destination / name, ignore=directory_ignore)
         for name in ("requirements.txt", "pyproject.toml", "pytest.ini"):
@@ -100,13 +114,17 @@ def main():
     if args.simulate:
         simulate()
     if args.run_tests:
+        # Never remove/reuse a previous laptop's test artifacts (ACLs may also
+        # differ after copying). Every validation receives a new scratch path.
+        test_temp = config.REPO_ROOT / "test_tmp_offline_validation" / datetime.now(timezone.utc).strftime("tests_%Y%m%d_%H%M%S_%f")
         result = subprocess.run([sys.executable, "-B", "-m", "pytest", "tests/test_si6_two_stage.py",
                                  "tests/test_si6_validator_gates.py", "tests/test_si6_pump_channels.py",
                                  "tests/test_three_instrument_si6.py", "tests/test_si6_monitoring.py",
                                  "tests/test_runtime_journal.py", "tests/test_si6_synthetic_analysis.py",
                                  "tests/test_si6_final_validator.py", "tests/test_si6_profile.py",
+                                 "tests/test_si6_solvent_fallback.py", "tests/test_si6_predeployment.py",
                                  "-q", "-p", "no:cacheprovider",
-                                 "--basetemp", "test_tmp_offline_tests"], cwd=config.REPO_ROOT)
+                                 "--basetemp", str(test_temp)], cwd=config.REPO_ROOT)
         if result.returncode:
             return result.returncode
     if args.copy_test:

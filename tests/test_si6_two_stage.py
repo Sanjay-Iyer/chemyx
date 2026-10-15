@@ -71,7 +71,7 @@ def test_exact_cycle_sequence_and_needle_context(complete_run):
         for e in context
     ] == [
         ("withdraw", 8, 1, "UP"),
-        ("withdraw", 5, 1, "DOWN"),
+        ("withdraw", 5, 1, "HOME"),
         ("infuse", 13, 1, "UP"),
         ("withdraw", 5, 1, "UP"),
         ("infuse", 5, 1, "UP"),
@@ -84,9 +84,9 @@ def test_exact_cycle_sequence_and_needle_context(complete_run):
         if e["event_type"] == "needle_transition"
         and e["result_classification"] == "completed"
     ]
-    assert needle[0]["target"] == "UP"
-    assert context[0]["sequence"] < needle[1]["sequence"] < context[1]["sequence"]
-    assert nmr < needle[2]["sequence"] < context[2]["sequence"] < context[3]["sequence"]
+    assert needle[0]["target"] == "HOME"
+    assert context[0]["sequence"] < needle[2]["sequence"] < context[1]["sequence"]
+    assert nmr < needle[3]["sequence"] < context[2]["sequence"] < context[3]["sequence"]
     assert s.channel_states[1].retained_volume_ml == 0
     assert s.channel_states[2].retained_volume_ml == pytest.approx(0.2)
 

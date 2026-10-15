@@ -63,7 +63,7 @@ needle:
   max_position: 5
   home_position: 0
   up_position: 1
-  down_position: -1
+  down_position: 0                 # DOWN is an alias for HOME, in the liquid
   # Set only after reviewing the existing 90-degree = 200-step bench move
   # against the real needle clearance. Do not assume this example is safe.
   steps_per_unit: null

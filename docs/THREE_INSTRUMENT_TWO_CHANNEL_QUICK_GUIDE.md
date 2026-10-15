@@ -1,5 +1,7 @@
 # Three-instrument, two-channel workflow: quick guide
 
+> Current startup, HOME=0/UP=1 geometry and solvent-loss fallback rules are in [SI6_SOLVENT_FALLBACK_UPDATE.md](SI6_SOLVENT_FALLBACK_UPDATE.md). After three missing solvent observations, timed operation overrides the normal count cap and permits an explicitly recorded timed transition.
+
 Use this guide for the updated **Chemyx + Arduino needle + NMReady NMR** workflow:
 **Channel 1 sampling → Stage 1 completion → one Channel 2 reagent dose → Channel 1 sampling in Stage 2.**
 Both pump channels use one serial connection and run sequentially. No script rewrite is needed to adjust the supported parameters below.
@@ -20,7 +22,7 @@ Paths below are relative to `C:\code\chemyx_pump`.
 | `configs/nmr/analysis.yaml` + optional `configs/nmr/analysis.local.yaml` | Production spectrum processing, phase/baseline and peak QC. Local settings override shared defaults. These files are read automatically by the processor. |
 | `config_templates/experiments/si6_two_stage_fast_sim.yaml` | Separate mock-only recipe for a fast, complete controller simulation. Never select it for live use. |
 
-**Always select the updated recipe explicitly.** The 01/02 scripts still default to the older, single-channel `configs/experiments/02_si6_automated_nmr.yaml`. The generic `si6_two_channel_once.yaml` example demonstrates channel routing; use `si6_two_stage_nominal.yaml` for this chemistry-completion workflow.
+The experiment script `02` now defaults to `configs/experiments/si6_real_two_stage.yaml`, or the fast simulation recipe with `--mock`. Select your edited recipe explicitly with `--workflow-config`. The diagnostic script `01` retains its older diagnostic default; use the runbook's explicit configurations. The generic `si6_two_channel_once.yaml` example demonstrates channel routing; use `si6_two_stage_nominal.yaml` for this chemistry-completion workflow.
 
 ## 2. Prepare your run files and Python
 
@@ -83,7 +85,7 @@ On the commissioned instrument laptop only, inspect the physical HOME reference,
 ```powershell
 # Read controller status; explicitly confirm the inspected HOME reference.
 .venv\Scripts\python.exe -B arduino\scripts\needle_control.py status --live --config arduino\configs\arduino.local.yaml
-.venv\Scripts\python.exe -B arduino\scripts\needle_control.py confirm-home --live --config arduino\configs\arduino.local.yaml
+.venv\Scripts\python.exe -B arduino\scripts\needle_control.py set-home --live --config arduino\configs\arduino.local.yaml
 
 # Validate the actual per-rig files again, without opening hardware.
 .venv\Scripts\python.exe -B scripts\02_si6_experiment.py @si6ConfigArgs
@@ -107,9 +109,9 @@ python -B scripts\01_three_instrument_system_test.py --mock --all --workflow-con
 
 1. Confirm Stage 1 readiness and raise the needle to UP.
 2. Repeat the Channel 1 cycle: withdraw 8 mL UP → needle DOWN → withdraw 5 mL → settle 10 s → acquire/process NMR → needle UP → infuse 13 mL UP → withdraw 5 mL → infuse 5 mL. Each pump move requires confirmed STOP; cleanup finishes before stage advancement.
-3. Stage 1 samples every **120 min**, up to **20 observations**: three consecutive moving areas <=2.5% of the first area complete it. Secondary runtime ceiling: 48 h.
+3. Stage 1 samples every **120 min**, up to **20 observations**: four consecutive solvent-confirmed moving areas <=2.5% of the first area complete it. Secondary runtime ceiling: 48 h.
 4. After Stage 1 completion and cleanup, lower the needle, infuse **1.8 mL at 1 mL/min on Channel 2 once**, then raise. Durable dose confirmation admits Stage 2.
-5. Stage 2 enters automatically every **30 min**, up to **20 observations**: after 25% growth, four stable observations (three adjacent changes <=2%) complete it. Secondary runtime ceiling: 12 h. **One start confirmation; no Stage 2 prompt.**
+5. Stage 2 enters automatically every **30 min**, up to **20 observations**: after 25% growth, four stable observations (three adjacent changes <=2%) complete it. Secondary runtime ceiling: 4 h. **One start confirmation; no Stage 2 prompt.**
 6. Save the final reports and close instruments. Reaching a stage's time limit without completion stops as inconclusive; it does not permit an operator override to dose or bypass chemistry prerequisites.
 
 ## 5. Parameters you can adjust
@@ -120,7 +122,7 @@ python -B scripts\01_three_instrument_system_test.py --mock --all --workflow-con
 |---|---|
 | Reaction identity; results directory | Run YAML: `workflow.experiment_id`; `output.run_root_dir`. |
 | Stage 1 cadence / runtime ceiling | `workflow.initial_stage.interval_minutes` / `max_hours` (120 min / 48 h). |
-| Stage 2 cadence / runtime ceiling | `workflow.first_addition_stage.interval_minutes` / `max_hours` (30 min / 12 h). |
+| Stage 2 cadence / runtime ceiling | `workflow.first_addition_stage.interval_minutes` / `max_hours` (30 min / 4 h). |
 | Iteration limits and completion | Each stage's `completion.max_iterations`; Stage 1 `near_zero_fraction`, `consecutive_iterations`; Stage 2 `minimum_growth`, `relative_change_threshold`, `consecutive_iterations`. |
 | Peak identity | Run YAML `analysis.peak_finding`: search, shifts, continuity, prominence, width and separation. |
 | Moving area | `analysis.peak_area.method: trapezoid`; production peak-specific bounds. |

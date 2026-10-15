@@ -280,7 +280,7 @@ def _validate_workflow(output, engine):
     assert stage1["evidence"]["complete"]
     assert stage1["sequence"] < intent["sequence"] < ch2[0]["sequence"] < doses[0]["sequence"] < stage2["sequence"]
     assert all(e["channel"] == 1 for e in moves if e["sequence"] > doses[0]["sequence"])
-    assert {stage: sum(r["stage"] == stage for r in rows) for stage in SUCCESS} == {"stage_1": 11, "stage_2": 13}
+    assert {stage: sum(r["stage"] == stage for r in rows) for stage in SUCCESS} == {"stage_1": 12, "stage_2": 13}
     replay = replay_journal(journal_path)
     assert replay.valid and replay.state.pump_channels["2"]["cumulative_infused_ml"] == 1.8
     assert all(r["observation_recorded"] and r["simulation_only"] for r in rows)
@@ -294,7 +294,7 @@ def _validate_workflow(output, engine):
     write_rows(output / "workflow_completion_trace.csv", traces)
     write_json(output / "workflow_evidence.json", dict(outcome=outcome.status.value, run_dir=str(run_dir),
                rows=rows, transition=transition, dose_confirmed=doses, journal=str(journal_path),
-               nominal_stage2_max_hours=12, completion_method="area_only"))
+               nominal_stage2_max_hours=4, simulation_stage2_max_hours=12, completion_method="area_only"))
     print(f"PASS Level3 full shared workflow: {outcome.status.value}; one confirmed Ch2 addition")
     return dict(rows=rows, transition=transition, run_dir=str(run_dir), journal=str(journal_path), events=events, trace=traces)
 
@@ -358,7 +358,7 @@ def report(output, levels, workflow, manifest):
              "Level3 uses CURRENT area-only completion and measured moving spectra in the shared three-instrument mock controller: one confirmed Ch2 dose, automatic Stage2 entry, retrospective QC only.", "",
              "Copied DX files carry synthetic LONG DATE timestamps only; their FIDs are unchanged real-fixture carriers. Generated arrays do not test vendor decoding, FFT, physical acquisition or phase optimization. All evidence labels identify this limitation.", "",
              "This spectrum validator explicitly selects shared configs/nmr/analysis.yaml, excluding optional per-rig analysis.local.yaml processing overrides. Such overrides require their own WORK/real-spectrum review.", "",
-             "Current full workflow: Stage1 stops at11 and Stage2 at13 measured observations, with nominal120/30min cadence and48/12h runtime ceilings. Each stage has20 iterations maximum. Wall time uses a virtual clock.", "",
+             "Current full workflow: Stage1 stops at12 and Stage2 at13 measured observations, with nominal120/30min cadence and48/12h runtime ceilings. Each stage has20 iterations maximum. Wall time uses a virtual clock.", "",
              "The model uses1025 ascending points from5.0–6.5ppm, Gaussian sigma0.014ppm, baseline0.02+0.01*(ppm-5.8), seeded Gaussian noise SD0.002 and drift0.001*sin(iteration index)ppm. Production ALS is sensitive to trace resolution/shape. The initial4097-point input failed negative-lobe QC; the final geometry passes without changing any production gate. This clean model is not an instrument noise/lineshape calibration.", "",
              "## Decisions and counterexamples", "", "| Case | Level1 stop | Level2 stop | QC |", "|---|---:|---:|---|"]
     for name in CASES:
@@ -407,7 +407,7 @@ def validate_all(output):
     write_json(output / "SUMMARY.json", dict(simulation_only=True, checks="PASS", dataset_display_name=DATASET,
                completion_iterations={n: r["completion_iteration"] for n, r in levels[2].items()},
                historical_counterexamples=True, workflow_completion_method="area_only",
-               workflow_run=workflow["run_dir"], nominal_stage2_max_hours=12,
+               workflow_run=workflow["run_dir"], nominal_stage2_max_hours=4, simulation_stage2_max_hours=12,
                hardware_tested=False, chemistry_thresholds_commissioned=False))
     print(f"PASS all required synthetic analysis checks; report: {output / 'REPORT.md'}")
     print("SOFTWARE ONLY | HARDWARE NOT TESTED | THRESHOLDS NOT COMMISSIONED")

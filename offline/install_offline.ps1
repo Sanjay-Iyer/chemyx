@@ -79,6 +79,8 @@ Write-Host "      using: $pythonExe $($pythonPrefix -join ' ')"
 if (-not (Test-Path (Join-Path $wheelhouse "*.whl"))) {
     throw "No wheels in $wheelhouse. Build them first with offline\build_offline_bundle.ps1."
 }
+& $pythonExe @pythonPrefix (Join-Path $offline "verify_bundle.py")
+if ($LASTEXITCODE -ne 0) { throw "Offline asset integrity check failed." }
 
 Write-Host "[2/7] Installing packages into $venv (no network)"
 if (-not (Test-Path $venvPython)) {
@@ -94,6 +96,13 @@ if ($LASTEXITCODE -ne 0) { throw "A package failed to import." }
 
 Write-Host "[4/7] Checking required offline source files"
 $requiredRelativePaths = @(
+    "configs\experiments\si6_real_two_stage.yaml",
+    "configs\machines\si6_real_COM4.yaml",
+    "configs\machines\si6_real_COM6.yaml",
+    "arduino\configs\arduino_real_COM3.yaml",
+    "chemyx_lab\analysis\solvent_presence.py",
+    "scripts\verify_si6_environment.py",
+    "docs\SI6_FINAL_REAL_RUN_CHECKLIST.md",
     "arduino\firmware\needle_controller\needle_controller.ino",
     "arduino\python\controller.py",
     "arduino\mock\fake_arduino.py",
@@ -184,14 +193,16 @@ if (Test-Path (Join-Path $offline "arduino\arduino-cli.exe")) {
     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $offline "arduino_toolchain.ps1") -Compile
     if ($LASTEXITCODE -ne 0) { throw "Offline firmware compile failed." }
 } else {
-    Write-Host "      offline\arduino was not transferred. Upload firmware 1.1.0 before going"
+    Write-Host "      offline\arduino was not transferred. Retain commissioned firmware 1.2.1 before going"
     Write-Host "      offline, or copy that bundle to reflash here (docs\OFFLINE_SETUP.md)."
 }
 
 if ($RunTests) {
     Write-Host ""
     Write-Host "Running the offline test suites"
-    & $venvPython -B -m pytest -q -p no:cacheprovider
+    # Portable core suite; optional historical phase-audit datasets are not
+    # release dependencies and the broad development suite may require them.
+    & $venvPython -B scripts\validate_si6_offline.py --run-tests
     if ($LASTEXITCODE -ne 0) { throw "Offline tests failed." }
     # The Arduino host-controller suite sits outside the default testpaths.
     & $venvPython -B -m pytest -q -p no:cacheprovider arduino\tests
