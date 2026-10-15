@@ -16,27 +16,8 @@ from chemyx_lab import config
 from chemyx_lab.workflows import three_instrument_si6 as si6
 
 
-RESOURCES = (
-    "configs/experiments/si6_real_two_stage.yaml", "configs/experiments/si6_real_toluene_soak_test.yaml",
-    "configs/machines/si6_real_COM4.yaml", "configs/machines/si6_real_COM6.yaml", "arduino/configs/arduino_real_COM3.yaml",
-    "arduino/scripts/needle_control.py", "chemyx_lab/analysis/solvent_presence.py", "chemyx_lab/run_metadata.py",
-    "scripts/02_si6_experiment.py", "scripts/03_si6_real_soak_test.py", "scripts/verify_si6_environment.py", "scripts/prepare_si6_release.py",
-    "docs/SI6_FINAL_REAL_RUN_CHECKLIST.md", "docs/SI6_DEPLOYMENT_MANIFEST.md", "docs/SI6_PROMPT_AUDIT.md", "offline/verify_bundle.py",
-    "config_templates/experiments/si6_two_stage_nominal.yaml",
-    "config_templates/experiments/si6_two_stage_fast_sim.yaml",
-    "config_templates/experiments/si6_two_stage_stage1_development.yaml",
-    "config_templates/experiments/si6_two_stage_stage2_development.yaml",
-    "config_templates/machines/si6_instrument_settings.example.yaml",
-    "configs/nmr/analysis.yaml", "arduino/configs/arduino.example.yaml",
-    "chemyx_lab/testing/fixtures/si6_two_stage_trends.json",
-    "chemyx_lab/testing/fixtures/tracked_resonance_phsi4_20260810.dx",
-    "offline/requirements-lock.txt", "docs/OFFLINE_DEPLOYMENT.md", "docs/OFFLINE_REQUIREMENTS.md",
-    "docs/SI6_TWO_STAGE_OPERATOR_GUIDE.md", "docs/SI6_WORKFLOW_VALIDATOR.md",
-    "docs/SI6_TWO_STAGE_VALIDATION_REPORT.md", "docs/SI6_TWO_STAGE_CONFIGURATION.md",
-    "docs/SI6_START_HERE.md", "docs/SI6_SCRIPT_USER_GUIDE.md", "docs/SI6_CONFIG_USER_GUIDE.md",
-    "docs/SI6_SYNTHETIC_ANALYSIS_AUDIT.md", "docs/SI6_FINAL_HOME_VALIDATION_REPORT.md",
-    "scripts/validate_si6_synthetic_analysis.py", "chemyx_lab/testing/si6_synthetic_analysis.py",
-)
+from chemyx_lab.release_inventory import load_inventory, source_files
+RESOURCES = tuple(load_inventory(config.REPO_ROOT)["required_resources"])
 
 
 def validate_resources():
@@ -84,15 +65,10 @@ def copied_directory_test():
             raise ValueError("Unsafe temporary copy path")
         destination = Path(temporary) / "portable_experiment"
         destination.mkdir()
-        ignore = shutil.ignore_patterns("__pycache__", ".pytest_cache", "test_tmp_*", ".test-tmp*", ".codex_pytest_temp_*", "node_modules",
-                                        "wheelhouse", "installers", "drivers", ".git", ".venv*", "*.pyc", "NanalysisData", "NMR_data", "NMRresults", ".ipynb_checkpoints")
-        for name in ("chemyx_lab", "scripts", "arduino", "configs", "config_templates", "docs", "tests", "offline", "nmr_template", "smoke_test"):
-            directory_ignore = shutil.ignore_patterns("arduino", "wheelhouse", "installers", "drivers") if name == "offline" else ignore
-            shutil.copytree(config.REPO_ROOT / name, destination / name, ignore=directory_ignore)
-        for name in ("requirements.txt", "pyproject.toml", "pytest.ini"):
-            source = config.REPO_ROOT / name
-            if source.is_file():
-                shutil.copyfile(source, destination / name)
+        for source in source_files(config.REPO_ROOT):
+            target = destination / source.relative_to(config.REPO_ROOT)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
         log = destination / "copied_mock.log"
         with log.open("w", encoding="utf-8") as handle:
             result = subprocess.run([sys.executable, "-B", "scripts/validate_si6_offline.py", "--simulate"],

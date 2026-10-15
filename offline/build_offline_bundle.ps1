@@ -21,13 +21,16 @@
 #>
 param(
     [string]$Python = "python",
-    [string]$PythonInstallerVersion = "3.11.9",
+    [string]$PythonInstallerVersion = "",
     [switch]$SkipPythonInstaller
 )
 
 $ErrorActionPreference = "Stop"
 $offline = Split-Path -Parent $MyInvocation.MyCommand.Path
-$lock = Join-Path $offline "requirements-lock.txt"
+$inventory = Get-Content -LiteralPath (Join-Path $offline "release_manifest.yaml") -Raw | ConvertFrom-Json
+$repo = Split-Path -Parent $offline
+$lock = Join-Path $repo $inventory.requirements_lock
+if (-not $PythonInstallerVersion) { $PythonInstallerVersion = $inventory.python_installer_version }
 $wheelhouse = Join-Path $offline "wheelhouse"
 $installers = Join-Path $offline "installers"
 
@@ -75,7 +78,8 @@ if ($SkipPythonInstaller) {
 
 Write-Host "[5/5] Writing the manifest"
 $manifest = Join-Path $offline "BUNDLE_MANIFEST.txt"
-$files = @(Get-ChildItem -Path $wheelhouse, $installers -File -Recurse)
+$payloadRoots = @($inventory.payload_roots | ForEach-Object { Join-Path $repo $_ } | Where-Object { Test-Path -LiteralPath $_ })
+$files = @(Get-ChildItem -LiteralPath $payloadRoots -File -Recurse)
 $lines = foreach ($file in $files) {
     $hash = (Get-FileHash -Algorithm SHA256 -Path $file.FullName).Hash
     "{0}  {1,12}  {2}" -f $hash, $file.Length, $file.FullName.Substring($offline.Length + 1)

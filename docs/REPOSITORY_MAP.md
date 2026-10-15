@@ -1,3 +1,5 @@
+> Historical/legacy runner reference: use [SI6_START_HERE](SI6_START_HERE.md) for the current automatic three-instrument experiment.
+
 # Active Repository Map
 
 Workflow 02 is the single canonical active experiment workflow.

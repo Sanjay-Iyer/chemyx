@@ -1,4 +1,7 @@
-"""Explicitly custom validation comparators; not replacements for production."""
+"""Validated phase estimators shared by production and offline comparisons.
+
+Combined Objective remains explicitly custom; its original math is unchanged.
+"""
 from dataclasses import asdict, dataclass
 import numpy as np
 from scipy.optimize import minimize
@@ -9,6 +12,17 @@ OPTIMIZER_CONFIG = {'bounds_deg': [[-180., 180.], [-360., 360.]],
     'grid_p0_step_deg': 45., 'grid_p1_step_deg': 90., 'local_starts': 4,
     'local_method': 'Powell', 'maxiter': 180, 'maxfev': 6000,
     'xtol': 1e-5, 'ftol': 1e-9, 'seed': 'none; fixed grid, stable ordering'}
+
+CLASSICAL_OPTIMIZER_SETTINGS = {"xtol": 1e-4, "ftol": 1e-4, "maxiter": 1000,
+    "maxfun": 2000, "disp": False, "full_output": True}
+
+
+def minimize_acme(fft, initial_direct_phases):
+    """Exact historical validation ACME objective, start convention and budget."""
+    import nmrglue as ng
+    from scipy.optimize import fmin
+    return fmin(ng.proc_autophase._ps_acme_score, initial_direct_phases,
+                args=(np.asarray(fft),), **CLASSICAL_OPTIMIZER_SETTINGS)
 
 
 def components(metrics):

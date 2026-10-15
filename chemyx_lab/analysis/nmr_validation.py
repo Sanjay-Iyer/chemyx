@@ -323,15 +323,16 @@ def alternative_phases(result):
     sign = -1 if not result["args"].direct_phase else 1
     initial = [sign*spec.phase0_deg, sign*spec.phase1_deg]
     peak_width = max(10, int(round(.10 / np.median(np.diff(spec.ppm_axis)))))
-    settings = {"xtol": 1e-4, "ftol": 1e-4, "maxiter": 1000, "maxfun": 2000,
-                "disp": False, "full_output": True}
+    from .phase_optimizers import minimize_acme, CLASSICAL_OPTIMIZER_SETTINGS
+    settings = dict(CLASSICAL_OPTIMIZER_SETTINGS)
     methods = []
     for name in ("acme", "peak_minima"):
         objective = getattr(ng.proc_autophase, "_ps_" + name + "_score")
         arguments = (values,) if name == "acme" else (values,peak_width)
         try:
-            phases, score, iterations, evaluations, flag = fmin(objective, initial,
-                args=arguments, **settings)
+            phases, score, iterations, evaluations, flag = (
+                minimize_acme(values, initial) if name == "acme" else
+                fmin(objective, initial, args=arguments, **settings))
             if not np.all(np.isfinite(phases)) or not np.isfinite(score):
                 raise ValueError("non-finite objective or phases")
             comparator = analyze(spec.source, result["args"],

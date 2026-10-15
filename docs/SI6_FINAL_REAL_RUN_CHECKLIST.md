@@ -1,3 +1,13 @@
+> Historical/legacy runner reference: use [SI6_START_HERE](SI6_START_HERE.md) for the current automatic three-instrument experiment.
+
+> Current operating authority: [SI6_START_HERE](SI6_START_HERE.md).
+> The real Si6 recipe now explicitly selects ACME; see [phase selection and
+> post-session comparison](SI6_NMR_PHASE_METHODS.md). Before replacing software,
+> [back up rig state](RIG_STATE_BACKUP.md). The shared portable inventory is
+> `offline/release_manifest.yaml`; `prepare_si6_release.py --working-tree
+> --with-offline-payload` builds an uncommitted review snapshot. Older dated
+> engineering evidence below retains its original validation scope.
+
 # Si6 final real-run checklist — October 14, 2026
 
 HOME verification is software-only. Perform live commands below only on the

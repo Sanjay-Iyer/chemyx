@@ -34,6 +34,8 @@ def verify_release(root):
             else:
                 raise ValueError(f"Release hash mismatch: {name}")
     return {"mode": "verified release export", "commit": data["commit"], "changed_operator_configs": changed_configs,
+            "working_tree_snapshot": data.get("working_tree_snapshot", False),
+            "source_tree_sha256": data.get("source_tree_sha256"),
             "files_verified": len(data["source_files"]) + len(data.get("offline_assets", {}))}
 
 
@@ -49,7 +51,8 @@ def main(argv=None):
         for module, package in (("serial", "pyserial"), ("yaml", "PyYAML"), ("numpy", "numpy"), ("scipy", "scipy"), ("matplotlib", "matplotlib"), ("nmrglue", "nmrglue"), ("pytest", "pytest")):
             importlib.import_module(module)
             versions[package] = importlib.metadata.version(package)
-        from validate_si6_offline import RESOURCES
+        from chemyx_lab.release_inventory import load_inventory
+        RESOURCES = load_inventory(config.REPO_ROOT)["required_resources"]
         missing = [name for name in RESOURCES if not (config.REPO_ROOT / name).is_file()]
         if missing:
             raise ValueError("Missing deployment files: " + ", ".join(missing))
@@ -65,6 +68,7 @@ def main(argv=None):
                           "offline_lock_target": "CPython 3.11 win-amd64", "packages": versions, "release": release,
                           "ports": {"arduino": arduino["arduino"]["port"], "chemyx": pump.port}, "nmr": {"host": nmr.host, "port": nmr.port},
                           "stages": [{"name": s.name, "interval_minutes": s.interval_minutes, "fallback_hours": s.max_hours} for s in si6.base.build_stages(raw["workflow"])],
+                          "phase_processing": __import__("chemyx_lab.analysis.phase_methods", fromlist=["preflight"]).preflight(raw["nmr"]),
                           "solvent_monitor": raw["solvent_monitor"]}, indent=2))
         return 0
     except Exception as exc:

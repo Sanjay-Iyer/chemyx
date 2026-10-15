@@ -1,3 +1,5 @@
+> Historical/legacy runner reference: use [SI6_START_HERE](SI6_START_HERE.md) for the current automatic three-instrument experiment.
+
 # Instrument Commands
 
 This reference is derived from the current working code and repository

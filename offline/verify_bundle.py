@@ -1,11 +1,16 @@
 """Verify the locally transferred wheel/installer manifest without network access."""
 import hashlib
+import json
 from pathlib import Path
 import re
+import sys
 
 
 def verify(root):
     root = Path(root).resolve()
+    inventory = json.loads((root / "release_manifest.yaml").read_text(encoding="utf-8"))
+    if not (root.parent / inventory["requirements_lock"]).is_file():
+        raise ValueError("Authoritative offline requirement lock is missing")
     manifest = root / "BUNDLE_MANIFEST.txt"
     entries = set()
     for line in manifest.read_text(encoding="ascii").splitlines():
@@ -26,6 +31,10 @@ def verify(root):
     wheels = set((root / "wheelhouse").glob("*.whl"))
     if not wheels or not wheels <= entries:
         raise ValueError("Wheelhouse missing or includes unverified wheels")
+    if inventory["deep_phaser"]["enabled_in_payload"]:
+        sys.path.insert(0, str(root.parent))
+        from chemyx_lab.analysis.phase_methods import deep_inventory
+        deep_inventory(root / "resources/deep_phaser")
     return len(entries), len(wheels)
 
 

@@ -1,3 +1,5 @@
+> Historical/legacy runner reference: use [SI6_START_HERE](SI6_START_HERE.md) for the current automatic three-instrument experiment.
+
 # Si6 Automated Chemyx/NMR Workflow
 
 The Si6 workflow is configured in:

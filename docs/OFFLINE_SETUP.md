@@ -1,3 +1,5 @@
+> Historical/legacy runner reference: use [SI6_START_HERE](SI6_START_HERE.md) for the current automatic three-instrument experiment.
+
 # Offline Laptop Setup
 
 How to run the Chemyx pump, the NMR, and the needle from a laptop with no

@@ -34,7 +34,8 @@ param(
 $ErrorActionPreference = "Stop"
 $offline = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repo = Split-Path -Parent $offline
-$lock = Join-Path $offline "requirements-lock.txt"
+$releaseInventory = Get-Content -LiteralPath (Join-Path $offline "release_manifest.yaml") -Raw | ConvertFrom-Json
+$lock = Join-Path $repo $releaseInventory.requirements_lock
 $wheelhouse = Join-Path $offline "wheelhouse"
 $venv = Join-Path $repo ".venv"
 $venvPython = Join-Path $venv "Scripts\python.exe"
@@ -95,72 +96,8 @@ Write-Host "[3/7] Checking imports"
 if ($LASTEXITCODE -ne 0) { throw "A package failed to import." }
 
 Write-Host "[4/7] Checking required offline source files"
-$requiredRelativePaths = @(
-    "configs\experiments\si6_real_two_stage.yaml",
-    "configs\machines\si6_real_COM4.yaml",
-    "configs\machines\si6_real_COM6.yaml",
-    "arduino\configs\arduino_real_COM3.yaml",
-    "chemyx_lab\analysis\solvent_presence.py",
-    "scripts\verify_si6_environment.py",
-    "docs\SI6_FINAL_REAL_RUN_CHECKLIST.md",
-    "arduino\firmware\needle_controller\needle_controller.ino",
-    "arduino\python\controller.py",
-    "arduino\mock\fake_arduino.py",
-    "arduino\configs\arduino.example.yaml",
-    "arduino\scripts\test_01_arduino_connection.py",
-    "arduino\scripts\test_02_unloaded_motor.py",
-    "arduino\scripts\test_03_needle_axis.py",
-    "arduino\scripts\test_04_integrated_system.py",
-    "chemyx_lab\instruments\chemyx.py",
-    "chemyx_lab\instruments\nmr.py",
-    "chemyx_lab\analysis\nmr.py",
-    "chemyx_lab\analysis\completion.py",
-    "chemyx_lab\workflows\si6_automated_nmr.py",
-    "chemyx_lab\workflows\three_instrument_si6.py",
-    "chemyx_lab\runtime_journal.py",
-    "chemyx_lab\runtime_state.py",
-    "chemyx_lab\recovery.py",
-    "chemyx_lab\testing\fixtures\tracked_resonance_phsi4_20260810.dx",
-    "chemyx_lab\testing\fixtures\no_resonance_phsi2_20260609_0900.dx",
-    "configs\experiments\02_si6_automated_nmr.yaml",
-    "configs\machines\00_machine.example.yaml",
-    "configs\nmr\analysis.yaml",
-    "scripts\02_si6_automated_nmr.py",
-    "scripts\01_three_instrument_system_test.py",
-    "scripts\02_si6_experiment.py",
-    "scripts\nmr\process_fid.py",
-    "scripts\diagnostics\01_list_serial_ports.py",
-    "scripts\diagnostics\02_verify_chemyx_movement.py",
-    "scripts\diagnostics\03_check_nmr_connection.py",
-    "scripts\diagnostics\04_run_nmr_1d_acquisition.py",
-    "nmr_template\experiment_data_1782760626.959469.dx",
-    "offline\arduino_toolchain.ps1",
-    "offline\serial_drivers.ps1",
-    "tests\test_three_instrument_si6.py",
-    "docs\THREE_INSTRUMENT_ARCHITECTURE.md",
-    "docs\LIVE_COMMISSIONING_CHECKLIST.md",
-    "docs\OFFLINE_SETUP.md",
-    "chemyx_lab\workflows\pump_channels.py",
-    "chemyx_lab\workflows\dose_guard.py",
-    "chemyx_lab\workflows\si6_profile.py",
-    "chemyx_lab\workflows\si6_simulation.py",
-    "chemyx_lab\analysis\stage_completion.py",
-    "chemyx_lab\analysis\stage_measurement.py",
-    "chemyx_lab\analysis\si6_stage_reports.py",
-    "chemyx_lab\testing\fixtures\si6_two_stage_trends.json",
-    "config_templates\experiments\si6_two_stage_nominal.yaml",
-    "config_templates\experiments\si6_two_stage_fast_sim.yaml",
-    "config_templates\experiments\si6_two_stage_stage1_development.yaml",
-    "config_templates\experiments\si6_two_stage_stage2_development.yaml",
-    "config_templates\machines\si6_instrument_settings.example.yaml",
-    "scripts\validate_si6_offline.py",
-    "docs\OFFLINE_DEPLOYMENT.md",
-    "docs\OFFLINE_REQUIREMENTS.md",
-    "docs\SI6_TWO_STAGE_OPERATOR_GUIDE.md",
-    "docs\SI6_WORKFLOW_VALIDATOR.md",
-    "docs\SI6_TWO_STAGE_CONFIGURATION.md",
-    "docs\SI6_TWO_STAGE_VALIDATION_REPORT.md"
-)
+$requiredRelativePaths = @($releaseInventory.required_resources)
+
 foreach ($relativePath in $requiredRelativePaths) {
     if (-not (Test-Path (Join-Path $repo $relativePath))) {
         throw "Offline transfer is incomplete; missing $relativePath"

@@ -370,10 +370,12 @@ def load_si6_config(path: Path, *, allow_soak: bool = False) -> dict[str, Any]:
         _mapping(raw["nmr"], "nmr"),
         {
             "route", "result_type", "scans", "receiver_gain", "auto_gain",
-            "spectral_center", "sweep_width", "target_ppm",
+            "spectral_center", "sweep_width", "target_ppm", "processing",
         },
         "nmr",
     )
+    from ..analysis.phase_methods import settings as phase_settings
+    phase_settings(raw["nmr"])
     _reject_unknown(
         analysis,
         {
@@ -835,6 +837,7 @@ def run_process_fid_postprocessing(
     runner: Callable[..., Any] = subprocess.run,
     tracked_window: tuple[float, float] | None = None,
     peak_tracking: dict | None = None,
+    phase_method: str | None = None,
 ) -> Path:
     """Run full-spectrum processing for one automated NMR acquisition.
 
@@ -871,6 +874,8 @@ def run_process_fid_postprocessing(
         tracking_path = paths.metadata_dir / "peak_tracking_config.json"
         tracking_path.write_text(json.dumps(peak_tracking, indent=2), encoding="utf-8")
         command += ["--peak-tracking-config", str(tracking_path.resolve())]
+    if phase_method is not None:
+        command += ["--phase-method", phase_method]
     if tracked_window is not None:
         command += [
             "--simple-restrict-to-window",

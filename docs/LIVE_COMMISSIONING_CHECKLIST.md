@@ -1,3 +1,5 @@
+> Historical/legacy runner reference: use [SI6_START_HERE](SI6_START_HERE.md) for the current automatic three-instrument experiment.
+
 # Live commissioning checklist: three-instrument Si6 workflow
 
 Status on 2026-09-23: **software, mock, offline-bundle, and USB-only Arduino

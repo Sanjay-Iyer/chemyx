@@ -105,6 +105,17 @@ pump:
       rate_ml_min: 1.0
       default_volume_ml: 1.8
 nmr:
+  processing:
+    # DEFAULT: ACME. This primary result controls quantitative areas/endpoints.
+    # Change this ONE value: stored (historical DX), combined_objective,
+    # ernst_p0 (P0 only), deep_phaser (verified local models/runtime required).
+    # Changing methods can change areas and completion decisions.
+    phase_method: acme
+    phase_comparison:
+      # Research only, AFTER instrument cleanup/session closure; initially off.
+      enabled: false
+      methods: [stored, acme, combined_objective, ernst_p0, deep_phaser]
+      include_unphased_reference: true
   route: iflow
   result_type: fid
   scans: 8

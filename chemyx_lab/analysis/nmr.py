@@ -54,6 +54,7 @@ class SpectrumData:
     center_ppm: float = 0.0
     phase_method: str = ""
     truncation_window: str = "none"
+    phase_audit: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -1662,7 +1663,12 @@ def build_phased_spectrum(
             truncation_window=truncation_window,
         )
     )
-    if phase_method in {"stored", "manual"}:
+    phase_audit = None
+    if phase_method in {"acme", "combined_objective", "ernst_p0", "deep_phaser"}:
+        from .phase_methods import apply_phase
+        phased, phase_audit = apply_phase(ppm_axis, spectrum, fid.metadata, phase_method)
+        phase0_deg, phase1_deg = phase_audit["p0_deg"], phase_audit["p1_deg"]
+    elif phase_method in {"stored", "manual"}:
         if phase_method == "manual" and (
             phase0_deg is None or phase1_deg is None
         ):
@@ -1691,8 +1697,8 @@ def build_phased_spectrum(
         phased = spectrum
     else:
         raise NmrProcessingError(
-            "phase_method must be stored, manual, automatic_peak_minima, "
-            "peak_minima, or none"
+            "phase_method must be stored, acme, combined_objective, ernst_p0, "
+            "deep_phaser, manual, automatic_peak_minima, peak_minima, or none"
         )
     return SpectrumData(
         fid.path,
@@ -1716,6 +1722,7 @@ def build_phased_spectrum(
         ),
         phase_method=str(phase_method),
         truncation_window=str(truncation_window),
+        phase_audit=phase_audit,
     )
 
 

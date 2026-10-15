@@ -1,3 +1,5 @@
+> Historical/legacy runner reference: use [SI6_START_HERE](SI6_START_HERE.md) for the current automatic three-instrument experiment.
+
 # Three-instrument, two-channel workflow: quick guide
 
 > Current startup, HOME=0/UP=1 geometry and solvent-loss fallback rules are in [SI6_SOLVENT_FALLBACK_UPDATE.md](SI6_SOLVENT_FALLBACK_UPDATE.md). After three missing solvent observations, timed operation overrides the normal count cap and permits an explicitly recorded timed transition.

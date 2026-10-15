@@ -850,6 +850,8 @@ def unresolved_previous_live_run(raw: dict[str, Any]) -> Any | None:
 
 def prepare(workflow_path: Path, machine_path: Path, arduino_path: Path, *, mock: bool, require_needle_live: bool = True, allow_soak: bool = False):
     raw = base.load_si6_config(workflow_path, allow_soak=allow_soak)
+    from ..analysis.phase_methods import preflight
+    preflight(raw["nmr"])
     if "three_instrument" not in raw:
         raise ValueError("Three-instrument config section is required")
     raw["workflow"]["initial_stage"]["plateau_stopping_enabled"] = raw["three_instrument"]["initial_plateau_stopping_enabled"]
@@ -906,6 +908,8 @@ def check_previous_run_review(raw: dict[str, Any]) -> Any | None:
 def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity, fast_mock_processing: bool = False, config_sources=None):
     """One set of production interfaces for both entry points."""
     mock = identity.mock
+    from ..analysis.phase_methods import preflight
+    effective_phase = preflight(raw["nmr"])
     read_only_needle = identity.kind == "diagnostic" and identity.selection == "communications"
     # Validate before opening transports, including callers supplying dictionaries.
     cycle_values(raw)
@@ -1021,7 +1025,7 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
                     recorder.record("pump_configuration", workflow_phase="initializing", channel=ch, units=config.UNITS[cfg.units], syringe_diameter_mm=cfg.diameter, rate=cfg.rate)
                 pump.select_channel(pump_cfg.channel)
                 window = tracked_window(raw, nmr_cfg)
-                processor = MockProcessFid(window, raw["analysis"].get("peak_finding", raw["analysis"].get("peak_tracking"))) if mock and fast_mock_processing else partial(base.run_process_fid_postprocessing, tracked_window=window, peak_tracking=raw["analysis"].get("peak_finding", raw["analysis"].get("peak_tracking")))
+                processor = MockProcessFid(window, raw["analysis"].get("peak_finding", raw["analysis"].get("peak_tracking"))) if mock and fast_mock_processing else partial(base.run_process_fid_postprocessing, tracked_window=window, peak_tracking=raw["analysis"].get("peak_finding", raw["analysis"].get("peak_tracking")), phase_method=effective_phase["phase_method"] if "processing" in raw["nmr"] else None)
                 services = Services(
                     needle=needle, pump=pump, pump_cfg=pump_cfg, nmr_cfg=nmr_cfg, raw=raw,
                     arduino_cfg=arduino_cfg, paths=paths, recorder=recorder, state=state,
@@ -1168,8 +1172,20 @@ def run_diagnostic(s: Services, selection: str = "all") -> list[str]:
     return passed
 
 
+def _standalone_processing_options(raw, nmr_cfg):
+    """Apply explicit recipe selection to diagnostics as well as experiments."""
+    from ..analysis.phase_methods import preflight
+    effective = preflight(raw["nmr"])
+    options = {"tracked_window": tracked_window(raw, nmr_cfg)}
+    if "processing" in raw["nmr"]:
+        options.update(phase_method=effective["phase_method"],
+            peak_tracking=raw["analysis"].get("peak_finding", raw["analysis"].get("peak_tracking")))
+    return options
+
+
 def run_nmr_only(raw: dict[str, Any], pump_cfg: config.PumpConfig, nmr_cfg: config.NmrSettings, *, mock: bool) -> base.RunPaths:
     """Level 1 NMR diagnostic; opens neither serial port."""
+    processing = _standalone_processing_options(raw, nmr_cfg)
     identity = RunIdentity("diagnostic", mock, "nmr")
     paths = create_identified_run(raw, identity)
     recorder = base.create_run_recorder(paths)
@@ -1180,7 +1196,7 @@ def run_nmr_only(raw: dict[str, Any], pump_cfg: config.PumpConfig, nmr_cfg: conf
         needle=None, pump=None, pump_cfg=pump_cfg, nmr_cfg=nmr_cfg, raw=raw, arduino_cfg={},
         paths=paths, recorder=recorder, state=base.PumpSafetyState(),
         acquire=mock_acquire if mock else base.run_nmr_acquisition,
-        process=partial(base.run_process_fid_postprocessing, tracked_window=tracked_window(raw, nmr_cfg)),
+        process=partial(base.run_process_fid_postprocessing, **processing),
         analyze=analyze_tracked_resonance, sleep=lambda _label, _seconds: None, identity=identity,
     )
     run_diagnostic(services, "nmr")
@@ -1189,17 +1205,25 @@ def run_nmr_only(raw: dict[str, Any], pump_cfg: config.PumpConfig, nmr_cfg: conf
 
 def run_processing_only(raw: dict[str, Any], nmr_cfg: config.NmrSettings, source: Path, *, mock: bool) -> tuple[base.RunPaths, Path, dict]:
     """Process one existing spectrum with production process_fid; no instrument."""
+    processing = _standalone_processing_options(raw, nmr_cfg)
     identity = RunIdentity("processing_only", mock)
     paths = create_identified_run(raw, identity)
     target = paths.raw_dir / source.name
     shutil.copyfile(source, target)
     write_json_atomic(paths.manifest_json, manifest_payload(paths, identity, raw, []))
-    processed = base.run_process_fid_postprocessing(target, paths, paths.run_dir.name, tracked_window=tracked_window(raw, nmr_cfg))
+    processed = base.run_process_fid_postprocessing(target, paths, paths.run_dir.name, **processing)
     metadata = {"iteration": 1, "stage": "processing_only", "elapsed_hours": 0.0, "target_ppm": nmr_cfg.target_ppm, "dataset_display_name": paths.run_dir.name}
-    row, _ = analyze_tracked_resonance(target, processed, paths, raw["analysis"], metadata)
+    area_only = "peak_finding" in raw["analysis"]
+    if area_only:
+        row = tracked_peak_area_observation(target, processed, metadata, raw["analysis"], [])
+        if "solvent_monitor" in raw:
+            record_sample_presence(row, [], raw["solvent_monitor"], solvent_presence(target, raw["solvent_monitor"]))
+        write_json_atomic(paths.run_dir / "processing_observation.json", row)
+    else:
+        row, _ = analyze_tracked_resonance(target, processed, paths, raw["analysis"], metadata)
     figures = [{"file": row["plot_file"], "dataset_display_name": paths.run_dir.name, "visible_title": row["plot_title"], "measurement_valid": bool(row["peak_clear"])}] if row.get("plot_title") else []
     write_json_atomic(paths.manifest_json, manifest_payload(paths, identity, raw, figures))
-    if not row["peak_clear"]:
+    if not area_only and not row["peak_clear"]:
         raise base.AnalysisInconclusiveError(f"Tracked resonance failed the configured checks: {row['qc_failure_reasons']}")
     return paths, processed, row
 

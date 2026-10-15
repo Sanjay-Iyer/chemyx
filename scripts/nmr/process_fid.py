@@ -150,6 +150,7 @@ def _parser(config_defaults=None) -> argparse.ArgumentParser:
     parser.add_argument(
         "--phase-method",
         choices=(
+            "acme", "combined_objective", "ernst_p0", "deep_phaser",
             "stored",
             "automatic_peak_minima",
             "peak_minima",
@@ -1988,12 +1989,13 @@ def main(argv: list[str] | None = None) -> int:
                     "phase0_deg": spectrum.phase0_deg,
                     "phase1_deg": spectrum.phase1_deg,
                     "phase_direction": (
-                        "automatic"
-                        if args.phase_method
-                        in {"peak_minima", "automatic_peak_minima"}
-                        else ("direct" if args.direct_phase else "inverse")
+                        ("inverse" if spectrum.phase_audit["inverse_phase"] else "direct")
+                        if spectrum.phase_audit else
+                        ("automatic" if args.phase_method in {"peak_minima", "automatic_peak_minima"}
+                         else ("direct" if args.direct_phase else "inverse"))
                     ),
                     "phase_method": args.phase_method,
+                    "phase_optimizer": spectrum.phase_audit,
                     "truncation_window": args.truncation_window,
                     "baseline_method": args.baseline_method,
                     "region_min_ppm": picked.region_min_ppm,
@@ -2068,8 +2070,15 @@ def main(argv: list[str] | None = None) -> int:
                 + (f" at {text} ppm" if text else "")
             )
         except Exception as exc:
+            failure = {"file": path.name, "source_path": str(path),
+                       "phase_method": args.phase_method, "target_area": None,
+                       "phase_optimizer": getattr(exc, "phase_audit", None), "error": str(exc)}
+            failure_dir = out_dir / "processing_failures"
+            failure_dir.mkdir(exist_ok=True)
+            (failure_dir / (path.stem[:32] + "_failure.json")).write_text(
+                json.dumps(failure, indent=2, default=str), encoding="utf-8")
             records.append(
-                {"file": path.name, "source_path": str(path), "error": str(exc)}
+                failure
             )
             print(f"  ERROR {path.name}: {exc}", file=sys.stderr)
 

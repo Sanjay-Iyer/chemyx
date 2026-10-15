@@ -1,3 +1,11 @@
+> Current operating authority: [SI6_START_HERE](SI6_START_HERE.md).
+> The real Si6 recipe now explicitly selects ACME; see [phase selection and
+> post-session comparison](SI6_NMR_PHASE_METHODS.md). Before replacing software,
+> [back up rig state](RIG_STATE_BACKUP.md). The shared portable inventory is
+> `offline/release_manifest.yaml`; `prepare_si6_release.py --working-tree
+> --with-offline-payload` builds an uncommitted review snapshot. Older dated
+> engineering evidence below retains its original validation scope.
+
 # Real instrument commands — standalone Windows laptop
 
 Assume you are already in the repository root and the correct Python/Conda environment is active. Every command below starts with `python`.

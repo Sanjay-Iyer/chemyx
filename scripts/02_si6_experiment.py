@@ -64,6 +64,17 @@ def main(argv=None) -> int:
             print(f"Final NMR summary: {summarize_run(services.paths.run_dir)}")
         except Exception as exc:
             print(f"Final NMR summary unavailable ({type(exc).__name__}: {exc}); rerun scripts/nmr/summarize_run.py on this folder.")
+        try:
+            from chemyx_lab.analysis.phase_comparison import compare_run
+            print(f"Post-session phase comparison: {compare_run(services.paths.run_dir)}")
+        except Exception as exc:
+            # Optional research must never change the production outcome.
+            from chemyx_lab.analysis.phase_audit import write_json
+            try:
+                write_json(services.paths.final_dir / "phase_comparison_failure.json", {"error": str(exc)})
+            except Exception as log_exc:
+                print(f"Could not save optional comparison failure: {log_exc}")
+            print(f"Post-session comparison unavailable: {exc}")
         print(f"Si6 EXPERIMENT: {outcome.status.value}: {outcome.message}")
         return outcome.exit_code
     except BaseException as exc:

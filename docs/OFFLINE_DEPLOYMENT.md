@@ -1,3 +1,11 @@
+> Current operating authority: [SI6_START_HERE](SI6_START_HERE.md).
+> The real Si6 recipe now explicitly selects ACME; see [phase selection and
+> post-session comparison](SI6_NMR_PHASE_METHODS.md). Before replacing software,
+> [back up rig state](RIG_STATE_BACKUP.md). The shared portable inventory is
+> `offline/release_manifest.yaml`; `prepare_si6_release.py --working-tree
+> --with-offline-payload` builds an uncommitted review snapshot. Older dated
+> engineering evidence below retains its original validation scope.
+
 # HOME → WORK1 → offline WORK2 deployment
 
 Current operator procedure: [SI6_FINAL_REAL_RUN_CHECKLIST.md](SI6_FINAL_REAL_RUN_CHECKLIST.md). HOME can export the exact committed source plus local payload directly with `python scripts/prepare_si6_release.py --with-offline-payload` when WORK has no Git access. See [the deployment manifest](SI6_DEPLOYMENT_MANIFEST.md) for checksum/version verification and separately preserved rig state.

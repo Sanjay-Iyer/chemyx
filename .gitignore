@@ -94,3 +94,7 @@ desktop.ini
 .idea/
 *.swp
 .codex_tmp_deps/
+
+# Rig backups and portable binary/model payloads remain separate from source.
+/rig_backups/
+/offline/resources/

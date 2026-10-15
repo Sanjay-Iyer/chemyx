@@ -91,7 +91,10 @@ def phase_parameters(spectrum, unphased):
             "inverse_phase": inverse,
             "equation": "S[k] * exp(sign * i*pi/180 * (P0 + P1*k/N))",
             "optimization_objective": None if spectrum.phase_method in {"stored", "manual", "none"} else
-                "nmrglue " + spectrum.phase_method,
+                {"combined_objective": "custom combined_objective_v1 (original four equal weights)",
+                 "ernst_p0": "analytical global complex integral; P0 only",
+                 "deep_phaser": "COLMARvista neural classifications and author phase search"}.get(
+                     spectrum.phase_method, "nmrglue " + spectrum.phase_method),
             "phase_bounds": None,
             "fft_convention": "numpy.fft.fftshift(numpy.fft.fft(complex_FID))",
             "axis_convention": "ascending internal ppm; display high ppm at left"}
@@ -121,7 +124,11 @@ def retain_phase_audit(spectrum, args, analysis_ppm, quantitative_real, picked, 
                         detection_smoothed=picked.smoothed,
                         regional_quantitative=picked.quantitative_corrected)
     params = phase_parameters(spectrum, unphased)
-    params["inverse_phase"] = bool(not args.direct_phase) if spectrum.phase_method in {"stored", "manual"} else False
+    params["role"] = "primary"
+    if spectrum.phase_audit:
+        params.update(spectrum.phase_audit)
+    else:
+        params["inverse_phase"] = bool(not args.direct_phase) if spectrum.phase_method in {"stored", "manual"} else False
     params["sign"] = -1 if params["inverse_phase"] else 1
     dataset = dataset or resolve_dataset_display_name(
         input_paths=spectrum.source, metadata=spectrum.metadata)

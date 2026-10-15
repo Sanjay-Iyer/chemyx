@@ -8,7 +8,9 @@ const vm = require('vm');
 const crypto = require('crypto');
 const {spawn} = require('child_process');
 const readline = require('readline');
-const root = path.resolve(__dirname, '../../results/NMR_validation_100226/logs/additional_phase_methods/external_audit');
+// Archived callers retain their resource location; production always supplies
+// the manifest-verified portable payload explicitly.
+const root = process.env.DEEP_PHASER_RESOURCE_ROOT || path.resolve(__dirname, '../../results/NMR_validation_100226/logs/additional_phase_methods/external_audit');
 const tf = require(path.join(root, 'tfjs-4.22.0.cjs'));
 const Module = require('module');
 const wasmPath = path.join(root,'wasm/tf-backend-wasm.js');
@@ -49,6 +51,11 @@ async function main() {
     const ready=JSON.parse(await nextLine());if(!ready.ready)throw Error('Native model not ready');nativeVersion=ready.tensorflow;
   }
   const models = useNative?null:await Promise.all([loadModel(0),loadModel(1)]);
+  if(request.preflight_only){
+    fs.writeFileSync(outputPath,JSON.stringify({success:true,status:'models_loaded',backend:'wasm',tfjs_version:tf.version.tfjs}));
+    if(models)models.forEach(m=>m.dispose());
+    return;
+  }
   const referenceStart = source.indexOf('function get_data_from_phase_correction(');
   const referenceEnd = source.indexOf('// Wrap the logic in an async function',referenceStart);
   let functions = source.slice(referenceStart,referenceEnd);

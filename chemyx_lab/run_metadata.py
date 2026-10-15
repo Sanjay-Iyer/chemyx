@@ -17,6 +17,7 @@ def utc_now():
 
 
 def begin_run(paths, raw, identity, repository_root, config_sources=None, *, software_version=None):
+    from .analysis.phase_methods import settings as phase_settings
     filename = paths.run_dir / "metadata" / ("experiment_info.json" if paths.layout else "run_metadata.json")
     versions = {}
     for package in ("pyserial", "PyYAML", "numpy", "scipy", "matplotlib", "nmrglue"):
@@ -53,6 +54,10 @@ def begin_run(paths, raw, identity, repository_root, config_sources=None, *, sof
                        chemical_completion_verified=False, timed_fallback_occurred=False)
         (layout.metadata / "configuration_snapshot.yaml").write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
         write_json_atomic(layout.metadata / "software_version.json", {k: payload[k] for k in ("git_commit", "source_files_sha256", "python_version", "package_versions")})
+    payload["effective_nmr_processing"] = phase_settings(raw["nmr"])
+    if "processing" not in raw["nmr"]:
+        payload["effective_nmr_processing"].update(phase_method=None,
+            selection_source="Legacy common processing config snapshots; actual method recorded per spectrum")
     write_json_atomic(filename, payload)
 
 
