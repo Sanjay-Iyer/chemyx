@@ -1,6 +1,6 @@
 # Si6 area-only configuration guide
 
-> Current startup, HOME=0/UP=1 geometry and solvent-loss fallback rules are in [SI6_SOLVENT_FALLBACK_UPDATE.md](SI6_SOLVENT_FALLBACK_UPDATE.md). After three missing solvent observations, timed operation overrides the normal count cap and permits an explicitly recorded timed transition.
+> For tomorrow's actual reaction, follow [SI6_FINAL_REAL_RUN_CHECKLIST.md](SI6_FINAL_REAL_RUN_CHECKLIST.md) and edit `configs/experiments/si6_real_two_stage.yaml`. The examples below describe the reusable nominal template. Current startup, HOME=0/UP=1 geometry and solvent-loss fallback rules are in [SI6_SOLVENT_FALLBACK_UPDATE.md](SI6_SOLVENT_FALLBACK_UPDATE.md). After three missing solvent observations, timed operation overrides the normal count cap and permits an explicitly recorded timed transition.
 
 The full workflow uses `scripts/02_si6_experiment.py` with the selected run YAML.
 One start confirmation launches Stage 1, one Channel 2 addition, then Stage 2.
@@ -11,7 +11,7 @@ needle positions in this three-instrument runner, not recurring human prompts.
 |---|---|
 | Run ID, stage cadence, iteration limits, endpoint thresholds, pump volumes/rates, NMR scans/gain | Your `--workflow-config`, copied from `config_templates/experiments/si6_two_stage_nominal.yaml` |
 | Chemyx COM4 and NMR host/port | Your `--machine-config`, normally `configs/machines/00_machine.local.yaml`; Chemyx `port: COM4` |
-| Arduino COM3 and calibrated needle positions | `--arduino-config`, normally `arduino/configs/arduino.local.yaml`; `serial.port: COM3` |
+| Arduino COM3 and calibrated needle positions | `--arduino-config`, normally `arduino/configs/arduino.local.yaml`; `arduino.port: COM3` |
 | Phase and baseline processing | `configs/nmr/analysis.yaml` and optional `configs/nmr/analysis.local.yaml` |
 | Peak identity and moving integration | Run YAML `analysis.peak_finding`, `analysis.peak_area` |
 | Review warnings only | Run YAML `qc_reporting`; `affect_workflow` must be false |
@@ -135,8 +135,9 @@ and width estimation. `search` limits allowed center displacement from `nmr.targ
 `previous_shift` and optional `reference_shift` constrain the tracked identity.
 `continuity` protects against switching to a known neighbor. `prominence`,
 `absolute_prominence`, `width` and `separation` are peak-identification controls.
-They answer which peak to integrate. If no eligible identity exists, area is zero;
+They answer which peak to integrate. With confirmed solvent, if no eligible identity exists, area is zero;
 the last detected center is retained across missing observations and the dose.
+Without confirmed solvent, the area is unavailable and cannot support an endpoint.
 
 The area is the production `RegionPeak.positive_area`, calculated with
 `numpy.trapezoid` (or `numpy.trapz` compatibility) on the positive corrected trace
@@ -227,7 +228,9 @@ after_monitoring:
 ```
 The one dose is 1.8 mL from Channel 2 at 1 mL/min while DOWN. A durable
 reservation, dispatch intent, matched pump completion and confirmation protect
-against replay. A failed Stage 1 endpoint or operational limit never doses.
+against replay. A healthy Stage 1 reaching an operational limit without an endpoint
+never doses. A latched solvent-loss fallback reaching its configured deadline
+permits the same protected dose, with chemical completion explicitly unverified.
 Use a unique `workflow.experiment_id` for a new physical reaction, not to bypass
 an existing reservation. No automatic partial-run resume is provided.
 
@@ -279,7 +282,7 @@ chemyx:
   response_delay_seconds: 0.2
 ```
 For your WORK laptop set the selected machine YAML's Chemyx `port` to `COM4`
-and the selected Arduino YAML's `serial.port` to `COM3`; keep your instrument's
+and the selected Arduino YAML's `arduino.port` to `COM3`; keep your instrument's
 configured NMR host. The machine example above is a schema example.
 
 From the repository root, using the already installed Python environment:

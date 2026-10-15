@@ -7,7 +7,6 @@ import importlib.metadata
 import json
 import platform
 
-from .runtime_journal import discover_git_commit
 from .runtime_state import write_json_atomic
 
 
@@ -15,7 +14,7 @@ def utc_now():
     return datetime.now(timezone.utc).isoformat()
 
 
-def begin_run(paths, raw, identity, repository_root, config_sources=None):
+def begin_run(paths, raw, identity, repository_root, config_sources=None, *, software_version=None):
     filename = paths.run_dir / "metadata" / "run_metadata.json"
     versions = {}
     for package in ("pyserial", "PyYAML", "numpy", "scipy", "matplotlib", "nmrglue"):
@@ -23,9 +22,19 @@ def begin_run(paths, raw, identity, repository_root, config_sources=None):
             versions[package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
             versions[package] = "unavailable"
+    source_hashes = {}
+    for name in ("chemyx_lab", "scripts", "arduino/python", "arduino/scripts"):
+        for source in sorted((repository_root / name).rglob("*.py")):
+            source_hashes[source.relative_to(repository_root).as_posix()] = hashlib.sha256(source.read_bytes()).hexdigest()
+    processing_configs = {}
+    for name in ("configs/nmr/analysis.yaml", "configs/nmr/analysis.local.yaml"):
+        source = repository_root / name
+        if source.is_file():
+            contents = source.read_bytes()
+            processing_configs[name] = {"sha256": hashlib.sha256(contents).hexdigest(), "yaml_at_start": contents.decode("utf-8-sig")}
     payload = dict(experiment_id=raw["workflow"].get("experiment_id"), run_id=paths.run_dir.name,
                    mode=identity.mode, run_kind=identity.kind, started_at_utc=utc_now(), ended_at_utc=None,
-                   git_commit=discover_git_commit(repository_root), python_version=platform.python_version(),
+                   git_commit=software_version, source_files_sha256=source_hashes, processing_configs_at_start=processing_configs, python_version=platform.python_version(),
                    package_versions=versions, configuration_sources=config_sources or {},
                    configuration_sha256=hashlib.sha256(json.dumps(raw, sort_keys=True).encode()).hexdigest(),
                    configuration_snapshot="config_snapshot.json", instrument_snapshot="instrument_settings_snapshot.json",

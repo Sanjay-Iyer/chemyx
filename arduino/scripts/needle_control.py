@@ -80,14 +80,18 @@ def main(argv: list[str] | None = None) -> int:
                 moving = controller.status().get("moving") != "false"
             except Exception:
                 moving = True
-            controller.stop()
             try:
-                saved = NeedleStateStore(state_path).load()
-            except PositionUncertainError:
-                print("STOP sent; corrupt position record retained. Re-establish HOME after inspection.")
-                return 0
-            if moving:
-                NeedleStateStore(state_path).save(replace(saved, position_valid=False, reason="manual_stop_during_possible_motion", last_updated=datetime.now(timezone.utc).isoformat()))
+                controller.stop()
+            finally:
+                # A failed STOP acknowledgment must not leave a formerly valid
+                # position available for a later automatic HOME move.
+                try:
+                    saved = NeedleStateStore(state_path).load()
+                except PositionUncertainError:
+                    print("Corrupt position record retained. Re-establish HOME after inspection.")
+                else:
+                    if moving:
+                        NeedleStateStore(state_path).save(replace(saved, position_valid=False, reason="manual_stop_during_possible_motion", last_updated=datetime.now(timezone.utc).isoformat()))
             print("STOP sent. No HOME reference was inferred.")
             return 0
         if action == "status":

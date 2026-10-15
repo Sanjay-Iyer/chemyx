@@ -116,6 +116,10 @@ def test_exact_cycle_order_and_plateau_cleanup(tmp_path):
     statuses = [item[1]["status"] for item in s.events if item[0] in ("cycle_status", "cycle_completed")]
     assert statuses == ["STARTED", "NMR_COMPLETE", "CLEANUP_COMPLETE", "COMPLETE"]
     assert [name for name, _ in s.events if name == "cycle_completed"] == ["cycle_completed"]
+    for name, fields in s.events:
+        for field in ("started_at", "completed_at"):
+            if field in fields:
+                assert datetime.fromisoformat(fields[field]).utcoffset() == timedelta(0)
     assert s.events.index(next(item for item in s.events if item[0] == "cycle_completed")) > s.events.index(next(item for item in s.events if item[0] == "cycle_status" and item[1].get("status") == "CLEANUP_COMPLETE"))
 
 

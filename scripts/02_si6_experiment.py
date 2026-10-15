@@ -27,11 +27,14 @@ def main(argv=None) -> int:
     mode = "LIVE" if args.live else "MOCK" if args.mock else "VALIDATE ONLY"
     print(f"Si6 EXPERIMENT | {mode}")
     try:
-        raw, arduino, pump, nmr = si6.prepare(args.workflow_config, args.machine_config, args.arduino_config, mock=not args.live)
+        raw, arduino, pump, nmr = si6.prepare(args.workflow_config, args.machine_config, args.arduino_config, mock=not (args.live or args.validate_config))
         print(f"EXPERIMENT: {raw['workflow'].get('experiment_id', raw['workflow']['name'])}\n"
               f"Recipe: {args.workflow_config}\nMachine: {args.machine_config}\nArduino: {args.arduino_config}\n"
+              f"Resolved ports: Arduino={arduino['arduino'].get('port')} | Chemyx={pump.port}\n"
               f"NMR: {nmr.host}:{nmr.port} | scans={nmr.scans} | gain={nmr.receiver_gain} | auto_gain={nmr.auto_gain}")
         stages = si6.base.build_stages(raw["workflow"])
+        if args.live and (len(stages) != 2 or not all(stage.completion and stage.completion.get("method") == "area_only" for stage in stages)):
+            raise ValueError("The live automatic entry point requires the current two-stage area_only recipe. Use the separate legacy runner only for an intentionally manual workflow.")
         for index, stage in enumerate(stages, 1):
             slots = si6.base.duration_measurement_slots(stage.interval_minutes, stage.max_hours, stage.measure_immediately)
             print(f"STAGE {index} ({stage.name})\nSampling interval: {stage.interval_minutes:g} minutes\nTimed fallback duration: {stage.max_hours:g} hours\n"

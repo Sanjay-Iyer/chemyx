@@ -47,7 +47,7 @@ def test_widened_windows_detect_consistently_shifted_pair(shift):
     assert evidence["pair_shift_difference_ppm"] < .001
 
 
-@pytest.mark.parametrize("centers", [(2.08,), (6.99,), (7.12,), (2.08, 7.12), (2.08, 7.08), ()])
+@pytest.mark.parametrize("centers", [(2.08,), (6.99,), (7.12,), (2.08, 7.12), (2.08, 7.08), (2.00, 7.04), (2.12, 7.16), ()])
 def test_neighbor_or_incomplete_pair_never_confirms_sample(centers):
     x = np.linspace(-5, 15, 65536)
     y = abs(np.random.default_rng(54).normal(0, 20, len(x)))
@@ -237,7 +237,8 @@ def test_run_metadata_and_status_expose_timed_completion_without_secrets(tmp_pat
     metadata_path = services.paths.run_dir / "metadata/run_metadata.json"
     metadata = json.loads(metadata_path.read_text())
     assert metadata["experiment_id"] == "SIMULATION_ONLY"
-    assert metadata["git_commit"] == discover_git_commit(ROOT)
+    assert metadata["git_commit"] == events[0].get("software_version")
+    assert metadata["source_files_sha256"]["chemyx_lab/analysis/solvent_presence.py"]
     assert metadata["status"] == "completed" and metadata["dose_confirmed"]
     assert metadata["timed_fallback_stages"] == ["stage_1", "stage_2"]
     assert len(metadata["stages"]) == 2
@@ -294,3 +295,46 @@ def test_nmr_diagnostic_decline_and_dry_run_never_request_rpc(monkeypatch, dry_r
     monkeypatch.setattr("builtins.input", lambda text: prompts.append(text) or "n")
     assert module.main() == (0 if dry_run else 3)
     assert len(prompts) == (0 if dry_run else 1)
+
+
+def test_failed_stop_acknowledgment_invalidates_saved_position(tmp_path, monkeypatch):
+    from arduino.python.needle_state import NeedleStateStore, NeedleState
+    module = load_script("arduino/scripts/needle_control.py", monkeypatch)
+    cfg = yaml.safe_load((ROOT / "arduino/configs/arduino_real_COM3.yaml").read_text())
+    path = tmp_path / "state.json"
+    cfg["needle"]["state_path"] = str(path)
+    NeedleStateStore(path).save(NeedleState(logical_position=1, position_valid=True, reason="motion_completed",
+                                         last_updated=datetime.now(timezone.utc).isoformat(), steps_per_unit=200, up_step_sign=1))
+    def failure(): raise RuntimeError("STOP not acknowledged")
+    @contextmanager
+    def session(*a, **k):
+        yield SimpleNamespace(status=lambda: {"moving": "true"}, stop=failure)
+    monkeypatch.setattr(module, "load_arduino_config", lambda *a: cfg)
+    monkeypatch.setattr(module, "controller_session", session)
+    with pytest.raises(RuntimeError, match="not acknowledged"):
+        module.main(["stop", "--live"])
+    assert not NeedleStateStore(path).load().position_valid
+
+
+def test_live_main_refuses_a_manual_legacy_profile_before_prompt_or_transport(monkeypatch):
+    module = load_script("scripts/02_si6_experiment.py", monkeypatch)
+    prepared = si6.prepare(base.DEFAULT_CONFIG, ROOT / "configs/machines/si6_real_COM4.yaml", ROOT / "arduino/configs/arduino_real_COM3.yaml", mock=True)
+    monkeypatch.setattr(module.si6, "prepare", lambda *a, **k: prepared)
+    monkeypatch.setattr("builtins.input", lambda *a: pytest.fail("prompted for unsupported manual profile"))
+    monkeypatch.setattr(module.si6, "open_services", lambda *a, **k: pytest.fail("opened for unsupported manual profile"))
+    assert module.main(["--live", "--workflow-config", str(base.DEFAULT_CONFIG)]) == 1
+
+
+def test_communications_check_never_assumes_home_and_disables_motion(tmp_path):
+    raw = base.load_si6_config(ROOT / "configs/experiments/si6_real_hardware_test.yaml")
+    raw["output"]["run_root_dir"] = str(tmp_path / "runs")
+    path = tmp_path / "communication.yaml"
+    path.write_text(yaml.safe_dump(raw))
+    prepared = si6.prepare(path, ROOT / "configs/machines/si6_real_COM4.yaml", ROOT / "arduino/configs/arduino_real_COM3.yaml", mock=True)
+    with si6.open_services(*prepared, identity=si6.RunIdentity("diagnostic", True, "communications")) as services:
+        si6.preflight(services, check_nmr=False)
+        assert "logical_position" not in services.needle.status()
+        assert not (services.paths.run_dir / "mock_needle_state.json").exists()
+        with pytest.raises(Exception):
+            services.needle.jog(1, 100)
+        assert not any(" JOG " in command for command in services.needle.transport.tx_log)

@@ -8,9 +8,9 @@ were inspected/classified rather than blindly stripped of interaction.
 
 | Entry point / live action | Confirmations | Decision |
 |---|---:|---|
-| `scripts/02_si6_experiment.py` current two-stage recipe | 1 startup y | No prompts during Stage 1, dose, Stage 2, return or cleanup. Explicit `--validate-config` opens nothing. |
+| `scripts/02_si6_experiment.py` current two-stage recipe | 1 startup y | No prompts during Stage 1, dose, Stage 2, return or cleanup. Explicit `--validate-config` opens nothing. Live manual/legacy recipes are refused before confirmation or transport opening. |
 | `scripts/03_si6_real_soak_test.py` | 1 startup y | No subsequent prompts. Explicit configuration-only mode. |
-| `scripts/01_three_instrument_system_test.py` live selections | 1 startup y | Shared diagnostics have no nested approvals. `--process-only` is offline, zero prompts. |
+| `scripts/01_three_instrument_system_test.py` live selections | 1 startup y | Shared diagnostics have no nested approvals. Communications-only prohibits needle motion and needs no HOME reference. `--process-only` is offline, zero prompts. |
 | `arduino/scripts/needle_control.py set-home/home/up/down` | 1 y | Absolute targets; `set-home` explicitly defines physical reference without moving. |
 | `needle_control.py status/stop` | 0 | Status is read-only; STOP must remain immediately available even with corrupt/unknown position. |
 | `needle_control.py manual-up/manual-down` | 1 y | Explicit untracked relative jog; invalidates HOME and requires physical re-reference afterwards. |

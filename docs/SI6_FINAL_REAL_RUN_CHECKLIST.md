@@ -5,6 +5,9 @@ instrument laptop with inspected hardware. Run PowerShell from the repository
 root. `python` must be the verified interpreter; `.venv\Scripts\python.exe`
 can replace it everywhere without activation.
 
+Software evidence and remaining physical limits are recorded in
+[SI6_PREDEPLOYMENT_VALIDATION.md](SI6_PREDEPLOYMENT_VALIDATION.md).
+
 ## Before transferring
 
 - Run `git status --short` (must be clean) and `git rev-parse HEAD`; retain the
@@ -82,6 +85,10 @@ python scripts\02_si6_experiment.py --validate-config --workflow-config configs\
 
    Confirm the printed durations/cadences and scheduled-count bounds. Explicit
    `--validate-config` cannot be combined with `--live`; no instruments open.
+   At least three scheduled observations must fit before a stage's deadline
+   for the configured three-failure fallback to activate. If shortening a stage
+   drastically, review its cadence too; otherwise it can stop at its limit before
+   fallback activates. Do not edit source or processing/config files during a run.
 
 ## Establish or inspect the Arduino reference
 
@@ -148,7 +155,7 @@ status is `operator_status.json` in the unique run directory. Detailed evidence:
 
 ```text
 results/runs/si6_two_stage/<timestamp>_si6_live[/unique suffix]/
-  metadata/run_metadata.json        ID, commit, UTC start/end, loaded-config hashes
+  metadata/run_metadata.json        ID, start commit, source hashes, UTC start/end
   config_snapshot.json             actual recipe used
   instrument_settings_snapshot.json
   arduino_config_snapshot.json
@@ -169,6 +176,9 @@ The actual run folder is printed by the CLI. Before it finishes, choose the
 newest matching live directory and verify `metadata/run_metadata.json` has the
 intended experiment ID. NMR plots use JCAMP LONG DATE only; operational elapsed
 time is separately labeled and never substituted for acquisition metadata.
+Metadata retains the shared/local processing YAML at startup; per-spectrum
+processing JSON records the actual applied numerical parameters. The Git commit
+is captured at startup, not replaced if a checkout changes while the process runs.
 
 Three missing solvent observations latch fallback for that stage. It keeps
 sampling to `max_hours` from that stage's original start, beyond the normal

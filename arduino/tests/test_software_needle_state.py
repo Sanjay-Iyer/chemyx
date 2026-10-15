@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -12,10 +13,42 @@ from arduino.mock.fake_arduino import FakeArduinoTransport
 from arduino.python.config import load_arduino_config, test3_missing as missing_for_test3
 from arduino.python.controller import NeedleController
 from arduino.python.errors import MotionInterlockError, PositionUncertainError
-from arduino.python.needle_state import NeedleStateStore, TrackedNeedle
+from arduino.python.needle_state import NeedleState, NeedleStateStore, TrackedNeedle
 
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows sharing-violation retry")
+@pytest.mark.parametrize("permanent", [False, True])
+def test_atomic_state_replace_retries_boundedly_and_never_loses_uncertainty(tmp_path, monkeypatch, permanent):
+    from arduino.python import needle_state
+    from dataclasses import replace
+    from datetime import datetime, timezone
+    store = NeedleStateStore(tmp_path / "state.json")
+    pending = NeedleState(logical_position=0, position_valid=False,
+                          last_updated=datetime.now(timezone.utc).isoformat(), reason="motion_pending_to_1")
+    store.save(pending)
+    completed = replace(pending, logical_position=1, position_valid=True, reason="motion_completed")
+    real_replace = needle_state.os.replace
+    attempts, sleeps = [], []
+    def sharing_violation(source, destination):
+        attempts.append(1)
+        if permanent or len(attempts) <= 2:
+            raise PermissionError("TEST: destination temporarily held open")
+        return real_replace(source, destination)
+    monkeypatch.setattr(needle_state.os, "replace", sharing_violation)
+    monkeypatch.setattr(needle_state.time, "sleep", sleeps.append)
+    if permanent:
+        with pytest.raises(PermissionError):
+            store.save(completed)
+        assert store.load() == pending
+        assert len(attempts) == 6 and len(sleeps) == 5
+    else:
+        store.save(completed)
+        assert store.load() == completed
+        assert len(attempts) == 3 and sleeps == [.05, .1]
+    assert not list(tmp_path.glob("*.tmp"))
 
 
 def make_needle(tmp_path: Path, *, scenario: str = "normal"):

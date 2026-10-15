@@ -104,8 +104,8 @@ def evaluate_solvent_spectrum(ppm, magnitude, settings):
         best = max(candidates, key=lambda p: p["prominence"], default=None)
         evidence.append({"window_ppm": [low, high], "expected_center_ppm": center, "maximum_shift_ppm": shift,
                          "covered": covered, "present": best is not None, "peak": best, "candidates": candidates})
-    pairs = [pair for pair in product(*(w["candidates"] for w in evidence))
-             if abs(pair[0]["shift_ppm"]-pair[1]["shift_ppm"]) <= cfg["maximum_pair_shift_difference_ppm"]]
+    pairs = (pair for pair in product(*(w["candidates"] for w in evidence))
+             if abs(pair[0]["shift_ppm"]-pair[1]["shift_ppm"]) <= cfg["maximum_pair_shift_difference_ppm"])
     pair = max(pairs, key=lambda p: sum(v["prominence"] for v in p), default=None)
     if pair:
         for window, peak in zip(evidence, pair):
@@ -117,6 +117,7 @@ def evaluate_solvent_spectrum(ppm, magnitude, settings):
 
 
 def solvent_presence(source, settings):
+    settings = solvent_config(settings)
     spectrum = build_magnitude_spectrum(source, zero_fill_points=65536, line_broadening_hz=.3)
     result = evaluate_solvent_spectrum(spectrum.ppm_axis, spectrum.magnitude, settings)
     result.update(raw_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),

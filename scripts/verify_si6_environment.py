@@ -57,6 +57,8 @@ def main(argv=None):
         if args.expect_commit and release.get("commit") != args.expect_commit:
             raise ValueError("Deployed commit does not match --expect-commit")
         raw, arduino, pump, nmr = si6.prepare(args.workflow_config, args.machine_config, args.arduino_config, mock=True)
+        if not pump.port or not nmr.host or not arduino["arduino"].get("port"):
+            raise ValueError("Real instrument endpoints must be configured (checked without contacting them)")
         if arduino["needle"]["down_position"] != 0 or arduino["needle"]["up_position"] != 1:
             raise ValueError("Real Si6 needle geometry requires DOWN=HOME=0 and UP=1")
         print(json.dumps({"status": "PASS", "hardware_contacted": False, "python": sys.version.split()[0], "platform": sysconfig.get_platform(),

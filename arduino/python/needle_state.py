@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import time
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -84,10 +85,23 @@ class NeedleStateStore:
                 handle.write("\n")
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.replace(tmp_path, self.path)
+            # Windows scanners/readers can briefly prevent replacing an open
+            # destination. Retry only a bounded sharing/permission failure;
+            # never dispatch motion until the required state is durable.
+            for attempt in range(6):
+                try:
+                    os.replace(tmp_path, self.path)
+                    break
+                except PermissionError:
+                    if os.name != "nt" or attempt == 5:
+                        raise
+                    time.sleep(0.05 * (attempt + 1))
         finally:
             if tmp_path is not None:
-                tmp_path.unlink(missing_ok=True)
+                try:
+                    tmp_path.unlink(missing_ok=True)
+                except OSError:
+                    pass  # Preserve the original write/replace failure.
 
     def quarantine_corrupt(self) -> Path:
         """Retain invalid bytes for review before an explicit HOME re-reference."""

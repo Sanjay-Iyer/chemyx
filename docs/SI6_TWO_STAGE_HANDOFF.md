@@ -1,4 +1,4 @@
-# Current release handoff — October 14, 2026
+# Current release handoff â€” October 14, 2026
 
 Use [SI6_FINAL_REAL_RUN_CHECKLIST.md](SI6_FINAL_REAL_RUN_CHECKLIST.md) as the primary operator procedure. Current settings are HOME=0/UP=1, four trusted observations per endpoint, 48 h/4 h real fallback durations, and protected solvent-pair detection. Source/asset transfer and exact-version verification are in [SI6_DEPLOYMENT_MANIFEST.md](SI6_DEPLOYMENT_MANIFEST.md). No live hardware has been tested on HOME.
 

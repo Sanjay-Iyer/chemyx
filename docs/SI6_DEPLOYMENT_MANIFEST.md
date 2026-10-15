@@ -70,6 +70,9 @@ release. Preserve them separately when moving the same physical rig/reaction.
 Archived large datasets are optional for additional regression checks; core
 fixtures are committed. No credentials, `.env` or generated experiment results
 are deliberately added to the release.
+The optional historical/deep-phaser comparison gallery also depends on its
+archived output/model/runtime assets; those developer-analysis assets are not
+requirements of the real Si6 run or the portable core validation suite.
 
 ## Reproducible transfer without WORK Git access
 

@@ -258,7 +258,7 @@ def load_si6_config(path: Path, *, allow_soak: bool = False) -> dict[str, Any]:
         raise ValueError(f"Missing Si6 config section(s): {', '.join(missing)}")
     if "solvent_monitor" in raw:
         from ..analysis.solvent_presence import solvent_config
-        solvent_config(raw["solvent_monitor"])
+        raw["solvent_monitor"] = solvent_config(raw["solvent_monitor"])
     if unknown:
         raise ValueError(f"Unknown Si6 config section(s): {', '.join(unknown)}")
     if allow_soak:

@@ -163,7 +163,7 @@ python -B -m pytest tests\test_si6_solvent_fallback.py
 Use the full run commands in `REAL_INSTRUMENT_RUN_COMMANDS.md` only on the
 instrument laptop. This update does not require new Arduino firmware.
 
-## Validation completed on October 14
+## Initial October 14 validation (before final hardening)
 
 - 150 existing workflow, area-endpoint, needle, cleanup, recovery and soak
   regression checks passed.
@@ -177,7 +177,7 @@ instrument laptop. This update does not require new Arduino firmware.
 - The additional admission/endpoint checks passed; outdated expectations were
   corrected for four Stage 1 observations and the HOME prompt. Nine saved
   needle-reference/state checks passed, including unknown-position refusal.
-- All 15 archived spectra passed the final narrower solvent windows. A separate
+- All 15 archived spectra passed the then-current narrower solvent windows. A separate
   counterexample confirms that the strong 7.12 ppm neighboring signal cannot
   substitute for missing 6.99 ppm solvent.
 - The real recipe and default CLI validated without opening instruments. All
@@ -187,4 +187,4 @@ instrument laptop. This update does not require new Arduino firmware.
 
 ## Final pre-deployment hardening
 
-The windows were widened to 1.90–2.25 and 6.80–7.10 ppm. Full-spectrum local maxima are tested against expected centers and maximum shifts, then both solvent shifts must agree within 0.04 ppm. The 7.12 ppm neighbor exceeds the allowed 0.10 ppm displacement from 6.99; a shifted neighbor with inconsistent paired displacement is also rejected. Conservatively rejected sample signals still activate the existing timed fallback. See [the primary real-run checklist](SI6_FINAL_REAL_RUN_CHECKLIST.md) and [prompt audit](SI6_PROMPT_AUDIT.md).
+The windows were widened to 1.90â€“2.25 and 6.80â€“7.10 ppm. Full-spectrum local maxima are tested against expected centers and maximum shifts, then both solvent shifts must agree within 0.04 ppm. The 7.12 ppm neighbor exceeds the allowed 0.10 ppm displacement from 6.99; a shifted neighbor with inconsistent paired displacement is also rejected. Conservatively rejected sample signals still activate the existing timed fallback. See [the primary real-run checklist](SI6_FINAL_REAL_RUN_CHECKLIST.md) and [prompt audit](SI6_PROMPT_AUDIT.md).

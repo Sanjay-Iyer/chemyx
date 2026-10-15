@@ -20,7 +20,7 @@ import sys
 import time
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, replace
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
 from typing import Any, Callable
@@ -472,7 +472,7 @@ class Services:
         self.record("stage_completion_evidence", workflow_phase=stage, cycle_number=cycle, evidence=endpoint, result_path=row["completion_evidence_path"])
         rows.append(row)
         base.write_csv(self.paths.time_series_csv, rows, base.TIME_SERIES_COLUMNS)
-        self.last_analysis_completed_at = self.simulation.now() if self.simulation else datetime.now()
+        self.last_analysis_completed_at = self.simulation.now() if self.simulation else datetime.now(timezone.utc)
         self.measurement_step = None
         return row, path, processed
 
@@ -483,9 +483,9 @@ class Services:
         failed measurement can never contribute to plateau detection.
         """
         self.measurement_step = "NMR acquisition"
-        self.last_acquisition_started_at = self.simulation.now() if self.simulation else datetime.now()
+        self.last_acquisition_started_at = self.simulation.now() if self.simulation else datetime.now(timezone.utc)
         path = self.acquire(self.nmr_cfg, self.paths.raw_dir, label=f"{stage}_{cycle:04d}")
-        self.last_acquisition_completed_at = self.simulation.now() if self.simulation else datetime.now()
+        self.last_acquisition_completed_at = self.simulation.now() if self.simulation else datetime.now(timezone.utc)
         self.last_acquisition_completed_monotonic = self.simulation.monotonic() if self.simulation else time.monotonic()
         if progress:
             progress("NMR acquisition")
@@ -608,7 +608,7 @@ class Services:
         if spectrum:
             base.append_spectra(self.paths.spectra_csv, spectrum)
         self.record("analysis_result", workflow_phase=stage, cycle_number=cycle, result_classification="valid", analysis_result=dict(summary, growth_percent=row["growth_percent"]), plateau_progress={"plateau_reached": row["plateau"], "required_intervals": stage_spec.completion.get("consecutive_iterations", stage_spec.completion.get("consecutive_confirmations")) if stage_spec and stage_spec.completion else self.raw["analysis"].get("plateau_consecutive_intervals", 0)})
-        self.last_analysis_completed_at = self.simulation.now() if self.simulation else datetime.now()
+        self.last_analysis_completed_at = self.simulation.now() if self.simulation else datetime.now(timezone.utc)
         self.measurement_step = None
         if progress:
             progress("NMR analysis")
@@ -659,7 +659,7 @@ def sample_cycle(s: Services, *, stage: str, cycle: int, rows: list[dict], start
     def transfer(index: int, direction: str, volume: float, needle: str) -> None:
         overrides = {key: events[index][key] for key in ("channel", "rate_ml_min") if key in events[index]}
         s.pump_move(direction, volume, needle, stage=stage, cycle=cycle, **overrides)
-    s.record("cycle_status", workflow_phase=stage, cycle_number=cycle, status="STARTED", started_at=datetime.now().isoformat(timespec="seconds"))
+    s.record("cycle_status", workflow_phase=stage, cycle_number=cycle, status="STARTED", started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"))
     step = "verify UP"
     failure: Exception | None = None
     failed_step = ""
@@ -711,7 +711,7 @@ def sample_cycle(s: Services, *, stage: str, cycle: int, rows: list[dict], start
         if failure is not None:
             s.record("recovery_cleanup", workflow_phase=stage, cycle_number=cycle, result_classification="completed", failed_step=failed_step, estimated_retained_volume_ml=s.state.retained_volume_ml)
             raise MeasurementFailedAfterCleanup(stage, cycle, failed_step, failure)
-        s.record("cycle_completed", workflow_phase=stage, cycle_number=cycle, status="COMPLETE", completed_at=datetime.now().isoformat(timespec="seconds"), result_classification="completed_after_cleanup", plateau=bool(row["plateau"]))
+        s.record("cycle_completed", workflow_phase=stage, cycle_number=cycle, status="COMPLETE", completed_at=datetime.now(timezone.utc).isoformat(timespec="seconds"), result_classification="completed_after_cleanup", plateau=bool(row["plateau"]))
         return row
     except MeasurementFailedAfterCleanup:
         raise
@@ -858,6 +858,8 @@ def prepare(workflow_path: Path, machine_path: Path, arduino_path: Path, *, mock
         # advisory; only the settings needed to actually move are required.
         if not pump_cfg.port or not nmr_cfg.host:
             raise ValueError("Live Chemyx serial port and NMR host must be configured")
+        if "needle" in arduino_cfg and (not arduino_cfg["needle"].get("steps_per_unit") or arduino_cfg["needle"].get("up_step_sign") not in (-1, 1)):
+            raise ValueError("Verified needle.steps_per_unit and up_step_sign are required before live motion")
         two_stage = any(s.completion for s in base.build_stages(raw["workflow"]))
         if two_stage or allow_soak:
             if "simulation" in raw:
@@ -886,6 +888,7 @@ def check_previous_run_review(raw: dict[str, Any]) -> Any | None:
 def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity, fast_mock_processing: bool = False, config_sources=None):
     """One set of production interfaces for both entry points."""
     mock = identity.mock
+    read_only_needle = identity.kind == "diagnostic" and identity.selection == "communications"
     # Validate before opening transports, including callers supplying dictionaries.
     cycle_values(raw)
     definitions = pump_channels.channel_definitions(raw)
@@ -927,7 +930,7 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
     write_json_atomic(paths.run_dir / "instrument_settings_snapshot.json", {"pump_channels": {str(ch): asdict(cfg) for ch, cfg in channel_configs.items()}, "nmr": nmr_snapshot})
     write_json_atomic(paths.run_dir / "arduino_config_snapshot.json", {k: v for k, v in arduino_cfg.items() if not k.startswith("_")})
     write_json_atomic(paths.manifest_json, manifest_payload(paths, identity, raw, []))
-    begin_run(paths, raw, identity, config.REPO_ROOT, config_sources)
+    begin_run(paths, raw, identity, config.REPO_ROOT, config_sources, software_version=recorder.journal.software_version)
     initial_channels = {
         str(ch): {"retained_volume_ml": state.retained_volume_ml,
                   "cumulative_withdrawn_ml": 0.0, "cumulative_infused_ml": 0.0,
@@ -960,7 +963,7 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
         # The staged-test 120 s cap does not apply to a continuously monitored
         # experiment. Keep a finite ceiling exceeding all configured stage limits.
         total_hours = sum(stage.max_hours for stage in base.build_stages(raw["workflow"]))
-        controller = NeedleController(transport, expected_device=settings["expected_device"], expected_board=settings["expected_board"], expected_version=settings.get("expected_version"), ready_timeout_s=settings["ready_timeout_s"], command_timeout_s=settings["command_timeout_s"], overall_timeout_s=max(3600, (total_hours + 2) * 3600), allow_motion=True, motion_guard=lambda: all(not s.motion_active and not s.uncertain and not s.persistence_errors for s in channel_states.values()))
+        controller = NeedleController(transport, expected_device=settings["expected_device"], expected_board=settings["expected_board"], expected_version=settings.get("expected_version"), ready_timeout_s=settings["ready_timeout_s"], command_timeout_s=settings["command_timeout_s"], overall_timeout_s=max(3600, (total_hours + 2) * 3600), allow_motion=not read_only_needle, motion_guard=lambda: all(not s.motion_active and not s.uncertain and not s.persistence_errors for s in channel_states.values()))
         # The serial response delay only matters for a real pump.
         pump = Pump(port=pump_cfg.port, baud_rate=pump_cfg.baud_rate, channel=pump_cfg.channel, units=pump_cfg.units, timeout=pump_cfg.timeout, response_delay=0 if mock else pump_cfg.response_delay, mock=mock)
         with controller:
@@ -980,8 +983,8 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
                     arduino_cfg["motion"], maximum_speed_steps_s=100,
                     maximum_acceleration_steps_s2=300,
                 )
-            needle = TrackedNeedle(controller, tracked_cfg, state_path=paths.run_dir / "mock_needle_state.json" if mock else None, allow_home_assumption=mock)
-            if mock:
+            needle = controller if read_only_needle else TrackedNeedle(controller, tracked_cfg, state_path=paths.run_dir / "mock_needle_state.json" if mock else None, allow_home_assumption=mock)
+            if mock and not read_only_needle:
                 needle.confirm_home(operator_confirmed=True)
             with pump:
                 # Attempt all STOPs before configuration, even if one fails.
@@ -1133,7 +1136,7 @@ def run_diagnostic(s: Services, selection: str = "all") -> list[str]:
             print(f"[PASS] {label}")
             passed.append(label)
         try:
-            s.nmr_measurement(stage="diagnostic", cycle=1, rows=rows, started=datetime.now(), progress=progress)
+            s.nmr_measurement(stage="diagnostic", cycle=1, rows=rows, started=datetime.now(timezone.utc), progress=progress)
         except BaseException as exc:
             failed = next((label for label in ordered if label not in completed), "NMR analysis")
             print(f"[FAIL] {failed}\nReason: {exc}")
@@ -1260,14 +1263,14 @@ def run_stage_actions(s: Services, events: tuple[dict[str, Any], ...], *, stage:
 
 def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decision: Callable[[base.Stage, base.RunOutcome], str] | None = None) -> base.RunOutcome:
     configured_stages = base.build_stages(s.raw["workflow"])
-    if not s.mock and any(st.completion for st in configured_stages) and not all(st.completion and st.completion.get("method") == "area_only" for st in configured_stages):
+    if not s.mock and (len(configured_stages) != 2 or not all(st.completion and st.completion.get("method") == "area_only" for st in configured_stages)):
         raise ValueError("Live two-stage experiments require the current area_only profile")
     if not s.mock and any(st.completion for st in configured_stages):
         solvent_config(s.raw.get("solvent_monitor"))
     preflight(s)
     home_and_raise(s)
     rows: list[dict] = []
-    started = datetime.now()
+    started = datetime.now(timezone.utc)
     cycle = 0
     advanced: list[str] = []
     timed_stages: list[str] = []
@@ -1346,7 +1349,7 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
             )
         extension = 0
         while True:
-            clock = {"monotonic_fn": s.simulation.monotonic, "wall_now_fn": s.simulation.now} if s.simulation else {}
+            clock = {"monotonic_fn": s.simulation.monotonic, "wall_now_fn": s.simulation.now} if s.simulation else {"wall_now_fn": lambda: datetime.now(timezone.utc)}
             def fallback():
                 selected = [r for r in rows if r.get("stage") == stage.name]
                 return bool(selected and selected[-1].get("stage_timed_fallback"))
