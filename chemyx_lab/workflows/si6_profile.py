@@ -26,7 +26,7 @@ def validate_profile(raw, stages):
             raise ValueError("qc_reporting.affect_workflow must be false; QC cannot control this workflow")
         if "peak_filters" in reporting:
             tracking_config(reporting["peak_filters"])
-        if any(s.min_completion_hours is None and s.max_measurements != s.completion["max_iterations"] for s in stages):
+        if any(s.control_mode == "nmr" and s.min_completion_hours is None and s.max_measurements != s.completion["max_iterations"] for s in stages):
             raise ValueError("Stage measurement count must equal completion.max_iterations")
         if any("max_measurements" in raw["workflow"][name] for name in ("initial_stage", "first_addition_stage")):
             raise ValueError("Use completion.max_iterations as the single iteration limit")
@@ -43,6 +43,10 @@ def validate_profile(raw, stages):
     validate_experiment_id(workflow.get("experiment_id"))
     if len(stages) != 2 or not all(s.completion and s.plateau_stopping_enabled for s in stages):
         raise ValueError("Two-stage completion profile requires exactly two automatic completion stages")
+    if any(s.control_mode != "nmr" for s in stages):
+        if not (stages[0].control_mode == "fixed_duration" and stages[0].advance_at_duration
+                and stages[1].control_mode == "minimum_then_nmr" and not stages[1].advance_at_duration):
+            raise ValueError("Time-driven profile requires fixed_duration with explicit advance_at_duration, then minimum_then_nmr")
     if [s.completion["trend"] for s in stages] != ["decreasing", "increasing"]:
         raise ValueError("Two-stage profile requires decreasing then increasing trends")
     if workflow.get("initial_needle_position", "UP") != "UP":

@@ -1,5 +1,11 @@
 # Mandatory stage durations
 
+> Historical policy: the current real recipe now runs Stage 1 for a fixed 48 hours
+> and explicitly authorizes its protected dose at that time endpoint. Stage 2
+> keeps its 2-hour minimum and 6-hour maximum. See
+> [the current time-driven protocol](SI6_TIMED_PROGRESSION.md). The 40-hour
+> Stage 1 minimum and ordinary-timeout refusal below describe the previous policy.
+
 The real recipe, `configs/experiments/si6_real_two_stage.yaml`, uses these
 operator-editable keys. No Python edit is needed:
 

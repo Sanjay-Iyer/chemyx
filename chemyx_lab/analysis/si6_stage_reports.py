@@ -24,6 +24,7 @@ def write_stage_reports(paths, rows, stages, *, dataset, outcome=None, transitio
         summary = {"stage": stage.name, "trend": stage.completion["trend"], "measurements": len(selected),
                    "interval_minutes": stage.interval_minutes, "max_hours": stage.max_hours,
                    "min_completion_hours": stage.min_completion_hours,
+                   "control_mode": stage.control_mode, "advance_at_duration": stage.advance_at_duration,
                    "dataset_display_name": dataset, "completion": evidence}
         if selected:
             areas = [r["peak_area"] for r in selected if r.get("peak_area") is not None]

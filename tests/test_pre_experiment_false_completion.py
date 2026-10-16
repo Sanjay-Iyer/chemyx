@@ -20,6 +20,8 @@ def real_recipe():
     raw = base.load_si6_config(config.REPO_ROOT / "configs/experiments/si6_real_two_stage.yaml")
     for key in ("initial_stage", "first_addition_stage"):
         raw["workflow"][key].pop("min_completion_hours", None)
+        raw["workflow"][key].pop("control_mode", None)
+        raw["workflow"][key].pop("advance_at_duration", None)
         raw["workflow"][key]["completion"]["max_iterations"] = 20
     raw["workflow"]["first_addition_stage"]["max_hours"] = 4
     return raw
@@ -91,7 +93,7 @@ def test_bad_acquisition_identity_cannot_authorize_dose(tmp_path, monkeypatch, m
     from chemyx_lab.testing.false_completion_validation import run_mock
     result = run_mock(tmp_path / mutation, "timing_" + mutation,
         [100, 1, 1, 1, 1] + [20]*30, [1, 10, 10, 10, 10] + [10]*20,
-        timing=mutation)
+        timing=mutation, workflow_recipe=real_recipe())
     assert not result["chemical_completion_stages"]
     assert result["dose_count"] == 0
 
@@ -99,13 +101,13 @@ def test_bad_acquisition_identity_cannot_authorize_dose(tmp_path, monkeypatch, m
 def test_intermittently_corrupt_acquisitions_do_not_become_zero_or_complete(tmp_path):
     from chemyx_lab.testing.false_completion_validation import run_mock
     result = run_mock(tmp_path / "corrupt", "INTERMITTENT_CORRUPTION",
-        [100] + [50] * 30, [1] * 30, corrupt_at=(2, 5, 8))
+        [100] + [50] * 30, [1] * 30, corrupt_at=(2, 5, 8), workflow_recipe=real_recipe())
     report = json.loads((Path(result["run_dir"]) / "final_qc/qc_summary.json").read_text())
     rows = report["observations"]
     assert not result["chemical_completion_stages"]
     assert not result["timed_fallback_stages"]
     assert result["dose_count"] == 0
-    assert len(rows) == 24  # Current real recipe monitors to 48 h, not the old cap.
+    assert len(rows) == 20  # Historical count policy is intentionally preserved.
     for index in (1, 4, 7):
         assert rows[index]["peak_area"] is None
         assert not rows[index]["endpoint_eligible"]

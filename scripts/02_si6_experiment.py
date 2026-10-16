@@ -37,12 +37,14 @@ def main(argv=None) -> int:
             raise ValueError("The live automatic entry point requires the current two-stage area_only recipe. Use the separate legacy runner only for an intentionally manual workflow.")
         for index, stage in enumerate(stages, 1):
             slots = si6.base.duration_measurement_slots(stage.interval_minutes, stage.max_hours, stage.measure_immediately)
-            limit = (f"Minimum completion time: {stage.min_completion_hours:g} hours\n"
+            limit = ("Fixed duration; NMR completion is advisory.\n"
+                     f"Accepted protocol: advance at duration = {stage.advance_at_duration}" if stage.control_mode == "fixed_duration" else
+                     f"Minimum completion time: {stage.min_completion_hours:g} hours\n"
                      "Observation limit: duration governs; no count cap" if stage.min_completion_hours is not None
                      else f"Normal observation cap: {stage.max_measurements}")
             print(f"STAGE {index} ({stage.name})\nSampling interval: {stage.interval_minutes:g} minutes\nMaximum duration / timed fallback deadline: {stage.max_hours:g} hours\n"
                   f"{limit}\nMaximum nominal scheduled acquisitions within duration: {slots} (slow cycles can reduce this)\n"
-                  f"Chemical endpoint stopping enabled: {stage.plateau_stopping_enabled}")
+                  f"Chemical endpoint stopping enabled: {stage.plateau_stopping_enabled and stage.control_mode != 'fixed_duration'}")
         window = si6.tracked_window(raw, nmr)[1]
         confirmations = [stage.completion.get("consecutive_iterations", stage.completion.get("consecutive_confirmations")) for stage in stages if stage.completion]
         stable_intervals = confirmations or raw["analysis"].get("plateau_consecutive_intervals", 3)

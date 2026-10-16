@@ -58,7 +58,8 @@ def begin_run(paths, raw, identity, repository_root, config_sources=None, *, sof
     payload["effective_nmr_processing"] = phase_settings(raw["nmr"])
     payload["stage_timing"] = {stage.name: {"min_completion_hours": stage.min_completion_hours,
         "max_hours": stage.max_hours, "interval_minutes": stage.interval_minutes,
-        "deadline_authoritative": stage.min_completion_hours is not None,
+        "deadline_authoritative": stage.min_completion_hours is not None or stage.control_mode != "nmr",
+        "control_mode": stage.control_mode, "advance_at_duration": stage.advance_at_duration,
         "scheduled_slots_before_deadline": stage.max_measurements} for stage in build_stages(raw["workflow"])}
     if "processing" not in raw["nmr"]:
         payload["effective_nmr_processing"].update(phase_method=None,
@@ -81,6 +82,10 @@ def finish_run(paths):
         payload["ended_at_local"] = datetime.now().astimezone().isoformat()
         decisions = {e.get("workflow_phase"): e.get("result_classification") for e in events if e["event_type"] == "stage_transition_decision"}
         payload["stage_end_reasons"] = {name: decisions.get(name, "not_completed") for name in paths.layout.stage_names}
+        payload["chemical_evidence_by_stage"] = {
+            name: next((e["evidence"].get("complete", False) for e in reversed(events)
+                        if e.get("workflow_phase") == name and e["event_type"] == "stage_completion_evidence"), False)
+            for name in paths.layout.stage_names}
         for name in paths.layout.stage_names:
             evidence = {"stage": name, "end_reason": payload["stage_end_reasons"][name],
                         "events": [e for e in events if e.get("workflow_phase") == name and e["event_type"] in {"stage_transition_decision", "stage_completion_evidence", "solvent_timed_fallback", "monitoring_stage_started"}]}
@@ -115,16 +120,19 @@ def publish_observation(paths, experiment_id, stage, schedule, row):
     number = schedule.scheduled_measurement_number
     offset = stage.interval_minutes * 60 * (number - (1 if stage.measure_immediately else 0))
     elapsed = (schedule.actual_cycle_start_monotonic - schedule.scheduled_monotonic + offset) / 3600
+    advisory = stage.control_mode == "fixed_duration"
+    stopping_endpoint = bool(row["plateau"]) and not advisory
     payload = dict(experiment_id=experiment_id, stage=stage.name, observation=number, updated_at_utc=utc_now(),
                    operational_elapsed_hours=elapsed, timed_fallback_duration_hours=stage.max_hours,
                    solvent_present=row.get("solvent_present"), consecutive_missing=row.get("solvent_missing_streak", 0),
-                   target_area=row.get("peak_area"), endpoint_satisfied=bool(row["plateau"]),
+                   target_area=row.get("peak_area"), endpoint_satisfied=stopping_endpoint,
+                   chemical_evidence_satisfied=bool(row["plateau"]), control_mode=stage.control_mode,
                    timed_fallback=bool(row.get("stage_timed_fallback")), raw_path=row.get("raw_path"),
                    processed_path=row.get("processed_path"), solvent_evidence_path=row.get("solvent_evidence_path"),
-                   status="monitoring", next_action="stage transition after cleanup" if row["plateau"] else "wait for next scheduled acquisition")
+                   status="monitoring", next_action="continue monitoring to configured time endpoint" if advisory else "stage transition after cleanup" if stopping_endpoint else "wait for next scheduled acquisition")
     write_json_atomic(paths.status_json, payload)
     area = "UNAVAILABLE" if row.get("peak_area") is None else f"{row['peak_area']:.6g}"
     print(f"EXPERIMENT: {experiment_id} | STAGE: {stage.name} | OBSERVATION: {number}\n"
           f"Operational elapsed: {elapsed:.3f} h | SOLVENT: {'DETECTED' if row.get('solvent_present', True) else 'NOT CONFIRMED'}\n"
-          f"TARGET AREA: {area} | ENDPOINT: {'SATISFIED' if row['plateau'] else 'NOT SATISFIED'} | "
+          f"TARGET AREA: {area} | ENDPOINT: {'ADVISORY ONLY' if advisory else 'SATISFIED' if stopping_endpoint else 'NOT SATISFIED'} | "
           f"FALLBACK: {'ACTIVE' if row.get('stage_timed_fallback') else 'INACTIVE'}\nNEXT ACTION: {payload['next_action']}")

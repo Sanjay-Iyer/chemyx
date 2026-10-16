@@ -12,9 +12,24 @@ import yaml
 
 from chemyx_lab import config
 from chemyx_lab.analysis.stage_completion import completion_evidence
-from chemyx_lab.testing.false_completion_validation import recipe, rows_for, run_mock
+from chemyx_lab.testing.false_completion_validation import recipe as current_recipe, rows_for, run_mock as current_run_mock
 from chemyx_lab.workflows import si6_automated_nmr as base
 from chemyx_lab.workflows import three_instrument_si6 as si6
+
+
+def recipe():
+    """Freeze the previous minimum-duration policy to retain its compatibility tests."""
+    raw = current_recipe()
+    for key in ("initial_stage", "first_addition_stage"):
+        raw["workflow"][key].pop("control_mode", None)
+        raw["workflow"][key].pop("advance_at_duration", None)
+    raw["workflow"]["initial_stage"]["min_completion_hours"] = 40.0
+    return raw
+
+
+def run_mock(*args, **kwargs):
+    kwargs.setdefault("workflow_recipe", recipe())
+    return current_run_mock(*args, **kwargs)
 
 
 def stage(index):

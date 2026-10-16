@@ -89,7 +89,7 @@ def write_final_qc(paths, rows, stages, reporting, *, dataset, outcome, transiti
     review = [diagnostic_row(r, reporting, paths.run_dir) for r in rows]
     qc = {"max_noise_fraction": .01, "max_area_uncertainty_fraction": .005}
     qc.update(reporting.get("measurement_qc", {}))
-    reference = next((r for r in review if r.get("peak_height") and r.get("peak_area", 0) > 0), {})
+    reference = next((r for r in review if r.get("peak_height") and (r.get("peak_area") or 0) > 0), {})
     for row in review:
         extra = []
         if reference and row.get("noise") is not None and row["noise"] / reference["peak_height"] > qc["max_noise_fraction"]:
@@ -116,7 +116,8 @@ def write_final_qc(paths, rows, stages, reporting, *, dataset, outcome, transiti
     stage_summaries = [{"stage": s.name, "endpoint": completion_evidence([r for r in rows if r["stage"] == s.name], s.completion) if s.completion else None,
                         "timed_fallback": any(r.get("stage_timed_fallback") for r in rows if r["stage"] == s.name),
                         "configured_duration_hours": s.max_hours,
-                        "min_completion_hours": s.min_completion_hours} for s in stages]
+                        "min_completion_hours": s.min_completion_hours,
+                        "control_mode": s.control_mode, "advance_at_duration": s.advance_at_duration} for s in stages]
     payload = {"dataset_display_name": dataset, "status": outcome.status.value, "outcome_message": outcome.message,
                "affect_workflow": False, "timing_source": "JCAMP LONG DATE only",
                "plots_available": can_plot, "stages": stage_summaries,

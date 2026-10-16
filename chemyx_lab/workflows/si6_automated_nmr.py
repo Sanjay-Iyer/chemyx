@@ -109,6 +109,7 @@ EXIT_CODES = {
 
 
 class StageOutcome(str, Enum):
+    TIME_LIMIT_COMPLETED = "time_limit_completed"
     TIMED_FALLBACK_COMPLETED = "timed_fallback_completed"
     SCHEDULED_MONITORING_COMPLETED = "scheduled_monitoring_completed"
     PLATEAU_REACHED = "plateau_reached"
@@ -173,6 +174,10 @@ class AnalysisInconclusiveError(RuntimeError):
     """Raised when acquired data cannot support a completion decision."""
 
 
+class ProcessingExecutionError(AnalysisInconclusiveError):
+    """Processor execution failed without verified recoverable scientific evidence."""
+
+
 @dataclass(frozen=True)
 class Stage:
     name: str
@@ -190,6 +195,8 @@ class Stage:
     completion: dict[str, Any] | None = None
     # Opt-in duration authority; None preserves historical count-limited recipes.
     min_completion_hours: float | None = None
+    control_mode: str = "nmr"
+    advance_at_duration: bool = False
 
 
 @dataclass(frozen=True)
@@ -543,7 +550,7 @@ def _parse_stage(value: Any, label: str) -> Stage:
             "measure_immediately", "plateau_stopping_enabled",
             "max_measurements",
             "before_monitoring", "after_monitoring",
-            "completion", "min_completion_hours",
+            "completion", "min_completion_hours", "control_mode", "advance_at_duration",
         },
         f"workflow.{label}",
     )
@@ -572,6 +579,18 @@ def _parse_stage(value: Any, label: str) -> Stage:
     )
     completion = validate_completion(section["completion"]) if "completion" in section else None
     area_only = completion is not None and completion.get("method") == "area_only"
+    control_mode = section.get("control_mode", "nmr")
+    if control_mode not in ("nmr", "fixed_duration", "minimum_then_nmr"):
+        raise ValueError(f"{label}.control_mode is invalid")
+    advance = _required_bool(section.get("advance_at_duration", False), f"{label}.advance_at_duration")
+    if advance and control_mode != "fixed_duration":
+        raise ValueError("advance_at_duration requires fixed_duration control")
+    if control_mode != "nmr" and (not area_only or not plateau_enabled):
+        raise ValueError("Time-driven control requires an area_only monitoring profile")
+    if control_mode == "fixed_duration" and ("min_completion_hours" in section or "max_measurements" in section or "max_iterations" in completion):
+        raise ValueError("fixed_duration uses max_hours only; remove minimum and observation caps")
+    if control_mode == "minimum_then_nmr" and "min_completion_hours" not in section:
+        raise ValueError("minimum_then_nmr requires min_completion_hours")
     minimum = None
     if "min_completion_hours" in section:
         minimum = _nonnegative(section["min_completion_hours"], f"{label}.min_completion_hours")
@@ -585,9 +604,9 @@ def _parse_stage(value: Any, label: str) -> Stage:
             raise ValueError("Duration-limited stages use max_hours; remove completion.max_iterations and max_measurements")
         # Effective decision context; the only YAML source is the stage key.
         completion = dict(completion, min_completion_hours=minimum)
-    elif area_only and "max_iterations" not in completion:
+    elif area_only and control_mode != "fixed_duration" and "max_iterations" not in completion:
         raise ValueError(f"{label} requires min_completion_hours (or legacy completion.max_iterations)")
-    explicit = (area_only and minimum is None) or section.get("max_measurements") is not None
+    explicit = (area_only and minimum is None and control_mode != "fixed_duration") or section.get("max_measurements") is not None
     if explicit:
         # An explicit count is a cap; it must still start before the ceiling.
         max_measurements = _positive_integer(
@@ -623,6 +642,8 @@ def _parse_stage(value: Any, label: str) -> Stage:
         after_monitoring=tuple(section.get("after_monitoring", [])),
         completion=completion,
         min_completion_hours=minimum,
+        control_mode=control_mode,
+        advance_at_duration=advance,
     )
 
 
@@ -921,10 +942,16 @@ def run_process_fid_postprocessing(
             f"Could not launch process_fid.py for {dx_path.name}: {exc}"
         ) from exc
     if completed.returncode != 0:
-        raise AnalysisInconclusiveError(
-            f"process_fid.py failed for {dx_path.name} with exit code "
-            f"{completed.returncode}"
-        )
+        message = f"process_fid.py failed for {dx_path.name} with exit code {completed.returncode}"
+        # A nonzero subprocess alone is not proof of a numerical failure.
+        # Only its explicit per-acquisition typed failure may be recoverable.
+        failures = list((output_dir / "processing_failures").glob("*_failure.json"))
+        if completed.returncode == 1 and len(failures) == 1:
+            evidence = json.loads(failures[0].read_text(encoding="utf-8"))
+            if (evidence.get("source_path") == str(dx_path)
+                    and evidence.get("recoverable_scientific_error") is True):
+                raise AnalysisInconclusiveError(message + ": " + evidence["error"])
+        raise ProcessingExecutionError(message)
     print(f"     processed -> {output_dir}")
     return output_dir
 
@@ -1563,11 +1590,13 @@ def run_monitoring_stage(
     post_threshold_observations = 0
     previous_acquisition_monotonic = None
     mode = (
-        "plateau_or_limit"
+        "fixed_duration_advisory_nmr" if stage.control_mode == "fixed_duration" else "plateau_or_limit"
         if stage.plateau_stopping_enabled
         else "fixed_scheduled_count"
     )
     monitoring_fields = {
+        "control_mode": stage.control_mode,
+        "advance_at_duration": stage.advance_at_duration,
         "workflow_phase": stage.name,
         "monitoring_mode": mode,
         "plateau_stopping_enabled": stage.plateau_stopping_enabled,
@@ -1593,12 +1622,16 @@ def run_monitoring_stage(
 
     measurement_number = 0
     def duration_outcome():
+        if stage.control_mode != "nmr":
+            return RunOutcome(TerminalStatus.COMPLETED,
+                              f"Stage {stage.name} completed its configured {stage.max_hours:g} h time endpoint; chemical evidence recorded separately.",
+                              StageOutcome.TIME_LIMIT_COMPLETED)
         if timed_fallback_fn is not None and timed_fallback_fn():
             return RunOutcome(TerminalStatus.COMPLETED,
                               f"Stage {stage.name} completed its configured {stage.max_hours:g} h duration under solvent-loss fallback; chemistry completion unverified.",
                               StageOutcome.TIMED_FALLBACK_COMPLETED)
         return maximum_duration_outcome(stage)
-    while stage.min_completion_hours is not None or measurement_number < stage.max_measurements or (timed_fallback_fn is not None and timed_fallback_fn()):
+    while stage.control_mode != "nmr" or stage.min_completion_hours is not None or measurement_number < stage.max_measurements or (timed_fallback_fn is not None and timed_fallback_fn()):
         measurement_number += 1
         offset = (scheduled_measurement_offset_seconds(stage, measurement_number)
                   if measurement_number <= stage.max_measurements else
@@ -1713,12 +1746,12 @@ def run_monitoring_stage(
                     scheduled_measurement_number=measurement_number,
                     result_classification=(
                         "stage_completed"
-                        if stage.plateau_stopping_enabled
+                        if stage.plateau_stopping_enabled and stage.control_mode != "fixed_duration"
                         else "detected_but_ignored"
                     ),
                     **monitoring_fields,
                 )
-            if stage.plateau_stopping_enabled:
+            if stage.plateau_stopping_enabled and stage.control_mode != "fixed_duration":
                 outcome = RunOutcome(
                     TerminalStatus.COMPLETED,
                     f"Stage {stage.name} reached plateau at scheduled "
@@ -1742,7 +1775,7 @@ def run_monitoring_stage(
                 )
 
         if (
-            not stage.plateau_stopping_enabled
+            not stage.plateau_stopping_enabled and stage.control_mode != "fixed_duration"
             and measurement_number == stage.max_measurements
         ):
             outcome = RunOutcome(
@@ -1764,7 +1797,7 @@ def run_monitoring_stage(
                 outcome, measurement_number, attempts, valid_count
             )
 
-        if stage.min_completion_hours is None and stage.completion and stage.completion.get("method") == "area_only" and measurement_number == stage.max_measurements and not (timed_fallback_fn is not None and timed_fallback_fn()):
+        if stage.control_mode == "nmr" and stage.min_completion_hours is None and stage.completion and stage.completion.get("method") == "area_only" and measurement_number == stage.max_measurements and not (timed_fallback_fn is not None and timed_fallback_fn()):
             break # Consuming the final slot reports the iteration limit first.
         if analysis_finished_monotonic >= hard_deadline:
             outcome = duration_outcome()
@@ -1806,7 +1839,7 @@ def run_stage_sequence(
     stage_runner: Callable[[Stage], RunOutcome],
     recorder: EventRecorder | None = None,
 ) -> RunOutcome:
-    """Advance chemistry only after a stage is scientifically completed."""
+    """Advance only after a stage meets its configured stopping policy."""
     for stage in stages:
         if recorder is not None:
             recorder.record(

@@ -1,12 +1,13 @@
 # Si6 area-only configuration guide
 
-**Current real-recipe timing:** Stage 1 uses `workflow.initial_stage.min_completion_hours: 40.0`
-and `max_hours: 48`; Stage 2 uses `workflow.first_addition_stage.min_completion_hours: 2.0`
-and `max_hours: 6`. Intervals remain 120 / 30 minutes. Four qualifying acquisitions
-must begin at or after the minimum; earlier reference/growth/tracking data remain
-available. The real recipe has no observation caps. See
-[mandatory stage durations](SI6_MINIMUM_STAGE_DURATIONS.md) for boundaries,
-legacy compatibility, maximum-duration behavior and remaining scientific risks.
+**Current real-recipe timing:** Stage 1 explicitly selects `control_mode: fixed_duration`,
+`max_hours: 48`, and the accepted protocol choice `advance_at_duration: true`.
+NMR evidence is advisory throughout Stage 1. The protected Channel 2 dose then
+starts Stage 2, which selects `control_mode: minimum_then_nmr`,
+`min_completion_hours: 2.0`, and `max_hours: 6`. Intervals remain 120 / 30 minutes.
+Stage 2 requires four post-minimum observations, or completes at six hours.
+The real recipe has no observation caps. See
+[time-driven protocol settings and recovery behavior](SI6_TIMED_PROGRESSION.md).
 The nominal-template count-limited examples below retain their historical scope.
 
 > For tomorrow's actual reaction, follow [SI6_FINAL_REAL_RUN_CHECKLIST.md](SI6_FINAL_REAL_RUN_CHECKLIST.md) and edit `configs/experiments/si6_real_two_stage.yaml`. The examples below describe the reusable nominal template. Current startup, HOME=0/UP=1 geometry and solvent-loss fallback rules are in [SI6_SOLVENT_FALLBACK_UPDATE.md](SI6_SOLVENT_FALLBACK_UPDATE.md). After three missing solvent observations, timed operation overrides the normal count cap and permits an explicitly recorded timed transition.

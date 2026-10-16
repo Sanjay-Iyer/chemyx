@@ -202,12 +202,21 @@ def run_mock(output, name, values1, values2, *, timing=None, missing=None, fault
                 else:
                     row,spectrum=original_analyze(*a,**k)
                 row["raw_sha256"]=("TEST repeated raw hash" if timing=="duplicate_raw" else hashlib.sha256(a[0].read_bytes()).hexdigest())
+                if fault == "target_absent":
+                    row.update(peak_area=0., peak_clear=False, signal_classification="peak_not_detected")
+                if fault == "nonfinite_area":
+                    row["peak_area"] = float("nan")
                 if flags:row.update(measurement_valid=False,qc_pass=False,high_noise_warning=True,area_uncertainty=1.e9)
                 all_rows.append(row)
                 return row,spectrum
             s.analyze=analyze
+            boundary_active = [False]
             def recorded(event,**fields):
                 r=original_record(event,**fields)
+                if event == "stage_transition_decision" and fields.get("workflow_phase") == "stage_1":
+                    boundary_active[0] = True
+                elif event == "monitoring_stage_started" and fields.get("workflow_phase") == "stage_2":
+                    boundary_active[0] = False
                 if event in {"monitoring_stage_started","stage_transition_decision","dose_dispatch_intent","dose_confirmed","terminal"}:
                     clocks.append(dict(event=event,stage=fields.get("workflow_phase"),virtual_seconds=sim.seconds,
                                        virtual_time=sim.now().isoformat(),classification=fields.get("result_classification")))
@@ -220,8 +229,29 @@ def run_mock(output, name, values1, values2, *, timing=None, missing=None, fault
                     return dict(present=value,reason="TEST injected independent solvent evidence",windows=[])
                 stack.enter_context(patch.object(si6,"solvent_presence",presence))
             if fault=="analysis":s.process=lambda *a: (_ for _ in ()).throw(base.AnalysisInconclusiveError("TEST recoverable processing failure"))
+            if fault=="acme":s.process=lambda *a: (_ for _ in ()).throw(si6.NmrProcessingError("TEST ACME numerical failure"))
+            if fault == "completion":
+                def failed_completion(*a, **k):
+                    raise ValueError("TEST invalid numerical completion evidence")
+                stack.enter_context(patch.object(si6, "completion_evidence", failed_completion))
+            if fault == "boundary_evaluator":
+                original_completion = si6.completion_evidence
+                def boundary_completion(*a, **k):
+                    if boundary_active[0]:
+                        raise AssertionError("TEST time-authorized transition must not rerun scientific analysis")
+                    return original_completion(*a, **k)
+                stack.enter_context(patch.object(si6, "completion_evidence", boundary_completion))
             if fault=="acquisition":s.acquire=lambda *a,**k: (_ for _ in ()).throw(RuntimeError("TEST acquisition transport failure"))
             if fault=="pump":s.pump_move=lambda *a,**k: (_ for _ in ()).throw(base.PumpStateUncertainError("TEST pump state unknown"))
+            if fault in {"dose_uncertain", "dose_interrupted"}:
+                original_move = s.pump_move
+                def boundary_move(*a, **k):
+                    if k.get("channel") == 2:
+                        if fault == "dose_interrupted":
+                            raise KeyboardInterrupt("TEST interruption after durable dose intent")
+                        raise base.PumpStateUncertainError("TEST Channel 2 command outcome unknown")
+                    return original_move(*a, **k)
+                s.pump_move = boundary_move
             try:
                 outcome=si6.run_experiment(s)
                 status=outcome.status.value;reason=outcome.message

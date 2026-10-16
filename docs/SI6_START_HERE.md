@@ -13,8 +13,10 @@ were run here.
 Edit the real recipe: `workflow.experiment_id` uniquely identifies the physical
 reaction; each stage's `interval_minutes`, `min_completion_hours`, `max_hours`, and
 `completion` control sampling and endpoints. Current real defaults are Stage 1
-120 min / minimum 40 h / maximum 48 h and Stage 2 30 min / minimum 2 h / maximum
-6 h. Four post-threshold observations are required; see
+120 min / fixed 48 h, with explicit time-based dose authorization, and Stage 2
+30 min / minimum 2 h / maximum 6 h. Stage 1 chemical evidence is advisory.
+See [time-driven progression](SI6_TIMED_PROGRESSION.md). Four post-threshold
+observations are required for Stage 2 chemical completion; see
 [mandatory stage durations](SI6_MINIMUM_STAGE_DURATIONS.md). Keep a unique physical ID; a dated suffix never permits a
 repeat dose. See [configuration details](SI6_CONFIG_USER_GUIDE.md).
 

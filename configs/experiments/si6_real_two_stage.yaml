@@ -2,8 +2,8 @@
 # This ID identifies ONE physical reaction; durable dose protection refuses automatic restart.
 workflow:
   name: si6_two_stage
-  description: Decreasing target, one reagent addition, area-only increasing plateau;
-    retrospective QC only.
+  description: Fixed 48-hour Stage 1, one protected reagent addition, then minimum-duration
+    Stage 2 with NMR plateau or time endpoint; retrospective QC only.
   experiment_id: SI6_REAL_TWO_STAGE_001
   initial_needle_position: UP
   cycle:
@@ -43,10 +43,11 @@ workflow:
       1.
     # Stage 1 scheduled cycle-start spacing (minutes).
     interval_minutes: 120
-    # EDIT HERE: only acquisitions starting at/after this stage elapsed time
-    # can begin the four-observation chemical-completion window (hours).
-    min_completion_hours: 40.0
-    # EDIT HERE: maximum from stage startup, including solvent fallback (hours).
+    control_mode: fixed_duration
+    # Accepted protocol choice: dose at the time endpoint even when chemistry
+    # is unverified. NMR completion is advisory throughout Stage 1.
+    advance_at_duration: true
+    # EDIT HERE: fixed duration from Stage 1 monitoring startup (hours).
     max_hours: 48
     measure_immediately: true
     plateau_stopping_enabled: true
@@ -71,6 +72,7 @@ workflow:
     operator_prompt: Automatic Stage 2 entry after confirmed Channel 2 dose.
     # Stage 2 scheduled cycle-start spacing (minutes).
     interval_minutes: 30
+    control_mode: minimum_then_nmr
     # EDIT HERE: begin the four-observation completion window after 2 hours.
     min_completion_hours: 2.0
     # EDIT HERE: maximum from Stage 2 startup, including solvent fallback.

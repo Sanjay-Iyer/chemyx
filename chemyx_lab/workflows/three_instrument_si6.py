@@ -48,7 +48,7 @@ from . import pump_channels
 from .dose_guard import DoseGuard
 from .chemyx_position import PositionLedger, pump_identity, state_root
 from ..analysis.stage_completion import completion_evidence
-from ..analysis.stage_measurement import tracked_peak_measurement, tracked_peak_area_observation
+from ..analysis.stage_measurement import tracked_peak_measurement, tracked_peak_area_observation, PeakEvidenceError
 from ..analysis.si6_stage_reports import write_stage_reports
 from ..analysis.si6_final_qc import write_final_qc
 from ..analysis.solvent_presence import solvent_config, solvent_presence, record_sample_presence
@@ -81,6 +81,10 @@ class PhysicalStateUncertain(VerificationError):
 
 class StageAcquisitionDeadlineReached(RuntimeError):
     """Skip a late NMR command, then finish the already-active sampling cleanup."""
+
+
+class ScientificAnalysisUnavailable(RuntimeError):
+    """Scoped numerical/data failure after a completed acquisition, never a motion failure."""
 
 
 class MeasurementFailedAfterCleanup(RuntimeError):
@@ -472,13 +476,85 @@ class Services:
         return {"stage_elapsed_hours": (self.last_acquisition_started_monotonic - schedule.stage_started_monotonic) / 3600.0,
                 "stage_elapsed_source": "monotonic NMR acquisition start minus monotonic stage start"}
 
+    def timed_protocol(self) -> bool:
+        initial = self.raw["workflow"]["initial_stage"]
+        return initial.get("control_mode") == "fixed_duration" and initial.get("advance_at_duration") is True
+
+    def scientific_call(self, fn, *args, **kwargs):
+        """Only numerical calls enter this boundary; acquisition, I/O and motion do not."""
+        try:
+            return fn(*args, **kwargs)
+        except (NmrProcessingError, PeakEvidenceError, base.AnalysisInconclusiveError, ValueError, ArithmeticError) as exc:
+            if isinstance(exc, base.ProcessingExecutionError):
+                raise
+            cause = exc
+            while cause is not None:
+                if isinstance(cause, OSError):
+                    raise
+                cause = cause.__cause__ or cause.__context__
+            if not self.timed_protocol():
+                raise
+            raise ScientificAnalysisUnavailable(str(exc)) from exc
+
+    def unavailable_analysis(self, stage, cycle, rows, failure):
+        """Called only AFTER verified physical cleanup; retain raw data and diagnostics."""
+        path = self.last_raw_path
+        history = [r for r in rows if r.get("stage") == stage]
+        acquired = None
+        try:
+            acquired = datetime.strptime(str(read_jcamp_fid(path).metadata.get("LONG DATE", "")), "%Y/%m/%d %H:%M:%S%z")
+        except (NmrProcessingError, ValueError):
+            pass
+        if acquired is not None and self.first_acquisition_at is None:
+            self.first_acquisition_at = acquired
+        processed = self.paths.for_stage(stage).processed_dir / f"{path.stem}_analysis_unavailable"
+        processed.mkdir(parents=True, exist_ok=True)
+        evidence = dict(error_type=type(failure.__cause__ or failure).__name__, reason=str(failure),
+                        raw_path=str(path.relative_to(self.paths.run_dir)), physical_cleanup="verified_complete")
+        write_json_atomic(processed / "analysis_unavailable.json", evidence)
+        row = dict(iteration=cycle, stage=stage, stage_iteration=len(history)+1, file=path.name,
+                   dataset_display_name=self.dataset_name, target_ppm=self.nmr_cfg.target_ppm,
+                   nmr_scans=self.nmr_cfg.scans, receiver_gain=self.nmr_cfg.receiver_gain, auto_gain=self.nmr_cfg.auto_gain,
+                   raw_path=evidence["raw_path"], processed_path=str(processed.relative_to(self.paths.run_dir)),
+                   raw_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+                   acquired_at=acquired.isoformat(timespec="seconds") if acquired else None,
+                   timestamp_source="LONG DATE header" if acquired else "unavailable",
+                   elapsed_hours=(acquired-self.first_acquisition_at).total_seconds()/3600 if acquired else None,
+                   peak_area=None, peak_clear=False, measurement_valid=False, endpoint_eligible=False,
+                   signal_classification="analysis_unavailable", diagnostic_notes=str(failure),
+                   observation_recorded=True, plateau=False, growth_percent=None, normalized_area=None,
+                   solvent_present=None, solvent_missing_streak=history[-1].get("solvent_missing_streak", 0) if history else 0,
+                   stage_timed_fallback=any(r.get("stage_timed_fallback") for r in history))
+        if self.last_sample_evidence is not None:
+            record_sample_presence(row, history, self.raw["solvent_monitor"], self.last_sample_evidence)
+        row["endpoint_eligible"] = False
+        row.update(self.completion_clock_fields(stage))
+        spec = next(s for s in base.build_stages(self.raw["workflow"]) if s.name == stage)
+        # Do not repeat the evaluator that may itself have failed. This acquired
+        # observation supplies no chemical evidence; later cycles retain history.
+        endpoint = dict(complete=False, confirmations_passed=0,
+                        confirmations_required=spec.completion["consecutive_iterations"],
+                        completion_time_active=(spec.min_completion_hours is None or
+                            row.get("stage_elapsed_hours", -1) >= spec.min_completion_hours),
+                        reason="Scientific analysis unavailable; observation excluded",
+                        criteria=dict(spec.completion), error=str(failure))
+        self.completion_status(row, spec, endpoint)
+        write_json_atomic(self.paths.evidence_dir(stage, "evidence") / f"{cycle:04d}.json", endpoint)
+        rows.append(row)
+        self.persist_rows(rows)
+        self.record("analysis_unavailable", workflow_phase=stage, cycle_number=cycle,
+                    result_classification="continue_after_verified_cleanup", **evidence)
+        self.last_analysis_completed_at = self.simulation.now() if self.simulation else datetime.now(timezone.utc)
+        self.measurement_step = None
+        return row
+
     def completion_status(self, row: dict, spec: base.Stage, evidence: dict) -> None:
-        if spec.min_completion_hours is None:
+        if spec.min_completion_hours is None and spec.control_mode != "fixed_duration":
             return
         row.update(completion_time_active=evidence["completion_time_active"],
                    completion_confirmations=evidence["confirmations_passed"],
                    min_completion_hours=spec.min_completion_hours, max_hours=spec.max_hours)
-        state = "DISABLED: TIMED FALLBACK" if row.get("stage_timed_fallback") else "ACTIVE" if evidence["completion_time_active"] else "NOT YET ACTIVE"
+        state = "ADVISORY ONLY: FIXED DURATION" if spec.control_mode == "fixed_duration" else "DISABLED: TIMED FALLBACK" if row.get("stage_timed_fallback") else "ACTIVE" if evidence["completion_time_active"] else "NOT YET ACTIVE"
         print(f"{spec.name}: NMR completion eligibility: {state}; qualifying observations: "
               f"{evidence['confirmations_passed']} / {evidence['confirmations_required']}")
         self.record("completion_eligibility", workflow_phase=spec.name,
@@ -486,7 +562,7 @@ class Services:
                     stage_elapsed_hours=row.get("stage_elapsed_hours"),
                     eligible_confirmations=evidence["confirmations_passed"],
                     confirmations_required=evidence["confirmations_required"],
-                    result_classification="disabled_timed_fallback" if row.get("stage_timed_fallback") else "active" if evidence["completion_time_active"] else "not_yet_active")
+                    result_classification="advisory_fixed_duration" if spec.control_mode == "fixed_duration" else "disabled_timed_fallback" if row.get("stage_timed_fallback") else "active" if evidence["completion_time_active"] else "not_yet_active")
 
     def untrusted_sample(self, path, stage, cycle, rows, evidence):
         """No target-area inference or processing requirement for absent sample data."""
@@ -549,12 +625,14 @@ class Services:
         self.last_acquisition_started_at = self.simulation.now() if self.simulation else datetime.now(timezone.utc)
         self.last_acquisition_started_monotonic = self.simulation.monotonic() if self.simulation else time.monotonic()
         schedule = self.active_schedule
-        if (schedule is not None and schedule.stage_name == stage and spec.min_completion_hours is not None
+        if (schedule is not None and schedule.stage_name == stage and (spec.min_completion_hours is not None or spec.control_mode != "nmr")
                 and self.last_acquisition_started_monotonic >= schedule.stage_started_monotonic + spec.max_hours * 3600.0):
             self.record("acquisition_skipped_at_deadline", workflow_phase=stage, cycle_number=cycle,
                         result_classification="time_limit_cleanup_required", max_hours=spec.max_hours)
             raise StageAcquisitionDeadlineReached(f"{stage} deadline reached before NMR command; finish sample cleanup")
+        self.last_sample_evidence = None
         path = self.acquire(self.nmr_cfg, stage_paths.raw_dir, label=f"{stage}_{cycle:04d}")
+        self.last_raw_path = path
         self.last_acquisition_completed_at = self.simulation.now() if self.simulation else datetime.now(timezone.utc)
         self.last_acquisition_completed_monotonic = self.simulation.monotonic() if self.simulation else time.monotonic()
         if progress:
@@ -579,15 +657,18 @@ class Services:
                                    "raw_sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "windows": []}
         if sample_evidence is not None and not sample_evidence["present"]:
             return self.untrusted_sample(path, stage, cycle, rows, sample_evidence)
+        self.last_sample_evidence = sample_evidence
         self.measurement_step = "NMR processing"
-        processed = self.process(path, stage_paths, self.dataset_name)
+        processed = self.scientific_call(self.process, path, stage_paths, self.dataset_name)
         if not processed.is_dir():
+            if self.timed_protocol():
+                raise ScientificAnalysisUnavailable("NMR processor supplied no output directory")
             raise VerificationError("NMR process_fid output directory is missing")
         self.record("analysis_result", workflow_phase=stage, cycle_number=cycle, analysis_type=getattr(self.process, "last_kind", "process_fid_full_spectrum"), result_classification="completed", result_path=str(processed.relative_to(self.paths.run_dir)))
         if progress:
             progress("NMR processing")
         self.measurement_step = "LONG DATE metadata"
-        long_date = str(read_jcamp_fid(path).metadata.get("LONG DATE", "")).strip()
+        long_date = str(self.scientific_call(read_jcamp_fid, path).metadata.get("LONG DATE", "")).strip()
         acquired_at = None
         timing_note = ""
         try:
@@ -613,11 +694,11 @@ class Services:
         if ("peak_tracking" in self.raw["analysis"] or area_only) and not self.simulation:
             row, spectrum = dict(metadata), []
         else:
-            row, spectrum = self.analyze(path, processed, stage_paths, self.raw["analysis"], metadata)
+            row, spectrum = self.scientific_call(self.analyze, path, processed, stage_paths, self.raw["analysis"], metadata)
         stage_spec = next((item for item in base.build_stages(self.raw["workflow"]) if item.name == stage), None)
         stage_rows = [r for r in rows if r.get("stage") == stage]
         if area_only and not self.simulation:
-            row = tracked_peak_area_observation(path, processed, row, self.raw["analysis"], rows)
+            row = self.scientific_call(tracked_peak_area_observation, path, processed, row, self.raw["analysis"], rows)
         elif stage_spec and stage_spec.completion and not self.simulation:
             try:
                 row = tracked_peak_measurement(path, processed, row, self.raw["analysis"], rows, reference=rows[0] if rows else None)
@@ -625,6 +706,14 @@ class Services:
                 self.record("analysis_result", workflow_phase=stage, cycle_number=cycle, result_classification=getattr(exc, "status", "invalid"), error_message=str(exc), tracking_evidence=getattr(exc, "evidence", None))
                 raise base.AnalysisInconclusiveError(str(exc)) from exc
         if area_only:
+            if self.timed_protocol():
+                area = row.get("peak_area")
+                if (row.get("peak_clear") is False or row.get("signal_classification") == "peak_not_detected"
+                        or isinstance(area, bool) or not isinstance(area, (int, float)) or not math.isfinite(area) or area < 0):
+                    row.update(peak_area=None, endpoint_eligible=False, measurement_valid=False,
+                               metric_source="unavailable target area; no zero imputed")
+                    row["diagnostic_notes"] = "; ".join(filter(None, (row.get("diagnostic_notes"),
+                        "Target area unavailable: peak not detected or numerical area invalid")))
             row["observation_recorded"] = True
             row["diagnostic_notes"] = "; ".join(v for v in (row.get("diagnostic_notes"), timing_note) if v)
         if sample_evidence is not None:
@@ -640,6 +729,8 @@ class Services:
                 print(note)
                 self.record("solvent_timed_fallback", workflow_phase=stage, cycle_number=cycle, reason=note,
                             duration_hours=stage_spec.max_hours, result_classification="timed_fallback_latched")
+        if self.timed_protocol() and row.get("peak_area") is None:
+            row["endpoint_eligible"] = False
         row.update(raw_path=str(path.relative_to(self.paths.run_dir)), processed_path=str(processed.relative_to(self.paths.run_dir)))
         if area_only:
             # Preserve the actual measurement for review, but an unidentifiable
@@ -675,7 +766,7 @@ class Services:
         previous = stage_rows[-1].get("peak_area") if stage_rows else None
         row["growth_percent"] = base.growth_percent(previous, row["peak_area"], epsilon=float(self.raw["analysis"].get("area_epsilon", 1.e-12))) if row["peak_area"] is not None else None
         if stage_spec and stage_spec.completion:
-            evidence = completion_evidence([*stage_rows, row], stage_spec.completion)
+            evidence = self.scientific_call(completion_evidence, [*stage_rows, row], stage_spec.completion)
             self.completion_status(row, stage_spec, evidence)
             row["plateau"] = evidence["complete"]
             row["trend"] = stage_spec.completion["trend"]
@@ -687,6 +778,9 @@ class Services:
                 tracking_path = Path(row["tracking_evidence_path"])
                 tracking_audit = json.loads(tracking_path.read_text(encoding="utf-8"))
                 tracking_audit["endpoint_evidence"] = evidence
+                if self.timed_protocol() and row.get("peak_area") is None:
+                    tracking_audit.update(peak_area=None, endpoint_eligible=False,
+                                          metric_source=row["metric_source"])
                 write_json_atomic(tracking_path, tracking_audit)
             self.record("stage_completion_evidence", workflow_phase=stage, cycle_number=cycle, evidence=evidence, result_path=row["completion_evidence_path"])
         else:
@@ -803,6 +897,12 @@ def sample_cycle(s: Services, *, stage: str, cycle: int, rows: list[dict], start
             s.record("recovery_cleanup", workflow_phase=stage, cycle_number=cycle, result_classification="completed", failed_step=failed_step, estimated_retained_volume_ml=s.state.retained_volume_ml)
             if isinstance(failure, StageAcquisitionDeadlineReached):
                 raise failure
+            if isinstance(failure, ScientificAnalysisUnavailable):
+                row = s.unavailable_analysis(stage, cycle, rows, failure)
+                s.record("cycle_completed", workflow_phase=stage, cycle_number=cycle, status="COMPLETE",
+                         completed_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                         result_classification="completed_after_cleanup_analysis_unavailable", plateau=False)
+                return row
             raise MeasurementFailedAfterCleanup(stage, cycle, failed_step, failure)
         s.record("cycle_completed", workflow_phase=stage, cycle_number=cycle, status="COMPLETE", completed_at=datetime.now(timezone.utc).isoformat(timespec="seconds"), result_classification="completed_after_cleanup", plateau=bool(row["plateau"]))
         return row
@@ -1440,8 +1540,18 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
             nonlocal cycle
             if stage.completion and stage.after_monitoring:
                 timed = outcome.stage_outcome is base.StageOutcome.TIMED_FALLBACK_COMPLETED
-                if not timed and (outcome.stage_outcome is not base.StageOutcome.PLATEAU_REACHED or not completion_evidence([r for r in rows if r["stage"] == stage.name], stage.completion)["complete"]):
+                time_authorized = (stage.control_mode == "fixed_duration" and stage.advance_at_duration
+                                   and outcome.stage_outcome is base.StageOutcome.TIME_LIMIT_COMPLETED)
+                stage_rows = [r for r in rows if r["stage"] == stage.name]
+                # Time authority must not invoke the scientific evaluator again.
+                # Its last persisted result is separate, advisory evidence.
+                chemical = (bool(stage_rows and stage_rows[-1].get("plateau")) if time_authorized or timed
+                            else completion_evidence(stage_rows, stage.completion)["complete"])
+                if not (timed or time_authorized) and (outcome.stage_outcome is not base.StageOutcome.PLATEAU_REACHED or not chemical):
                     raise VerificationError("Reagent transition requires genuine sustained stage completion")
+                s.record("stage_transition_authorized", workflow_phase=stage.name,
+                         transition_basis=outcome.stage_outcome.value,
+                         accepted_time_protocol=time_authorized, chemical_completion_verified=chemical)
                 if s.dose_guard is None:
                     raise VerificationError("Durable experiment reservation is required before dosing")
                 # Intent is durable before the first boundary physical action.
@@ -1482,7 +1592,7 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
             if stage.completion and not area_only:
                 write_stage_reports(s.paths, rows, stages, dataset=s.dataset_name, transition=s.transition_evidence)
             return base.MeasurementObservation(
-                bool(row.get("solvent_present", True)), bool(row["plateau"]),
+                bool(row.get("solvent_present", True)) and (not s.timed_protocol() or row.get("endpoint_eligible") is not False), bool(row["plateau"]),
                 s.last_acquisition_started_at.isoformat(timespec="seconds"),
                 s.last_acquisition_completed_at.isoformat(timespec="seconds"),
                 s.last_analysis_completed_at.isoformat(timespec="seconds"),
@@ -1496,8 +1606,8 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
                 selected = [r for r in rows if r.get("stage") == stage.name]
                 return bool(selected and selected[-1].get("stage_timed_fallback"))
             outcome = base.run_monitoring_stage(stage, measurement, recorder=s.recorder, sleep_fn=s.sleep, timed_fallback_fn=fallback if "solvent_monitor" in s.raw and area_only else None, **clock).outcome
-            if outcome.stage_outcome in (base.StageOutcome.PLATEAU_REACHED, base.StageOutcome.SCHEDULED_MONITORING_COMPLETED, base.StageOutcome.TIMED_FALLBACK_COMPLETED):
-                if outcome.stage_outcome is base.StageOutcome.TIMED_FALLBACK_COMPLETED:
+            if outcome.stage_outcome in (base.StageOutcome.PLATEAU_REACHED, base.StageOutcome.SCHEDULED_MONITORING_COMPLETED, base.StageOutcome.TIMED_FALLBACK_COMPLETED, base.StageOutcome.TIME_LIMIT_COMPLETED):
+                if outcome.stage_outcome is base.StageOutcome.TIMED_FALLBACK_COMPLETED or (stage.control_mode != "nmr" and fallback()):
                     timed_stages.append(stage.name)
                 return finish(outcome)
             # A limit without plateau is never taken as chemistry complete.
@@ -1547,7 +1657,7 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
     if outcome.status is base.TerminalStatus.COMPLETED and timed_stages:
         outcome = base.RunOutcome(base.TerminalStatus.COMPLETED, "Automation completed. Timed fallback used in: " + ", ".join(timed_stages) + "; chemical completion was not verified in those stages.", base.StageOutcome.TIMED_FALLBACK_COMPLETED)
     if outcome.status is base.TerminalStatus.COMPLETED:
-        print("AUTOMATION COMPLETED\n" + ("CHEMICAL COMPLETION UNVERIFIED\nTIMED FALLBACK USED" if timed_stages else "CHEMICAL ENDPOINT VERIFIED"))
+        print("AUTOMATION COMPLETED\n" + ("TIME-CONTROLLED PROTOCOL; REVIEW SEPARATE NMR EVIDENCE" if s.timed_protocol() else "CHEMICAL COMPLETION UNVERIFIED\nTIMED FALLBACK USED" if timed_stages else "CHEMICAL ENDPOINT VERIFIED"))
     s.record("terminal", workflow_phase="run", terminal_status=outcome.status.value, result_classification=outcome.stage_outcome.value if outcome.stage_outcome else outcome.status.value, physical_state_certainty="certain", stages_advanced_without_plateau=advanced or None, timed_fallback_stages=timed_stages or None)
     if area_only:
         final_reports(s, rows, stages, outcome)

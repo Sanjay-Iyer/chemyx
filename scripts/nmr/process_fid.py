@@ -24,6 +24,7 @@ import _bootstrap  # noqa: F401
 
 from chemyx_lab.config import ConfigError, read_mapping_config
 from chemyx_lab.analysis.nmr import (
+    NmrProcessingError,
     RegionPeakPickingResult,
     align_validated_reference,
     align_solvent_axis,
@@ -2070,8 +2071,16 @@ def main(argv: list[str] | None = None) -> int:
                 + (f" at {text} ppm" if text else "")
             )
         except Exception as exc:
+            recoverable = isinstance(exc, (NmrProcessingError, ValueError, ArithmeticError))
+            cause = exc
+            while cause is not None:
+                if isinstance(cause, OSError):
+                    recoverable = False
+                cause = cause.__cause__ or cause.__context__
             failure = {"file": path.name, "source_path": str(path),
                        "phase_method": args.phase_method, "target_area": None,
+                       "error_type": type(exc).__name__,
+                       "recoverable_scientific_error": recoverable,
                        "phase_optimizer": getattr(exc, "phase_audit", None), "error": str(exc)}
             failure_dir = out_dir / "processing_failures"
             failure_dir.mkdir(exist_ok=True)

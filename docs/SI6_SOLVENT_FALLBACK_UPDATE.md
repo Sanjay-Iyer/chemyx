@@ -1,11 +1,12 @@
 # Si6 startup, needle positions and solvent-loss fallback
 
-**Current real-recipe timing:** the [mandatory-duration update](SI6_MINIMUM_STAGE_DURATIONS.md)
-sets Stage 1 minimum/maximum to 40/48 hours and Stage 2 to 2/6 hours, with
-120/30-minute schedules. Missing-solvent fallback uses those current maximums.
-The older four-hour Stage 2 examples and validation counts below retain their
-historical scope. The timing gate does not resolve noisy nondetection after the
-minimum or change the existing unverified timed-fallback dosing policy.
+**Current real-recipe timing:** the [time-driven update](SI6_TIMED_PROGRESSION.md)
+sets Stage 1 to a fixed 48 hours with explicit time-based dose authorization,
+and Stage 2 to minimum/maximum 2/6 hours, with 120/30-minute schedules.
+Solvent-loss evidence still disables chemical completion and preserves those
+deadlines. Stage 1 no longer depends on either chemical completion or a solvent
+fallback latch to advance. Its chemical evidence is advisory. The earlier
+40-hour gate and four-hour Stage 2 examples below retain their historical scope.
 
 The October 14 update uses one startup `y`, the existing saved Arduino HOME
 reference, and an independent solvent-presence check before chemical endpoints.

@@ -79,7 +79,8 @@ def test_solvent_confirmed_target_absence_remains_eligible():
 def test_independent_yaml_durations_load_and_change_only_selected_stage(tmp_path, name, hours):
     raw = yaml.safe_load((ROOT / "configs/experiments/si6_real_two_stage.yaml").read_text())
     raw["workflow"][name]["max_hours"] = hours
-    raw["workflow"][name]["min_completion_hours"] = hours / 2
+    if name == "first_addition_stage":
+        raw["workflow"][name]["min_completion_hours"] = hours / 2
     path = tmp_path / "reaction.yaml"
     path.write_text(yaml.safe_dump(raw))
     prepared = si6.prepare(path, ROOT / "configs/machines/si6_real_COM4.yaml", ROOT / "arduino/configs/arduino_real_COM3.yaml", mock=True)
