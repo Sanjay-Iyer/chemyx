@@ -1,10 +1,11 @@
 # Standalone three-instrument bench checkout
 
-On WORK, from `C:\code\chemyx_pump`, using the installed offline Python:
+On WORK, from `C:\code\chemyx_pump`, using the installed offline Python.
+For shorter variable-based commands and their one-time definitions, see
+[Set Configuration Variables](SI6_SIMPLE_RUN_GUIDE.md#set-configuration-variables).
 
 ```powershell
 cd C:\code\chemyx_pump
-$env:Path = "$PWD\.venv\Scripts;" + $env:Path
 python scripts\03_simple_instrument_checkout.py --validate-config
 python scripts\03_simple_instrument_checkout.py --live
 ```
@@ -12,14 +13,14 @@ python scripts\03_simple_instrument_checkout.py --live
 Type **y once**. There are no further prompts. An explicit config is also supported:
 
 ```powershell
-python scripts\03_simple_instrument_checkout.py --live --config configs\checkouts\si6_simple_instrument_check.yaml
+python scripts\03_simple_instrument_checkout.py --live --config C:\code\chemyx_pump\configs\checkouts\si6_simple_instrument_check.yaml
 ```
 
 For Chemyx on COM6, use the existing alternate machine file:
 
 ```powershell
-python scripts\03_simple_instrument_checkout.py --validate-config --machine-config configs\machines\si6_real_COM6.yaml
-python scripts\03_simple_instrument_checkout.py --live --machine-config configs\machines\si6_real_COM6.yaml
+python scripts\03_simple_instrument_checkout.py --validate-config --machine-config C:\code\chemyx_pump\configs\machines\si6_real_COM6.yaml
+python scripts\03_simple_instrument_checkout.py --live --machine-config C:\code\chemyx_pump\configs\machines\si6_real_COM6.yaml
 ```
 
 ## Before typing y
@@ -69,12 +70,12 @@ move. Check the report's instrument attention message before retrying.
 
 | Purpose | File |
 |---|---|
-| Entry script | `scripts/03_simple_instrument_checkout.py` |
-| Checkout transfers | `configs/checkouts/si6_simple_instrument_check.yaml` |
-| Needle COM3, steps, speed, HOME state path | `arduino/configs/arduino_real_COM3.yaml` |
-| Pump/NMR connection | `configs/machines/si6_real_COM4.yaml` or `si6_real_COM6.yaml` |
-| Syringe geometry and existing HOME convention | `configs/chemyx/manual_control.yaml` |
-| Read-only source of NMR gain/center/width | `configs/experiments/si6_real_two_stage.yaml` |
+| Entry script | `scripts\03_simple_instrument_checkout.py` |
+| Checkout transfers | `C:\code\chemyx_pump\configs\checkouts\si6_simple_instrument_check.yaml` |
+| Needle COM3, steps, speed, HOME state path | `C:\code\chemyx_pump\arduino\configs\arduino_real_COM3.yaml` |
+| Pump/NMR connection | `C:\code\chemyx_pump\configs\machines\si6_real_COM4.yaml` or `C:\code\chemyx_pump\configs\machines\si6_real_COM6.yaml` |
+| Syringe geometry and existing HOME convention | `C:\code\chemyx_pump\configs\chemyx\manual_control.yaml` |
+| Read-only source of NMR gain/center/width | `C:\code\chemyx_pump\configs\experiments\si6_real_two_stage.yaml` |
 
 All established values are preset; no fluid/routing metadata or stage settings
 are required. Edit `chemyx.channel_1` / `channel_2` in the **checkout YAML** to
@@ -102,13 +103,11 @@ results/instrument_checks/YYYYMMDD_HHMMSS_live_<unique>/
   nmr_processed/<dataset>_<acquisition>_full_spectrum/
 ```
 
-Open the newest checkout (verify LIVE versus MOCK):
+Open the printed result folder in Explorer and read `checkout_summary.txt`.
+Browse all checkouts with this command and select the correct LIVE result:
 
 ```powershell
-$Si6Check = (Get-ChildItem results\instrument_checks -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
-Get-Content "$Si6Check\checkout_summary.txt"
-Get-ChildItem "$Si6Check\nmr_raw"
-explorer.exe "$Si6Check"
+explorer.exe C:\code\chemyx_pump\results\instrument_checks
 ```
 
 **PASS** means completed instrument operations, saved nonempty raw data and
@@ -149,98 +148,19 @@ protected **1.86 mL at 1 mL/min** dose from 5 mL loading → Stage 2 minimum 2 h
 maximum 6 h, 30-minute interval and existing four-point completion rule.
 
 ```powershell
-python scripts\02_si6_experiment.py --validate-config --workflow-config configs\experiments\si6_real_two_stage.yaml --machine-config configs\machines\si6_real_COM4.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
-python scripts\02_si6_experiment.py --live --workflow-config configs\experiments\si6_real_two_stage.yaml --machine-config configs\machines\si6_real_COM4.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
+python scripts\02_si6_experiment.py --validate-config --workflow-config C:\code\chemyx_pump\configs\experiments\si6_real_two_stage.yaml --machine-config C:\code\chemyx_pump\configs\machines\si6_real_COM4.yaml --arduino-config C:\code\chemyx_pump\arduino\configs\arduino_real_COM3.yaml
+python scripts\02_si6_experiment.py --live --workflow-config C:\code\chemyx_pump\configs\experiments\si6_real_two_stage.yaml --machine-config C:\code\chemyx_pump\configs\machines\si6_real_COM4.yaml --arduino-config C:\code\chemyx_pump\arduino\configs\arduino_real_COM3.yaml
 ```
 
-Substitute `si6_real_COM6.yaml` for COM6. The older
+Substitute `C:\code\chemyx_pump\configs\machines\si6_real_COM6.yaml` for COM6. The older
 `configs/experiments/si6_real_10min_checkout.yaml` remains an optional two-stage
 integration test, documented in [the archived integration guide](archive/SI6_10MIN_LIVE_CHECKOUT.md).
 It is a different workflow requiring its own test-dose configuration.
 
-## Offline transfer and installation
+## Complete offline WORK deployment
 
-The complete updated working-tree ZIP includes uncommitted source plus the
-existing offline wheels, installer, drivers and toolchain. **No commit/push**
-is required. No runtime HOME/dose state is shipped from HOME.
-
-On HOME, copy the prepared release folder to USB (example USB drive E:):
-
-```powershell
-cd C:\code\chemyx_pump
-robocopy dist\si6_simple_instrument_check_20261016 E:\Si6_simple_instrument_check /E
-if ($LASTEXITCODE -ge 8) { throw 'Release copy failed' }
-```
-
-On WORK, with the rig stopped and all instrument programs closed:
-
-```powershell
-$Si6Usb = 'E:\Si6_simple_instrument_check'
-$Si6Root = 'C:\code\chemyx_pump'
-$Si6Stage = 'C:\code\si6_simple_checkout_release_20261016'
-$Si6Zip = @(Get-ChildItem -LiteralPath $Si6Usb -Filter '*.zip')
-if ($Si6Zip.Count -ne 1) { throw 'Expected exactly one release ZIP' }
-$Si6Expected = ((Get-Content -LiteralPath ($Si6Zip[0].FullName + '.sha256') -Raw) -split '\s+')[0]
-if ((Get-FileHash -LiteralPath $Si6Zip[0].FullName -Algorithm SHA256).Hash -ne $Si6Expected) { throw 'ZIP checksum mismatch' }
-if (Test-Path -LiteralPath $Si6Stage) { throw 'Use a fresh staging directory; do not reuse an older release' }
-Expand-Archive -LiteralPath $Si6Zip[0].FullName -DestinationPath $Si6Stage
-if (!(Test-Path -LiteralPath "$Si6Stage\scripts\03_simple_instrument_checkout.py")) { throw 'New checkout script missing' }
-```
-
-Back up WORK records **before** updating code, using WORK's existing Python:
-
-```powershell
-$Si6Python = "$Si6Root\.venv\Scripts\python.exe"
-if (!(Test-Path -LiteralPath $Si6Python)) { throw 'Select the existing WORK Python before backing up' }
-$Si6BackupArgs = @('--state-path', 'runtime', '--state-path', 'configs', '--state-path', 'arduino/configs')
-if ($env:CHEMYX_POSITION_STATE_DIR) { $Si6BackupArgs += @('--state-path', (Join-Path $env:CHEMYX_POSITION_STATE_DIR 'chemyx_state')) }
-& $Si6Python "$Si6Stage\scripts\rig_state_backup.py" backup --root $Si6Root --destination "$Si6Usb\WORK_state_backup" @Si6BackupArgs
-if ($LASTEXITCODE -ne 0) { throw 'WORK state backup failed' }
-```
-
-The backup also inventories configured needle state and default dose/journal
-paths. Add `--state-path` for any custom external state path not covered. Save
-the printed backup path; existing instrument software/licenses/firmware remain
-installed on WORK. Keep their installation media separately if needed.
-
-Overlay code with **no /MIR**, excluding physical state and installed settings:
-
-```powershell
-robocopy $Si6Stage $Si6Root /E /XD runtime runs results rig_backups .git .venv "$Si6Stage\configs" "$Si6Stage\arduino\configs"
-if ($LASTEXITCODE -ge 8) { throw 'Code update failed' }
-New-Item -ItemType Directory -Force "$Si6Root\configs\checkouts" | Out-Null
-if (!(Test-Path -LiteralPath "$Si6Root\configs\checkouts\si6_simple_instrument_check.yaml")) {
-    Copy-Item -LiteralPath "$Si6Stage\configs\checkouts\si6_simple_instrument_check.yaml" -Destination "$Si6Root\configs\checkouts\si6_simple_instrument_check.yaml"
-}
-cd $Si6Root
-& $Si6Python offline\verify_bundle.py
-if ($LASTEXITCODE -ne 0) { throw 'Offline payload verification failed' }
-```
-
-This retains WORK's machine configs, Arduino calibration, manual HOME convention,
-production recipe, runtime/chemyx_state, needle position, dose history, results
-and existing `.venv`. Intentional WORK YAML differences are reported by the
-release verifier, not silently overwritten. If packages need installation, use
-the existing offline installer (no network, no full regression campaign):
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File offline\install_offline.ps1
-```
-
-If no suitable Python is installed, use `offline\installers\python-3.11.9-amd64.exe`
-and run the same installer. Never copy HOME's `.venv` or HOME references onto WORK.
-Verify the complete release and new checkout before contacting hardware:
-
-```powershell
-& $Si6Python scripts\verify_si6_environment.py --expect-commit 10ccdcca4b5829126b659e2e60a49472a1c7a780 --machine-config configs\machines\si6_real_COM4.yaml
-if ($LASTEXITCODE -ne 0) { throw 'Release/environment verification failed' }
-& $Si6Python scripts\03_simple_instrument_checkout.py --validate-config
-if ($LASTEXITCODE -ne 0) { throw 'Checkout config validation failed' }
-& $Si6Python scripts\03_simple_instrument_checkout.py --help
-```
-
-The release verifier checks source-file hashes, including the new runner/module,
-and reports the working-tree source identity; the base commit alone is not the
-identity of these uncommitted additions. Use the COM6 override in both validation
-commands if needed. Compare the saved WORK backup before proceeding if state
-preservation needs auditing. Run `--live` only on WORK after the physical checks.
+The complete working-tree package includes this script, preset YAML, documentation
+and offline dependencies. Follow the exact copy, checksum, state-backup,
+settings-preserving installation and verification commands in
+[SI6_SIMPLE_CHECK_OFFLINE_DEPLOYMENT.md](SI6_SIMPLE_CHECK_OFFLINE_DEPLOYMENT.md).
+Do not overwrite WORK HOME references, installed instrument settings or dose history.

@@ -1,5 +1,52 @@
 # Si6: standalone bench checkout → real experiment
 
+## Set Configuration Variables
+
+These variables are shortcuts for existing file paths, **not new configurations**.
+Set them once in **each new PowerShell terminal**, then run the short commands below.
+Run from the repository root so the relative paths resolve correctly.
+
+```powershell
+cd C:\code\chemyx_pump
+
+# Arduino configuration
+$Si6Needle = "arduino\configs\arduino_real_COM3.yaml"
+
+# Chemyx machine configuration (COM4)
+$Si6Machine = "configs\machines\si6_real_COM4.yaml"
+
+# Production experiment
+$Si6Production = "configs\experiments\si6_real_two_stage.yaml"
+
+# Standalone manual Chemyx settings, including its HOME convention
+$Si6Manual = "configs\chemyx\manual_control.yaml"
+
+# Standalone instrument checkout settings
+$Si6Checkout = "configs\checkouts\si6_simple_instrument_check.yaml"
+```
+
+For Chemyx on COM6, change only the machine shortcut for commands accepting
+`--machine-config`:
+
+```powershell
+$Si6Machine = "configs\machines\si6_real_COM6.yaml"
+```
+
+| Variable | Script argument it belongs to |
+|---|---|
+| `$Si6Needle` | `needle_control.py --config`; system test/production `--arduino-config` |
+| `$Si6Manual` | `chemyx_control.py --config` and `chemyx_home.py --config` |
+| `$Si6Checkout` | `03_simple_instrument_checkout.py --config` |
+| `$Si6Machine` | System test, standalone checkout and production `--machine-config` |
+| `$Si6Production` | System test and production `--workflow-config` |
+
+Manual Chemyx tools read the pump endpoint from **`machine_config` inside
+`$Si6Manual`**. That field must select the same COM4/COM6 machine file as the rig.
+Changing `$Si6Machine` does not rewrite the manual YAML. Never pass `$Si6Machine`
+to a manual tool's `--config`: it expects the manual-control YAML. Preserve the
+existing saved HOME identity; changing a port does not silently migrate a reference.
+Arduino remains COM3.
+
 Use this guide top to bottom on **WORK**, with current code/dependencies already
 installed. The recommended quick test is the [standalone bench checkout](SI6_SIMPLE_INSTRUMENT_CHECK.md):
 `python scripts\03_simple_instrument_checkout.py --live`, then one **y**. It checks
@@ -17,29 +64,12 @@ Open PowerShell. Select the installed offline Python without activation:
 
 ```powershell
 cd C:\code\chemyx_pump
-$env:Path = "C:\code\chemyx_pump\.venv\Scripts;" + $env:Path
+$env:Path = "$PWD\.venv\Scripts;" + $env:Path
 python -c "import sys; print(sys.executable); print(sys.version)"
 ```
 
 If using a different verified Python, keep that interpreter instead. Do not
-reinstall packages for each experiment. Set the file choices once for this terminal:
-
-```powershell
-$Si6Machine = 'configs\machines\si6_real_COM4.yaml'
-$Si6Needle = 'arduino\configs\arduino_real_COM3.yaml'
-$Si6Manual = 'configs\chemyx\manual_control.yaml'
-$Si6Checkout = 'configs\checkouts\si6_simple_instrument_check.yaml'
-$Si6Production = 'configs\experiments\si6_real_two_stage.yaml'
-```
-
-**COM6 instead of COM4:** run this alternative before the steps below:
-
-```powershell
-$Si6Machine = 'configs\machines\si6_real_COM6.yaml'
-```
-
-In the manual YAML, `machine_config` must select the **same** COM4/COM6 file.
-Arduino remains COM3; the NMR endpoint comes from the machine YAML.
+reinstall packages for each experiment. The variables above select the file paths.
 
 ## STEP 2 — Manual Arduino needle test
 
@@ -96,7 +126,8 @@ notepad $Si6Manual
 - `machine_config`: match `$Si6Machine` above.
 - `channels.1.manual_transfer.volume_ml` and `rate_ml_min`: manual Channel 1 move.
 - `channels.2.manual_transfer.volume_ml` and `rate_ml_min`: manual Channel 2 move.
-- Both currently default to **5 mL at 10 mL/min**; select approved small test
+- Both manual defaults are **5 mL at 10 mL/min**; the standalone checkout
+  separately presets **1 mL at 10 mL/min**. Select approved small manual test
   values before moving. No CLI `--volume` or `--rate` exists.
 - Channel 1 HOME is fully depressed, with `syringe_volume_at_home_ml: 0.0`.
 - Channel 2 HOME convention is currently 5.0 mL loaded, matching production.
@@ -219,7 +250,7 @@ experiment owns the port. More detail: [CHEMYX_QUICK_REFERENCE.md](CHEMYX_QUICK_
 ## STEP 4 — Confirm all three communicate
 
 This contacts the instruments but commands **no needle movement, pump START or
-NMR acquisition**. Select COM4/COM6 through `$Si6Machine` from STEP 1:
+NMR acquisition**. Use the selected `$Si6Machine` (COM4 or COM6):
 
 ```powershell
 python scripts\01_three_instrument_system_test.py --live --communications-only --workflow-config $Si6Production --machine-config $Si6Machine --arduino-config $Si6Needle
@@ -242,8 +273,8 @@ Blank/background NMR data are acceptable. No chemical peak or integration is
 required. Restore production routing/loading after the bench test.
 
 ```powershell
-python scripts\03_simple_instrument_checkout.py --validate-config --machine-config $Si6Machine
-python scripts\03_simple_instrument_checkout.py --live --machine-config $Si6Machine
+python scripts\03_simple_instrument_checkout.py --validate-config --config $Si6Checkout --machine-config $Si6Machine
+python scripts\03_simple_instrument_checkout.py --live --config $Si6Checkout --machine-config $Si6Machine
 ```
 
 Validation contacts no hardware. Live asks one **y**, then Arduino UP/DOWN/HOME
@@ -262,10 +293,7 @@ addition and identity; it is not the simple bench check. See
 Use the exact printed `Results:` path, or inspect the latest bench check:
 
 ```powershell
-$Si6Check = (Get-ChildItem results\instrument_checks -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
-Get-Content "$Si6Check\checkout_summary.txt"
-Get-ChildItem "$Si6Check\nmr_raw"
-explorer.exe "$Si6Check"
+explorer.exe C:\code\chemyx_pump\results\instrument_checks
 ```
 
 Confirm LIVE versus MOCK and **Overall: PASS**. Acquisition/raw saving and
