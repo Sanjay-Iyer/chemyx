@@ -187,7 +187,7 @@ def test_config_ports_commands_and_chemistry_separation(tmp_path):
     invalid["soak_test"]["channel2"]["volume_ml"] = 3
     with pytest.raises(ValueError, match="infuses more"):
         soak.configure_soak(invalid)
-    guide = (config.REPO_ROOT / "docs/REAL_INSTRUMENT_RUN_COMMANDS.md").read_text(encoding="utf-8")
+    guide = (config.REPO_ROOT / "docs/archive/REAL_INSTRUMENT_RUN_COMMANDS.md").read_text(encoding="utf-8")
     assert "$si6MachineCfg" not in guide and ".venv" not in guide and "Activate" not in guide
     commands = [line for line in guide.splitlines() if line.startswith("python ")]
     assert len(commands) == 11

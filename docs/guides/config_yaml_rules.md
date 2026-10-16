@@ -42,12 +42,12 @@ and a flag is a deliberate one-off override. A flag must never be *required*.
 
 Every parameter carries a working default in Python. Deleting the config file
 must leave the script runnable, not broken. This is what keeps the repo usable
-from a clean clone on the work laptop (`docs/QUICKSTART.md`) without carrying
+from a clean clone on the work laptop (`docs/archive/QUICKSTART.md`) without carrying
 machine-specific state around.
 
 Corollary: config files are for *parameters*, never for machine-specific
 addresses or secrets. Those follow the existing pattern in
-`docs/CONFIGURATION.md` — a `*.local.yaml` (tracked as the shared starting
+`docs/archive/CONFIGURATION.md` — a `*.local.yaml` (tracked as the shared starting
 point) derived from a checked-in `*.example.yaml` or template.
 
 ### 3. A missing default config is fine; a missing named one is an error

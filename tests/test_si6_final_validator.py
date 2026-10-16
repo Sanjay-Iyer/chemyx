@@ -178,14 +178,14 @@ def test_independent_guides_cli_flags_match_actual_help():
     import subprocess
     import sys
     scripts = {}
-    for name in ("SI6_START_HERE.md", "SI6_SCRIPT_USER_GUIDE.md", "SI6_CONFIG_USER_GUIDE.md"):
+    for name in ("SI6_START_HERE.md", "SI6_SIMPLE_RUN_GUIDE.md", "SI6_ERRORS_AND_FIXES.md", "SI6_CONFIG_USER_GUIDE.md"):
         text = (config.REPO_ROOT / "docs" / name).read_text(encoding="utf-8")
         for code in re.findall(r"```powershell\n(.*?)```", text, re.S):
             for line in code.splitlines():
                 if not (line.startswith("python ") or line.startswith(".venv\\Scripts\\python.exe ")):
                     continue
                 tokens = line.split()
-                if "-m" in tokens:
+                if "-m" in tokens or "-c" in tokens:
                     continue
                 script = next(t for t in tokens[1:] if t.endswith(".py"))
                 scripts.setdefault(script, set()).update(t for t in tokens if t.startswith("--"))

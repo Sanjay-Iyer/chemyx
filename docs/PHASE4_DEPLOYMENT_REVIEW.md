@@ -130,7 +130,7 @@ New source/documentation/tests to include:
 * All six experiment YAMLs: `standard_si6`, `reaction_30min`, `reaction_60min`,
   `reaction_mixed_intervals`, `short_attended`, `long_monitoring`
 * `docs/CREATE_NEW_EXPERIMENT.md`
-* `docs/CURRENT_ARCHITECTURE_LLM_HANDOFF_2026-10-01.md`
+* `docs/archive/CURRENT_ARCHITECTURE_LLM_HANDOFF_2026-10-01.md`
 * `docs/PHASE4_DEPLOYMENT_REVIEW.md` (this guide)
 * `tests/test_experiment_templates.py`, `tests/test_final_nmr_summary.py`,
   `tests/test_nmr_gui_offline_smoke.py`, `tests/test_phase4_deployment.py`

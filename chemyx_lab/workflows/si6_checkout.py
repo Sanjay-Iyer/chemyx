@@ -14,14 +14,22 @@ def validate_checkout(raw):
     section = raw.get("checkout")
     if section is None:
         return
-    fields = {"enabled", "purpose", "base_recipe", "base_recipe_sha256", "test_fluid", "routing"}
+    fields = {"enabled", "purpose", "base_recipe", "base_recipe_sha256", "test_fluid", "routing", "overall_timeout_minutes"}
     if not isinstance(section, dict) or set(section) - fields:
         raise ValueError("checkout needs only enabled, purpose, base_recipe, test_fluid and routing")
-    if section.get("enabled") is not True or section.get("purpose") != "physical_instrument_checkout":
-        raise ValueError("checkout must explicitly enable physical_instrument_checkout")
-    for key in ("base_recipe", "test_fluid", "routing"):
-        if not isinstance(section.get(key), str) or not section[key].strip():
-            raise ValueError(f"Fill checkout.{key} before running the checkout")
+    if section.get("enabled") is not True:
+        raise ValueError("checkout.enabled must be true")
+    if not isinstance(section.get("base_recipe"), str) or not section["base_recipe"].strip():
+        raise ValueError("Fill checkout.base_recipe to select the instrument settings")
+    # Descriptions do not select instruments or authorize transfers.
+    for key, default in (("purpose", "physical_instrument_checkout"),
+                         ("test_fluid", "unspecified"), ("routing", "unspecified")):
+        value = section.get(key)
+        section[key] = value.strip() if isinstance(value, str) and value.strip() else default
+    timeout = section.get("overall_timeout_minutes", 30)
+    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("checkout.overall_timeout_minutes must be a positive finite number")
+    section["overall_timeout_minutes"] = timeout
     identity = raw.get("workflow", {}).get("experiment_id")
     if not isinstance(identity, str) or not identity.startswith("SI6_CHECKOUT_"):
         raise ValueError("Set a unique workflow.experiment_id beginning SI6_CHECKOUT_ (never the production ID)")

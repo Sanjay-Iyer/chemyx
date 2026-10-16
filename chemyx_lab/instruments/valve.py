@@ -32,7 +32,7 @@ means *selectable positions*.
 
 The serial transport (port setup, framing, terminator, read loop) is lifted
 verbatim from the archived low-level bring-up script recorded in
-``docs/ARCHIVE_MANIFEST.csv``, which was proven working on this hardware.
+``docs/archive/ARCHIVE_MANIFEST.csv``, which was proven working on this hardware.
 """
 
 from __future__ import annotations

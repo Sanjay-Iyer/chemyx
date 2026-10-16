@@ -343,6 +343,7 @@ class Services:
     position_ledger: Any = None
     active_schedule: base.MeasurementSchedule | None = None
     last_acquisition_started_monotonic: float | None = None
+    checkout_deadline_monotonic: float | None = None
 
     @property
     def states(self) -> dict[int, base.PumpSafetyState]:
@@ -629,8 +630,15 @@ class Services:
         self.last_acquisition_started_at = self.simulation.now() if self.simulation else datetime.now(timezone.utc)
         self.last_acquisition_started_monotonic = self.simulation.monotonic() if self.simulation else time.monotonic()
         schedule = self.active_schedule
-        if (schedule is not None and schedule.stage_name == stage and (spec.min_completion_hours is not None or spec.control_mode != "nmr")
-                and self.last_acquisition_started_monotonic >= schedule.stage_started_monotonic + spec.max_hours * 3600.0):
+        first_checkout_cycle = ("checkout" in self.raw and schedule is not None
+                                and schedule.scheduled_measurement_number == 1
+                                and self.checkout_deadline_monotonic is not None
+                                and self.last_acquisition_started_monotonic < self.checkout_deadline_monotonic)
+        checkout_expired = ("checkout" in self.raw and self.checkout_deadline_monotonic is not None
+                            and self.last_acquisition_started_monotonic >= self.checkout_deadline_monotonic)
+        if checkout_expired or (schedule is not None and schedule.stage_name == stage and (spec.min_completion_hours is not None or spec.control_mode != "nmr")
+                and self.last_acquisition_started_monotonic >= schedule.stage_started_monotonic + spec.max_hours * 3600.0
+                and not first_checkout_cycle):
             self.record("acquisition_skipped_at_deadline", workflow_phase=stage, cycle_number=cycle,
                         result_classification="time_limit_cleanup_required", max_hours=spec.max_hours)
             raise StageAcquisitionDeadlineReached(f"{stage} deadline reached before NMR command; finish sample cleanup")
@@ -1511,6 +1519,9 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
         solvent_config(s.raw.get("solvent_monitor"))
     preflight(s)
     home_and_raise(s)
+    checkout_now = s.simulation.monotonic if s.simulation else time.monotonic
+    if "checkout" in s.raw:
+        s.checkout_deadline_monotonic = checkout_now() + s.raw["checkout"]["overall_timeout_minutes"] * 60
     rows: list[dict] = []
     started = datetime.now(timezone.utc)
     cycle = 0
@@ -1542,11 +1553,31 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
         return choice
     def stage_runner(stage: base.Stage) -> base.RunOutcome:
         nonlocal cycle
+        if "checkout" in s.raw and checkout_now() >= s.checkout_deadline_monotonic:
+            return base.RunOutcome(base.TerminalStatus.INSTRUMENT_FAILURE,
+                                   "Checkout incomplete: overall timeout reached before starting the next stage")
         if s.paths.layout:
             s.recorder.active_phase = stage.name
         cycle = run_stage_actions(s, stage.before_monitoring, stage=stage.name, phase="before_monitoring", cycle=cycle, rows=rows, started=started)
         def finish(outcome: base.RunOutcome) -> base.RunOutcome:
             nonlocal cycle
+            if "checkout" in s.raw:
+                if checkout_now() >= s.checkout_deadline_monotonic:
+                    return base.RunOutcome(base.TerminalStatus.INSTRUMENT_FAILURE,
+                                           "Checkout incomplete: overall timeout reached; active cycle cleanup finished", outcome.stage_outcome)
+                replay = replay_journal(s.paths.journal_jsonl)
+                if not replay.valid:
+                    raise VerificationError("Checkout acquisition evidence journal is invalid")
+                evidence = [e for e in replay.records if e.get("workflow_phase") == stage.name]
+                received = any(e["event_type"] == "nmr_retrieved"
+                               and (s.paths.run_dir/e["result_path"]).is_file()
+                               and (s.paths.run_dir/e["result_path"]).stat().st_size for e in evidence)
+                processed = any(e["event_type"] == "analysis_unavailable" or
+                                e["event_type"] == "analysis_result" and e.get("result_classification") == "completed"
+                                for e in evidence)
+                if not (received and processed):
+                    return base.RunOutcome(base.TerminalStatus.INSTRUMENT_FAILURE,
+                                           f"Checkout incomplete: {stage.name} needs a raw NMR file and processing attempt", outcome.stage_outcome)
             if stage.completion and stage.after_monitoring:
                 timed = outcome.stage_outcome is base.StageOutcome.TIMED_FALLBACK_COMPLETED
                 time_authorized = (stage.control_mode == "fixed_duration" and stage.advance_at_duration

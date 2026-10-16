@@ -1,11 +1,12 @@
-# Separate physical checkout. Fill every null and choose a fresh CHECKOUT ID.
+# Separate physical checkout. Fill physical transfer values and choose a fresh ID.
 # No test dose or syringe geometry is invented here. The base recipe is READ ONLY.
 checkout:
   enabled: true
   purpose: physical_instrument_checkout
   base_recipe: si6_real_two_stage.yaml
-  test_fluid: null  # Operator: actual approved test fluid (not production reagent).
-  routing: null     # Operator: verified test reservoir/flask/waste fluid path.
+  test_fluid: null  # Optional description; recorded as unspecified if omitted.
+  routing: null     # Optional description; operator must physically verify tubing.
+  overall_timeout_minutes: 30  # Safe-boundary limit; active transfers/cleanup finish.
 workflow:
   experiment_id: SET_CHECKOUT_UNIQUE_ID  # e.g. a fresh SI6_CHECKOUT_<date>_<ID>
   initial_stage:

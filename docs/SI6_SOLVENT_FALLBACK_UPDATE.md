@@ -81,7 +81,7 @@ The archived 06-08-26 and 06-09-26 spectra contain strong signals around
 2.079 and 6.994 ppm. Both are present in the real 06-09-26 0900 spectrum without
 a detected target peak. These are the solvent signals identified by the operator.
 The archived-data check is recorded in
-`docs/audits/SI6_SOLVENT_REFERENCE_CHECK_2026-10-14.csv`.
+`docs/archive/audits/SI6_SOLVENT_REFERENCE_CHECK_2026-10-14.csv`.
 
 The full, unnormalized magnitude FFT checks both solvent windows independently
 of the target's phase, baseline and regional peak detection. It uses 65,536
@@ -210,4 +210,4 @@ instrument laptop. This update does not require new Arduino firmware.
 
 ## Final pre-deployment hardening
 
-The windows were widened to 1.90–2.25 and 6.80–7.10 ppm. Full-spectrum local maxima are tested against expected centers and maximum shifts, then both solvent shifts must agree within 0.04 ppm. The 7.12 ppm neighbor exceeds the allowed 0.10 ppm displacement from 6.99; a shifted neighbor with inconsistent paired displacement is also rejected. Conservatively rejected sample signals still activate the existing timed fallback. See [the primary real-run checklist](SI6_FINAL_REAL_RUN_CHECKLIST.md) and [prompt audit](SI6_PROMPT_AUDIT.md).
+The windows were widened to 1.90–2.25 and 6.80–7.10 ppm. Full-spectrum local maxima are tested against expected centers and maximum shifts, then both solvent shifts must agree within 0.04 ppm. The 7.12 ppm neighbor exceeds the allowed 0.10 ppm displacement from 6.99; a shifted neighbor with inconsistent paired displacement is also rejected. Conservatively rejected sample signals still activate the existing timed fallback. See [the primary real-run checklist](archive/SI6_FINAL_REAL_RUN_CHECKLIST.md) and [prompt audit](archive/SI6_PROMPT_AUDIT.md).

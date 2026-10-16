@@ -10,7 +10,11 @@ The real recipe has no observation caps. See
 [time-driven protocol settings and recovery behavior](SI6_TIMED_PROGRESSION.md).
 The nominal-template count-limited examples below retain their historical scope.
 
-> For tomorrow's actual reaction, follow [SI6_FINAL_REAL_RUN_CHECKLIST.md](SI6_FINAL_REAL_RUN_CHECKLIST.md) and edit `configs/experiments/si6_real_two_stage.yaml`. The examples below describe the reusable nominal template. Current startup, HOME=0/UP=1 geometry and solvent-loss fallback rules are in [SI6_SOLVENT_FALLBACK_UPDATE.md](SI6_SOLVENT_FALLBACK_UPDATE.md). After three missing solvent observations, timed operation overrides the normal count cap and permits an explicitly recorded timed transition.
+> For actual operation, follow [SI6_SIMPLE_RUN_GUIDE.md](SI6_SIMPLE_RUN_GUIDE.md)
+> and [errors/fixes](SI6_ERRORS_AND_FIXES.md). The examples below describe the
+> reusable nominal template; they do not replace the current production recipe.
+> Checkout fluid/routing descriptions are optional. Test-transfer volume, rate,
+> actual loaded volume and a unique checkout identity remain required.
 
 The full workflow uses `scripts/02_si6_experiment.py` with the selected run YAML.
 One start confirmation launches Stage 1, one Channel 2 addition, then Stage 2.

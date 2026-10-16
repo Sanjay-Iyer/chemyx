@@ -1,8 +1,10 @@
 # Si6 current operating entry point
 
 This is the authoritative index for the current three-instrument experiment.
-For copy-and-paste production/short-checkout commands and offline file locations,
-open [the three-instrument quick command guide](SI6_THREE_INSTRUMENT_QUICK_COMMANDS.md).
+At the instruments, follow [SI6_SIMPLE_RUN_GUIDE.md](SI6_SIMPLE_RUN_GUIDE.md)
+from top to bottom. Keep [SI6_ERRORS_AND_FIXES.md](SI6_ERRORS_AND_FIXES.md) open
+for actual error messages and recovery. Superseded guides and dated audits are
+preserved in [docs/archive](archive/README.md); they are not startup instructions.
 Main runner: `scripts/02_si6_experiment.py`. Real recipe:
 `configs/experiments/si6_real_two_stage.yaml`. Use reviewed
 `configs/machines/si6_real_COM4.yaml` or `si6_real_COM6.yaml` and
@@ -19,7 +21,7 @@ reaction; each stage's `interval_minutes`, `min_completion_hours`, `max_hours`, 
 30 min / minimum 2 h / maximum 6 h. Stage 1 chemical evidence is advisory.
 See [time-driven progression](SI6_TIMED_PROGRESSION.md). Four post-threshold
 observations are required for Stage 2 chemical completion; see
-[mandatory stage durations](SI6_MINIMUM_STAGE_DURATIONS.md). Keep a unique physical ID; a dated suffix never permits a
+[current mandatory stage durations](SI6_TIMED_PROGRESSION.md). Keep a unique physical ID; a dated suffix never permits a
 repeat dose. See [configuration details](SI6_CONFIG_USER_GUIDE.md).
 
 The `solvent_monitor` section requires both solvent peaks and consistent shifts;
@@ -52,7 +54,7 @@ automatic movement: manually place the stopped needle at the sampling position,
 then one `y` establishes operator-confirmed HOME=0. No physical feedback is
 claimed. HOME=DOWN=0 is in the flask; UP=1 is out. See
 [HOME recovery](../arduino/docs/HOME_RECOVERY.md) and the
-[final real-run checklist](SI6_FINAL_REAL_RUN_CHECKLIST.md).
+[final real-run checklist](archive/SI6_FINAL_REAL_RUN_CHECKLIST.md).
 
 The Chemyx syringes have their own software HOME (no native pump command):
 `scripts/chemyx_control.py set-home` saves each operator-confirmed plunger
@@ -111,13 +113,15 @@ Pushing source alone does not transfer DEEP weights or Node.
 
 ## Detailed and historical references
 
-- [Current command reference](REAL_INSTRUMENT_RUN_COMMANDS.md)
-- [Current checklist](SI6_FINAL_REAL_RUN_CHECKLIST.md)
+- [Current simple operating guide](SI6_SIMPLE_RUN_GUIDE.md)
+- [Current errors and fixes](SI6_ERRORS_AND_FIXES.md)
+- [Historical command reference](archive/REAL_INSTRUMENT_RUN_COMMANDS.md)
+- [Historical checklist](archive/SI6_FINAL_REAL_RUN_CHECKLIST.md)
 - [Current phase methods](SI6_NMR_PHASE_METHODS.md)
-- [October 15 hardening and phase validation](SI6_HARDENING_PHASE_VALIDATION_REPORT_2026-10-15.md)
+- [October 15 hardening and phase validation](archive/SI6_HARDENING_PHASE_VALIDATION_REPORT_2026-10-15.md)
 - [Physical-state backup](RIG_STATE_BACKUP.md)
-- [Synthetic validation](SI6_SYNTHETIC_ANALYSIS_AUDIT.md)
-- [Historical validation report](SI6_FINAL_HOME_VALIDATION_REPORT.md)
+- [Synthetic validation](archive/SI6_SYNTHETIC_ANALYSIS_AUDIT.md)
+- [Historical validation report](archive/SI6_FINAL_HOME_VALIDATION_REPORT.md)
 
 Instructions for `scripts/02_si6_automated_nmr.py` concern a legacy manual
 workflow and do not replace this guide. Statistical/QC historical reports are

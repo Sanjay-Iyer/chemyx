@@ -8,7 +8,13 @@
 
 # HOME → WORK1 → offline WORK2 deployment
 
-Current operator procedure: [SI6_FINAL_REAL_RUN_CHECKLIST.md](SI6_FINAL_REAL_RUN_CHECKLIST.md). HOME can export the exact committed source plus local payload directly with `python scripts/prepare_si6_release.py --with-offline-payload` when WORK has no Git access. See [the deployment manifest](SI6_DEPLOYMENT_MANIFEST.md) for checksum/version verification and separately preserved rig state.
+Current operator procedure: [SI6_SIMPLE_RUN_GUIDE.md](SI6_SIMPLE_RUN_GUIDE.md),
+with [errors and fixes](SI6_ERRORS_AND_FIXES.md). HOME can export the current
+uncommitted source and prepared payload with
+`python scripts/prepare_si6_release.py --working-tree --with-offline-payload`.
+See [the deployment manifest](SI6_DEPLOYMENT_MANIFEST.md) for checksum/version
+verification and separately preserved rig state. Older engineering procedures
+below retain their historical scope.
 
 All HOME evidence is software/simulation only. Source is portable; physical
 calibration, installed vendor software and per-rig state need explicit WORK
@@ -50,7 +56,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File offline\build_offline_bundle
 ```
 
    Inspect that script's supported options if preparing driver/Arduino bundles;
-   see `docs/OFFLINE_SETUP.md`, `offline/serial_drivers.ps1` and
+   see `docs/archive/OFFLINE_SETUP.md`, `offline/serial_drivers.ps1` and
    `offline/arduino_toolchain.ps1`. Online package fetching belongs to bundle
    preparation, never experiment startup. The bundle targets Python 3.11 x64.
 3. Test a fresh environment using the prepared payload without internet fetching:

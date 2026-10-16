@@ -109,7 +109,7 @@ The October 15 archived-cohort benchmark (15 FIDs per method) measured median /
 maximum phase-plus-quantitative-processing times of stored 1.60/4.61 s, ACME
 3.75/5.42 s, Combined 19.70/65.11 s, Ernst 1.40/8.99 s, and DEEP
 201.93/340.61 s. These reuse the decoded common FFT and exclude the complete CLI
-figure/report workload. See the [engineering validation report](SI6_HARDENING_PHASE_VALIDATION_REPORT_2026-10-15.md)
+figure/report workload. See the [engineering validation report](archive/SI6_HARDENING_PHASE_VALIDATION_REPORT_2026-10-15.md)
 for measurement scope, whole-CLI timing, numerical differences and deployment evidence.
 All four classical methods agreed on target detection in all 15 acquisitions;
 DEEP missed three weak targets they detected and alone satisfied the retrospective

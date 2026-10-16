@@ -32,6 +32,6 @@ increasing plateau profile. `si6_two_stage_fast_sim.yaml` exercises that entire
 sequence on an explicit virtual clock. `si6_two_stage_stage1_development.yaml`
 and `si6_two_stage_stage2_development.yaml` are editable full-reaction development
 starting points with chemical prerequisites preserved. See
-`docs/SI6_TWO_STAGE_CONFIGURATION.md`, `docs/SI6_TWO_STAGE_OPERATOR_GUIDE.md`
+`docs/archive/SI6_TWO_STAGE_CONFIGURATION.md`, `docs/archive/SI6_TWO_STAGE_OPERATOR_GUIDE.md`
 and `docs/OFFLINE_DEPLOYMENT.md`. Nominal thresholds/syringe dimensions need
 WORK calibration; controller simulation is not physical verification.

@@ -55,7 +55,10 @@ dispatch reagent. The scheduler returns `time_limit_completed` with successful
 operational status at the duration endpoint. An already-started physical cycle
 finishes its existing return, wash and idle verification first. Thus the dose
 may occur later than exactly 48 hours when an active cycle overruns that time.
-No new acquisition starts at or beyond the stage deadline.
+For production, no new acquisition starts at or beyond the stage deadline.
+The separate short checkout permits its first acquisition in each stage past
+the nominal five-minute endpoint, within its configured overall timeout; see
+[the current operating guide](SI6_SIMPLE_RUN_GUIDE.md). Production scheduling is unchanged.
 
 That time endpoint, together with the explicit `advance_at_duration: true`,
 authorizes the existing protected transition. The controller records separate
@@ -103,7 +106,7 @@ separate chemical evidence. Scientific plot times still use JCAMP LONG DATE;
 the operational stage deadlines use monotonic time, never filenames or mtime.
 
 The previous minimum-duration policy and its limitations are documented in
-[SI6_MINIMUM_STAGE_DURATIONS.md](SI6_MINIMUM_STAGE_DURATIONS.md); its Stage 1
+[SI6_MINIMUM_STAGE_DURATIONS.md](archive/SI6_MINIMUM_STAGE_DURATIONS.md); its Stage 1
 40-hour gate is historical and is no longer selected by the real recipe.
 
 Offline validation and detailed timelines are saved under

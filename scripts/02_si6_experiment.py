@@ -53,7 +53,9 @@ def main(argv=None) -> int:
         if "checkout" in raw:
             from chemyx_lab.workflows.si6_checkout import cycle_lower_bound_seconds
             print("CHECKOUT MODE: physical instrument checkout; not production chemistry")
-            print(f"Test fluid: {raw['checkout']['test_fluid']}\nOperator-verified routing: {raw['checkout']['routing']}")
+            print(f"Test fluid description: {raw['checkout']['test_fluid']}\nRouting description: {raw['checkout']['routing']}")
+            print("Physically verify fluid connections and destinations before entering y; descriptions do not verify routing.")
+            print(f"First complete NMR cycle required in each checkout stage; overall timeout {raw['checkout']['overall_timeout_minutes']:g} minutes, checked at safe boundaries.")
             for ch, settings in si6.pump_channels.channel_definitions(raw).items():
                 print(f"Channel {ch} syringe: {settings['syringe_diameter_mm']} mm / {settings['syringe_capacity_ml']} mL; loaded {settings['initial_retained_volume_ml']} mL")
             for event in raw['workflow']['cycle']:

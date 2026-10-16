@@ -17,7 +17,7 @@
         offline\BUNDLE_MANIFEST.txt    size and SHA-256 of every file above
 
     Then copy the whole repository folder to the offline laptop and run
-    offline\install_offline.ps1 there. See docs\OFFLINE_SETUP.md.
+    offline\install_offline.ps1 there. See docs\archive\OFFLINE_SETUP.md.
 #>
 param(
     [string]$Python = "python",

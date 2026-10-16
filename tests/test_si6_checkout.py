@@ -42,19 +42,18 @@ def effective(tmp_path):
 
 def test_shipping_recipe_blocks_unapproved_transfer_before_transports(monkeypatch):
     monkeypatch.setattr(si6,"SerialTransport",lambda *a,**k:pytest.fail("hardware contacted"))
-    with pytest.raises(ValueError,match="Fill checkout.test_fluid"):
+    with pytest.raises(ValueError,match="unique workflow.experiment_id"):
         si6.prepare(CHECKOUT,ROOT/"configs/machines/si6_real_COM4.yaml",
                     ROOT/"arduino/configs/arduino_real_COM3.yaml",mock=False)
 
 
-@pytest.mark.parametrize("field", ["volume_ml","rate_ml_min","loaded","identity","routing"])
+@pytest.mark.parametrize("field", ["volume_ml","rate_ml_min","loaded","identity"])
 def test_required_operator_settings_cannot_inherit_production_dose(tmp_path,field):
     path,raw = configured(tmp_path)
     if field in {"volume_ml","rate_ml_min"}:
         next(e for e in raw["workflow"]["initial_stage"]["after_monitoring"] if e["action"]=="infuse")[field]=None
     elif field == "loaded":raw["pump"]["channels"]["2"]["initial_retained_volume_ml"]=None
     elif field == "identity":raw["workflow"]["experiment_id"] = recipe()["workflow"]["experiment_id"]
-    else:raw["checkout"]["routing"]=None
     path.write_text(yaml.safe_dump(raw))
     with pytest.raises(ValueError):base.load_si6_config(path)
 
@@ -96,6 +95,8 @@ def test_early_chemical_flags_cannot_shorten_either_5min_stage(tmp_path,index):
 ])
 def test_full_checkout_same_controller_and_cleanup(tmp_path,name,fault,missing,acq):
     raw=effective(tmp_path)
+    if name == "COMPLETE":
+        raw["checkout"].update(test_fluid="unspecified",routing="unspecified")
     result=run_mock(tmp_path/name,name,[100],[1],workflow_recipe=raw,fault=fault,missing=missing,acquisition_seconds=acq)
     assert result["status"]=="completed" and result["dose_count"]==1
     assert result["dose_ledger"]["volume_ml"]==.1 and result["dose_ledger"]["rate_ml_min"]==1
@@ -114,6 +115,8 @@ def test_full_checkout_same_controller_and_cleanup(tmp_path,name,fault,missing,a
     assert not report["physical_instruments_verified"]
     assert report["evidence"]["channel1_completed_transfers"]==10
     assert len(report["evidence"]["raw_nmr_files"])==2
+    assert all(len(e["raw_nmr_files"])==1 and e["analysis_completed_or_documented_unavailable"]==1
+               for e in report["evidence"]["by_stage"].values())
     events=[json.loads(s) for s in Path(result["journal"]).read_text().splitlines()]
     contexts=[e for e in events if e["event_type"]=="pump_needle_context" and e["channel"]==1]
     assert [e["operation_type"] for e in contexts]==["withdraw","withdraw","infuse","withdraw","infuse"]*2
@@ -153,7 +156,7 @@ def test_shared_physical_home_reference_is_updated_without_reset(tmp_path,monkey
             assert state["current_displacement_ml"]==pytest.approx(0 if ch==1 else -.1)
 
 
-def test_sampling_overrun_skips_late_nmr_and_finishes_cleanup(tmp_path,monkeypatch):
+def test_sampling_overrun_still_attempts_both_first_nmr_cycles(tmp_path,monkeypatch):
     original = si6.Services.nmr_measurement
     def delayed_preparation(self,*args,**kwargs):
         self.sleep("MOCK ONLY slow sample preparation",300)
@@ -162,9 +165,43 @@ def test_sampling_overrun_skips_late_nmr_and_finishes_cleanup(tmp_path,monkeypat
     result=run_mock(tmp_path/"late_sampling","LATE_SAMPLING",[100],[1],workflow_recipe=effective(tmp_path))
     assert result["status"]=="completed" and result["dose_count"]==1
     events=[json.loads(s) for s in Path(result["journal"]).read_text().splitlines()]
-    assert sum(e["event_type"]=="acquisition_skipped_at_deadline" for e in events)==2
+    assert not any(e["event_type"]=="acquisition_skipped_at_deadline" for e in events)
     assert sum(e["event_type"]=="cycle_status" and e.get("status")=="CLEANUP_COMPLETE" for e in events)==2
-    assert not any(e["event_type"]=="nmr_retrieved" for e in events)
+    assert {e["workflow_phase"] for e in events if e["event_type"]=="nmr_retrieved"}=={"stage_1","stage_2"}
+    report=json.loads((Path(result["run_dir"])/"final_qc/checkout_report.json").read_text())
+    assert report["result"]=="mock_validation_passed"
+
+
+@pytest.mark.parametrize("descriptions", [{}, {"test_fluid":None,"routing":None,"purpose":None},
+                                         {"test_fluid":42,"routing":[],"purpose":False}])
+def test_descriptions_are_optional_and_never_authorize_routing(tmp_path,descriptions):
+    path,raw=configured(tmp_path)
+    for key in ("test_fluid","routing","purpose"):
+        raw["checkout"].pop(key,None)
+    raw["checkout"].update(descriptions)
+    path.write_text(yaml.safe_dump(raw))
+    resolved=base.load_si6_config(path)
+    assert resolved["checkout"]["test_fluid"]==resolved["checkout"]["routing"]=="unspecified"
+    assert resolved["checkout"]["purpose"]=="physical_instrument_checkout"
+
+
+def test_overall_timeout_preserves_cleanup_and_refuses_dose(tmp_path):
+    raw=effective(tmp_path);raw["checkout"]["overall_timeout_minutes"]=1
+    result=run_mock(tmp_path/"timeout","TIMEOUT",[100],[1],workflow_recipe=raw)
+    assert result["status"]=="instrument_failure" and result["dose_count"]==0
+    report=json.loads((Path(result["run_dir"])/"final_qc/checkout_report.json").read_text())
+    assert report["result"]=="checkout_evidence_incomplete"
+    assert report["evidence"]["cleanup_completed_cycles"]==1
+
+
+def test_no_raw_file_is_incomplete_even_when_time_endpoint_is_reached(tmp_path,monkeypatch):
+    from chemyx_lab.workflows.si6_simulation import TrendSimulation
+    original=TrendSimulation.acquire
+    def empty(self,*args,**kwargs):
+        path=original(self,*args,**kwargs);path.write_bytes(b"");return path
+    monkeypatch.setattr(TrendSimulation,"acquire",empty)
+    result=run_mock(tmp_path/"empty","EMPTY",[100],[1],workflow_recipe=effective(tmp_path))
+    assert result["status"]=="instrument_failure" and result["dose_count"]==0
     report=json.loads((Path(result["run_dir"])/"final_qc/checkout_report.json").read_text())
     assert report["result"]=="checkout_evidence_incomplete"
 

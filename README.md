@@ -12,37 +12,34 @@ Real hardware was not contacted during this restructuring.
 
 ## Three-instrument Si6 entry points
 
-Primary deployment/operator checklist: [SI6_FINAL_REAL_RUN_CHECKLIST.md](docs/SI6_FINAL_REAL_RUN_CHECKLIST.md).
+At the instruments, use **[SI6_SIMPLE_RUN_GUIDE.md](docs/SI6_SIMPLE_RUN_GUIDE.md)**:
+Arduino manual test → Chemyx Channel 1/2 manual test → communication check →
+short two-stage checkout → inspect results → full experiment.
+Keep **[SI6_ERRORS_AND_FIXES.md](docs/SI6_ERRORS_AND_FIXES.md)** alongside it.
 
-For the current two-stage workflow (Channel1 sampling, one Channel2 addition,
-then Channel1 sampling), use the [real instrument runbook](docs/REAL_INSTRUMENT_RUN_COMMANDS.md) for ready-made COM4/COM6 configs and copy/paste commands.
-Current control uses moving trapezoidal area only: Stage 1 near zero for 4 solvent-confirmed observations, Stage 2 growth followed by 4 stable observations, 20 normal endpoint observations maximum per stage. After 3 consecutive missing solvent acquisitions, sampling continues to the configured duration (48 h / 4 h in the real recipe), followed by automatic stage transition; chemistry completion is reported as unverified. Needle positions are HOME=0 in the flask and UP=1 out of the flask. One start confirmation runs both stages; QC is saved in `final_qc/` for review. See the [implementation report](docs/SI6_AREA_ONLY_IMPLEMENTATION.md).
-See [startup and solvent fallback update](docs/SI6_SOLVENT_FALLBACK_UPDATE.md) for exact rules and manual needle commands.
-For more detail, see [Si6 start here](docs/SI6_START_HERE.md),
-[script map](docs/SI6_SCRIPT_USER_GUIDE.md) and
-[configuration guide](docs/SI6_CONFIG_USER_GUIDE.md).
-The final HOME spectral validation command is
-`python -B scripts\validate_si6_synthetic_analysis.py`.
+Both automatic workflows use `scripts/02_si6_experiment.py` with explicit
+machine and Arduino configs. Production uses
+`configs/experiments/si6_real_two_stage.yaml`: fixed 48-hour Stage 1, one
+protected Channel 2 dose, then Stage 2 minimum 2 / maximum 6 hours with four
+qualifying post-minimum observations. Intervals are 120 / 30 minutes.
+The separate `si6_real_10min_checkout.yaml` uses nominal five-minute stages,
+one configured test infusion, and a complete NMR cycle per stage within its
+safe-boundary overall timeout. Fluid/routing descriptions are optional; actual
+transfer quantities and experiment identity remain required.
 
-```powershell
-python -B scripts\01_three_instrument_system_test.py
-python -B scripts\01_three_instrument_system_test.py --mock --all
-python -B scripts\02_si6_experiment.py --mock
-```
+One startup `y` starts either automation; there are no intermediate prompts.
+HOME=DOWN=0 is in the flask and UP=1 is out. Current results use
+`results/experiments/YYYYMMDD_experimentID[_n]` with separate stage data,
+dose evidence, logs and final QC. Retain the commissioned firmware and software
+HOME references; no hardware command is run on HOME.
 
-`01` diagnoses the needle, Chemyx, NMR acquisition, retrieval, and processing.
-`02` runs the configured Si6 sampling stages. Both default to validation only;
-the ready-made COM3 config expects needle firmware 1.2.1 on the existing D3 STEP / D4 DIR wiring,
-with supervised Python software-position tracking (see
-[Arduino needle controller](arduino/README.md)).
-`--mock` contacts no hardware and writes to `results/runs/si6_mock/`. `--live`
-requires commissioning, reviewed positions, and an attended confirmation, and
-writes to `results/runs/si6/<stamp>_si6_live` (or `_diagnostic_<test>_live`).
-See
-[the exact sampling order and gates](docs/THREE_INSTRUMENT_ARCHITECTURE.md) and
-the ordered [live commissioning checklist](docs/LIVE_COMMISSIONING_CHECKLIST.md).
-
-The two-stage reaction now uses [continuity-tracked moving peak area](docs/SI6_TRACKED_PEAK_IMPLEMENTATION.md). Updated templates and migration instructions are in that guide.
+[Current operating index](docs/SI6_START_HERE.md),
+[configuration reference](docs/SI6_CONFIG_USER_GUIDE.md),
+[phase methods](docs/SI6_NMR_PHASE_METHODS.md), and
+[state preservation](docs/RIG_STATE_BACKUP.md) provide supporting detail.
+Superseded operating documents and dated audits are retained in
+**[docs/archive](docs/archive/README.md)**, with historical banners and repaired
+links. They are not the current bench procedure.
 
 ## Legacy two-instrument workflow
 
@@ -77,25 +74,18 @@ archive/           Git-tracked retired workflows
 
 ## Documentation
 
-- [Create a new experiment and use offline NMR GUIs](docs/CREATE_NEW_EXPERIMENT.md)
-- [Copyable experiment recipes](config_templates/experiments/README.md)
-- [Quickstart](docs/QUICKSTART.md)
-- [Offline Laptop Setup](docs/OFFLINE_SETUP.md)
-- [YAML template and destination guide](config_templates/README.md)
-- [Repository Map](docs/REPOSITORY_MAP.md)
-- [Configuration](docs/CONFIGURATION.md)
-- [Si6 Automated Workflow](docs/SI6_AUTOMATED_WORKFLOW.md)
-- [Three-instrument architecture](docs/THREE_INSTRUMENT_ARCHITECTURE.md)
-- [Live commissioning checklist](docs/LIVE_COMMISSIONING_CHECKLIST.md)
-- [Canonical Arduino firmware](arduino/docs/FIRMWARE.md)
-- [Instrument Commands](docs/INSTRUMENT_COMMANDS.md)
-- [Chemyx Guide](docs/CHEMYX_GUIDE.md)
-- [NMR Guide](docs/nmr_guide.md)
-- [Focused NMR Plotting Workflow](docs/NMR_TARGET_PEAK_WORKFLOW.md)
-- [Results and Data](docs/RESULTS_AND_DATA.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md)
-- [Validation](docs/VALIDATION.md)
-- [Local Archive](docs/ARCHIVE.md)
+- [Simple instrument operating guide](docs/SI6_SIMPLE_RUN_GUIDE.md)
+- [Errors and fixes](docs/SI6_ERRORS_AND_FIXES.md)
+- [Current operating index](docs/SI6_START_HERE.md)
+- [Standalone Chemyx quick reference](docs/CHEMYX_QUICK_REFERENCE.md)
+- [Offline deployment](docs/OFFLINE_DEPLOYMENT.md)
+- [Offline requirements](docs/OFFLINE_REQUIREMENTS.md)
+- [State backup and preservation](docs/RIG_STATE_BACKUP.md)
+- [Create experiments and use offline NMR GUIs](docs/CREATE_NEW_EXPERIMENT.md)
+- [NMR phase selection](docs/SI6_NMR_PHASE_METHODS.md)
+- [Experimental results layout](docs/SI6_EXPERIMENT_OUTPUTS.md)
+- [Scientific plotting workflow](docs/NMR_TARGET_PEAK_WORKFLOW.md)
+- [Historical docs and audit archive](docs/archive/README.md)
 
 ## Safety
 

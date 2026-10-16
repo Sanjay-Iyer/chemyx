@@ -133,7 +133,7 @@ VALVE_CONFIG_FILE = _env(
 
 # NMR defaults. Keep the host unset in Python so real endpoints must come from
 # machine config, environment, or CLI; historical endpoint evidence is listed
-# in docs/ARCHIVE_MANIFEST.csv.
+# in docs/archive/ARCHIVE_MANIFEST.csv.
 NMR_RPC_SCHEME = _env("NMR_RPC_SCHEME", "http")
 NMR_HOST = _env("NMR_HOST", "")
 NMR_PORT = _env("NMR_PORT", 5000, int)

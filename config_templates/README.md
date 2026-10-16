@@ -118,7 +118,7 @@ move until the physical setup is commissioned. `test_02_unloaded_motor.py`
 requires the motor to be mechanically **disconnected** from the needle axis;
 never run it coupled just to unlock Test 3. `04_run_nmr_1d_acquisition.py` can
 start a real scan; `06_check_mx_valve.py` can move a valve. Follow
-`docs/LIVE_COMMISSIONING_CHECKLIST.md` before integrated live work.
+`docs/archive/LIVE_COMMISSIONING_CHECKLIST.md` before integrated live work.
 
 ## YAMLs already present at their runtime locations
 

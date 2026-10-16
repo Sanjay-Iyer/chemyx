@@ -47,7 +47,7 @@ host code and configs, `configs`, `config_templates`, `tests`, `docs`,
 `nmr_template`, `offline`, root requirements/project/test files and optional Git
 metadata. `scripts/validate_si6_offline.py` checks required two-stage resources
 and all four configs; schema validation is in the repository Python modules and
-documented in `docs/SI6_TWO_STAGE_CONFIGURATION.md`.
+documented in `docs/archive/SI6_TWO_STAGE_CONFIGURATION.md`.
 
 **A Git pull alone does not transfer ignored payload.** Before hard-drive copy,
 also include `offline/wheelhouse`, `offline/installers`,
