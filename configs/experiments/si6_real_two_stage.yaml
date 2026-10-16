@@ -62,7 +62,9 @@ workflow:
       position: HOME
     - action: infuse
       channel: 2
-      volume_ml: 1.8
+      # The one automatic reagent dose: exactly this volume, once (not the
+      # whole loaded syringe). 5.0 mL loaded - 1.86 mL = 3.14 mL left.
+      volume_ml: 1.86
       rate_ml_min: 1.0
       needle_position: HOME
     - action: needle
@@ -106,11 +108,13 @@ pump:
       # 12.06 mm / 5 mL). Diameter sets the delivered dose: VERIFY physically.
       syringe_diameter_mm: 20.0
       syringe_capacity_ml: 20.0
-      initial_retained_volume_ml: 2.0
+      # Reagent loaded in the Channel 2 syringe at experiment start (was 2.0).
+      initial_retained_volume_ml: 5.0
       syringe_safety_margin_ml: 0.2
       units: mL/min
       rate_ml_min: 1.0
-      default_volume_ml: 1.8
+      # Informational default only; the dose is the after_monitoring volume_ml.
+      default_volume_ml: 1.86
 nmr:
   processing:
     # DEFAULT: ACME. This primary result controls quantitative areas/endpoints.

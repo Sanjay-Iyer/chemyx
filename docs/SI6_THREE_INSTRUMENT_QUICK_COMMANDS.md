@@ -7,6 +7,54 @@ at a time; choose the COM4 **or** COM6 variant, not both. Internet is unnecessar
 once the current source, offline dependencies and instrument software are installed.
 The NMR still needs its local Ethernet connection.
 
+## Quick Start — checkout first, then production
+
+**WORK only.** Deploy the current code/dependencies, fill the six checkout
+settings listed in [section 3](#3-fill-the-short-checkout-settings), and verify
+fluid routing, syringe loading and existing HOME references. Choose one run at
+a time; the commands here use Chemyx **COM4** and Arduino **COM3**.
+
+Open PowerShell in the repository. Use the PATH line if using the offline `.venv`:
+
+```powershell
+Set-Location C:\code\chemyx_pump
+$env:Path = "C:\code\chemyx_pump\.venv\Scripts;" + $env:Path
+```
+
+**1. Validate checkout settings — no instrument contact:**
+
+```powershell
+python scripts\02_si6_experiment.py --validate-config --workflow-config configs\experiments\si6_real_10min_checkout.yaml --machine-config configs\machines\si6_real_COM4.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
+```
+
+**2. Run the LIVE checkout — read the plan and enter `y` once:**
+
+```powershell
+python scripts\02_si6_experiment.py --live --workflow-config configs\experiments\si6_real_10min_checkout.yaml --machine-config configs\machines\si6_real_COM4.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
+```
+
+**3. Inspect results:** the command prints the exact `Results:` folder under
+`results\experiments`. In that folder inspect `final_qc\checkout_report.md`,
+both `step_1` / `step_2` `nmr_raw` and `nmr_processed` directories,
+`channel_2_dose\dose_record.json`, and `logs\experiment_journal.jsonl`.
+
+```powershell
+explorer.exe C:\code\chemyx_pump\results\experiments
+```
+
+**4. After a successful physical checkout, prepare production fluid/loading and
+routing, review its recipe/identity, then launch production:**
+
+```powershell
+python scripts\02_si6_experiment.py --live --workflow-config configs\experiments\si6_real_two_stage.yaml --machine-config configs\machines\si6_real_COM4.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
+```
+
+For Chemyx COM6 use `configs\machines\si6_real_COM6.yaml` instead; full variants
+are below. The checkout's five-minute deadlines allow active cycles to finish:
+the complete mock took **16:12**. Production runs **48 hours → one protected
+dose → Stage 2 minimum 2 / maximum 6 hours**. Both automatic workflows need only
+their single startup `y`. Preserve saved HOME references and dose history.
+
 ## Jump to what you need
 
 - [Open the terminal and select Python](#1-open-the-terminal-and-select-python)
@@ -17,6 +65,7 @@ The NMR still needs its local Ethernet connection.
 - [Expected physical sequence and timing](#6-expected-physical-sequence-and-timing)
 - [Optional offline mock and connection checks](#7-optional-offline-mock-and-connection-checks)
 - [Separate manual needle commands](#8-separate-manual-needle-commands)
+- [Standalone Chemyx Channel 1/2 commands](#8a-standalone-chemyx-commands)
 - [Find results and read status](#9-find-results-and-read-status)
 - [Offline installation, backups and help](#10-offline-installation-backups-and-help)
 - [Before pressing y](#11-before-pressing-y)
@@ -347,6 +396,174 @@ For manual syringe movements and HOME use [CHEMYX_MANUAL_CONTROL.md](CHEMYX_MANU
 Its `machine_config` must match the experiment's chosen COM port. Do not use
 `configs\chemyx\first_motion_test.yaml` as a substitute experiment recipe; it
 defines a separate supervised manual test and its own HOME convention.
+
+## 8A. Standalone Chemyx commands
+
+These commands use [scripts/chemyx_control.py](../scripts/chemyx_control.py) and
+[configs/chemyx/manual_control.yaml](../configs/chemyx/manual_control.yaml),
+independently of the automated three-instrument runner. Run individual commands
+as needed, **not this whole section as a sequence**. Do not run them while an
+experiment owns the pump port. `set-home` and moving commands have their own
+single `y`; `status`, `prepare` and `stop` do not ask for one. These are not extra
+prompts inside an automated experiment.
+
+### Check the manual settings first
+
+```powershell
+notepad configs\chemyx\manual_control.yaml
+```
+
+| Setting | Meaning / current value |
+| --- | --- |
+| `machine_config` | Currently `configs/machines/si6_real_COM4.yaml`. For COM6 select `configs/machines/si6_real_COM6.yaml` here, matching the experiment. The manual tool has no `--machine-config` flag. |
+| `channels.1.manual_transfer.volume_ml` / `rate_ml_min` | Currently **5 mL at 10 mL/min** per manual infuse/withdraw command. Review before any move; these are not the short-checkout transfer settings. |
+| `channels.2.manual_transfer.volume_ml` / `rate_ml_min` | Also currently **5 mL at 10 mL/min**; choose values appropriate to the actual setup before using them. |
+| `channels.1.home.syringe_volume_at_home_ml` | Currently 0 mL: Channel 1 HOME is the fully depressed plunger. Withdraw before infusing from that starting position. |
+| `channels.2.home.syringe_volume_at_home_ml` | Currently **null**, deliberately. Set the verified volume at the chosen HOME to enable manual Channel 2 infuse/withdraw, following the HOME procedure below. HOME return can work without this value. |
+
+Volume/rate come from YAML; there are **no `--volume` or `--rate` options**.
+HOME return uses the tracked displacement rather than `manual_transfer.volume_ml`,
+at the configured manual rate. Capacity and reference checks can refuse a move.
+Changing HOME-dependent settings can invalidate the match to an existing
+reference; reconcile the physical setup before intentionally re-establishing it.
+Do not redefine a valid HOME before every experiment.
+
+`set-home` means **save the current operator-verified plunger position without
+movement**. `home` means **move back to the saved reference** using normal
+infusion/withdrawal. Chemyx HOME is separate from Arduino needle HOME.
+
+### Channel 1 — sampling syringe
+
+**Status — saved positions only, no pump connection:**
+
+```powershell
+python scripts\chemyx_control.py status --channel 1 --config configs\chemyx\manual_control.yaml
+```
+
+**Prepare — applies units, diameter and rate; verifies idle using STOP; no motion:**
+
+```powershell
+python scripts\chemyx_control.py prepare --channel 1 --live --config configs\chemyx\manual_control.yaml
+```
+
+**Set HOME — physically place/verify the stopped plunger at its configured HOME,
+then confirm `y`; no motion:**
+
+```powershell
+python scripts\chemyx_control.py set-home --channel 1 --live --config configs\chemyx\manual_control.yaml
+```
+
+**Return to saved HOME — requires known tracking:**
+
+```powershell
+python scripts\chemyx_control.py home --channel 1 --live --config configs\chemyx\manual_control.yaml
+```
+
+**Withdraw — draws the configured volume from the connected source:**
+
+```powershell
+python scripts\chemyx_control.py withdraw --channel 1 --live --config configs\chemyx\manual_control.yaml
+```
+
+**Infuse — pushes the configured volume toward the connected destination:**
+
+```powershell
+python scripts\chemyx_control.py infuse --channel 1 --live --config configs\chemyx\manual_control.yaml
+```
+
+**Stop Channel 1 — no confirmation; can leave saved position UNKNOWN:**
+
+```powershell
+python scripts\chemyx_control.py stop --channel 1 --live --config configs\chemyx\manual_control.yaml
+```
+
+### Channel 2 — reagent/test-infusion syringe
+
+For standalone Channel 2 **infusion**, disconnect the line from any reactor and
+route it to waste. The existing `--allow-channel2-infusion` flag is required for
+that one manual infusion, including a HOME return that infuses. It does not
+bypass dose reservations/uncertainties. This flag is **not** needed for the
+automated experiment's protected dose or the automatic checkout command.
+For withdrawal, put the inlet in the intended reagent/refill source, not a
+reaction mixture.
+
+**Status — saved positions and dose records, no pump connection:**
+
+```powershell
+python scripts\chemyx_control.py status --channel 2 --config configs\chemyx\manual_control.yaml
+```
+
+**Prepare — applies Channel 2 settings; verifies idle using STOP; no motion:**
+
+```powershell
+python scripts\chemyx_control.py prepare --channel 2 --live --config configs\chemyx\manual_control.yaml
+```
+
+**Set HOME — confirm the actual stopped plunger position and configured HOME
+meaning before `y`; does not move the pump or clear reagent-dose records:**
+
+```powershell
+python scripts\chemyx_control.py set-home --channel 2 --live --config configs\chemyx\manual_control.yaml
+```
+
+**Return to saved HOME — typically withdrawal after an experiment's infusion:**
+
+```powershell
+python scripts\chemyx_control.py home --channel 2 --live --config configs\chemyx\manual_control.yaml
+```
+
+If status shows the HOME return requires **infusion** instead, route to waste
+and use this alternative:
+
+```powershell
+python scripts\chemyx_control.py home --channel 2 --live --allow-channel2-infusion --config configs\chemyx\manual_control.yaml
+```
+
+**Withdraw — requires a verified volume-at-HOME setting and sufficient capacity:**
+
+```powershell
+python scripts\chemyx_control.py withdraw --channel 2 --live --config configs\chemyx\manual_control.yaml
+```
+
+**Infuse — requires verified loading/travel limits and the waste routing above:**
+
+```powershell
+python scripts\chemyx_control.py infuse --channel 2 --live --allow-channel2-infusion --config configs\chemyx\manual_control.yaml
+```
+
+**Stop Channel 2 — no confirmation; can leave saved position UNKNOWN:**
+
+```powershell
+python scripts\chemyx_control.py stop --channel 2 --live --config configs\chemyx\manual_control.yaml
+```
+
+For either saved-status command, add `--live` to also check pump communication:
+
+```powershell
+python scripts\chemyx_control.py status --channel 1 --live --config configs\chemyx\manual_control.yaml
+```
+
+```powershell
+python scripts\chemyx_control.py status --channel 2 --live --config configs\chemyx\manual_control.yaml
+```
+
+Standalone STOP for **both** channels, when the serial port is available:
+
+```powershell
+python scripts\chemyx_control.py stop --channel both --live --config configs\chemyx\manual_control.yaml
+```
+
+If the port cannot be opened and the pump may be moving, use the Chemyx
+front-panel STOP / existing physical intervention procedure. STOP does not
+establish HOME and may invalidate tracked position. A standalone Chemyx `home`
+refuses UNKNOWN tracking; inspect, physically reconcile and intentionally
+`set-home` only when appropriate. Unlike the Arduino HOME recovery command,
+Chemyx `home` does not establish an UNKNOWN reference.
+
+An uncertain dose record blocks Channel 2 motion; a RESERVED dose blocks manual
+Channel 2 infusion. Neither `set-home` nor `--allow-channel2-infusion` clears
+these records. See [CHEMYX_QUICK_REFERENCE.md](CHEMYX_QUICK_REFERENCE.md) and
+[CHEMYX_MANUAL_CONTROL.md](CHEMYX_MANUAL_CONTROL.md) for the full standalone guide.
 
 ## 9. Find results and read status
 

@@ -59,10 +59,11 @@ channels:
       capacity_ml: 20.0
     home:
       enabled: true
-      reference_description: "Operator-defined starting position"
-      # Set the reagent volume loaded at HOME (for example 2.0) to enable manual
-      # Channel 2 infuse/withdraw. Left null deliberately: not yet verified.
-      syringe_volume_at_home_ml: null
+      # HOME = the experiment's starting state: 5.0 mL reagent loaded, as in
+      # si6_real_two_stage.yaml (pump.channels.2.initial_retained_volume_ml).
+      # After the 1.86 mL dose, HOME return is a 1.86 mL withdrawal.
+      reference_description: "Loaded with 5.0 mL reagent (experiment start)"
+      syringe_volume_at_home_ml: 5.0
     manual_transfer:
       # Default volume per command (mL) and rate, including HOME return (mL/min).
       # A move is refused if it would leave the syringe below empty or above capacity.

@@ -72,7 +72,7 @@ def test_complete_timed_protocol(tmp_path,name,values1,values2,fault,missing):
     assert result["dose_count"] == 1
     assert result["dose_ledger"]["status"] == "CONFIRMED"
     assert result["dose_ledger"]["transition_basis"] == "time_limit_completed"
-    assert result["dose_ledger"]["volume_ml"] == 1.8
+    assert result["dose_ledger"]["volume_ml"] == 1.86
     assert result["dose_ledger"]["rate_ml_min"] == 1.0
     clocks = result["clocks"]
     starts = {e["stage"]:e["virtual_seconds"] for e in clocks if e["event"] == "monitoring_stage_started"}

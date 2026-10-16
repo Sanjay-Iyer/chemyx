@@ -174,9 +174,9 @@ run `set-home --channel 2` again before using that file.
 ## Everyday commands
 
 These use `configs\chemyx\manual_control.yaml`: **5 mL per command at
-10 mL/min** on both channels. Channel 2 manual infuse/withdraw also needs
-`syringe_volume_at_home_ml` set first (see [Change settings](#change-volume-rate-port-or-syringe));
-Channel 2 `home` works without it.
+10 mL/min** on both channels. Channel 2's HOME there is "loaded with 5.0 mL
+reagent", the experiment's starting state, so a Channel 2 infuse can push out
+at most those 5 mL and a withdraw can fill the syringe to at most 20 mL.
 
 ### Look and check (no motion)
 
@@ -293,8 +293,9 @@ port), use the Chemyx front-panel STOP or switch the pump off.
    ```
 
 3. Put each plunger at its HOME position by hand: Channel 1 fully depressed;
-   Channel 2 at your chosen starting position (the loaded volume, if you set
-   `channels.2.home.syringe_volume_at_home_ml`).
+   Channel 2 loaded with 5.0 mL reagent (the recipe's
+   `initial_retained_volume_ml`). The experiment then doses 1.86 mL once,
+   leaving about 3.14 mL.
 4. Save HOME:
 
    ```powershell

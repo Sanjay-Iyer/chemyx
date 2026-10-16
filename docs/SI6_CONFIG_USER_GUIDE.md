@@ -230,13 +230,14 @@ after_monitoring:
   position: HOME
 - action: infuse
   channel: 2
-  volume_ml: 1.8
+  volume_ml: 1.86
   rate_ml_min: 1.0
   needle_position: HOME
 - action: needle
   position: UP
 ```
-The one dose is 1.8 mL from Channel 2 at 1 mL/min while DOWN. A durable
+The one dose is 1.86 mL from Channel 2 at 1 mL/min while DOWN, from 5.0 mL
+loaded (about 3.14 mL remains). Only this `volume_ml` sets the dose. A durable
 reservation, dispatch intent, matched pump completion and confirmation protect
 against replay. A healthy Stage 1 reaching an operational limit without an endpoint
 never doses. A latched solvent-loss fallback reaching its configured deadline
@@ -261,11 +262,11 @@ pump:
     '2':
       syringe_diameter_mm: 20.0
       syringe_capacity_ml: 20.0
-      initial_retained_volume_ml: 2.0
+      initial_retained_volume_ml: 5.0
       syringe_safety_margin_ml: 0.2
       units: mL/min
       rate_ml_min: 1.0
-      default_volume_ml: 1.8
+      default_volume_ml: 1.86
 ```
 
 ```yaml
