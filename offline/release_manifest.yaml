@@ -138,7 +138,12 @@
     "docs/SI6_SIMPLE_RUN_GUIDE.md",
     "docs/SI6_ERRORS_AND_FIXES.md",
     "chemyx_lab/workflows/si6_checkout.py",
-    "configs/experiments/si6_real_10min_checkout.yaml"
+    "configs/experiments/si6_real_10min_checkout.yaml",
+    "scripts/03_simple_instrument_checkout.py",
+    "chemyx_lab/workflows/simple_instrument_checkout.py",
+    "configs/checkouts/si6_simple_instrument_check.yaml",
+    "docs/SI6_SIMPLE_INSTRUMENT_CHECK.md",
+    "tests/test_simple_instrument_checkout.py"
   ],
   "payload_roots": [
     "offline/wheelhouse",

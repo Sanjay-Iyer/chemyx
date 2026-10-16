@@ -1,6 +1,14 @@
 # Si6 errors and fixes
 
 Use [SI6_SIMPLE_RUN_GUIDE.md](SI6_SIMPLE_RUN_GUIDE.md) for the operating order.
+The recommended individual-instrument test is now the
+[standalone bench checkout](SI6_SIMPLE_INSTRUMENT_CHECK.md):
+`python scripts\03_simple_instrument_checkout.py --live`. Its report is in
+`results/instrument_checks`, with no chemical peak or integration requirement.
+A blank/background NMR spectrum is acceptable when acquisition and raw saving
+succeed; numerical processing limitations are separately UNAVAILABLE.
+UNKNOWN starting positions still require the existing manual HOME procedure.
+The `$Si6Integration` commands below concern the older optional two-stage test.
 Run from `C:\code\chemyx_pump` using the installed Python. Commands below are
 PowerShell. Define these once; select the COM6 machine file instead if needed:
 
@@ -10,7 +18,7 @@ $env:Path = "C:\code\chemyx_pump\.venv\Scripts;" + $env:Path
 $Si6Machine = 'configs\machines\si6_real_COM4.yaml'
 $Si6Needle = 'arduino\configs\arduino_real_COM3.yaml'
 $Si6Manual = 'configs\chemyx\manual_control.yaml'
-$Si6Checkout = 'configs\experiments\si6_real_10min_checkout.yaml'
+$Si6Integration = 'configs\experiments\si6_real_10min_checkout.yaml'
 $Si6Production = 'configs\experiments\si6_real_two_stage.yaml'
 $Si6Run = 'C:\code\chemyx_pump\results\experiments\YOUR_ACTUAL_RUN_FOLDER'
 ```
@@ -21,10 +29,10 @@ and manual commands below contact hardware; use them only on WORK with ports fre
 
 | Error message or symptom | Likely cause | Exact fix | Command to verify |
 | --- | --- | --- | --- |
-| `Fill checkout.test_fluid before running the checkout` | Old Python checkout resolver is still installed. | Transfer current `si6_checkout.py`, controller, runner and checkout YAML (prefer a fresh complete offline source package). Fluid description is now optional and records `unspecified`; no HOME reset required. | `python scripts\02_si6_experiment.py --validate-config --workflow-config $Si6Checkout --machine-config $Si6Machine --arduino-config $Si6Needle` |
+| `Fill checkout.test_fluid before running the checkout` | Old Python checkout resolver is still installed. | Transfer current `si6_checkout.py`, controller, runner and checkout YAML (prefer a fresh complete offline source package). Fluid description is now optional and records `unspecified`; no HOME reset required. | `python scripts\02_si6_experiment.py --validate-config --workflow-config $Si6Integration --machine-config $Si6Machine --arduino-config $Si6Needle` |
 | `checkout.routing` missing/invalid | Older descriptive-field validation. | Update the same files. Routing description is optional; physically check tubing yourself. The startup plan does not claim verification. | Same checkout validation command above. |
 | `Fill ... Channel 2 volume_ml/rate_ml_min` | Actual physical transfer is unset, nonpositive or nonfinite. | Fill the single Channel 2 `initial_stage.after_monitoring` infusion with approved volume/rate. Do not substitute production dose or invent quantities. | Same checkout validation command above. |
-| Invalid YAML / unknown field / needs a mapping | Indentation, wrong key or schema mismatch. | Correct the named file/key, preserving the existing schema. Open with Notepad. | `notepad $Si6Checkout`, then checkout validation above. |
+| Invalid YAML / unknown field / needs a mapping | Indentation, wrong key or schema mismatch. | Correct the named file/key, preserving the existing schema. Open with Notepad. | `notepad $Si6Integration`, then checkout validation above. |
 | Wrong Python interpreter | Terminal resolves a different installation. | Prefix PATH with the already installed `.venv\Scripts` as above; no activation/reinstallation each run. | `python -c "import sys; print(sys.executable); print(sys.version)"` |
 | `ModuleNotFoundError` | Selected interpreter lacks the installed dependencies. | Select the correct interpreter first. If actually missing, use the transferred wheelhouse: `powershell -NoProfile -ExecutionPolicy Bypass -File offline\install_offline.ps1` (no `-RunTests`). | `python scripts\verify_si6_environment.py --machine-config $Si6Machine --arduino-config $Si6Needle` |
 | Chemyx COM4/COM6 fails to open / access denied / no HELP response | Wrong port, disconnected adapter, competing serial tool or baud mismatch. | Match the actual port; manual YAML `machine_config` must match automation. Close competing tools and check the configured 115200 baud against the pump. | `python -m serial.tools.list_ports -v`; then `python scripts\chemyx_control.py status --channel both --live --config $Si6Manual` |

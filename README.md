@@ -13,11 +13,15 @@ Real hardware was not contacted during this restructuring.
 ## Three-instrument Si6 entry points
 
 At the instruments, use **[SI6_SIMPLE_RUN_GUIDE.md](docs/SI6_SIMPLE_RUN_GUIDE.md)**:
-Arduino manual test → Chemyx Channel 1/2 manual test → communication check →
-short two-stage checkout → inspect results → full experiment.
+Known HOME references → [standalone bench checkout](docs/SI6_SIMPLE_INSTRUMENT_CHECK.md)
+→ inspect results → restore production routing/loading → full experiment.
+`python scripts/03_simple_instrument_checkout.py --live` runs Arduino UP/DOWN/HOME
+and restoration, independent 1 mL withdraw/infuse pairs at 10 mL/min on both
+pump channels, then a 2-scan NMR acquisition with raw saving and optional FFT/ACME.
+No liquid enters the NMR; blank/background spectra are accepted. One startup y.
 Keep **[SI6_ERRORS_AND_FIXES.md](docs/SI6_ERRORS_AND_FIXES.md)** alongside it.
 
-Both automatic workflows use `scripts/02_si6_experiment.py` with explicit
+Production and the optional two-stage integration test use `scripts/02_si6_experiment.py` with explicit
 machine and Arduino configs. Production uses
 `configs/experiments/si6_real_two_stage.yaml`: fixed 48-hour Stage 1, one
 protected Channel 2 dose, then Stage 2 minimum 2 / maximum 6 hours with four

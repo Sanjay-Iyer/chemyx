@@ -1,7 +1,14 @@
-# Si6: manual tests → short checkout → real experiment
+# Si6: standalone bench checkout → real experiment
 
 Use this guide top to bottom on **WORK**, with current code/dependencies already
-installed. Run individual manual commands as needed; STOP and set-home are not
+installed. The recommended quick test is the [standalone bench checkout](SI6_SIMPLE_INSTRUMENT_CHECK.md):
+`python scripts\03_simple_instrument_checkout.py --live`, then one **y**. It checks
+Arduino, each pump channel independently and one 2-scan NMR acquisition, returning
+to the original known tracked positions. No liquid enters the NMR; blank/background
+spectra are accepted. No chemistry stages or dosing occur. The manual sections
+below are optional when existing references/configuration are valid.
+
+Run individual manual commands as needed; STOP and set-home are not
 routine actions to repeat after each successful move. Errors: [SI6_ERRORS_AND_FIXES.md](SI6_ERRORS_AND_FIXES.md).
 
 ## STEP 1 — Open Python
@@ -21,7 +28,7 @@ reinstall packages for each experiment. Set the file choices once for this termi
 $Si6Machine = 'configs\machines\si6_real_COM4.yaml'
 $Si6Needle = 'arduino\configs\arduino_real_COM3.yaml'
 $Si6Manual = 'configs\chemyx\manual_control.yaml'
-$Si6Checkout = 'configs\experiments\si6_real_10min_checkout.yaml'
+$Si6Checkout = 'configs\checkouts\si6_simple_instrument_check.yaml'
 $Si6Production = 'configs\experiments\si6_real_two_stage.yaml'
 ```
 
@@ -92,9 +99,9 @@ notepad $Si6Manual
 - Both currently default to **5 mL at 10 mL/min**; select approved small test
   values before moving. No CLI `--volume` or `--rate` exists.
 - Channel 1 HOME is fully depressed, with `syringe_volume_at_home_ml: 0.0`.
-- Channel 2 `home.syringe_volume_at_home_ml` is currently null. To enable manual
-  infusion/withdrawal, specify the verified fluid volume at the chosen HOME and
-  establish that physical reference with `set-home`. Do not invent loading.
+- Channel 2 HOME convention is currently 5.0 mL loaded, matching production.
+  Preserve an existing compatible reference. Re-establish it only after physically
+  verifying the correct stopped reference; never invent loading.
 
 `set-home` saves a stopped, operator-confirmed plunger position as **0 mL**, with
 no motion. Withdraw adds displacement; infuse subtracts it. `home` calculates
@@ -222,103 +229,67 @@ Look for `[PASS] Arduino communication OK`, `[PASS] Chemyx communication OK`,
 `[PASS] NMR communication OK`, and `THREE-INSTRUMENT SYSTEM TEST: PASS`.
 If it fails, use [errors and fixes](SI6_ERRORS_AND_FIXES.md) before continuing.
 
-## STEP 5 — Set checkout transfer values
+## STEP 5 — Recommended standalone instrument checkout
+
+Known settings are already preset in `$Si6Checkout`: each channel withdraws 1 mL
+then infuses 1 mL at 10 mL/min; NMR uses exactly 2 scans. Both syringes are 20 mm /
+20 mL. Channel 1 HOME loading is 0 mL; Channel 2 HOME loading is 5 mL. The saved
+starting displacement/fill is restored without redefining HOME.
+
+Isolate both pump test paths from the reaction, with Channel 2 infusion to waste.
+No pump operation routes liquid into the NMR; leave its existing flow cell as-is.
+Blank/background NMR data are acceptable. No chemical peak or integration is
+required. Restore production routing/loading after the bench test.
 
 ```powershell
-notepad $Si6Checkout
+python scripts\03_simple_instrument_checkout.py --validate-config --machine-config $Si6Machine
+python scripts\03_simple_instrument_checkout.py --live --machine-config $Si6Machine
 ```
 
-Required: a fresh `workflow.experiment_id` beginning `SI6_CHECKOUT_`, Channel 2
-`infuse.volume_ml` and `rate_ml_min` in `initial_stage.after_monitoring`, and
-`pump.channels.'2'.initial_retained_volume_ml` matching actual loading.
-No production 1.8 mL dose is inherited. Geometry comes from the unchanged base recipe.
+Validation contacts no hardware. Live asks one **y**, then Arduino UP/DOWN/HOME
+and starting-position restoration → Channel 1 pair → Channel 2 pair → NMR/raw
+saving/FFT-ACME processing. Normal use needs no manual commands between checks.
+See [the bench guide](SI6_SIMPLE_INSTRUMENT_CHECK.md) for the default one-command
+launch, explicit config, settings, failure handling and exact offline transfer.
 
-`checkout.test_fluid`, `routing` and `purpose` are optional descriptions. Missing
-fluid/routing are recorded as **unspecified**; this does not verify connections.
-Check them physically before the single startup `y`.
+The older `configs/experiments/si6_real_10min_checkout.yaml` remains a separate,
+optional full two-stage integration test. It requires its own configured test
+addition and identity; it is not the simple bench check. See
+[the historical integration guide](archive/SI6_10MIN_LIVE_CHECKOUT.md).
 
-Five minutes per stage is nominal. Each stage attempts its first NMR acquisition
-and processing even if preparation crosses five minutes. The configured
-`checkout.overall_timeout_minutes: 30` is checked at safe boundaries; active
-operations/cleanup finish. Empty raw data or failure to attempt processing makes
-the checkout incomplete. Existing instrument timeouts still apply.
+## STEP 6 — Check the standalone result
 
-## STEP 6 — Short live checkout
-
-Choose **one** port pair. Validation opens no instruments. Live asks one `y`,
-then runs Stage 1 → one protected test dose → Stage 2 → cleanup without more prompts.
-
-COM4 validation:
+Use the exact printed `Results:` path, or inspect the latest bench check:
 
 ```powershell
-python scripts\02_si6_experiment.py --validate-config --workflow-config configs\experiments\si6_real_10min_checkout.yaml --machine-config configs\machines\si6_real_COM4.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
+$Si6Check = (Get-ChildItem results\instrument_checks -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+Get-Content "$Si6Check\checkout_summary.txt"
+Get-ChildItem "$Si6Check\nmr_raw"
+explorer.exe "$Si6Check"
 ```
 
-COM4 live:
+Confirm LIVE versus MOCK and **Overall: PASS**. Acquisition/raw saving and
+processing have separate results. Numerical processing limitations are UNAVAILABLE
+and do not invalidate successful acquisition; blank spectra do not fail the test.
+Transport/storage/execution failures identify the instrument needing attention.
+Confirmed software position restoration is not independent physical metrology.
 
-```powershell
-python scripts\02_si6_experiment.py --live --workflow-config configs\experiments\si6_real_10min_checkout.yaml --machine-config configs\machines\si6_real_COM4.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
-```
+## STEP 7 — Separate full experiment
 
-COM6 validation:
-
-```powershell
-python scripts\02_si6_experiment.py --validate-config --workflow-config configs\experiments\si6_real_10min_checkout.yaml --machine-config configs\machines\si6_real_COM6.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
-```
-
-COM6 live:
-
-```powershell
-python scripts\02_si6_experiment.py --live --workflow-config configs\experiments\si6_real_10min_checkout.yaml --machine-config configs\machines\si6_real_COM6.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
-```
-
-Observe needle HOME/UP, Channel 1 sampling, NMR/data processing, return/wash,
-one confirmed Channel 2 test infusion, then the second full cycle and cleanup.
-Current sampling/cleanup takes 7 min 32 s per stage plus NMR/processing; the
-normal mock took **16:12 total**, not exactly ten minutes.
-
-## STEP 7 — Check results
-
-Use the exact printed `Results:` folder. For convenience, open the newest main
-experiment/checkout directory below; verify its ID before interpreting it:
-
-```powershell
-$Si6Run = (Get-ChildItem results\experiments -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
-explorer.exe "$Si6Run"
-Get-ChildItem "$Si6Run\step_1\nmr_raw"
-Get-ChildItem "$Si6Run\step_2\nmr_raw"
-Get-Content "$Si6Run\channel_2_dose\dose_record.json"
-Get-Content "$Si6Run\final_qc\checkout_report.md"
-Select-String -Path "$Si6Run\logs\experiment_journal.jsonl" -Pattern 'CLEANUP_COMPLETE'
-```
-
-Require raw NMR files and processing-attempt evidence in **both stages**, one
-confirmed dose and completed cleanup. `live_command_evidence_complete` supports
-the software record; observe actual delivery/routing and inspect spectra too.
-Numerical unavailability is documented, not good spectral quality. A mock pass
-does not verify real instruments. Acquisition timing comes from JCAMP metadata.
-
-## STEP 8 — Full experiment
-
-Prepare actual production fluid, loading and routing; use the intended new
-physical reaction ID. Preserve existing HOME/position records and dose history.
-Do not use a fresh ID to retry an uncertain dose. The unchanged recipe runs
-**48 h / 120-minute NMR interval → original protected 1.8 mL at 1 mL/min dose →
+Prepare actual production fluid, loading and routing, and the intended physical
+reaction identity. Preserve existing HOME/position records and dose history.
+Do not use a fresh ID to retry an uncertain dose. The unchanged recipe uses
+**48 h / 120-minute interval → protected 1.86 mL at 1 mL/min dose from 5 mL loading →
 Stage 2 minimum 2 h / maximum 6 h / 30-minute interval**. Four qualifying
 post-minimum observations can finish Stage 2; otherwise it reaches six hours.
-
-COM4 production:
-
-```powershell
-python scripts\02_si6_experiment.py --live --workflow-config configs\experiments\si6_real_two_stage.yaml --machine-config configs\machines\si6_real_COM4.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
-```
-
-COM6 production:
+Production retains its existing scientific analysis/solvent protections.
 
 ```powershell
-python scripts\02_si6_experiment.py --live --workflow-config configs\experiments\si6_real_two_stage.yaml --machine-config configs\machines\si6_real_COM6.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
+python scripts\02_si6_experiment.py --validate-config --workflow-config $Si6Production --machine-config $Si6Machine --arduino-config $Si6Needle
+python scripts\02_si6_experiment.py --live --workflow-config $Si6Production --machine-config $Si6Machine --arduino-config $Si6Needle
 ```
 
-One startup `y`; no intermediate prompts. Keep WORK awake/powered with disk space
-and instrument connections stable. Ctrl+C in the running terminal requests
-abort; inspect physical state and dose records before any subsequent run.
+One startup **y**; no intermediate prompts. Keep WORK awake/powered with disk
+space and stable connections. Ctrl+C requests abort; inspect physical state and
+dose records before retrying. Production results remain in `results/experiments`,
+separate from `results/instrument_checks`.

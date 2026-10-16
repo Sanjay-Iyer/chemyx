@@ -5,7 +5,9 @@ At the instruments, follow [SI6_SIMPLE_RUN_GUIDE.md](SI6_SIMPLE_RUN_GUIDE.md)
 from top to bottom. Keep [SI6_ERRORS_AND_FIXES.md](SI6_ERRORS_AND_FIXES.md) open
 for actual error messages and recovery. Superseded guides and dated audits are
 preserved in [docs/archive](archive/README.md); they are not startup instructions.
-Main runner: `scripts/02_si6_experiment.py`. Real recipe:
+Recommended bench check: [standalone checkout](SI6_SIMPLE_INSTRUMENT_CHECK.md),
+`python scripts/03_simple_instrument_checkout.py --live` (one y; no chemistry
+stages or NMR peak requirements). Production runner: `scripts/02_si6_experiment.py`. Real recipe:
 `configs/experiments/si6_real_two_stage.yaml`. Use reviewed
 `configs/machines/si6_real_COM4.yaml` or `si6_real_COM6.yaml` and
 `arduino/configs/arduino_real_COM3.yaml`. Commands below run from the repository

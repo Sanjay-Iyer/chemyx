@@ -1,0 +1,22 @@
+# Standalone bench check. No stages, chemical endpoints or reagent dosing.
+# Syringe geometry and existing HOME convention come from manual_control.yaml.
+# Connection/calibration settings stay in the existing instrument files.
+arduino_config: arduino/configs/arduino_real_COM3.yaml
+manual_config: configs/chemyx/manual_control.yaml
+machine_config: configs/machines/si6_real_COM4.yaml
+
+chemyx:
+  channel_1:
+    withdraw_ml: 1.0
+    infuse_ml: 1.0
+    rate_ml_min: 10.0
+  channel_2:
+    withdraw_ml: 1.0
+    infuse_ml: 1.0
+    rate_ml_min: 10.0
+
+nmr:
+  # Read only: inherit production receiver gain/center/width, never run its stages.
+  settings_config: configs/experiments/si6_real_two_stage.yaml
+  scans: 2
+  process_spectrum: true
