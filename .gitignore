@@ -48,6 +48,9 @@ results/runs/
 runs/arduino/
 # Durable physical-experiment reservations: copy with rig/run history, never reset to replay.
 runtime/si6_doses/
+# Chemyx software-HOME displacement records (live rig and mock): rig state, not source.
+runtime/chemyx_state/
+runtime/chemyx_state_mock/
 # Experimental inputs are machine-local. Keep only the documented folder
 # skeleton so results/raw/nmr exists after clone/pull.
 results/raw/**

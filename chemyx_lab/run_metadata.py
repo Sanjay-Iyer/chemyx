@@ -18,6 +18,7 @@ def utc_now():
 
 def begin_run(paths, raw, identity, repository_root, config_sources=None, *, software_version=None):
     from .analysis.phase_methods import settings as phase_settings
+    from .workflows.si6_automated_nmr import build_stages
     filename = paths.run_dir / "metadata" / ("experiment_info.json" if paths.layout else "run_metadata.json")
     versions = {}
     for package in ("pyserial", "PyYAML", "numpy", "scipy", "matplotlib", "nmrglue"):
@@ -55,6 +56,10 @@ def begin_run(paths, raw, identity, repository_root, config_sources=None, *, sof
         (layout.metadata / "configuration_snapshot.yaml").write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
         write_json_atomic(layout.metadata / "software_version.json", {k: payload[k] for k in ("git_commit", "source_files_sha256", "python_version", "package_versions")})
     payload["effective_nmr_processing"] = phase_settings(raw["nmr"])
+    payload["stage_timing"] = {stage.name: {"min_completion_hours": stage.min_completion_hours,
+        "max_hours": stage.max_hours, "interval_minutes": stage.interval_minutes,
+        "deadline_authoritative": stage.min_completion_hours is not None,
+        "scheduled_slots_before_deadline": stage.max_measurements} for stage in build_stages(raw["workflow"])}
     if "processing" not in raw["nmr"]:
         payload["effective_nmr_processing"].update(phase_method=None,
             selection_source="Legacy common processing config snapshots; actual method recorded per spectrum")
@@ -69,7 +74,7 @@ def finish_run(paths):
     payload.update(ended_at_utc=utc_now(), status=terminal.get("terminal_status", "session_closed"),
                    terminal_classification=terminal.get("result_classification"),
                    timed_fallback_stages=terminal.get("timed_fallback_stages", []),
-                   stages=[{k: e[k] for k in ("workflow_phase", "result_classification", "timestamp_utc", "scheduled_measurement_number") if k in e}
+                   stages=[{k: e[k] for k in ("workflow_phase", "result_classification", "timestamp_utc", "scheduled_measurement_number", "stage_elapsed_hours", "eligible_confirmations", "min_completion_hours", "hard_runtime_ceiling_hours") if k in e}
                            for e in events if e["event_type"] == "stage_transition_decision"],
                    dose_confirmed=any(e["event_type"] == "dose_confirmed" for e in events))
     if paths.layout:

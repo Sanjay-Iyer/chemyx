@@ -69,8 +69,8 @@ def test_solvent_confirmed_target_absence_remains_eligible():
     raw = base.load_si6_config(ROOT / "configs/experiments/si6_real_two_stage.yaml")
     rules = base.build_stages(raw["workflow"])[0].completion
     rows = []
-    for area in [100, 0, 0, 0, 0]:
-        rows.append(record_sample_presence({"peak_area": area}, rows, DEFAULTS, {"present": True}))
+    for area, elapsed in zip([100, 0, 0, 0, 0], [0, 40, 42, 44, 46]):
+        rows.append(record_sample_presence({"peak_area": area, "stage_elapsed_hours": elapsed}, rows, DEFAULTS, {"present": True}))
     assert rows[-1]["endpoint_eligible"]
     assert completion_evidence(rows, rules)["complete"]
 
@@ -79,11 +79,12 @@ def test_solvent_confirmed_target_absence_remains_eligible():
 def test_independent_yaml_durations_load_and_change_only_selected_stage(tmp_path, name, hours):
     raw = yaml.safe_load((ROOT / "configs/experiments/si6_real_two_stage.yaml").read_text())
     raw["workflow"][name]["max_hours"] = hours
+    raw["workflow"][name]["min_completion_hours"] = hours / 2
     path = tmp_path / "reaction.yaml"
     path.write_text(yaml.safe_dump(raw))
     prepared = si6.prepare(path, ROOT / "configs/machines/si6_real_COM4.yaml", ROOT / "arduino/configs/arduino_real_COM3.yaml", mock=True)
     stages = base.build_stages(prepared[0]["workflow"])
-    assert [s.max_hours for s in stages] == ([hours, 4] if name == "initial_stage" else [48, hours])
+    assert [s.max_hours for s in stages] == ([hours, 6] if name == "initial_stage" else [48, hours])
 
 
 @pytest.mark.parametrize("name", ["initial_stage", "first_addition_stage"])

@@ -26,7 +26,7 @@ def validate_profile(raw, stages):
             raise ValueError("qc_reporting.affect_workflow must be false; QC cannot control this workflow")
         if "peak_filters" in reporting:
             tracking_config(reporting["peak_filters"])
-        if any(s.max_measurements != s.completion["max_iterations"] for s in stages):
+        if any(s.min_completion_hours is None and s.max_measurements != s.completion["max_iterations"] for s in stages):
             raise ValueError("Stage measurement count must equal completion.max_iterations")
         if any("max_measurements" in raw["workflow"][name] for name in ("initial_stage", "first_addition_stage")):
             raise ValueError("Use completion.max_iterations as the single iteration limit")

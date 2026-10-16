@@ -37,8 +37,11 @@ def main(argv=None) -> int:
             raise ValueError("The live automatic entry point requires the current two-stage area_only recipe. Use the separate legacy runner only for an intentionally manual workflow.")
         for index, stage in enumerate(stages, 1):
             slots = si6.base.duration_measurement_slots(stage.interval_minutes, stage.max_hours, stage.measure_immediately)
-            print(f"STAGE {index} ({stage.name})\nSampling interval: {stage.interval_minutes:g} minutes\nTimed fallback duration: {stage.max_hours:g} hours\n"
-                  f"Normal observation cap: {stage.max_measurements}\nMaximum scheduled acquisitions within duration: {slots} (fallback; slow cycles can reduce this)\n"
+            limit = (f"Minimum completion time: {stage.min_completion_hours:g} hours\n"
+                     "Observation limit: duration governs; no count cap" if stage.min_completion_hours is not None
+                     else f"Normal observation cap: {stage.max_measurements}")
+            print(f"STAGE {index} ({stage.name})\nSampling interval: {stage.interval_minutes:g} minutes\nMaximum duration / timed fallback deadline: {stage.max_hours:g} hours\n"
+                  f"{limit}\nMaximum nominal scheduled acquisitions within duration: {slots} (slow cycles can reduce this)\n"
                   f"Chemical endpoint stopping enabled: {stage.plateau_stopping_enabled}")
         window = si6.tracked_window(raw, nmr)[1]
         confirmations = [stage.completion.get("consecutive_iterations", stage.completion.get("consecutive_confirmations")) for stage in stages if stage.completion]

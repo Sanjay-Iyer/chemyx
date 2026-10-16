@@ -16,10 +16,10 @@ def validate_area_completion(value: dict) -> dict:
         raise ValueError("area_only completion needs decreasing/increasing trend and supported area fields")
     result = dict(value)
     result.setdefault("epsilon", 1.e-12)
-    for name in ("max_iterations", "consecutive_iterations"):
+    for name in (("max_iterations",) if "max_iterations" in result else ()) + ("consecutive_iterations",):
         if type(result.get(name)) is not int or result[name] < (2 if trend == "increasing" and name == "consecutive_iterations" else 1):
             raise ValueError(f"completion.{name} must be a positive integer (plateau observations >= 2)")
-    if result["max_iterations"] < result["consecutive_iterations"]:
+    if "max_iterations" in result and result["max_iterations"] < result["consecutive_iterations"]:
         raise ValueError("max_iterations must accommodate consecutive_iterations")
     for name in ("epsilon", "near_zero_fraction" if trend == "decreasing" else "relative_change_threshold"):
         number = result.get(name)
@@ -42,28 +42,66 @@ def area_completion_evidence(rows: list[dict], rules: dict) -> dict:
 
     A zero initial area uses epsilon as denominator. Stage 2's stable window
     starts at the first observation meeting growth; earlier flatness cannot count.
-    Missing solvent resets the consecutive window; a timed latch disables early
-    completion. Retrospective QC, timestamps and uncertainties are not gates.
+    Missing/ineligible or repeated acquisition evidence resets the consecutive
+    window; a timed latch disables early completion. Retrospective QC and
+    uncertainties remain advisory under the current area-only protocol.
     """
     count = 0
     growth_seen = not rules.get("minimum_growth", {}).get("enabled", True)
-    trusted = [r for r in rows if r.get("solvent_present", True)]
+    eligible = []
+    seen_raw, last_stamp = set(), None
+    for row in rows:
+        valid = row.get("solvent_present", True) and row.get("endpoint_eligible") is not False
+        raw_hash = row.get("raw_sha256")
+        if raw_hash:
+            if raw_hash in seen_raw:
+                valid = False
+            seen_raw.add(raw_hash)
+        stamp = None
+        if row.get("acquired_at") is not None:
+            try:
+                stamp = datetime.fromisoformat(row["acquired_at"])
+                if last_stamp is not None and stamp <= last_stamp:
+                    valid = False
+            except (ValueError, TypeError):
+                valid = False
+        if valid and stamp is not None:
+            last_stamp = stamp
+        eligible.append(valid)
+    trusted = [r for r, valid in zip(rows, eligible) if valid]
     initial = float(trusted[0]["peak_area"]) if trusted else 0.0
     denominator = max(abs(initial), rules["epsilon"])
     previous = None
     change = None
     growth_fraction = 0.0
-    for row in rows:
-        if not row.get("solvent_present", True):
+    minimum = rules.get("min_completion_hours")
+    post_threshold_points = 0
+    time_active = False
+    for row, valid in zip(rows, eligible):
+        elapsed = row.get("stage_elapsed_hours")
+        time_active = minimum is None or (
+            isinstance(elapsed, (int, float)) and not isinstance(elapsed, bool)
+            and math.isfinite(elapsed) and elapsed >= minimum
+        )
+        if not valid:
             count, previous, change = 0, None, None
             continue
         area = float(row["peak_area"])
         if not math.isfinite(area) or area < 0:
             raise ValueError("The recorded area signal must be finite and nonnegative")
+        # Keep the original reference/growth history, but begin a fresh
+        # confirmation window using actual monotonic acquisition-start elapsed.
+        if rules["trend"] == "increasing":
+            growth_fraction = max(growth_fraction, (area - initial) / denominator)
+        if not time_active:
+            if rules["trend"] == "increasing":
+                growth_seen = growth_seen or growth_fraction >= rules["minimum_growth"]["fraction_of_initial"]
+            count, previous, change = 0, None, None
+            continue
+        post_threshold_points += 1
         if rules["trend"] == "decreasing":
             count = count + 1 if area / denominator <= rules["near_zero_fraction"] else 0
         else:
-            growth_fraction = max(growth_fraction, (area - initial) / denominator)
             was_growing = growth_seen
             growth_seen = growth_seen or growth_fraction >= rules["minimum_growth"]["fraction_of_initial"]
             change = abs(area - previous) / max(abs(previous), rules["epsilon"]) if previous is not None else None
@@ -75,16 +113,18 @@ def area_completion_evidence(rows: list[dict], rules: dict) -> dict:
                 count = 1
         previous = area
     fallback = any(r.get("stage_timed_fallback", False) for r in rows)
-    complete = bool(rows) and not fallback and count >= rules["consecutive_iterations"]
+    complete = bool(rows) and not fallback and time_active and count >= rules["consecutive_iterations"]
     return {"complete": complete, "method": "area_only", "trend": rules["trend"], "points": len(rows),
             "criteria": dict(rules), "initial_area": initial if trusted else None, "current_area": previous,
             "normalization_area": denominator if trusted else None, "zero_initial_area": bool(trusted) and initial == 0,
             "confirmations_required": rules["consecutive_iterations"], "confirmations_passed": count,
             "consecutive_observations": count, "growth_seen": growth_seen if rules["trend"] == "increasing" else None,
             "growth_fraction": growth_fraction if rules["trend"] == "increasing" else None,
-            "relative_change": change, "limit_reached": len(rows) >= rules["max_iterations"] and not complete and not fallback,
+            "relative_change": change, "limit_reached": "max_iterations" in rules and len(rows) >= rules["max_iterations"] and not complete and not fallback,
+            "min_completion_hours": minimum, "completion_time_active": time_active,
+            "post_threshold_eligible_points": post_threshold_points,
             "timed_fallback": fallback, "trusted_points": len(trusted),
-            "reason": "timed fallback; solvent/sample presence unconfirmed" if fallback else "area endpoint satisfied" if complete else "area endpoint not yet satisfied"}
+            "reason": "timed fallback; solvent/sample presence unconfirmed" if fallback else "area endpoint satisfied" if complete else "minimum completion time not reached or monotonic stage time unavailable" if minimum is not None and not time_active else "area endpoint not yet satisfied"}
 
 
 def validate_completion(value: dict) -> dict:

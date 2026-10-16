@@ -253,10 +253,10 @@ def test_processor_crash_stops_as_operational_failure_without_dosing(tmp_path, m
     assert s.dose_guard.data["status"] == "RESERVED"
 
 
-def test_missing_timing_disables_plots_but_not_area_control(tmp_path, monkeypatch):
-    outcome, s, records = run_fixture(tmp_path, monkeypatch, [100, 0, 0, 0, 0], [1, 2, 2, 2, 2], missing_time=True)
-    assert outcome.status is base.TerminalStatus.COMPLETED
-    assert len([e for e in records if e["event_type"] == "dose_confirmed"]) == 1
+def test_missing_timing_disables_plots_and_chemical_completion(tmp_path, monkeypatch):
+    outcome, s, records = run_fixture(tmp_path, monkeypatch, [100]+[0]*19, [1, 2, 2, 2, 2], missing_time=True)
+    assert outcome.status is base.TerminalStatus.STAGE_1_MAX_ITERATIONS_REACHED
+    assert not any(e["event_type"] == "dose_confirmed" for e in records)
     report = json.loads((s.paths.run_dir / "final_qc/qc_summary.json").read_text())
     assert report["plots_available"] is False
     assert all(r["acquired_at"] is None and r["plot_elapsed_hours"] is None for r in report["observations"])

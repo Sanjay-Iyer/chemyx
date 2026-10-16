@@ -62,6 +62,8 @@ TIME_SERIES_COLUMNS = [
     "scheduling_delay_seconds", "nmr_acquisition_started_at",
     "nmr_acquisition_completed_at", "analysis_completed_at", "acquired_at",
     "elapsed_hours",
+    "stage_elapsed_hours", "stage_elapsed_source", "min_completion_hours",
+    "max_hours", "completion_time_active", "completion_confirmations",
     "file", "target_ppm", "peak_ppm", "peak_height", "peak_area", "snr",
     "prominence", "prominence_snr", "width_ppm", "baseline", "noise",
     "growth_percent", "peak_clear", "plateau", "plot_file", "error",
@@ -186,6 +188,8 @@ class Stage:
     before_monitoring: tuple[dict[str, Any], ...] = ()
     after_monitoring: tuple[dict[str, Any], ...] = ()
     completion: dict[str, Any] | None = None
+    # Opt-in duration authority; None preserves historical count-limited recipes.
+    min_completion_hours: float | None = None
 
 
 @dataclass(frozen=True)
@@ -200,6 +204,7 @@ class MeasurementSchedule:
     actual_cycle_start: str
     actual_cycle_start_monotonic: float
     scheduling_delay_seconds: float
+    stage_started_monotonic: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -209,6 +214,8 @@ class MeasurementObservation:
     nmr_acquisition_started_at: str
     nmr_acquisition_completed_at: str
     analysis_completed_at: str
+    nmr_acquisition_started_monotonic: float | None = None
+    completion_confirmations: int = 0
 
 
 @dataclass(frozen=True)
@@ -536,7 +543,7 @@ def _parse_stage(value: Any, label: str) -> Stage:
             "measure_immediately", "plateau_stopping_enabled",
             "max_measurements",
             "before_monitoring", "after_monitoring",
-            "completion",
+            "completion", "min_completion_hours",
         },
         f"workflow.{label}",
     )
@@ -565,7 +572,22 @@ def _parse_stage(value: Any, label: str) -> Stage:
     )
     completion = validate_completion(section["completion"]) if "completion" in section else None
     area_only = completion is not None and completion.get("method") == "area_only"
-    explicit = area_only or section.get("max_measurements") is not None
+    minimum = None
+    if "min_completion_hours" in section:
+        minimum = _nonnegative(section["min_completion_hours"], f"{label}.min_completion_hours")
+        if minimum >= max_hours:
+            raise ValueError(f"{label}.min_completion_hours must be less than max_hours")
+        if not area_only:
+            raise ValueError("min_completion_hours requires area_only completion")
+        if not plateau_enabled:
+            raise ValueError("min_completion_hours requires plateau_stopping_enabled")
+        if "max_iterations" in completion or "max_measurements" in section:
+            raise ValueError("Duration-limited stages use max_hours; remove completion.max_iterations and max_measurements")
+        # Effective decision context; the only YAML source is the stage key.
+        completion = dict(completion, min_completion_hours=minimum)
+    elif area_only and "max_iterations" not in completion:
+        raise ValueError(f"{label} requires min_completion_hours (or legacy completion.max_iterations)")
+    explicit = (area_only and minimum is None) or section.get("max_measurements") is not None
     if explicit:
         # An explicit count is a cap; it must still start before the ceiling.
         max_measurements = _positive_integer(
@@ -600,6 +622,7 @@ def _parse_stage(value: Any, label: str) -> Stage:
         before_monitoring=tuple(section.get("before_monitoring", [])),
         after_monitoring=tuple(section.get("after_monitoring", [])),
         completion=completion,
+        min_completion_hours=minimum,
     )
 
 
@@ -1116,8 +1139,15 @@ def run_safe_metered_move(
     recorder: EventRecorder | None = None,
     workflow_phase: str | None = None,
     cycle_number: int | None = None,
+    position_tracker: Any = None,
 ) -> None:
-    """Run one transfer; any interruption after dispatch becomes uncertain."""
+    """Run one transfer; any interruption after dispatch becomes uncertain.
+
+    ``position_tracker`` (chemyx_position.ChannelTracker) records the shared
+    software-HOME displacement: intent before dispatch, the new position only
+    after this function's completion evidence. A live move without one marks
+    any saved HOME position UNKNOWN before it starts.
+    """
     operation = f"{direction} {abs(float(volume_ml)):g} mL"
     state.current_operation = operation
     wait_seconds = move_seconds(volume_ml, pump_cfg.rate, pump_cfg.units) + max(
@@ -1162,7 +1192,19 @@ def run_safe_metered_move(
     )
     start_attempted = False
     completion_durable = False
+    position_token = None
     try:
+        if position_tracker is not None:
+            position_token = position_tracker.begin(
+                direction, abs(float(volume_ml)), operation_id=operation_id,
+                workflow_phase=workflow_phase, cycle_number=cycle_number,
+            )
+        elif _untracked_live_pump(pump):
+            from .chemyx_position import invalidate_untracked_motion
+            invalidate_untracked_motion(
+                [pump_cfg.channel] if pump_cfg.channel in (1, 2) else [1, 2],
+                source="an untracked Chemyx transfer",
+            )
         device_volume = signed_volume * (1000 if pump_cfg.units in (2, 3) else 1)
         print("     volume ->", repr(pump.set_volume(device_volume)))
         state.motion_active = True
@@ -1210,8 +1252,12 @@ def run_safe_metered_move(
                 state.record_persistence_error(exc)
                 raise
         completion_durable = True
+        if position_token is not None:
+            position_tracker.complete(position_token)
     except BaseException as exc:
         if completion_durable:
+            if position_token is not None:
+                position_tracker.complete(position_token)
             raise
         if not start_attempted:
             if recorder is not None:
@@ -1232,6 +1278,11 @@ def run_safe_metered_move(
                         "not be made durable; recovery must treat the dispatched "
                         "operation as uncertain"
                     )
+            if position_token is not None:
+                if state.uncertain:
+                    position_tracker.uncertain(position_token, state.uncertain_reason)
+                else:
+                    position_tracker.cancel(position_token, f"motion not started: {type(exc).__name__}: {exc}")
             raise
         if not state.uncertain:
             state.mark_uncertain(
@@ -1259,10 +1310,19 @@ def run_safe_metered_move(
             cycle_number=cycle_number,
             parent_operation_id=operation_id,
         )
+        if position_token is not None:
+            position_tracker.uncertain(position_token, state.uncertain_reason)
         raise
     else:
         state.motion_active = False
         state.current_operation = None
+
+
+def _untracked_live_pump(pump: Any) -> bool:
+    """A real serial Chemyx (not mock, injected test serial, or a fake object)."""
+    from ..instruments import chemyx as driver
+    return (isinstance(pump, driver.Pump) and pump.mock is False
+            and getattr(pump, "_serial_factory", None) is None)
 
 
 def operator_checkpoint(
@@ -1500,6 +1560,8 @@ def run_monitoring_stage(
     hard_deadline = stage_started_monotonic + stage.max_hours * 3600.0
     attempts = 0
     valid_count = 0
+    post_threshold_observations = 0
+    previous_acquisition_monotonic = None
     mode = (
         "plateau_or_limit"
         if stage.plateau_stopping_enabled
@@ -1515,6 +1577,7 @@ def run_monitoring_stage(
             "explicit" if stage.max_measurements_explicit else "duration"
         ),
         "hard_runtime_ceiling_hours": stage.max_hours,
+        "min_completion_hours": stage.min_completion_hours,
         "interval_minutes": stage.interval_minutes,
         "stage_started_at": stage_started_wall.isoformat(timespec="seconds"),
     }
@@ -1524,6 +1587,9 @@ def run_monitoring_stage(
             result_classification="started",
             **monitoring_fields,
         )
+    if stage.min_completion_hours is not None:
+        print(f"{stage.name}: minimum completion time {stage.min_completion_hours:g} hours; "
+              f"maximum duration {stage.max_hours:g} hours; NMR completion eligibility: NOT YET ACTIVE")
 
     measurement_number = 0
     def duration_outcome():
@@ -1532,7 +1598,7 @@ def run_monitoring_stage(
                               f"Stage {stage.name} completed its configured {stage.max_hours:g} h duration under solvent-loss fallback; chemistry completion unverified.",
                               StageOutcome.TIMED_FALLBACK_COMPLETED)
         return maximum_duration_outcome(stage)
-    while measurement_number < stage.max_measurements or (timed_fallback_fn is not None and timed_fallback_fn()):
+    while stage.min_completion_hours is not None or measurement_number < stage.max_measurements or (timed_fallback_fn is not None and timed_fallback_fn()):
         measurement_number += 1
         offset = (scheduled_measurement_offset_seconds(stage, measurement_number)
                   if measurement_number <= stage.max_measurements else
@@ -1555,6 +1621,7 @@ def run_monitoring_stage(
             )
         actual_start_monotonic = monotonic_fn()
         actual_start_wall = wall_now_fn()
+        monitoring_fields["stage_elapsed_hours"] = (actual_start_monotonic - stage_started_monotonic) / 3600.0
         if actual_start_monotonic >= hard_deadline:
             outcome = duration_outcome()
             if recorder is not None:
@@ -1580,6 +1647,7 @@ def run_monitoring_stage(
             scheduling_delay_seconds=max(
                 0.0, actual_start_monotonic - scheduled_monotonic
             ),
+            stage_started_monotonic=stage_started_monotonic,
         )
         if recorder is not None:
             recorder.record(
@@ -1595,7 +1663,18 @@ def run_monitoring_stage(
         observation = measurement_fn(schedule)
         if observation.valid_analysis:
             valid_count += 1
+        acquisition = observation.nmr_acquisition_started_monotonic
+        if stage.min_completion_hours is not None:
+            if (observation.valid_analysis and acquisition is not None and math.isfinite(acquisition)
+                    and acquisition - stage_started_monotonic >= stage.min_completion_hours * 3600.0
+                    and (previous_acquisition_monotonic is None or acquisition > previous_acquisition_monotonic)):
+                post_threshold_observations += 1
+            else:
+                post_threshold_observations = 0
+            if acquisition is not None and math.isfinite(acquisition):
+                previous_acquisition_monotonic = acquisition
         analysis_finished_monotonic = monotonic_fn()
+        monitoring_fields["stage_elapsed_hours"] = (analysis_finished_monotonic - stage_started_monotonic) / 3600.0
         if recorder is not None:
             recorder.record(
                 "measurement_completed",
@@ -1620,7 +1699,14 @@ def run_monitoring_stage(
         # A completed measurement that shows plateau (or finishes a fixed
         # schedule) counts even if it ends after the ceiling; the deadline only
         # prevents starting another measurement.
-        if observation.plateau_detected:
+        timing_allows_completion = stage.min_completion_hours is None or (
+            observation.nmr_acquisition_started_monotonic is not None
+            and math.isfinite(observation.nmr_acquisition_started_monotonic)
+            and observation.nmr_acquisition_started_monotonic - stage_started_monotonic >= stage.min_completion_hours * 3600.0
+            and observation.completion_confirmations >= stage.completion["consecutive_iterations"]
+            and post_threshold_observations >= stage.completion["consecutive_iterations"]
+        )
+        if observation.valid_analysis and observation.plateau_detected and timing_allows_completion:
             if recorder is not None:
                 recorder.record(
                     "plateau_detection",
@@ -1644,6 +1730,7 @@ def run_monitoring_stage(
                         "stage_transition_decision",
                         result_classification=StageOutcome.PLATEAU_REACHED.value,
                         scheduled_measurement_number=measurement_number,
+                        eligible_confirmations=observation.completion_confirmations,
                         **monitoring_fields,
                     )
                 return MonitoringResult(
@@ -1677,7 +1764,7 @@ def run_monitoring_stage(
                 outcome, measurement_number, attempts, valid_count
             )
 
-        if stage.completion and stage.completion.get("method") == "area_only" and measurement_number == stage.max_measurements and not (timed_fallback_fn is not None and timed_fallback_fn()):
+        if stage.min_completion_hours is None and stage.completion and stage.completion.get("method") == "area_only" and measurement_number == stage.max_measurements and not (timed_fallback_fn is not None and timed_fallback_fn()):
             break # Consuming the final slot reports the iteration limit first.
         if analysis_finished_monotonic >= hard_deadline:
             outcome = duration_outcome()

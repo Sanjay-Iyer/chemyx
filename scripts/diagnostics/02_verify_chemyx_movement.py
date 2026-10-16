@@ -79,6 +79,11 @@ def main() -> int:
     if not confirm(args, cfg):
         print("Aborted before connecting.")
         return 1
+    if not args.mock:
+        # These timed moves are not displacement-tracked: no saved software HOME may survive them.
+        from chemyx_lab.workflows.chemyx_position import invalidate_untracked_motion
+        invalidate_untracked_motion([cfg.channel] if cfg.channel in (1, 2) else [1, 2],
+                                    source="scripts/diagnostics/02_verify_chemyx_movement.py")
 
     try:
         with Pump(

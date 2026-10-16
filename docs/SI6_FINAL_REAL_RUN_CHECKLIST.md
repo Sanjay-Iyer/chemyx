@@ -63,15 +63,24 @@ powershell -NoProfile -ExecutionPolicy Bypass -File offline\install_offline.ps1
 |---|---|---|
 | New physical reaction ID | `workflow.experiment_id` | Replace the example ID |
 | Stage 1 cadence | `workflow.initial_stage.interval_minutes` | 120 minutes |
-| Stage 1 fallback duration | `workflow.initial_stage.max_hours` | 48 hours |
+| Stage 1 earliest confirmation-window start | `workflow.initial_stage.min_completion_hours` | 40 hours |
+| Stage 1 maximum duration / fallback deadline | `workflow.initial_stage.max_hours` | 48 hours |
 | Stage 2 cadence | `workflow.first_addition_stage.interval_minutes` | 30 minutes |
-| Stage 2 fallback duration | `workflow.first_addition_stage.max_hours` | 4 hours |
-| Normal observation caps | Each stage's `completion.max_iterations` | 20 |
+| Stage 2 earliest confirmation-window start | `workflow.first_addition_stage.min_completion_hours` | 2 hours |
+| Stage 2 maximum duration / fallback deadline | `workflow.first_addition_stage.max_hours` | 6 hours |
+| Normal observation caps | Omitted in the real recipe | Deadline governs |
 | Solvent windows | `solvent_monitor.windows_ppm` | [1.90, 2.25], [6.80, 7.10] |
 | Solvent expected centers | `solvent_monitor.expected_centers_ppm` | 2.08, 6.99 |
 | Maximum shifts | `solvent_monitor.maximum_shift_ppm` | 0.15, 0.10 ppm |
 | Maximum pair-shift disagreement | `solvent_monitor.maximum_pair_shift_difference_ppm` | 0.04 ppm |
 | Solvent failures before fallback | `solvent_monitor.consecutive_missing` | 3 |
+
+   Four qualifying acquisitions must start at or after each minimum. Review
+   [mandatory stage durations](SI6_MINIMUM_STAGE_DURATIONS.md), including the
+   remaining noisy-nondetection/temporary-plateau risks and the distinction
+   between ordinary timeout (no reagent transition) and latched solvent fallback
+   (existing timed transition with chemistry unverified). This timing change
+   alone is not scientific acceptance or physical commissioning.
 
    Both solvent peaks must have compatible shifts; the strong 7.12 ppm neighbor
    cannot replace the expected 6.99 ppm signal. Review thresholds when changing

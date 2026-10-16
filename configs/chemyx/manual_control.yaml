@@ -1,0 +1,66 @@
+# Chemyx Fusion 4000 standalone manual control and custom software HOME.
+# Used by scripts/chemyx_control.py and scripts/chemyx_home.py.
+# Guide: docs/CHEMYX_MANUAL_CONTROL.md
+#
+# This file defines the HOME *convention* and manual operating settings.
+# The actual HOME establishment and current plunger displacement live in the
+# runtime ledger (runtime/chemyx_state/), never here. Editing a value that a
+# saved HOME depends on (syringe diameter/capacity, reference description,
+# syringe volume at HOME, COM port) does NOT silently move or reset the
+# reference: HOME return is refused until you restore the old value or
+# physically re-establish HOME with set-home.
+
+# COM port: change the Chemyx serial port in this machine file
+# (si6_real_COM4.yaml uses COM4; point at si6_real_COM6.yaml for COM6).
+# Use the same machine file for the automated experiment, otherwise its moves
+# are recorded against a different pump and HOME tracking becomes UNKNOWN.
+machine_config: configs/machines/si6_real_COM4.yaml
+
+# Syringe diameter/capacity left as null below are read from this experiment
+# recipe, so manual moves and the automated run always use the same geometry.
+syringe_config: configs/experiments/si6_real_two_stage.yaml
+
+# Experiment reagent-dose reservations. Read only; Channel 2 motion respects them.
+dose_ledger_dir: runtime/si6_doses
+
+channels:
+  # Channel: the keys 1 and 2 are the Chemyx channel numbers.
+  1:
+    name: sampling
+    syringe:
+      # Syringe inner diameter in mm. null = use syringe_config
+      # (pump.channels.1.syringe_diameter_mm, currently 20.0; VERIFY physically).
+      diameter_mm: null
+      # Usable syringe capacity in mL. null = use syringe_config.
+      capacity_ml: null
+    home:
+      # false disables set-home and home for this channel.
+      enabled: true
+      # The physical position the operator places the plunger at before set-home.
+      reference_description: "Plunger fully depressed"
+      # Syringe contents (mL) when the plunger is at HOME; 0.0 = fully depressed.
+      # Used to keep manual infuse/withdraw inside the syringe. null disables
+      # manual infuse/withdraw for this channel (HOME return still works).
+      syringe_volume_at_home_ml: 0.0
+    manual_transfer:
+      # EXAMPLE values, not verified operating values. Volume per manual
+      # infuse/withdraw command (mL) and the rate for every manual move,
+      # including HOME return (mL/min).
+      volume_ml: 0.5
+      rate_ml_min: 1.0
+
+  2:
+    name: reagent_dosing
+    syringe:
+      diameter_mm: null   # null = syringe_config (currently 12.06 mm; VERIFY)
+      capacity_ml: null   # null = syringe_config (currently 5.0 mL; VERIFY)
+    home:
+      enabled: true
+      reference_description: "Operator-defined starting position"
+      # Set the reagent volume loaded at HOME (for example 2.0) to enable manual
+      # Channel 2 infuse/withdraw. Left null deliberately: not yet verified.
+      syringe_volume_at_home_ml: null
+    manual_transfer:
+      # EXAMPLE values, not verified operating values.
+      volume_ml: 0.1
+      rate_ml_min: 0.5

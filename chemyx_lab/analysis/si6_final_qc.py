@@ -115,7 +115,8 @@ def write_final_qc(paths, rows, stages, reporting, *, dataset, outcome, transiti
     write_rows(directory / "qc_summary.csv", review)
     stage_summaries = [{"stage": s.name, "endpoint": completion_evidence([r for r in rows if r["stage"] == s.name], s.completion) if s.completion else None,
                         "timed_fallback": any(r.get("stage_timed_fallback") for r in rows if r["stage"] == s.name),
-                        "configured_duration_hours": s.max_hours} for s in stages]
+                        "configured_duration_hours": s.max_hours,
+                        "min_completion_hours": s.min_completion_hours} for s in stages]
     payload = {"dataset_display_name": dataset, "status": outcome.status.value, "outcome_message": outcome.message,
                "affect_workflow": False, "timing_source": "JCAMP LONG DATE only",
                "plots_available": can_plot, "stages": stage_summaries,

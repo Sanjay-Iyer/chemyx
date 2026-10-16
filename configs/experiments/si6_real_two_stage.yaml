@@ -43,14 +43,16 @@ workflow:
       1.
     # Stage 1 scheduled cycle-start spacing (minutes).
     interval_minutes: 120
-    # EDIT HERE: Stage 1 timed fallback duration from Stage 1 startup (hours).
+    # EDIT HERE: only acquisitions starting at/after this stage elapsed time
+    # can begin the four-observation chemical-completion window (hours).
+    min_completion_hours: 40.0
+    # EDIT HERE: maximum from stage startup, including solvent fallback (hours).
     max_hours: 48
     measure_immediately: true
     plateau_stopping_enabled: true
     completion:
       method: area_only
       trend: decreasing
-      max_iterations: 20
       near_zero_fraction: 0.025
       consecutive_iterations: 4
       epsilon: 1.0e-12
@@ -69,14 +71,15 @@ workflow:
     operator_prompt: Automatic Stage 2 entry after confirmed Channel 2 dose.
     # Stage 2 scheduled cycle-start spacing (minutes).
     interval_minutes: 30
-    # EDIT HERE: Stage 2 timed fallback duration from Stage 2 startup (hours).
-    max_hours: 4
+    # EDIT HERE: begin the four-observation completion window after 2 hours.
+    min_completion_hours: 2.0
+    # EDIT HERE: maximum from Stage 2 startup, including solvent fallback.
+    max_hours: 6
     measure_immediately: true
     plateau_stopping_enabled: true
     completion:
       method: area_only
       trend: increasing
-      max_iterations: 20
       minimum_growth:
         enabled: true
         fraction_of_initial: 0.25

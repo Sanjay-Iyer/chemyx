@@ -46,6 +46,7 @@ from ..runtime_state import replay_journal, write_json_atomic
 from . import si6_automated_nmr as base
 from . import pump_channels
 from .dose_guard import DoseGuard
+from .chemyx_position import PositionLedger, pump_identity, state_root
 from ..analysis.stage_completion import completion_evidence
 from ..analysis.stage_measurement import tracked_peak_measurement, tracked_peak_area_observation
 from ..analysis.si6_stage_reports import write_stage_reports
@@ -76,6 +77,10 @@ class VerificationError(RuntimeError):
 
 class PhysicalStateUncertain(VerificationError):
     """Automatic recovery is refused because pump or needle state is unproven."""
+
+
+class StageAcquisitionDeadlineReached(RuntimeError):
+    """Skip a late NMR command, then finish the already-active sampling cleanup."""
 
 
 class MeasurementFailedAfterCleanup(RuntimeError):
@@ -331,6 +336,9 @@ class Services:
     dose_guard: Any = None
     transition_evidence: dict | None = None
     last_acquisition_completed_monotonic: float | None = None
+    position_ledger: Any = None
+    active_schedule: base.MeasurementSchedule | None = None
+    last_acquisition_started_monotonic: float | None = None
 
     @property
     def states(self) -> dict[int, base.PumpSafetyState]:
@@ -416,6 +424,7 @@ class Services:
                 extra_seconds=float(self.raw["workflow"].get("pump_extra_seconds", 2.0)),
                 sleep_fn=self.sleep, recorder=self.recorder,
                 workflow_phase=stage, cycle_number=cycle,
+                position_tracker=self.position_tracker(ch, cfg),
             )
             state.retained_volume_ml = retained_after
             if direction == "withdraw":
@@ -425,6 +434,16 @@ class Services:
         finally:
             self.pump.select_channel(self.pump_cfg.channel)
         self.assert_pump_idle()
+
+    def position_tracker(self, ch: int, cfg: config.PumpConfig) -> Any:
+        """Shared software-HOME displacement record (scripts/chemyx_control.py)."""
+        if self.position_ledger is None:
+            return None
+        capacity = float(pump_channels.channel_definitions(self.raw)[ch]["syringe_capacity_ml"])
+        return self.position_ledger.tracker(
+            channel=ch, pump=pump_identity(self.pump.port, mock=self.mock), diameter_mm=cfg.diameter,
+            capacity_ml=capacity, source=self.identity.label, run_id=self.paths.run_dir.name,
+        )
 
     def verify_cleanup_preconditions(self, down_steps: int, expected_retained_ml: float | dict[int, float]) -> dict[str, str]:
         """Prove pump and needle state before returning the sample automatically."""
@@ -445,6 +464,29 @@ class Services:
 
     def write_manifest(self) -> None:
         write_json_atomic(self.paths.manifest_json, manifest_payload(self.paths, self.identity, self.raw, list(self.plot_manifest or [])))
+
+    def completion_clock_fields(self, stage: str) -> dict:
+        schedule = self.active_schedule
+        if schedule is None or schedule.stage_name != stage:
+            return {}
+        return {"stage_elapsed_hours": (self.last_acquisition_started_monotonic - schedule.stage_started_monotonic) / 3600.0,
+                "stage_elapsed_source": "monotonic NMR acquisition start minus monotonic stage start"}
+
+    def completion_status(self, row: dict, spec: base.Stage, evidence: dict) -> None:
+        if spec.min_completion_hours is None:
+            return
+        row.update(completion_time_active=evidence["completion_time_active"],
+                   completion_confirmations=evidence["confirmations_passed"],
+                   min_completion_hours=spec.min_completion_hours, max_hours=spec.max_hours)
+        state = "DISABLED: TIMED FALLBACK" if row.get("stage_timed_fallback") else "ACTIVE" if evidence["completion_time_active"] else "NOT YET ACTIVE"
+        print(f"{spec.name}: NMR completion eligibility: {state}; qualifying observations: "
+              f"{evidence['confirmations_passed']} / {evidence['confirmations_required']}")
+        self.record("completion_eligibility", workflow_phase=spec.name,
+                    min_completion_hours=spec.min_completion_hours, max_hours=spec.max_hours,
+                    stage_elapsed_hours=row.get("stage_elapsed_hours"),
+                    eligible_confirmations=evidence["confirmations_passed"],
+                    confirmations_required=evidence["confirmations_required"],
+                    result_classification="disabled_timed_fallback" if row.get("stage_timed_fallback") else "active" if evidence["completion_time_active"] else "not_yet_active")
 
     def untrusted_sample(self, path, stage, cycle, rows, evidence):
         """No target-area inference or processing requirement for absent sample data."""
@@ -472,8 +514,10 @@ class Services:
                    raw_sha256=evidence.get("raw_sha256"), observation_recorded=True,
                    measurement_valid=False, growth_percent=None, normalized_area=None, plateau=False)
         record_sample_presence(row, history, self.raw["solvent_monitor"], evidence)
+        row.update(self.completion_clock_fields(stage))
         row["solvent_evidence_path"] = str((processed / "sample_presence.json").relative_to(self.paths.run_dir))
         endpoint = completion_evidence([*history, row], spec.completion) if spec.completion else {"complete": False}
+        self.completion_status(row, spec, endpoint)
         evidence_path = self.paths.evidence_dir(stage, "evidence") / f"{cycle:04d}.json"
         write_json_atomic(evidence_path, endpoint)
         row["completion_evidence_path"] = str(evidence_path.relative_to(self.paths.run_dir))
@@ -500,8 +544,16 @@ class Services:
         failed measurement can never contribute to plateau detection.
         """
         self.measurement_step = "NMR acquisition"
-        self.last_acquisition_started_at = self.simulation.now() if self.simulation else datetime.now(timezone.utc)
+        spec = next((s for s in base.build_stages(self.raw["workflow"]) if s.name == stage), None)
         stage_paths = self.paths.for_stage(stage)
+        self.last_acquisition_started_at = self.simulation.now() if self.simulation else datetime.now(timezone.utc)
+        self.last_acquisition_started_monotonic = self.simulation.monotonic() if self.simulation else time.monotonic()
+        schedule = self.active_schedule
+        if (schedule is not None and schedule.stage_name == stage and spec.min_completion_hours is not None
+                and self.last_acquisition_started_monotonic >= schedule.stage_started_monotonic + spec.max_hours * 3600.0):
+            self.record("acquisition_skipped_at_deadline", workflow_phase=stage, cycle_number=cycle,
+                        result_classification="time_limit_cleanup_required", max_hours=spec.max_hours)
+            raise StageAcquisitionDeadlineReached(f"{stage} deadline reached before NMR command; finish sample cleanup")
         path = self.acquire(self.nmr_cfg, stage_paths.raw_dir, label=f"{stage}_{cycle:04d}")
         self.last_acquisition_completed_at = self.simulation.now() if self.simulation else datetime.now(timezone.utc)
         self.last_acquisition_completed_monotonic = self.simulation.monotonic() if self.simulation else time.monotonic()
@@ -589,6 +641,24 @@ class Services:
                 self.record("solvent_timed_fallback", workflow_phase=stage, cycle_number=cycle, reason=note,
                             duration_hours=stage_spec.max_hours, result_classification="timed_fallback_latched")
         row.update(raw_path=str(path.relative_to(self.paths.run_dir)), processed_path=str(processed.relative_to(self.paths.run_dir)))
+        if area_only:
+            # Preserve the actual measurement for review, but an unidentifiable
+            # or replayed acquisition cannot authorize chemistry or dosing.
+            row.setdefault("raw_sha256", hashlib.sha256(path.read_bytes()).hexdigest())
+            invalid_identity = acquired_at is None
+            for previous_row in rows:
+                if row["raw_sha256"] == previous_row.get("raw_sha256"):
+                    invalid_identity = True
+                if acquired_at is not None and previous_row.get("acquired_at"):
+                    try:
+                        if acquired_at <= datetime.fromisoformat(previous_row["acquired_at"]):
+                            invalid_identity = True
+                    except (ValueError, TypeError):
+                        invalid_identity = True
+            if invalid_identity:
+                row["endpoint_eligible"] = False
+                row["diagnostic_notes"] = "; ".join(filter(None, (row.get("diagnostic_notes"),
+                    "Acquisition identity/timing invalid or repeated; excluded from chemical completion")))
         if row.get("phase_evidence_path"):
             row["phase_evidence_path"] = str(Path(row["phase_evidence_path"]).relative_to(self.paths.run_dir))
         if row.get("plot_file") and row.get("plot_title"):
@@ -601,10 +671,12 @@ class Services:
             self.record("analysis_result", workflow_phase=stage, cycle_number=cycle, result_classification="invalid", analysis_result=summary, error_message=row.get("qc_failure_reasons"))
             raise base.AnalysisInconclusiveError(f"Tracked resonance failed the configured checks: {row.get('qc_failure_reasons') or 'unknown reason'}")
         self.measurement_step = "plateau evaluation"
+        row.update(self.completion_clock_fields(stage))
         previous = stage_rows[-1].get("peak_area") if stage_rows else None
         row["growth_percent"] = base.growth_percent(previous, row["peak_area"], epsilon=float(self.raw["analysis"].get("area_epsilon", 1.e-12))) if row["peak_area"] is not None else None
         if stage_spec and stage_spec.completion:
             evidence = completion_evidence([*stage_rows, row], stage_spec.completion)
+            self.completion_status(row, stage_spec, evidence)
             row["plateau"] = evidence["complete"]
             row["trend"] = stage_spec.completion["trend"]
             row["normalized_area"] = row["peak_area"] / evidence["normalization_area"] if evidence.get("normalization_area") and row["peak_area"] is not None else ""
@@ -704,8 +776,9 @@ def sample_cycle(s: Services, *, stage: str, cycle: int, rows: list[dict], start
             failure = exc
             failed_step = s.measurement_step or "NMR measurement"
             step = "recovery precheck"
-            s.record("measurement_failed", workflow_phase=stage, cycle_number=cycle, failed_step=failed_step, error_type=type(exc).__name__, error_message=str(exc), counted_toward_plateau=False, result_classification="measurement_failed")
-            s.record("cycle_status", workflow_phase=stage, cycle_number=cycle, status="MEASUREMENT_FAILED", failed_step=failed_step)
+            deadline_skip = isinstance(exc, StageAcquisitionDeadlineReached)
+            s.record("measurement_skipped" if deadline_skip else "measurement_failed", workflow_phase=stage, cycle_number=cycle, failed_step=failed_step, error_type=type(exc).__name__, error_message=str(exc), counted_toward_plateau=False, result_classification="time_limit" if deadline_skip else "measurement_failed")
+            s.record("cycle_status", workflow_phase=stage, cycle_number=cycle, status="TIME_LIMIT_CLEANUP" if deadline_skip else "MEASUREMENT_FAILED", failed_step=failed_step)
             needle_status = s.verify_cleanup_preconditions(0 if sample_label == "HOME" else down, expected_retained if expected_retained is not None else values["initial_withdraw_ml"] + values["sample_withdraw_ml"])
             s.record("recovery_cleanup", workflow_phase=stage, cycle_number=cycle, result_classification="started", failed_step=failed_step, reason="measurement failed; pump idle and needle at DOWN verified", needle_status=needle_status)
         else:
@@ -728,10 +801,12 @@ def sample_cycle(s: Services, *, stage: str, cycle: int, rows: list[dict], start
         s.record("cycle_status", workflow_phase=stage, cycle_number=cycle, status="CLEANUP_COMPLETE", after_measurement_failure=failure is not None)
         if failure is not None:
             s.record("recovery_cleanup", workflow_phase=stage, cycle_number=cycle, result_classification="completed", failed_step=failed_step, estimated_retained_volume_ml=s.state.retained_volume_ml)
+            if isinstance(failure, StageAcquisitionDeadlineReached):
+                raise failure
             raise MeasurementFailedAfterCleanup(stage, cycle, failed_step, failure)
         s.record("cycle_completed", workflow_phase=stage, cycle_number=cycle, status="COMPLETE", completed_at=datetime.now(timezone.utc).isoformat(timespec="seconds"), result_classification="completed_after_cleanup", plateau=bool(row["plateau"]))
         return row
-    except MeasurementFailedAfterCleanup:
+    except (MeasurementFailedAfterCleanup, StageAcquisitionDeadlineReached):
         raise
     except BaseException as exc:
         # Stop first; journaling must never delay or prevent the stop.
@@ -969,7 +1044,12 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
     state = channel_states[pump_cfg.channel]
     lock = None
     controller = pump = None
+    position_ledger = None
     try:
+        # Shared software-HOME displacement record (scripts/chemyx_control.py).
+        # Owned before the dose reservation so an ownership conflict never
+        # consumes a physical experiment ID.
+        position_ledger = PositionLedger(state_root(mock), owner=f"{identity.label} {paths.run_dir.name}").acquire()
         guard = None
         if (two_stage and identity.kind == "si6") or soak:
             mock_ledger = run_root(raw, identity) / ".mock_dose_ledger" if paths.layout else paths.run_dir / "mock_dose_ledger"
@@ -1034,7 +1114,7 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
                     sleep=(lambda _label, _seconds: None) if mock else base.sleep_with_progress,
                     identity=identity,
                     channel_configs=channel_configs, channel_states=channel_states,
-                    dose_guard=guard,
+                    dose_guard=guard, position_ledger=position_ledger,
                 )
                 if mock and "simulation" in raw:
                     from .si6_simulation import TrendSimulation
@@ -1069,6 +1149,8 @@ def open_services(raw, arduino_cfg, pump_cfg, nmr_cfg, *, identity: RunIdentity,
             print(f"Operational summary unavailable ({type(exc).__name__}: {exc}); inspect operation_journal.jsonl.")
         if lock is not None:
             lock.release()
+        if position_ledger is not None:
+            position_ledger.release()
 
 
 def preflight(s: Services, *, check_nmr: bool = True) -> None:
@@ -1383,8 +1465,12 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
         def measurement(schedule: base.MeasurementSchedule) -> base.MeasurementObservation:
             nonlocal cycle
             cycle += 1
+            s.active_schedule = schedule
             s.record("measurement_scheduled", workflow_phase=stage.name, cycle_number=cycle, scheduled_time=schedule.scheduled_time, actual_start=schedule.actual_cycle_start, scheduling_delay_seconds=schedule.scheduling_delay_seconds)
-            row = sample_cycle(s, stage=stage.name, cycle=cycle, rows=rows, started=started)
+            try:
+                row = sample_cycle(s, stage=stage.name, cycle=cycle, rows=rows, started=started)
+            except StageAcquisitionDeadlineReached:
+                return base.MeasurementObservation(False, False, "", "", "")
             row.update(scheduled_measurement_number=schedule.scheduled_measurement_number,
                        stage_started_at=schedule.stage_started_at, scheduled_measurement_time=schedule.scheduled_time,
                        actual_cycle_start=schedule.actual_cycle_start, scheduling_delay_seconds=schedule.scheduling_delay_seconds,
@@ -1400,6 +1486,8 @@ def run_experiment(s: Services, *, mock_cycles_per_stage: int = 4, stage_decisio
                 s.last_acquisition_started_at.isoformat(timespec="seconds"),
                 s.last_acquisition_completed_at.isoformat(timespec="seconds"),
                 s.last_analysis_completed_at.isoformat(timespec="seconds"),
+                nmr_acquisition_started_monotonic=s.last_acquisition_started_monotonic,
+                completion_confirmations=row.get("completion_confirmations", 0),
             )
         extension = 0
         while True:

@@ -11,9 +11,11 @@ were run here.
 ## Configure and preflight without instruments
 
 Edit the real recipe: `workflow.experiment_id` uniquely identifies the physical
-reaction; each stage's `interval_minutes`, `max_hours`, and `completion` control
-sampling and endpoints. Current real defaults are Stage 1 120 min / 48 h and
-Stage 2 30 min / 4 h. Keep a unique physical ID; a dated suffix never permits a
+reaction; each stage's `interval_minutes`, `min_completion_hours`, `max_hours`, and
+`completion` control sampling and endpoints. Current real defaults are Stage 1
+120 min / minimum 40 h / maximum 48 h and Stage 2 30 min / minimum 2 h / maximum
+6 h. Four post-threshold observations are required; see
+[mandatory stage durations](SI6_MINIMUM_STAGE_DURATIONS.md). Keep a unique physical ID; a dated suffix never permits a
 repeat dose. See [configuration details](SI6_CONFIG_USER_GUIDE.md).
 
 The `solvent_monitor` section requires both solvent peaks and consistent shifts;
@@ -47,6 +49,12 @@ then one `y` establishes operator-confirmed HOME=0. No physical feedback is
 claimed. HOME=DOWN=0 is in the flask; UP=1 is out. See
 [HOME recovery](../arduino/docs/HOME_RECOVERY.md) and the
 [final real-run checklist](SI6_FINAL_REAL_RUN_CHECKLIST.md).
+
+The Chemyx syringes have their own software HOME (no native pump command):
+`scripts/chemyx_control.py set-home` saves each operator-confirmed plunger
+position without motion, the experiment's transfers update the same record,
+and `home` returns the syringes afterwards. See
+[Chemyx manual control](CHEMYX_MANUAL_CONTROL.md).
 
 The following are **instrument-laptop commands only**, after supervised physical
 setup and calibration:

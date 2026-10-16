@@ -207,8 +207,14 @@ def tracked_peak_area_observation(source: Path, processed: Path, row: dict, anal
         audit = json.loads(files[0].with_name(files[0].name.removesuffix("spectral_evidence.npz") + "processing_metadata.json").read_text(encoding="utf-8"))
         if audit["raw_sha256"] != hashlib.sha256(source.read_bytes()).hexdigest():
             raise ValueError("Retained spectral evidence does not match raw acquisition")
+        phase = audit["phase"]
+        if (phase.get("method") in {None, "none", "unphased"} or phase.get("success") is False
+                or not all(math.isfinite(float(phase[k])) for k in ("p0_deg", "p1_deg"))):
+            raise ValueError("Retained quantitative phase evidence is invalid or unsuccessful")
         with np.load(files[0], allow_pickle=False) as arrays:
             x, y = arrays["region_ppm"], arrays["regional_quantitative"]
+            if "phased" in arrays and not np.all(np.isfinite(arrays["phased"])):
+                raise ValueError("Retained phased spectrum is nonfinite")
         if len(x) != len(y) or len(x) < 2 or not np.all(np.isfinite(x)) or not np.all(np.isfinite(y)) or np.any(np.diff(x) <= 0):
             raise ValueError("Retained processed trace is corrupt or has no numerical area signal")
         selected, candidates = select_candidate(audit["peak_candidates"], cfg, float(row["target_ppm"]), previous_center, reference_center)
