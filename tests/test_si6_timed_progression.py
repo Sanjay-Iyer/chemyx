@@ -192,6 +192,7 @@ def test_uncertain_or_interrupted_transition_never_starts_stage2(tmp_path,fault)
 @pytest.mark.parametrize("code,marker,expected", [
     (1,True,base.AnalysisInconclusiveError), (1,False,base.ProcessingExecutionError),
     (2,True,base.ProcessingExecutionError), (1,None,base.ProcessingExecutionError),
+    (1,"corrupt",base.ProcessingExecutionError),
 ])
 def test_subprocess_failure_requires_typed_scientific_evidence(tmp_path,code,marker,expected):
     from types import SimpleNamespace
@@ -203,8 +204,8 @@ def test_subprocess_failure_requires_typed_scientific_evidence(tmp_path,code,mar
         if marker is not None:
             failure = output/"processing_failures/source_failure.json"
             failure.parent.mkdir(parents=True)
-            failure.write_text(json.dumps(dict(source_path=str(source),error="TEST numerical failure",
-                                               recoverable_scientific_error=marker)))
+            failure.write_text("{partial" if marker == "corrupt" else json.dumps(dict(
+                source_path=str(source),error="TEST numerical failure",recoverable_scientific_error=marker)))
         return SimpleNamespace(returncode=code)
     with pytest.raises(expected) as caught:
         base.run_process_fid_postprocessing(source,paths,"TEST",runner=runner)
@@ -282,3 +283,22 @@ def test_analysis_recovery_journal_records_completed_physical_cycles(tmp_path):
     assert not replay.errors
     assert replay.state.completed_cycle_count == 2
     assert replay.state.physical_state_certainty == "certain"
+    events = [json.loads(s) for s in Path(result["journal"]).read_text().splitlines()]
+    assert sum(e["event_type"] == "stage_completion_evidence" for e in events) == 2
+
+
+def test_unavailable_last_result_clears_stale_advisory_metadata(tmp_path):
+    raw = recipe()
+    raw["workflow"]["initial_stage"].update(max_hours=1,interval_minutes=10)
+    raw["workflow"]["first_addition_stage"].update(min_completion_hours=.01,max_hours=.2)
+    result = run_mock(tmp_path/"stale","STALE_ADVISORY",[100]+[1]*10,[1],
+                      fault="last_analysis",workflow_recipe=raw)
+    assert result["status"] == "completed" and result["dose_count"] == 1
+    root = Path(result["run_dir"])
+    info = json.loads((root/"metadata/experiment_info.json").read_text())
+    assert info["chemical_evidence_by_stage"]["stage_1"] is False
+    rows = json.loads((root/"final_qc/qc_summary.json").read_text())["observations"]
+    stage1 = [r for r in rows if r["stage"] == "stage_1"]
+    assert len(stage1) == 6
+    assert stage1[-2]["plateau"]
+    assert not stage1[-1]["plateau"] and stage1[-1]["peak_area"] is None

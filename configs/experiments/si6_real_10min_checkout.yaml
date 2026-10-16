@@ -1,0 +1,34 @@
+# Separate physical checkout. Fill every null and choose a fresh CHECKOUT ID.
+# No test dose or syringe geometry is invented here. The base recipe is READ ONLY.
+checkout:
+  enabled: true
+  purpose: physical_instrument_checkout
+  base_recipe: si6_real_two_stage.yaml
+  test_fluid: null  # Operator: actual approved test fluid (not production reagent).
+  routing: null     # Operator: verified test reservoir/flask/waste fluid path.
+workflow:
+  experiment_id: SET_CHECKOUT_UNIQUE_ID  # e.g. a fresh SI6_CHECKOUT_<date>_<ID>
+  initial_stage:
+    control_mode: fixed_duration
+    advance_at_duration: true
+    max_hours: 0.08333333333333333  # 5 minutes; finish an active cycle safely.
+    interval_minutes: 1            # 60 seconds requested; cycles never overlap.
+    after_monitoring:
+    - action: needle
+      position: HOME
+    - action: infuse
+      channel: 2
+      volume_ml: null              # Operator-approved test volume, not 1.8 mL by default.
+      rate_ml_min: null            # Operator-approved test rate.
+      needle_position: HOME
+    - action: needle
+      position: UP
+  first_addition_stage:
+    control_mode: fixed_duration
+    advance_at_duration: false
+    max_hours: 0.08333333333333333
+    interval_minutes: 1
+pump:
+  channels:
+    '2':
+      initial_retained_volume_ml: null  # Actual test-fluid volume loaded in Channel 2.

@@ -102,8 +102,10 @@ pump:
       rate_ml_min: 5.0
       default_volume_ml: 5.0
     '2':
-      syringe_diameter_mm: 12.06
-      syringe_capacity_ml: 5.0
+      # Same 20 mL syringe as Channel 1 (operator setting 2026-10-16; was
+      # 12.06 mm / 5 mL). Diameter sets the delivered dose: VERIFY physically.
+      syringe_diameter_mm: 20.0
+      syringe_capacity_ml: 20.0
       initial_retained_volume_ml: 2.0
       syringe_safety_margin_ml: 0.2
       units: mL/min

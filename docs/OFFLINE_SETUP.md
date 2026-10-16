@@ -244,7 +244,7 @@ section 8.
 
 4. **Pump.** This infuses for 10 s, then withdraws for 10 s. Put the tubing in a
    safe container first. Pass the real inner diameter of the syringe on the
-   pump; the script's default of 4.5 mm is wrong for this rig. It asks you to
+   pump (the default is now 20.0 mm, the rig's 20 mL syringes). It asks you to
    type `yes` before moving.
 
    ```powershell

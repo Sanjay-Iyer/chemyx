@@ -76,6 +76,8 @@ def test_legacy_cycle_and_entire_experiment_on_selected_channel(tmp_path, channe
 def test_sequence_1_2_1_independent_settings_volumes_and_replay(tmp_path):
     raw = recipe()
     raw["pump"]["channels"]["1"]["initial_retained_volume_ml"] = 1
+    # Distinct from Channel 1's 20 mm so a cross-channel settings mix-up is caught.
+    raw["pump"]["channels"]["2"]["syringe_diameter_mm"] = 4.7
     with rig(tmp_path, raw) as s:
         integrated.home_and_raise(s)
         s.pump_move("withdraw", 1, "UP", stage="sequence", cycle=1)

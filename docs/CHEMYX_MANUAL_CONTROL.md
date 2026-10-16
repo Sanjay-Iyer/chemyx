@@ -235,6 +235,29 @@ Channel 2 also respects the experiment's reagent dose records
 
 `set-home` never changes or clears a dose record, and no manual command does.
 
+## First supervised physical test
+
+`configs/chemyx/first_motion_test.yaml` moves only 0.1 mL at 0.5 mL/min per
+command, with HOME = plunger fully depressed on both channels. Route both lines
+into a waste vial, and confirm by eye that both syringes are 20 mL syringes
+with 20 mm inner diameter.
+
+```powershell
+python -m serial.tools.list_ports -v
+python scripts/chemyx_control.py verify --channel both --live --config configs/chemyx/first_motion_test.yaml
+python scripts/chemyx_control.py set-home --channel both --live --config configs/chemyx/first_motion_test.yaml
+python scripts/chemyx_control.py withdraw --channel 1 --live --config configs/chemyx/first_motion_test.yaml
+python scripts/chemyx_control.py home --channel 1 --live --config configs/chemyx/first_motion_test.yaml
+python scripts/chemyx_control.py withdraw --channel 2 --live --config configs/chemyx/first_motion_test.yaml
+python scripts/chemyx_control.py home --channel 2 --live --allow-channel2-infusion --config configs/chemyx/first_motion_test.yaml
+python scripts/chemyx_control.py status --channel both --config configs/chemyx/first_motion_test.yaml
+```
+
+Each withdraw should visibly draw about 0.1 mL in, and each HOME should push
+it back out. Afterwards `status` must show both channels `KNOWN, 0 mL from HOME`.
+The Channel 2 return is an infusion, so it is refused while any
+`runtime/si6_doses` record is RESERVED or uncertain; `status` lists them.
+
 ## Limits and required instrument-side verification
 
 Mock tests prove the bookkeeping, not the hardware. On the rig, before relying

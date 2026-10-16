@@ -50,6 +50,18 @@ def main(argv=None) -> int:
         stable_intervals = confirmations or raw["analysis"].get("plateau_consecutive_intervals", 3)
         print(f"Tracked resonance: {nmr.target_ppm:g} +/- {window:g} ppm search; stable intervals required: {stable_intervals}; repeat rounds: {raw['workflow']['repeat_addition_rounds']}")
         print(f"Cycle values: {si6.cycle_values(raw)}")
+        if "checkout" in raw:
+            from chemyx_lab.workflows.si6_checkout import cycle_lower_bound_seconds
+            print("CHECKOUT MODE: physical instrument checkout; not production chemistry")
+            print(f"Test fluid: {raw['checkout']['test_fluid']}\nOperator-verified routing: {raw['checkout']['routing']}")
+            for ch, settings in si6.pump_channels.channel_definitions(raw).items():
+                print(f"Channel {ch} syringe: {settings['syringe_diameter_mm']} mm / {settings['syringe_capacity_ml']} mL; loaded {settings['initial_retained_volume_ml']} mL")
+            for event in raw['workflow']['cycle']:
+                if event['action'] in {'withdraw', 'infuse'}:
+                    print(f"Channel 1 {event['action']}: {event['volume_ml']} mL at {event['rate_ml_min']} mL/min")
+            dose = next(e for e in stages[0].after_monitoring if e['action'] == 'infuse')
+            print(f"ONE protected Channel 2 test infusion: {dose['volume_ml']} mL at {dose['rate_ml_min']} mL/min, needle HOME; then UP and Stage 2")
+            print(f"Cycle lower bound: {cycle_lower_bound_seconds(raw):g} seconds PLUS NMR, processing and needle motion. Active cycles finish safely; stages and total checkout can exceed 5/10 minutes. No overlapping cycles.")
         if not (args.mock or args.live):
             print("Configuration valid. No hardware opened; choose --mock or --live.")
             return 0

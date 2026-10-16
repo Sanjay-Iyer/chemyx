@@ -539,7 +539,11 @@ class Services:
                         reason="Scientific analysis unavailable; observation excluded",
                         criteria=dict(spec.completion), error=str(failure))
         self.completion_status(row, spec, endpoint)
-        write_json_atomic(self.paths.evidence_dir(stage, "evidence") / f"{cycle:04d}.json", endpoint)
+        evidence_path = self.paths.evidence_dir(stage, "evidence") / f"{cycle:04d}.json"
+        write_json_atomic(evidence_path, endpoint)
+        row["completion_evidence_path"] = str(evidence_path.relative_to(self.paths.run_dir))
+        self.record("stage_completion_evidence", workflow_phase=stage, cycle_number=cycle,
+                    evidence=endpoint, result_path=row["completion_evidence_path"])
         rows.append(row)
         self.persist_rows(rows)
         self.record("analysis_unavailable", workflow_phase=stage, cycle_number=cycle,
@@ -655,7 +659,7 @@ class Services:
             except (NmrProcessingError, ValueError) as exc:
                 sample_evidence = {"present": False, "reason": f"Retrieved NMR data supplies no usable spectrum: {exc}",
                                    "raw_sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "windows": []}
-        if sample_evidence is not None and not sample_evidence["present"]:
+        if sample_evidence is not None and not sample_evidence["present"] and "checkout" not in self.raw:
             return self.untrusted_sample(path, stage, cycle, rows, sample_evidence)
         self.last_sample_evidence = sample_evidence
         self.measurement_step = "NMR processing"
@@ -1025,6 +1029,11 @@ def unresolved_previous_live_run(raw: dict[str, Any]) -> Any | None:
 
 def prepare(workflow_path: Path, machine_path: Path, arduino_path: Path, *, mock: bool, require_needle_live: bool = True, allow_soak: bool = False):
     raw = base.load_si6_config(workflow_path, allow_soak=allow_soak)
+    if mock and "checkout" in raw and "simulation" not in raw:
+        # Reuse the existing virtual-clock fixture only for explicitly mock runs.
+        raw["simulation"] = config.read_mapping_config(
+            config.REPO_ROOT / "config_templates/experiments/si6_two_stage_fast_sim.yaml",
+            "existing mock recipe")["simulation"]
     from ..analysis.phase_methods import preflight
     preflight(raw["nmr"])
     if "three_instrument" not in raw:

@@ -156,7 +156,7 @@ def run_mock(output, name, values1, values2, *, timing=None, missing=None, fault
     output=Path(output).resolve();output.mkdir(parents=True,exist_ok=False)
     raw=deepcopy(workflow_recipe) if workflow_recipe is not None else recipe()
     raw["output"]["run_root_dir"]=str(output/"experiments")
-    raw["workflow"]["experiment_id"]=f"TEST_{name}"
+    raw["workflow"]["experiment_id"]=(f"SI6_CHECKOUT_TEST_{name}" if "checkout" in raw else f"TEST_{name}")
     fixture=output/"observations.json"
     write_json(fixture,{"simulation_only":True,"stages":{
         "stage_1":list(values1)+[values1[-1]]*100,"stage_2":list(values2)+[values2[-1]]*100}})
@@ -230,6 +230,13 @@ def run_mock(output, name, values1, values2, *, timing=None, missing=None, fault
                 stack.enter_context(patch.object(si6,"solvent_presence",presence))
             if fault=="analysis":s.process=lambda *a: (_ for _ in ()).throw(base.AnalysisInconclusiveError("TEST recoverable processing failure"))
             if fault=="acme":s.process=lambda *a: (_ for _ in ()).throw(si6.NmrProcessingError("TEST ACME numerical failure"))
+            if fault == "last_analysis":
+                original_process = s.process
+                def last_analysis(source, *a, **k):
+                    if source.stem.startswith("stage_1_") and sim.indices["stage_1"] == 6:
+                        raise base.AnalysisInconclusiveError("TEST final Stage 1 analysis unavailable")
+                    return original_process(source, *a, **k)
+                s.process = last_analysis
             if fault == "completion":
                 def failed_completion(*a, **k):
                     raise ValueError("TEST invalid numerical completion evidence")

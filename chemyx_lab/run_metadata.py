@@ -53,6 +53,8 @@ def begin_run(paths, raw, identity, repository_root, config_sources=None, *, sof
                        timezone_offset=layout.started_at_local.strftime("%z"), stage_names=list(layout.stage_names),
                        stage_directories={name: str(layout.step(name).relative_to(layout.root)) for name in layout.stage_names},
                        chemical_completion_verified=False, timed_fallback_occurred=False)
+        if "checkout" in raw:
+            payload["checkout"] = dict(raw["checkout"])
         (layout.metadata / "configuration_snapshot.yaml").write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
         write_json_atomic(layout.metadata / "software_version.json", {k: payload[k] for k in ("git_commit", "source_files_sha256", "python_version", "package_versions")})
     payload["effective_nmr_processing"] = phase_settings(raw["nmr"])
@@ -114,6 +116,9 @@ def finish_run(paths):
     latest.update(status=payload["status"], ended_at_utc=payload["ended_at_utc"], terminal_classification=payload["terminal_classification"],
                   dose_confirmed=payload["dose_confirmed"], timed_fallback_stages=payload["timed_fallback_stages"])
     write_json_atomic(status_file, latest)
+    if payload.get("checkout"):
+        from .workflows.si6_checkout import write_checkout_report
+        write_checkout_report(paths, payload, events)
 
 
 def publish_observation(paths, experiment_id, stage, schedule, row):

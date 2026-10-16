@@ -11,7 +11,7 @@ def test_load_pump_config_defaults_without_local_json():
     assert settings.baud_rate == 115200
     assert settings.channel == 0
     assert settings.units == 0
-    assert settings.diameter == 4.5
+    assert settings.diameter == 20.0
     assert settings.rate == 1.0
     assert settings.volume == 0.5
 

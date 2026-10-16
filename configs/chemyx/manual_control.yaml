@@ -16,8 +16,9 @@
 # are recorded against a different pump and HOME tracking becomes UNKNOWN.
 machine_config: configs/machines/si6_real_COM4.yaml
 
-# Syringe diameter/capacity left as null below are read from this experiment
-# recipe, so manual moves and the automated run always use the same geometry.
+# Syringe diameter/capacity set to null below are read from this experiment
+# recipe. Explicit values must match it, otherwise the experiment's moves make
+# that channel's HOME tracking UNKNOWN (verify warns about any difference).
 syringe_config: configs/experiments/si6_real_two_stage.yaml
 
 # Experiment reagent-dose reservations. Read only; Channel 2 motion respects them.
@@ -28,11 +29,12 @@ channels:
   1:
     name: sampling
     syringe:
-      # Syringe inner diameter in mm. null = use syringe_config
-      # (pump.channels.1.syringe_diameter_mm, currently 20.0; VERIFY physically).
-      diameter_mm: null
-      # Usable syringe capacity in mL. null = use syringe_config.
-      capacity_ml: null
+      # Syringe inner diameter in mm (null = use syringe_config). 20.0 mm is
+      # what the real rig ran with on 2026-08-10 (03_081626_phsi4.yaml) and
+      # matches si6_real_two_stage.yaml. VERIFY against the installed syringe.
+      diameter_mm: 20.0
+      # Usable syringe capacity in mL (null = use syringe_config).
+      capacity_ml: 20.0
     home:
       # false disables set-home and home for this channel.
       enabled: true
@@ -43,17 +45,18 @@ channels:
       # manual infuse/withdraw for this channel (HOME return still works).
       syringe_volume_at_home_ml: 0.0
     manual_transfer:
-      # EXAMPLE values, not verified operating values. Volume per manual
-      # infuse/withdraw command (mL) and the rate for every manual move,
-      # including HOME return (mL/min).
-      volume_ml: 0.5
-      rate_ml_min: 1.0
+      # Default volume per manual infuse/withdraw command (mL) and the rate for
+      # every manual move on this channel, including HOME return (mL/min).
+      volume_ml: 5.0
+      rate_ml_min: 10.0
 
   2:
     name: reagent_dosing
     syringe:
-      diameter_mm: null   # null = syringe_config (currently 12.06 mm; VERIFY)
-      capacity_ml: null   # null = syringe_config (currently 5.0 mL; VERIFY)
+      # Same 20 mL syringe as Channel 1 (operator setting, 2026-10-16), matching
+      # si6_real_two_stage.yaml. VERIFY against the installed syringe.
+      diameter_mm: 20.0
+      capacity_ml: 20.0
     home:
       enabled: true
       reference_description: "Operator-defined starting position"
@@ -61,6 +64,7 @@ channels:
       # Channel 2 infuse/withdraw. Left null deliberately: not yet verified.
       syringe_volume_at_home_ml: null
     manual_transfer:
-      # EXAMPLE values, not verified operating values.
-      volume_ml: 0.1
-      rate_ml_min: 0.5
+      # Default volume per command (mL) and rate, including HOME return (mL/min).
+      # A move is refused if it would leave the syringe below empty or above capacity.
+      volume_ml: 5.0
+      rate_ml_min: 10.0

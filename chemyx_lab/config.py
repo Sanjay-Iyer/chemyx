@@ -56,7 +56,8 @@ BAUD_RATE = _env("CHEMYX_BAUD", 115200, int)
 CHANNEL = _env("CHEMYX_CHANNEL", 0, int)
 
 # Syringe/flow defaults are safe-ish demo values. Override per rig.
-DIAMETER = _env("CHEMYX_DIAMETER", 4.5, float)
+# 20.0 mm: the rig's 20 mL syringes on both channels (used when no recipe sets one).
+DIAMETER = _env("CHEMYX_DIAMETER", 20.0, float)
 DEFAULT_RATE = _env("CHEMYX_RATE", 1.0, float)
 DEFAULT_VOLUME = _env("CHEMYX_VOLUME", 0.5, float)
 FIRST_LIGHT_VOLUME = _env("CHEMYX_FIRST_LIGHT_VOLUME", 0.05, float)

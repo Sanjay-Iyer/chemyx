@@ -44,8 +44,12 @@ def validate_profile(raw, stages):
     if len(stages) != 2 or not all(s.completion and s.plateau_stopping_enabled for s in stages):
         raise ValueError("Two-stage completion profile requires exactly two automatic completion stages")
     if any(s.control_mode != "nmr" for s in stages):
+        checkout = "checkout" in raw
+        if checkout:
+            from .si6_checkout import validate_checkout
+            validate_checkout(raw)
         if not (stages[0].control_mode == "fixed_duration" and stages[0].advance_at_duration
-                and stages[1].control_mode == "minimum_then_nmr" and not stages[1].advance_at_duration):
+                and stages[1].control_mode == ("fixed_duration" if checkout else "minimum_then_nmr") and not stages[1].advance_at_duration):
             raise ValueError("Time-driven profile requires fixed_duration with explicit advance_at_duration, then minimum_then_nmr")
     if [s.completion["trend"] for s in stages] != ["decreasing", "increasing"]:
         raise ValueError("Two-stage profile requires decreasing then increasing trends")

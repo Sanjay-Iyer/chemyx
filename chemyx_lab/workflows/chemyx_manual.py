@@ -538,8 +538,9 @@ def cmd_set_home(args, settings: ManualSettings, channels: list[int], input_fn) 
             if open_doses:
                 print("NOTE: set-home does not change reagent dose records; these still protect Channel 2: "
                       + ", ".join(f"{r['experiment_id']} ({r['status']})" for r in open_doses))
-        prompt = ("Each plunger listed above is physically at its HOME position and stopped. "
-                  "Save that position as HOME = 0 mL? This does not move the pump. [y/N]: ")
+        prompt = ("Each syringe listed above is installed with the stated diameter and capacity, and its "
+                  "plunger is physically at its HOME position and stopped. Save that position as "
+                  "HOME = 0 mL? This does not move the pump. [y/N]: ")
         if not confirm(prompt, mock=mock, input_fn=input_fn):
             print("SET-HOME cancelled. No reference was changed.")
             return 1

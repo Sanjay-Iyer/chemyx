@@ -311,9 +311,12 @@ class CapacityRequirement:
 
 def load_si6_config(path: Path, *, allow_soak: bool = False) -> dict[str, Any]:
     raw = config.read_mapping_config(path, "Si6 experiment config")
+    if "checkout" in raw:
+        from .si6_checkout import resolve_checkout
+        raw = resolve_checkout(raw, path)
     required = {"workflow", "pump", "nmr", "analysis", "output"}
     missing = sorted(required - set(raw))
-    unknown = sorted(set(raw) - required - {"three_instrument", "simulation", "qc_reporting", "solvent_monitor"} - ({"soak_test"} if allow_soak else set()))
+    unknown = sorted(set(raw) - required - {"three_instrument", "simulation", "qc_reporting", "solvent_monitor", "checkout"} - ({"soak_test"} if allow_soak else set()))
     if missing:
         raise ValueError(f"Missing Si6 config section(s): {', '.join(missing)}")
     if "solvent_monitor" in raw:
@@ -947,7 +950,10 @@ def run_process_fid_postprocessing(
         # Only its explicit per-acquisition typed failure may be recoverable.
         failures = list((output_dir / "processing_failures").glob("*_failure.json"))
         if completed.returncode == 1 and len(failures) == 1:
-            evidence = json.loads(failures[0].read_text(encoding="utf-8"))
+            try:
+                evidence = json.loads(failures[0].read_text(encoding="utf-8"))
+            except ValueError as exc:
+                raise ProcessingExecutionError(message + "; unreadable processor failure record") from exc
             if (evidence.get("source_path") == str(dx_path)
                     and evidence.get("recoverable_scientific_error") is True):
                 raise AnalysisInconclusiveError(message + ": " + evidence["error"])

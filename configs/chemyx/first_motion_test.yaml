@@ -1,0 +1,42 @@
+# FIRST SUPERVISED PHYSICAL TEST of the Chemyx Fusion 4000 (both channels).
+# Small 0.1 mL moves at 0.5 mL/min instead of the 5 mL / 10 mL/min defaults in
+# manual_control.yaml. Use with: --config configs/chemyx/first_motion_test.yaml
+# Guide: docs/CHEMYX_MANUAL_CONTROL.md ("First supervised physical test").
+#
+# HOME for this test is the plunger fully depressed on BOTH channels, so each
+# channel withdraws first and HOME returns it by infusing the same volume.
+# Channel 1's HOME definition matches manual_control.yaml. Channel 2's does not,
+# so run set-home for Channel 2 again before using manual_control.yaml.
+
+# COM port: COM4. If the pump enumerates as COM6, change this line to
+# configs/machines/si6_real_COM6.yaml (and use the same file for the experiment).
+machine_config: configs/machines/si6_real_COM4.yaml
+syringe_config: configs/experiments/si6_real_two_stage.yaml
+dose_ledger_dir: runtime/si6_doses
+
+channels:
+  1:
+    name: sampling
+    syringe:
+      diameter_mm: 20.0   # 20 mL syringe; confirm physically before set-home
+      capacity_ml: 20.0
+    home:
+      enabled: true
+      reference_description: "Plunger fully depressed"
+      syringe_volume_at_home_ml: 0.0
+    manual_transfer:
+      volume_ml: 0.1
+      rate_ml_min: 0.5
+
+  2:
+    name: reagent_dosing
+    syringe:
+      diameter_mm: 20.0   # 20 mL syringe; confirm physically before set-home
+      capacity_ml: 20.0
+    home:
+      enabled: true
+      reference_description: "Plunger fully depressed"
+      syringe_volume_at_home_ml: 0.0
+    manual_transfer:
+      volume_ml: 0.1
+      rate_ml_min: 0.5
