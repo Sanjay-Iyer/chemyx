@@ -1,5 +1,7 @@
 # Chemyx manual control and software HOME
 
+Copy-paste commands and file locations: [CHEMYX_QUICK_REFERENCE.md](CHEMYX_QUICK_REFERENCE.md).
+
 `scripts/chemyx_control.py` is the standalone controller for the Chemyx Fusion
 4000 (Channel 1 = sampling, Channel 2 = reagent dosing). It works like the
 Arduino `needle_control.py` HOME: a software reference that the operator

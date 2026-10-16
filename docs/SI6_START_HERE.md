@@ -1,6 +1,8 @@
 # Si6 current operating entry point
 
 This is the authoritative index for the current three-instrument experiment.
+For copy-and-paste production/short-checkout commands and offline file locations,
+open [the three-instrument quick command guide](SI6_THREE_INSTRUMENT_QUICK_COMMANDS.md).
 Main runner: `scripts/02_si6_experiment.py`. Real recipe:
 `configs/experiments/si6_real_two_stage.yaml`. Use reviewed
 `configs/machines/si6_real_COM4.yaml` or `si6_real_COM6.yaml` and
