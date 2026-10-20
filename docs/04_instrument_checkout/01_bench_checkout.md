@@ -8,7 +8,13 @@ For shorter variable-based commands and their one-time definitions, see
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 python scripts\03_simple_instrument_checkout.py --validate-config
+```
+
+```powershell
 python scripts\03_simple_instrument_checkout.py --live
 ```
 
@@ -22,6 +28,9 @@ For Chemyx on COM6, use the existing alternate machine file:
 
 ```powershell
 python scripts\03_simple_instrument_checkout.py --validate-config --machine-config C:\code\chemyx_pump\configs\machines\si6_real_COM6.yaml
+```
+
+```powershell
 python scripts\03_simple_instrument_checkout.py --live --machine-config C:\code\chemyx_pump\configs\machines\si6_real_COM6.yaml
 ```
 
@@ -151,6 +160,9 @@ maximum 6 h, 30-minute interval and existing four-point completion rule.
 
 ```powershell
 python scripts\02_si6_experiment.py --validate-config --workflow-config C:\code\chemyx_pump\configs\experiments\si6_real_two_stage.yaml --machine-config C:\code\chemyx_pump\configs\machines\si6_real_COM4.yaml --arduino-config C:\code\chemyx_pump\arduino\configs\arduino_real_COM3.yaml
+```
+
+```powershell
 python scripts\02_si6_experiment.py --live --workflow-config C:\code\chemyx_pump\configs\experiments\si6_real_two_stage.yaml --machine-config C:\code\chemyx_pump\configs\machines\si6_real_COM4.yaml --arduino-config C:\code\chemyx_pump\arduino\configs\arduino_real_COM3.yaml
 ```
 

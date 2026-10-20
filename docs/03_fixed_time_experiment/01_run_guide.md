@@ -2,23 +2,40 @@
 
 # SI6 fixed-time acquisition: WORK operating guide
 
-## 1 — Open PowerShell and set configuration variables
+## 1 — Open PowerShell
 
-Run from the repository root. Set these shortcuts in **each new terminal**:
+Run from the repository root. In **each new terminal** run these, one block at a time:
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+Use the repository's .venv Python in this terminal (skip if `python` already works):
+
+```powershell
 $env:Path = "$PWD\.venv\Scripts;" + $env:Path
-$Si6Needle = "arduino\configs\arduino_real_COM3.yaml"
-$Si6Machine = "configs\machines\si6_real_COM4.yaml"
-$Si6Fixed = "configs\experiments\si6_fixed_48h_6h.yaml"
-$Si6Manual = "configs\chemyx\manual_control.yaml"
-$Si6Checkout = "configs\checkouts\si6_simple_instrument_check.yaml"
+```
+
+Check which Python is used:
+
+```powershell
 python -c "import sys; print(sys.executable)"
 ```
 
-For the alternate pump port set `$Si6Machine = "configs\machines\si6_real_COM6.yaml"`.
-The commands below pass this to both pump tools and experiment. Arduino stays COM3;
+Every command below writes its configuration paths in full, so any block can be
+copied on its own:
+
+| Purpose | File |
+|---|---|
+| Arduino needle | `arduino\configs\arduino_real_COM3.yaml` |
+| Chemyx machine (pump port COM4) | `configs\machines\si6_real_COM4.yaml` |
+| Fixed-time experiment | `configs\experiments\si6_fixed_48h_6h.yaml` |
+| Manual Chemyx | `configs\chemyx\manual_control.yaml` |
+| Bench checkout | `configs\checkouts\si6_simple_instrument_check.yaml` |
+
+For the alternate pump port use `configs\machines\si6_real_COM6.yaml` in place of
+`configs\machines\si6_real_COM4.yaml`. The commands below pass the machine file to
+both pump tools and the experiment. Arduino stays COM3;
 NMR uses the existing Ethernet settings. Standalone manual HOME records belong
 to their COM port. The fixed-time runner preserves the original pump HOME
 definitions and logs your manual return to their existing HOME loading.
@@ -29,15 +46,52 @@ Use an existing verified Python if it is installed somewhere other than `.venv`.
 
 ## 2 — Manual Arduino
 
+Status (contacts the Arduino, no movement):
+
 ```powershell
-python arduino\scripts\needle_control.py status --live --config $Si6Needle
-python arduino\scripts\needle_control.py up --live --config $Si6Needle
-python arduino\scripts\needle_control.py down --live --config $Si6Needle
-python arduino\scripts\needle_control.py up --steps 50 --live --config $Si6Needle
-python arduino\scripts\needle_control.py down --steps 50 --live --config $Si6Needle
-python arduino\scripts\needle_control.py set-home --live --config $Si6Needle
-python arduino\scripts\needle_control.py home --live --config $Si6Needle
-python arduino\scripts\needle_control.py stop --live --config $Si6Needle
+python arduino\scripts\needle_control.py status --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+UP one increment (moves at once):
+
+```powershell
+python arduino\scripts\needle_control.py up --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+DOWN one increment (moves at once):
+
+```powershell
+python arduino\scripts\needle_control.py down --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+UP 50 motor steps:
+
+```powershell
+python arduino\scripts\needle_control.py up --steps 50 --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+DOWN 50 motor steps:
+
+```powershell
+python arduino\scripts\needle_control.py down --steps 50 --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+Set HOME at the current stopped position (no movement):
+
+```powershell
+python arduino\scripts\needle_control.py set-home --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+Return to HOME:
+
+```powershell
+python arduino\scripts\needle_control.py home --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+STOP:
+
+```powershell
+python arduino\scripts\needle_control.py stop --live --config arduino\configs\arduino_real_COM3.yaml
 ```
 
 Run individual commands as needed. `up` and `down` move at once, with no
@@ -69,31 +123,83 @@ STOP remains available without a valid position record.
 ## 3 — Manual Chemyx
 
 Both manual defaults are **1.0 mL at 10.0 mL/min**, 20.0 mm diameter / 20.0 mL
-capacity. Adjust each `channels.<n>.manual_transfer` in `$Si6Manual` in one file,
+capacity. Adjust each `channels.<n>.manual_transfer` in `configs\chemyx\manual_control.yaml` in one file,
 or give one command its own volume and rate with `--volume <mL>` (infuse and
 withdraw) and `--rate <mL/min>` (infuse, withdraw and home), for example
 `withdraw --channel 1 --volume 2.5 --rate 5 --live ...`. These do not change the
 YAML or the fixed-time recipe's sampling or dose settings.
 
 Syringe diameter and capacity are set in two files that must agree:
-`channels.<n>.syringe.diameter_mm` / `capacity_ml` in `$Si6Manual`, and
-`pump.channels.'<n>'.syringe_diameter_mm` / `syringe_capacity_ml` in `$Si6Fixed`.
+`channels.<n>.syringe.diameter_mm` / `capacity_ml` in `configs\chemyx\manual_control.yaml`, and
+`pump.channels.'<n>'.syringe_diameter_mm` / `syringe_capacity_ml` in `configs\experiments\si6_fixed_48h_6h.yaml`.
 The experiment refuses to load if they differ. After a change, run `set-home`
 for the affected channel; manual moves and the experiment refuse a HOME saved
 with the old syringe settings.
 
+Channel 1 status (saved record, no pump contact):
+
 ```powershell
-python scripts\chemyx_control.py status --channel 1 --config $Si6Manual --machine-config $Si6Machine
-python scripts\chemyx_control.py status --channel 2 --config $Si6Manual --machine-config $Si6Machine
-python scripts\chemyx_control.py withdraw --channel 1 --live --config $Si6Manual --machine-config $Si6Machine
-python scripts\chemyx_control.py infuse --channel 1 --live --config $Si6Manual --machine-config $Si6Machine
-python scripts\chemyx_control.py withdraw --channel 2 --live --config $Si6Manual --machine-config $Si6Machine
-python scripts\chemyx_control.py infuse --channel 2 --live --allow-channel2-infusion --config $Si6Manual --machine-config $Si6Machine
-python scripts\chemyx_control.py set-home --channel 1 --live --config $Si6Manual --machine-config $Si6Machine
-python scripts\chemyx_control.py set-home --channel 2 --live --config $Si6Manual --machine-config $Si6Machine
-python scripts\chemyx_control.py home --channel 1 --live --config $Si6Manual --machine-config $Si6Machine
-python scripts\chemyx_control.py home --channel 2 --live --config $Si6Manual --machine-config $Si6Machine
-python scripts\chemyx_control.py stop --channel both --live --config $Si6Manual --machine-config $Si6Machine
+python scripts\chemyx_control.py status --channel 1 --config configs\chemyx\manual_control.yaml --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+Channel 2 status (saved record, no pump contact):
+
+```powershell
+python scripts\chemyx_control.py status --channel 2 --config configs\chemyx\manual_control.yaml --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+Channel 1 withdraw:
+
+```powershell
+python scripts\chemyx_control.py withdraw --channel 1 --live --config configs\chemyx\manual_control.yaml --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+Channel 1 infuse:
+
+```powershell
+python scripts\chemyx_control.py infuse --channel 1 --live --config configs\chemyx\manual_control.yaml --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+Channel 2 withdraw (inlet in the refill source):
+
+```powershell
+python scripts\chemyx_control.py withdraw --channel 2 --live --config configs\chemyx\manual_control.yaml --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+Channel 2 infuse (line routed to waste):
+
+```powershell
+python scripts\chemyx_control.py infuse --channel 2 --live --allow-channel2-infusion --config configs\chemyx\manual_control.yaml --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+Channel 1 set HOME (no motion):
+
+```powershell
+python scripts\chemyx_control.py set-home --channel 1 --live --config configs\chemyx\manual_control.yaml --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+Channel 2 set HOME (no motion):
+
+```powershell
+python scripts\chemyx_control.py set-home --channel 2 --live --config configs\chemyx\manual_control.yaml --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+Channel 1 return to HOME:
+
+```powershell
+python scripts\chemyx_control.py home --channel 1 --live --config configs\chemyx\manual_control.yaml --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+Channel 2 return to HOME:
+
+```powershell
+python scripts\chemyx_control.py home --channel 2 --live --config configs\chemyx\manual_control.yaml --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+STOP both channels:
+
+```powershell
+python scripts\chemyx_control.py stop --channel both --live --config configs\chemyx\manual_control.yaml --machine-config configs\machines\si6_real_COM4.yaml
 ```
 
 Select the command needed. Channel 2 manual infusion, including an infusion HOME
@@ -114,9 +220,16 @@ known starting references. The existing checkout independently tests needle,
 both pump channels and a **two-scan NMR** acquisition; no liquid is pumped into
 the NMR during this bench check. Its existing purpose and processing are unchanged.
 
+Validate the checkout configuration (no hardware):
+
 ```powershell
-python scripts\03_simple_instrument_checkout.py --validate-config --config $Si6Checkout --machine-config $Si6Machine
-python scripts\03_simple_instrument_checkout.py --live --config $Si6Checkout --machine-config $Si6Machine
+python scripts\03_simple_instrument_checkout.py --validate-config --config configs\checkouts\si6_simple_instrument_check.yaml --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+Run the checkout:
+
+```powershell
+python scripts\03_simple_instrument_checkout.py --live --config configs\checkouts\si6_simple_instrument_check.yaml --machine-config configs\machines\si6_real_COM4.yaml
 ```
 
 One `y`; inspect its printed result. Restore production fluid paths/loading.
@@ -132,7 +245,7 @@ fixed-time experiment uses. It opens no pump, needle, position ledger or dose
 record, and processes nothing:
 
 ```powershell
-python scripts\04_si6_fixed_time_run.py --nmr-check --config $Si6Fixed --machine-config $Si6Machine
+python scripts\04_si6_fixed_time_run.py --nmr-check --config configs\experiments\si6_fixed_48h_6h.yaml --machine-config configs\machines\si6_real_COM4.yaml
 ```
 
 One `y`. Continue only if it prints `NMR CHECK NMR_SAVED` and a
@@ -177,13 +290,13 @@ python scripts\04_si6_fixed_time_run.py --live
 Explicit COM4 selection:
 
 ```powershell
-python scripts\04_si6_fixed_time_run.py --live --config $Si6Fixed --machine-config configs\machines\si6_real_COM4.yaml --arduino-config $Si6Needle
+python scripts\04_si6_fixed_time_run.py --live --config configs\experiments\si6_fixed_48h_6h.yaml --machine-config configs\machines\si6_real_COM4.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
 ```
 
 COM6:
 
 ```powershell
-python scripts\04_si6_fixed_time_run.py --live --config $Si6Fixed --machine-config configs\machines\si6_real_COM6.yaml --arduino-config $Si6Needle
+python scripts\04_si6_fixed_time_run.py --live --config configs\experiments\si6_fixed_48h_6h.yaml --machine-config configs\machines\si6_real_COM6.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
 ```
 
 No startup `y`, HOME acknowledgment, dose acknowledgment or phase-transition
@@ -203,11 +316,18 @@ a deadline; an admitted physical cycle/acquisition/cleanup can finish afterward.
 Missed schedule slots are skipped without catch-up bursts. The dose and safe
 finishing operations are additional wall-clock time beyond the 54 scheduled hours.
 
-Configuration check and HOME-only accelerated simulation (no hardware):
+Configuration check and HOME-only accelerated simulation (no hardware).
+
+Configuration check:
 
 ```powershell
-python scripts\04_si6_fixed_time_run.py --validate-config --config $Si6Fixed
-python scripts\04_si6_fixed_time_run.py --mock --config $Si6Fixed
+python scripts\04_si6_fixed_time_run.py --validate-config --config configs\experiments\si6_fixed_48h_6h.yaml
+```
+
+Accelerated mock simulation:
+
+```powershell
+python scripts\04_si6_fixed_time_run.py --mock --config configs\experiments\si6_fixed_48h_6h.yaml
 ```
 
 ## 7 — Results

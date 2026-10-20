@@ -10,8 +10,17 @@ in `arduino.local.yaml`; the example remains uncommissioned.
 
 ```powershell
 conda activate air
+```
+
+```powershell
 python arduino\scripts\test_02_unloaded_motor.py --config arduino\configs\arduino.local.yaml --preflight-only
+```
+
+```powershell
 python arduino\scripts\test_02_unloaded_motor.py --config arduino\configs\arduino.example.yaml --mock
+```
+
+```powershell
 python arduino\scripts\test_02_unloaded_motor.py --config arduino\configs\arduino.local.yaml --live
 ```
 

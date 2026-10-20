@@ -8,7 +8,13 @@ same D3/D4-only software-position needle controller as the experiment scripts.
 
 ```powershell
 conda activate air
+```
+
+```powershell
 python arduino\scripts\test_04_integrated_system.py --config arduino\configs\integrated_hello_world.local.yaml --live --preflight-only
+```
+
+```powershell
 python arduino\scripts\test_04_integrated_system.py --config arduino\configs\integrated_hello_world.example.yaml --mock
 ```
 

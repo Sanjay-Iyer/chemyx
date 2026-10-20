@@ -31,7 +31,13 @@ Work-laptop diagnostics, in order:
 
 ```powershell
 conda run -n ai python scripts\diagnostics\01_list_serial_ports.py
+```
+
+```powershell
 conda run -n ai python scripts\diagnostics\05_inspect_mx_controller.py --port REPLACE_WITH_VALVE_COM_PORT --identify
+```
+
+```powershell
 conda run -n ai python scripts\diagnostics\06_check_mx_valve.py --machine-config configs\machines\00_machine.local.yaml
 ```
 

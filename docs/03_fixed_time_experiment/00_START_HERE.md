@@ -18,6 +18,7 @@ data during the experiment; missing spectra and analysis results cannot end a ph
 | [08 — Stage 2 only with SciPy dynamic area](08_stage2only_scipy_run_guide.md) | Same six-hour schedule with primary 8σ prominence / width-0.95 live analysis |
 | [09 — Re-run SciPy Stage 2 analysis](09_stage2only_scipy_analysis.md) | Folder-picker recovery using exactly the same dynamic primary method as 08 |
 | [10 — Stage 2 operation and recovery](10_stage2only_operation_and_recovery.md) | Offline manual for the `06` run: Arduino and Channel 1 preparation, launch, every stopping error, recovery checks, restart |
+| [11 — Simplified Stage 2 demo (`10_stage2only`)](11_stage2only_demo.md) | Independent attended demo: six hours, 25 measurements every 15 minutes, optional one-time CH2 addition, direct NMR and separate live analysis |
 
 For the Stage 2 (`06`) run use this order: [Arduino manual operation](../01_arduino/01_manual_commands.md),
 then [Chemyx manual operation](../02_chemyx/01_quick_reference.md), then
@@ -28,6 +29,7 @@ then [Chemyx manual operation](../02_chemyx/01_quick_reference.md), then
 | Task | Python entry point | Configuration |
 |---|---|---|
 | Run, validate or simulate | [04_si6_fixed_time_run.py](../../scripts/04_si6_fixed_time_run.py) | [si6_fixed_48h_6h.yaml](../../configs/experiments/si6_fixed_48h_6h.yaml) |
+| Run the simplified attended Stage 2 demo | [10_stage2only.py](../../scripts/10_stage2only.py) | [10_stage2only.yaml](../../configs/experiments/10_stage2only.yaml); [operator guide](11_stage2only_demo.md) |
 | Run Stage 2 only | [06_si6_stage2only_run.py](../../scripts/06_si6_stage2only_run.py) | [si6_stage2only_6h.yaml](../../configs/experiments/si6_stage2only_6h.yaml) |
 | Re-run Stage 2 analysis | [07_analyze_stage2only.py](../../scripts/07_analyze_stage2only.py) | [analysis.yaml](../../configs/nmr/analysis.yaml), with a folder picker or explicit data directory |
 | Run Stage 2 only with dynamic primary area | [08_si6_stage2only_scipy_run.py](../../scripts/08_si6_stage2only_scipy_run.py) | [si6_stage2only_scipy_6h.yaml](../../configs/experiments/si6_stage2only_scipy_6h.yaml); separate numerical [SciPy profile](../../configs/nmr/stage2only_scipy.yaml) |
@@ -43,8 +45,17 @@ On HOME use the `ai` environment for local checks:
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 conda activate ai
+```
+
+```powershell
 python scripts\04_si6_fixed_time_run.py --validate-config
+```
+
+```powershell
 python scripts\04_si6_fixed_time_run.py --mock
 ```
 

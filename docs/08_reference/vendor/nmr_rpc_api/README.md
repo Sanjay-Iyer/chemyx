@@ -19,6 +19,9 @@ Work-laptop checks:
 
 ```powershell
 conda run -n ai python scripts\diagnostics\03_check_nmr_connection.py --machine-config configs\machines\00_machine.local.yaml
+```
+
+```powershell
 conda run -n ai python scripts\diagnostics\04_run_nmr_1d_acquisition.py --machine-config configs\machines\00_machine.local.yaml --save-dx results\raw\nmr\generated\diagnostic_1d.dx
 ```
 

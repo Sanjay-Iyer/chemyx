@@ -10,6 +10,9 @@ find_peaks / width-0.95 algorithm used by 08**:
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 python scripts\09_analyze_stage2only_scipy.py
 ```
 

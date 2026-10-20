@@ -18,12 +18,33 @@ PowerShell. Define these once; select the COM6 machine file instead if needed:
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 $env:Path = "C:\code\chemyx_pump\.venv\Scripts;" + $env:Path
+```
+
+```powershell
 $Si6Machine = 'configs\machines\si6_real_COM4.yaml'
+```
+
+```powershell
 $Si6Needle = 'arduino\configs\arduino_real_COM3.yaml'
+```
+
+```powershell
 $Si6Manual = 'configs\chemyx\manual_control.yaml'
+```
+
+```powershell
 $Si6Integration = 'configs\experiments\si6_real_10min_checkout.yaml'
+```
+
+```powershell
 $Si6Production = 'configs\experiments\si6_real_two_stage.yaml'
+```
+
+```powershell
 $Si6Run = 'C:\code\chemyx_pump\results\experiments\YOUR_ACTUAL_RUN_FOLDER'
 ```
 

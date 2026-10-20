@@ -49,7 +49,13 @@ This asks for `y` and records the current position as zero. It does not move.
 
 ```powershell
 python arduino\scripts\needle_control.py home --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+```powershell
 python arduino\scripts\needle_control.py up --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+```powershell
 python arduino\scripts\needle_control.py down --live --config arduino\configs\arduino_real_COM3.yaml
 ```
 
@@ -183,7 +189,13 @@ Validate the real recipe locally without opening instruments:
 
 ```powershell
 conda activate ai
+```
+
+```powershell
 python -B scripts\02_si6_experiment.py --workflow-config configs\experiments\si6_real_two_stage.yaml --machine-config configs\machines\si6_real_COM4.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
+```
+
+```powershell
 python -B -m pytest tests\test_si6_solvent_fallback.py
 ```
 

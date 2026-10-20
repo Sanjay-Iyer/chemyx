@@ -8,8 +8,17 @@ import workflow. Start it from the repository folder that contains `scripts/`:
 
 ```powershell
 conda activate llm # Work laptop; use ai on the home laptop
+```
+
+```powershell
 python -m pip install -r requirements.txt
+```
+
+```powershell
 python -m pip install PySide6 pyqtgraph
+```
+
+```powershell
 python scripts\nmr\phase5.py
 ```
 
@@ -83,6 +92,9 @@ On this laptop, install the analysis dependencies in the `ai` environment:
 
 ```powershell
 conda activate ai
+```
+
+```powershell
 python -m pip install -r requirements.txt
 ```
 
@@ -220,22 +232,32 @@ filename.
 The repository's `nmr_template/dx_process.py` motivated several explicit
 options. They are not default because each changes peak shape or referencing:
 
+One-sided Hanning-like taper plus nmrglue peak-minima autophase:
+
 ```powershell
-# One-sided Hanning-like taper plus nmrglue peak-minima autophase
 python scripts/nmr/process_fid.py results/raw/nmr/06-09-26 `
   --truncation-window half-cosine --phase-method automatic_peak_minima
+```
 
-# ABD-selected linear baseline points (128 sections, 3x noise, 60-point window)
+ABD-selected linear baseline points (128 sections, 3x noise, 60-point window):
+
+```powershell
 python scripts/nmr/process_fid.py results/raw/nmr/06-09-26 `
   --baseline-method polynomial --abd-sections 128 `
   --abd-noise-factor 3 --abd-window-points 60
+```
 
-# Explicit toluene methyl referencing, cross-checked against the aromatic envelope
+Explicit toluene methyl referencing, cross-checked against the aromatic envelope:
+
+```powershell
 python scripts/nmr/process_fid.py results/raw/nmr/06-09-26 `
   --solvent toluene --solvent-resonance methyl `
   --solvent-validation-resonance aromatic --export-csv
+```
 
-# User-declared reference peak with fail-closed QC
+User-declared reference peak with fail-closed QC:
+
+```powershell
 python scripts/nmr/process_fid.py results/raw/nmr/06-09-26 `
   --reference-method validated_peak `
   --reference-expected-ppm 7.00 `
@@ -360,7 +382,13 @@ From the repository root. On the personal laptop use conda `ai`:
 
 ```powershell
 conda activate ai
+```
+
+```powershell
 python -m pip install -r requirements.txt
+```
+
+```powershell
 python scripts/nmr/process_fid.py results/raw/nmr/06-09-26
 ```
 
@@ -368,19 +396,40 @@ On the instrument-connected work laptop, update and use conda `llm`:
 
 ```powershell
 Set-Location C:\code\chemyx_pump
-conda activate llm
-git pull
-python -m pip install -r requirements.txt
+```
 
+```powershell
+conda activate llm
+```
+
+```powershell
+git pull
+```
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+```powershell
 python scripts\nmr\process_fid.py results\raw\nmr\06-09-26 `
   --region-min 5.0 --region-max 6.5 `
   --run-name 06-09-26_region-peaks
+```
 
+```powershell
 python scripts\nmr\validate_processing.py results\raw\nmr\06-09-26 `
   --run-name 06-09-26_scientific-audit
+```
 
+```powershell
 python -m pytest -q
+```
+
+```powershell
 python -m ruff check .
+```
+
+```powershell
 git diff --check
 ```
 

@@ -32,6 +32,9 @@ zero. Reviewed YAML must be applied before any motion command can succeed.
 
 ```powershell
 conda activate air
+```
+
+```powershell
 python arduino\scripts\test_01_arduino_connection.py --config arduino\configs\arduino.local.yaml --live
 ```
 

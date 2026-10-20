@@ -32,6 +32,9 @@ On WORK:
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 python scripts\04_si6_fixed_time_run.py --live
 ```
 

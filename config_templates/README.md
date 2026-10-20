@@ -25,8 +25,17 @@ PowerShell commands below create a runtime file only if it is missing:
 
 ```powershell
 if (-not (Test-Path arduino\configs\arduino.local.yaml)) { Copy-Item config_templates\arduino.local.template.yaml arduino\configs\arduino.local.yaml }
+```
+
+```powershell
 if (-not (Test-Path arduino\configs\integrated_hello_world.local.yaml)) { Copy-Item config_templates\integrated_hello_world.local.template.yaml arduino\configs\integrated_hello_world.local.yaml }
+```
+
+```powershell
 if (-not (Test-Path configs\machines\00_machine.local.yaml)) { Copy-Item config_templates\00_machine.local.template.yaml configs\machines\00_machine.local.yaml }
+```
+
+```powershell
 if (-not (Test-Path configs\nmr\analysis.local.yaml)) { Copy-Item config_templates\analysis.local.template.yaml configs\nmr\analysis.local.yaml }
 ```
 
@@ -60,7 +69,13 @@ Read-only Windows port discovery (does not open a serial connection):
 
 ```powershell
 Get-CimInstance Win32_SerialPort | Select-Object DeviceID,Name,PNPDeviceID
+```
+
+```powershell
 python arduino\scripts\test_01_arduino_connection.py --config arduino\configs\arduino.local.yaml --list-ports
+```
+
+```powershell
 python -c "from serial.tools import list_ports; [print(p.device, hex(p.vid) if p.vid is not None else None, hex(p.pid) if p.pid is not None else None, p.serial_number, p.manufacturer, p.description) for p in list_ports.comports()]"
 ```
 
@@ -86,27 +101,51 @@ estimate untrustworthy until inspected and re-confirmed.
 
 These examples do not command physical movement unless explicitly noted.
 
+Arduino-only: syntax check, then optional connection/LED check (no motor motion).
+
 ```powershell
-# Arduino-only: syntax check, then optional connection/LED check (no motor motion).
 python arduino\scripts\test_01_arduino_connection.py --config arduino\configs\arduino.local.yaml --validate-only
+```
+
+```powershell
 python arduino\scripts\test_01_arduino_connection.py --config arduino\configs\arduino.local.yaml --live
+```
 
-# Needle-axis commissioning preflight (no motion); live Test 3 additionally
-# requires a successful unloaded-motor Test 2 record.
+Needle-axis commissioning preflight (no motion); live Test 3 additionally requires a successful unloaded-motor Test 2 record.
+
+```powershell
 python arduino\scripts\test_03_needle_axis.py --config arduino\configs\arduino.local.yaml --preflight-only --live
+```
 
-# Staged Arduino/Chemyx/NMR Test 4: configuration syntax only.
+Staged Arduino/Chemyx/NMR Test 4: configuration syntax only.
+
+```powershell
 python arduino\scripts\test_04_integrated_system.py --config arduino\configs\integrated_hello_world.local.yaml --validate-only
+```
 
-# Main three-instrument test and experiment: no --live or --mock means validation only.
+Main three-instrument test and experiment: no --live or --mock means validation only.
+
+```powershell
 python scripts\01_three_instrument_system_test.py --workflow-config configs\experiments\02_si6_automated_nmr.yaml --machine-config configs\machines\00_machine.local.yaml --arduino-config arduino\configs\arduino.local.yaml
+```
+
+```powershell
 python scripts\02_si6_experiment.py --workflow-config configs\experiments\02_si6_automated_nmr.yaml --machine-config configs\machines\00_machine.local.yaml --arduino-config arduino\configs\arduino.local.yaml
+```
 
-# Pump mock (no physical pump movement); NMR endpoint check does contact the NMR.
+Pump mock (no physical pump movement); NMR endpoint check does contact the NMR.
+
+```powershell
 python scripts\diagnostics\02_verify_chemyx_movement.py --mock --machine-config configs\machines\00_machine.local.yaml
-python scripts\diagnostics\03_check_nmr_connection.py --machine-config configs\machines\00_machine.local.yaml
+```
 
-# Offline NMR processing; requires a real .dx input at analysis.local.yaml input.paths.
+```powershell
+python scripts\diagnostics\03_check_nmr_connection.py --machine-config configs\machines\00_machine.local.yaml
+```
+
+Offline NMR processing; requires a real .dx input at analysis.local.yaml input.paths.
+
+```powershell
 python scripts\nmr\process_fid.py
 ```
 

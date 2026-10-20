@@ -23,6 +23,7 @@ grouped by instrument/workflow, with numbered filenames in reading order.
 |---|---|---|
 | Arduino manual control | [01 — Arduino](docs/01_arduino/00_START_HERE.md) | `arduino/scripts/needle_control.py` / `arduino/configs/arduino_real_COM3.yaml` |
 | Chemyx manual control | [02 — Chemyx](docs/02_chemyx/00_START_HERE.md) | `scripts/chemyx_control.py` / `configs/chemyx/manual_control.yaml` |
+| NMR standalone tests (connection, 1 scan, 4 scans) | [09 — NMR instrument](docs/09_nmr_instrument/00_START_HERE.md) | `scripts/nmr_standalone/` / `configs/machines/si6_real_COM4.yaml` |
 | Current full 48-hour / 6-hour run | **[03 — Fixed-time experiment](docs/03_fixed_time_experiment/00_START_HERE.md)** | `scripts/04_si6_fixed_time_run.py` / `configs/experiments/si6_fixed_48h_6h.yaml` |
 | Stage 2 only, six hours with live review | **[06 — stage2only](docs/03_fixed_time_experiment/06_stage2only_run_guide.md)** | `scripts/06_si6_stage2only_run.py` / `configs/experiments/si6_stage2only_6h.yaml` |
 | Re-run Stage 2 analysis on a selected folder | [07 — Stage 2 analysis recovery](docs/03_fixed_time_experiment/07_stage2only_analysis_recovery.md) | `scripts/07_analyze_stage2only.py` / `configs/nmr/analysis.yaml` |

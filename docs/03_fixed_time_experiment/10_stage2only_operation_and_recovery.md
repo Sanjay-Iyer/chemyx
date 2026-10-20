@@ -33,6 +33,11 @@ Open PowerShell and run these two lines first in every new window:
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+Then use the WORK Python in this window:
+
+```powershell
 $env:Path = "$PWD\.venv\Scripts;" + $env:Path
 ```
 
@@ -159,8 +164,15 @@ This command changes nothing.
 **Move UP / DOWN one increment** (no prompt; moves immediately; 200 steps at
 100 steps/s):
 
+UP one increment:
+
 ```powershell
 python arduino\scripts\needle_control.py up --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+DOWN one increment:
+
+```powershell
 python arduino\scripts\needle_control.py down --live --config arduino\configs\arduino_real_COM3.yaml
 ```
 
@@ -324,8 +336,15 @@ Success: `Channel 1: HOME saved and verified (...); displacement 0 mL` and
 **Withdraw / infuse a chosen volume** (one `y` fluid-path check each). Without
 `--volume`/`--rate` the YAML default is 1.0 mL at 10.0 mL/min:
 
+Withdraw 2 mL at 5 mL/min:
+
 ```powershell
 python scripts\chemyx_control.py withdraw --channel 1 --volume 2 --rate 5 --live --config configs\chemyx\manual_control.yaml --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+Infuse 2 mL at 5 mL/min:
+
+```powershell
 python scripts\chemyx_control.py infuse --channel 1 --volume 2 --rate 5 --live --config configs\chemyx\manual_control.yaml --machine-config configs\machines\si6_real_COM4.yaml
 ```
 
@@ -403,8 +422,23 @@ holds liquid could be overfilled, so check the plunger by eye every time.
 
    ```powershell
    cd C:\code\chemyx_pump
+   ```
+
+   Use the WORK Python in this window:
+
+   ```powershell
    $env:Path = "$PWD\.venv\Scripts;" + $env:Path
+   ```
+
+   Check which Python is used:
+
+   ```powershell
    python -c "import sys; print(sys.executable)"
+   ```
+
+   Check the dependencies load:
+
+   ```powershell
    python -c "import serial, yaml, numpy, scipy, matplotlib, nmrglue; print('dependencies OK')"
    ```
 
@@ -421,8 +455,15 @@ holds liquid could be overfilled, so check the plunger by eye every time.
    least 7 hours. Also pause Windows Update and turn off USB selective suspend
    ([run guide](01_run_guide.md), section 6):
 
+   Never sleep while plugged in:
+
    ```powershell
    powercfg /change standby-timeout-ac 0
+   ```
+
+   Never hibernate while plugged in:
+
+   ```powershell
    powercfg /change hibernate-timeout-ac 0
    ```
 
@@ -457,6 +498,8 @@ holds liquid could be overfilled, so check the plunger by eye every time.
 **NMR (operator)**
 
 11. The NMReady is on, in iFlow, idle, and no other program is acquiring.
+    To check this from the laptop, run the read-only
+    [NMR connection test](../09_nmr_instrument/01_standalone_tests.md) (step 5 must show `NMR IDLE`).
 12. Check the network (offline Windows command):
 
     ```powershell
@@ -514,6 +557,9 @@ space or power settings.
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 python scripts\06_si6_stage2only_run.py --live
 ```
 
@@ -521,6 +567,9 @@ Chemyx on COM6:
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 python scripts\06_si6_stage2only_run.py --live --machine-config configs\machines\si6_real_COM6.yaml
 ```
 
@@ -642,7 +691,7 @@ position that can no longer be trusted, and failure to write required motion rec
 | Error or symptom (actual text in the observation's `error`) | Likely cause | Stops? | Recovery | Verification |
 |---|---|---|---|---|
 | `Warning: NMR ownership unavailable; no STARTs will be sent: ...` (at startup) | `04 --nmr-check`, `04`, `08` or another `06` holds the NMR | **No**, but this run collects **no spectra** | C6 | Next run shows `NMR_SAVED` |
-| `NMR idle not confirmed; START skipped to avoid overlap` / `NMR became busy/unknown during setup; START skipped` | NMR busy (previous acquisition still running), status unreadable, NMR UI in use | No | Check NMR UI and network when convenient; do not start manual acquisitions | Later samples `NMR_SAVED` |
+| `NMR idle not confirmed; START skipped to avoid overlap` / `NMR became busy/unknown during setup; START skipped` | NMR busy (previous acquisition still running), status unreadable or not understood as idle, NMR UI in use | No | Check NMR UI and network when convenient; do not start manual acquisitions. Between runs, the [NMR connection test](../09_nmr_instrument/01_standalone_tests.md) shows the exact status reply and why it was refused | Later samples `NMR_SAVED` |
 | `NMR acquisition not confirmed complete after 300s (...)` | Acquisition hung or status never showed completion | No | As above | Later samples saved |
 | `NMR worker: TimeoutExpired: ...` | Whole acquisition exceeded the 430 s limit | No | As above | Later samples saved |
 | `Raw TD JCAMP absent in iFlow response and local export ...` | NMR returned no raw FID | No | Check NMR export settings in its UI | Later samples saved |
@@ -950,9 +999,21 @@ Records can be valid while the physical state is not, for example after hand mov
 
 Find the run folder (newest first):
 
+List the five newest run folders:
+
 ```powershell
 Get-ChildItem results\stage2only\live -Directory | Sort-Object Name | Select-Object -Last 5 Name
+```
+
+Store the newest folder in $Run; the commands below use it (run them in the same window):
+
+```powershell
 $Run = (Get-ChildItem results\stage2only\live -Directory | Sort-Object Name | Select-Object -Last 1).FullName
+```
+
+Show the stored folder:
+
+```powershell
 $Run
 ```
 

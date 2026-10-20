@@ -269,12 +269,33 @@ with 20 mm inner diameter.
 
 ```powershell
 python -m serial.tools.list_ports -v
+```
+
+```powershell
 python scripts/chemyx_control.py verify --channel both --live --config configs/chemyx/first_motion_test.yaml
+```
+
+```powershell
 python scripts/chemyx_control.py set-home --channel both --live --config configs/chemyx/first_motion_test.yaml
+```
+
+```powershell
 python scripts/chemyx_control.py withdraw --channel 1 --live --config configs/chemyx/first_motion_test.yaml
+```
+
+```powershell
 python scripts/chemyx_control.py home --channel 1 --live --config configs/chemyx/first_motion_test.yaml
+```
+
+```powershell
 python scripts/chemyx_control.py withdraw --channel 2 --live --config configs/chemyx/first_motion_test.yaml
+```
+
+```powershell
 python scripts/chemyx_control.py home --channel 2 --live --allow-channel2-infusion --config configs/chemyx/first_motion_test.yaml
+```
+
+```powershell
 python scripts/chemyx_control.py status --channel both --config configs/chemyx/first_motion_test.yaml
 ```
 

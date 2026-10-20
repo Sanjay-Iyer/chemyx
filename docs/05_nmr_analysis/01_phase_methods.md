@@ -85,9 +85,21 @@ Existing outputs are never overwritten by rerunning comparison.
 
 ```powershell
 python -B scripts\verify_si6_environment.py --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+```powershell
 python -B scripts\02_si6_experiment.py --validate-config --workflow-config configs\experiments\si6_real_two_stage.yaml --machine-config configs\machines\si6_real_COM4.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
+```
+
+```powershell
 python -B scripts\nmr\benchmark_primary_phases.py --output results\<NEW-benchmark-directory>
+```
+
+```powershell
 python -B scripts\nmr\compare_phase_methods.py results\experiments\<dated-run>
+```
+
+```powershell
 python -B scripts\validate_primary_phase_release.py --output results\<NEW-offline-preflight> --deep
 ```
 

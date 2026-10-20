@@ -8,6 +8,9 @@ Run all commands from the repository root:
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 conda activate ai
 ```
 

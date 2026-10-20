@@ -50,9 +50,21 @@ status and STOP need no confirmation:
 
 ```powershell
 python arduino\scripts\needle_control.py set-home --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+```powershell
 python arduino\scripts\needle_control.py up --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+```powershell
 python arduino\scripts\needle_control.py down --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+```powershell
 python arduino\scripts\needle_control.py status --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+```powershell
 python arduino\scripts\needle_control.py stop --live --config arduino\configs\arduino_real_COM3.yaml
 ```
 

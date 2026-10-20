@@ -311,8 +311,17 @@ From the repository root, using the already installed Python environment:
 
 ```powershell
 Copy-Item config_templates/experiments/si6_two_stage_nominal.yaml configs/experiments/si6_run.local.yaml
+```
+
+```powershell
 python scripts/02_si6_experiment.py --workflow-config configs/experiments/si6_run.local.yaml --machine-config configs/machines/00_machine.local.yaml --arduino-config arduino/configs/arduino.local.yaml
+```
+
+```powershell
 python scripts/02_si6_experiment.py --mock --workflow-config config_templates/experiments/si6_two_stage_fast_sim.yaml --machine-config configs/machines/00_machine.local.yaml --arduino-config arduino/configs/arduino.local.yaml
+```
+
+```powershell
 python scripts/02_si6_experiment.py --live --workflow-config configs/experiments/si6_run.local.yaml --machine-config configs/machines/00_machine.local.yaml --arduino-config arduino/configs/arduino.local.yaml
 ```
 

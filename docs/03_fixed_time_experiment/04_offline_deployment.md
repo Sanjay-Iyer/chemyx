@@ -21,7 +21,13 @@ Local no-hardware validation can use the existing `ai` environment:
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 conda activate ai
+```
+
+```powershell
 python scripts\04_si6_fixed_time_run.py --validate-config
 ```
 
@@ -50,6 +56,9 @@ paths, with the official Arduino HOME established and current position tracked:
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 python scripts\04_si6_fixed_time_run.py --live
 ```
 

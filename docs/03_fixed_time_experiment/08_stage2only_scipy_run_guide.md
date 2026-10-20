@@ -13,6 +13,9 @@ Scripts 06 and 07 keep their original analysis behavior.
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 python scripts\08_si6_stage2only_scipy_run.py --live
 ```
 
@@ -118,7 +121,13 @@ preserved. If analysis needs to be retried, use **09** on the run folder.
 
 ```powershell
 conda activate ai
+```
+
+```powershell
 python scripts\08_si6_stage2only_scipy_run.py --validate-config
+```
+
+```powershell
 python scripts\08_si6_stage2only_scipy_run.py --mock
 ```
 

@@ -12,7 +12,13 @@ and Open `.DX` behavior.
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 conda activate ai
+```
+
+```powershell
 python scripts\nmr\phase1.py
 ```
 
@@ -34,7 +40,13 @@ Launch it with:
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 conda activate ai
+```
+
+```powershell
 python scripts\nmr\phase2.py
 ```
 

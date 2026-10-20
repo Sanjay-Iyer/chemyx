@@ -71,6 +71,9 @@ Default Chemyx COM4 / Arduino COM3:
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 python scripts\06_si6_stage2only_run.py --live
 ```
 
@@ -146,7 +149,13 @@ report and writes a new `analysis_stage2only` folder. The older
 
 ```powershell
 conda activate ai
+```
+
+```powershell
 python scripts\06_si6_stage2only_run.py --validate-config
+```
+
+```powershell
 python scripts\06_si6_stage2only_run.py --mock
 ```
 

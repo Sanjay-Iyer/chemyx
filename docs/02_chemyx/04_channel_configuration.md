@@ -129,8 +129,17 @@ From `C:\code\chemyx_pump`, run simulation-only commands:
 
 ```powershell
 conda activate ai
+```
+
+```powershell
 python -B scripts\02_si6_experiment.py --workflow-config config_templates\experiments\si6_two_channel_once.yaml
+```
+
+```powershell
 python -B scripts\02_si6_experiment.py --mock --mock-cycles-per-stage 2 --workflow-config config_templates\experiments\si6_two_channel_once.yaml --arduino-config arduino\configs\arduino.example.yaml
+```
+
+```powershell
 python -B -m pytest tests\test_si6_pump_channels.py tests\test_three_instrument_si6.py tests\test_chemyx.py tests\test_si6_safety.py tests\test_si6_automated_nmr.py tests\test_si6_journal_integration.py tests\test_runtime_journal.py
 ```
 

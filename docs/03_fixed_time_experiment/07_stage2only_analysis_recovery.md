@@ -20,6 +20,9 @@ Run from the repository root:
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 python scripts\07_analyze_stage2only.py
 ```
 

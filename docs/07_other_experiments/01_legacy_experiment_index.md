@@ -49,7 +49,13 @@ for comparable areas. Common standalone processing defaults remain in
 
 ```powershell
 python -B scripts\verify_si6_environment.py --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+```powershell
 python -B scripts\02_si6_experiment.py --validate-config --workflow-config configs\experiments\si6_real_two_stage.yaml --machine-config configs\machines\si6_real_COM4.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
+```
+
+```powershell
 python -B scripts\validate_si6_offline.py --copy-test --run-tests
 ```
 
@@ -78,6 +84,9 @@ setup and calibration:
 
 ```powershell
 python arduino\scripts\needle_control.py home --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+```powershell
 python scripts\02_si6_experiment.py --live --workflow-config configs\experiments\si6_real_two_stage.yaml --machine-config configs\machines\si6_real_COM4.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
 ```
 

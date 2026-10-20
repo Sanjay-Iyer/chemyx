@@ -94,23 +94,32 @@ fixed-time YAML's 8 scans takes precedence over `NMR_DEFAULT_SCANS`.
 
 ## Terminal commands
 
-Set paths in each new PowerShell terminal. On the instrument laptop use its
-existing verified Python (the existing `.venv` is the documented default).
+In each new PowerShell terminal go to the repository and select its Python. On
+the instrument laptop use its existing verified Python (the existing `.venv` is
+the documented default). The commands below write configuration paths in full.
 
 ```powershell
 cd C:\code\chemyx_pump
-$env:Path = "$PWD\.venv\Scripts;" + $env:Path
-$Si6Fixed = "configs\experiments\si6_fixed_48h_6h.yaml"
-$Si6Machine = "configs\machines\si6_real_COM4.yaml"
-$Si6Needle = "arduino\configs\arduino_real_COM3.yaml"
-$Si6Manual = "configs\chemyx\manual_control.yaml"
 ```
 
-Configuration validation and accelerated simulation contact no hardware:
+Use the repository's .venv Python in this terminal:
 
 ```powershell
-python scripts\04_si6_fixed_time_run.py --validate-config --config $Si6Fixed --machine-config $Si6Machine
-python scripts\04_si6_fixed_time_run.py --mock --config $Si6Fixed --machine-config $Si6Machine
+$env:Path = "$PWD\.venv\Scripts;" + $env:Path
+```
+
+Configuration validation and accelerated simulation contact no hardware.
+
+Configuration validation:
+
+```powershell
+python scripts\04_si6_fixed_time_run.py --validate-config --config configs\experiments\si6_fixed_48h_6h.yaml --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+Accelerated simulation:
+
+```powershell
+python scripts\04_si6_fixed_time_run.py --mock --config configs\experiments\si6_fixed_48h_6h.yaml --machine-config configs\machines\si6_real_COM4.yaml
 ```
 
 On WORK, with the rig physically prepared, the actual experiment is one
@@ -118,7 +127,7 @@ command that starts directly. There are no interactive prompts at startup,
 between observations or at the phase transition:
 
 ```powershell
-python scripts\04_si6_fixed_time_run.py --live --config $Si6Fixed --machine-config $Si6Machine --arduino-config $Si6Needle
+python scripts\04_si6_fixed_time_run.py --live --config configs\experiments\si6_fixed_48h_6h.yaml --machine-config configs\machines\si6_real_COM4.yaml --arduino-config arduino\configs\arduino_real_COM3.yaml
 ```
 
 With the preset's default paths, that is equivalent to:
@@ -127,17 +136,24 @@ With the preset's default paths, that is equivalent to:
 python scripts\04_si6_fixed_time_run.py --live
 ```
 
-For COM6 change `$Si6Machine` to `configs\machines\si6_real_COM6.yaml` and
-use the explicit command. A compatible official pump HOME must already exist
-for that port from manual setup. Startup preserves it and logs your manual
+For COM6 use the explicit command with
+`--machine-config configs\machines\si6_real_COM6.yaml`. A compatible official
+pump HOME must already exist for that port from manual setup. Startup preserves it and logs your manual
 return to its existing loading; it never establishes a replacement HOME.
 
 Separate checks are available on WORK. They are not automatically invoked
 by the run command, and their reports are not required startup tokens:
 
+NMR-only check through the experiment's worker (8 scans):
+
 ```powershell
-python scripts\04_si6_fixed_time_run.py --nmr-check --config $Si6Fixed --machine-config $Si6Machine
-python scripts\03_simple_instrument_checkout.py --live --config configs\checkouts\si6_simple_instrument_check.yaml --machine-config $Si6Machine
+python scripts\04_si6_fixed_time_run.py --nmr-check --config configs\experiments\si6_fixed_48h_6h.yaml --machine-config configs\machines\si6_real_COM4.yaml
+```
+
+Standalone bench checkout:
+
+```powershell
+python scripts\03_simple_instrument_checkout.py --live --config configs\checkouts\si6_simple_instrument_check.yaml --machine-config configs\machines\si6_real_COM4.yaml
 ```
 
 The NMR-only check uses the actual fixed-time worker with 8 scans and creates

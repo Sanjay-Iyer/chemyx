@@ -7,9 +7,21 @@ commands never open instruments and add no experiment-startup prompts.
 
 ```powershell
 python -B scripts\rig_state_backup.py inventory
+```
+
+```powershell
 python -B scripts\rig_state_backup.py backup
+```
+
+```powershell
 python -B scripts\rig_state_backup.py verify --backup rig_backups\<timestamp>
+```
+
+```powershell
 python -B scripts\rig_state_backup.py compare --backup rig_backups\<timestamp>
+```
+
+```powershell
 python -B scripts\rig_state_backup.py restore-plan --backup rig_backups\<timestamp>
 ```
 

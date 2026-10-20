@@ -65,8 +65,17 @@ environment and the existing calibrated COM3 configuration:
 
 ```powershell
 python arduino\scripts\needle_control.py home --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+```powershell
 python arduino\scripts\needle_control.py up --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+```powershell
 python arduino\scripts\needle_control.py down --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+```powershell
 python arduino\scripts\needle_control.py status --live --config arduino\configs\arduino_real_COM3.yaml
 ```
 
@@ -84,6 +93,9 @@ increment and physical direction calibration:
 
 ```powershell
 python arduino\scripts\needle_control.py up --config arduino\configs\arduino_real_COM3.yaml --live
+```
+
+```powershell
 python arduino\scripts\needle_control.py down --config arduino\configs\arduino_real_COM3.yaml --live
 ```
 

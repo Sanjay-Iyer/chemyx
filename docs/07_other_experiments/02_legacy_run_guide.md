@@ -16,20 +16,35 @@ Run from the repository root so the relative paths resolve correctly.
 
 ```powershell
 cd C:\code\chemyx_pump
+```
 
-# Arduino configuration
+Arduino configuration:
+
+```powershell
 $Si6Needle = "arduino\configs\arduino_real_COM3.yaml"
+```
 
-# Chemyx machine configuration (COM4)
+Chemyx machine configuration (COM4):
+
+```powershell
 $Si6Machine = "configs\machines\si6_real_COM4.yaml"
+```
 
-# Production experiment
+Production experiment:
+
+```powershell
 $Si6Production = "configs\experiments\si6_real_two_stage.yaml"
+```
 
-# Standalone manual Chemyx settings, including its HOME convention
+Standalone manual Chemyx settings, including its HOME convention:
+
+```powershell
 $Si6Manual = "configs\chemyx\manual_control.yaml"
+```
 
-# Standalone instrument checkout settings
+Standalone instrument checkout settings:
+
+```powershell
 $Si6Checkout = "configs\checkouts\si6_simple_instrument_check.yaml"
 ```
 
@@ -72,7 +87,13 @@ Open PowerShell. Select the installed offline Python without activation:
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 $env:Path = "$PWD\.venv\Scripts;" + $env:Path
+```
+
+```powershell
 python -c "import sys; print(sys.executable); print(sys.version)"
 ```
 
@@ -284,6 +305,9 @@ required. Restore production routing/loading after the bench test.
 
 ```powershell
 python scripts\03_simple_instrument_checkout.py --validate-config --config $Si6Checkout --machine-config $Si6Machine
+```
+
+```powershell
 python scripts\03_simple_instrument_checkout.py --live --config $Si6Checkout --machine-config $Si6Machine
 ```
 
@@ -324,6 +348,9 @@ Production retains its existing scientific analysis/solvent protections.
 
 ```powershell
 python scripts\02_si6_experiment.py --validate-config --workflow-config $Si6Production --machine-config $Si6Machine --arduino-config $Si6Needle
+```
+
+```powershell
 python scripts\02_si6_experiment.py --live --workflow-config $Si6Production --machine-config $Si6Machine --arduino-config $Si6Needle
 ```
 

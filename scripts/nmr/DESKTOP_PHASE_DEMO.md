@@ -6,7 +6,13 @@ This is a lightweight, exploratory PySide6 and pyqtgraph viewer for testing inte
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 conda activate ai
+```
+
+```powershell
 python scripts\nmr\desktop_nmr_phase_demo.py
 ```
 

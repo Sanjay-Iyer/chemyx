@@ -14,15 +14,54 @@ one command as needed:
 
 ```powershell
 cd C:\code\chemyx_pump
-$Si6Needle = "arduino\configs\arduino_real_COM3.yaml"
-python arduino\scripts\needle_control.py status --live --config $Si6Needle
-python arduino\scripts\needle_control.py up --live --config $Si6Needle
-python arduino\scripts\needle_control.py down --live --config $Si6Needle
-python arduino\scripts\needle_control.py up --steps 50 --live --config $Si6Needle
-python arduino\scripts\needle_control.py down --steps 50 --live --config $Si6Needle
-python arduino\scripts\needle_control.py set-home --live --config $Si6Needle
-python arduino\scripts\needle_control.py home --live --config $Si6Needle
-python arduino\scripts\needle_control.py stop --live --config $Si6Needle
+```
+
+Status (contacts the Arduino, no movement):
+
+```powershell
+python arduino\scripts\needle_control.py status --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+UP one increment (moves at once):
+
+```powershell
+python arduino\scripts\needle_control.py up --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+DOWN one increment (moves at once):
+
+```powershell
+python arduino\scripts\needle_control.py down --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+UP 50 motor steps:
+
+```powershell
+python arduino\scripts\needle_control.py up --steps 50 --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+DOWN 50 motor steps:
+
+```powershell
+python arduino\scripts\needle_control.py down --steps 50 --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+Set HOME at the current stopped position (no movement):
+
+```powershell
+python arduino\scripts\needle_control.py set-home --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+Return to HOME:
+
+```powershell
+python arduino\scripts\needle_control.py home --live --config arduino\configs\arduino_real_COM3.yaml
+```
+
+STOP:
+
+```powershell
+python arduino\scripts\needle_control.py stop --live --config arduino\configs\arduino_real_COM3.yaml
 ```
 
 UP/DOWN move at once, with no confirmation prompt, and need no HOME. They are

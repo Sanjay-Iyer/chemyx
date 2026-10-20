@@ -18,6 +18,9 @@ Typical saved-state inspection, with no commanded movement:
 
 ```powershell
 cd C:\code\chemyx_pump
+```
+
+```powershell
 python scripts\chemyx_control.py status --channel both --config configs\chemyx\manual_control.yaml --machine-config configs\machines\si6_real_COM4.yaml
 ```
 

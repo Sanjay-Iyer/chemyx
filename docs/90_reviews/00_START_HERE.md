@@ -14,6 +14,7 @@ for the 2026-10-19 change.
 | [02 — Earlier fixed-time review](02_fixed_time_earlier_review.md) | Earlier implementation review and fault-injection evidence |
 | [03 — Arduino expert review](03_arduino_expert_review.md) | Hardware/controller review background |
 | [04 — 08/09 SciPy Stage 2 validation](04_stage2only_scipy_validation.md) | Primary width-0.95 / prominence-8σ method, real June data parity and analysis isolation |
+| [05 — NMR acquisition blocker audit and plan](../NMR_ACQUISITION_BLOCKER_AUDIT.md) | 2026-10-20 audit of 06/08/check, confirmed software defects, offline evidence and proposed simplification; no production changes |
 
 The [2026-10-19 timing/restart review](../03_fixed_time_experiment/02_scripts_configs_and_restart_review.md)
 records the most recent local validation and the operator-facing restart findings.

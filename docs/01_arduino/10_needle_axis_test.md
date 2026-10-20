@@ -12,7 +12,13 @@ From the repository root:
 
 ```powershell
 conda activate air
+```
+
+```powershell
 python arduino\scripts\test_03_needle_axis.py --config arduino\configs\arduino.local.yaml --preflight-only
+```
+
+```powershell
 python arduino\scripts\test_03_needle_axis.py --config arduino\configs\arduino.example.yaml --mock
 ```
 
