@@ -128,35 +128,28 @@ def test_explicit_validate_config_is_mutually_exclusive_with_live(monkeypatch):
     assert exc.value.code == 2
 
 
-@pytest.mark.parametrize("action,target", [("up", 1), ("down", 0)])
-@pytest.mark.parametrize("answer", ["y", "n"])
-def test_manual_live_actions_have_one_prompt_before_transport(monkeypatch, tmp_path, action, target, answer):
+@pytest.mark.parametrize("action,count", [("up", 1), ("down", -1)])
+@pytest.mark.parametrize("steps", [None, 50])
+def test_manual_live_up_down_move_at_once_without_a_prompt(monkeypatch, tmp_path, action, count, steps):
     module = load_script("arduino/scripts/needle_control.py", monkeypatch)
-    prompts, opened, moves = [], [], []
-    monkeypatch.setattr(module, "confirm_live", lambda text: prompts.append(text) if answer == "y" else (_ for _ in ()).throw(RuntimeError("declined")))
+    opened, moves = [], []
     @contextmanager
     def session(*a, **k):
+        assert k["allow_motion"]
         opened.append(True)
         yield SimpleNamespace()
-    class Needle:
-        def __init__(self, *a, **k): pass
-        def confirm_home(self, **k): moves.append(("reference", 0))
-        def move_to(self, position): moves.append(("move", position))
-        def return_to_home(self): moves.append(("move", 0))
-        def status(self): return dict(logical_position=str(target), position_valid="true", position_source="software_estimate", moving="false", fault="NONE")
+    def jog(controller, cfg, direction, *, state_path, steps=None):
+        moves.append((direction, steps))
+        return SimpleNamespace(logical_position=None if steps else count, position_valid=False)
     monkeypatch.setattr(module, "controller_session", session)
-    monkeypatch.setattr(module, "TrackedNeedle", Needle)
+    monkeypatch.setattr(module, "tracked_relative_jog", jog)
+    monkeypatch.setattr("builtins.input", lambda *a: pytest.fail("UP/DOWN prompted"))
     cfg = yaml.safe_load((ROOT / "arduino/configs/arduino_real_COM3.yaml").read_text())
     cfg["needle"]["state_path"] = str(tmp_path / "state.json")
     monkeypatch.setattr(module, "load_arduino_config", lambda *a: cfg)
-    if answer == "n":
-        with pytest.raises(RuntimeError, match="declined"):
-            module.main([action, "--live"])
-        assert not opened and not moves
-    else:
-        assert module.main([action, "--live"]) == 0
-        assert len(prompts) == 1 and len(opened) == 1
-        assert moves == [("reference" if action == "set-home" else "move", target)]
+    args = [action, "--live"] + (["--steps", str(steps)] if steps else [])
+    assert module.main(args) == 0
+    assert opened == [True] and moves == [(action, steps)]
 
 
 def test_stop_with_corrupt_state_still_sends_stop_and_preserves_bytes(tmp_path, monkeypatch):

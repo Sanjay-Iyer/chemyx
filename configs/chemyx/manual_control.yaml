@@ -1,6 +1,6 @@
 # Chemyx Fusion 4000 standalone manual control and custom software HOME.
 # Used by scripts/chemyx_control.py and scripts/chemyx_home.py.
-# Guide: docs/CHEMYX_MANUAL_CONTROL.md
+# Guide: docs/02_chemyx/02_manual_control_and_home.md
 #
 # This file defines the HOME *convention* and manual operating settings.
 # The actual HOME establishment and current plunger displacement live in the
@@ -47,7 +47,7 @@ channels:
     manual_transfer:
       # Default volume per manual infuse/withdraw command (mL) and the rate for
       # every manual move on this channel, including HOME return (mL/min).
-      volume_ml: 5.0
+      volume_ml: 1.0
       rate_ml_min: 10.0
 
   2:
@@ -67,5 +67,5 @@ channels:
     manual_transfer:
       # Default volume per command (mL) and rate, including HOME return (mL/min).
       # A move is refused if it would leave the syringe below empty or above capacity.
-      volume_ml: 5.0
+      volume_ml: 1.0
       rate_ml_min: 10.0

@@ -110,37 +110,54 @@ def test_failed_jog_keeps_position_unknown(tmp_path):
     assert NeedleStateStore(state_path).load().position_valid is False
 
 
-@pytest.mark.parametrize("action,signed", [("manual-up", 200), ("manual-down", -200)])
-def test_cli_mock_prints_actual_command_and_arduino_replies(tmp_path, action, signed):
+@pytest.mark.parametrize("action,expected", [("manual-up", 1), ("manual-down", -1)])
+def test_cli_alias_uses_the_same_durable_relative_count(tmp_path, action, expected):
     config = yaml.safe_load(EXAMPLE.read_text(encoding="utf-8"))
     config["results"]["run_root_dir"] = str(tmp_path)
     config["needle"]["state_path"] = str(tmp_path / "needle_state.json")
+    config["needle"].update(steps_per_unit=200, up_step_sign=1)
     config_path = tmp_path / "arduino.yaml"
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
     proc = subprocess.run(
         [sys.executable, str(ROOT / "arduino/scripts/needle_control.py"),
-         action, "--steps", "200", "--config", str(config_path), "--mock"],
+         action, "--config", str(config_path), "--mock"],
         cwd=ROOT, text=True, capture_output=True, timeout=15,
     )
     assert proc.returncode == 0, proc.stderr
-    assert f"Signed command: JOG {signed} 100" in proc.stdout
-    assert "STEP pulses" in proc.stdout
-    assert "Arduino: ACK " in proc.stdout
-    assert "Arduino: DONE " in proc.stdout
+    assert f"Needle movement count: {expected:+d}" in proc.stdout
     state = json.loads((tmp_path / "mock_needle_state.json").read_text(encoding="utf-8"))
     assert state["position_valid"] is False
+    assert state["logical_position"] == expected
 
 
-def test_live_manual_jog_requires_interactive_direction_confirmation_before_port(tmp_path):
+def test_cli_custom_steps_move_exactly_and_reset_the_count(tmp_path):
     config = yaml.safe_load(EXAMPLE.read_text(encoding="utf-8"))
-    config["needle"]["state_path"] = str(tmp_path / "needle_state.json")
+    config["results"]["run_root_dir"] = str(tmp_path)
+    config["needle"].update(steps_per_unit=200, up_step_sign=1)
     config_path = tmp_path / "arduino.yaml"
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
     proc = subprocess.run(
         [sys.executable, str(ROOT / "arduino/scripts/needle_control.py"),
-         "manual-up", "--steps", "200", "--config", str(config_path), "--live"],
-        cwd=ROOT, stdin=subprocess.PIPE, text=True, capture_output=True, timeout=15,
+         "down", "--steps", "50", "--config", str(config_path), "--mock"],
+        cwd=ROOT, stdin=subprocess.DEVNULL, text=True, capture_output=True, timeout=15,
     )
-    assert proc.returncode != 0
-    assert "Manual UP 200 steps cancelled" in proc.stderr
-    assert not (tmp_path / "needle_state.json").exists()
+    assert proc.returncode == 0, proc.stderr
+    assert "Needle moved DOWN 50 steps." in proc.stdout and "count: reset" in proc.stdout
+    assert "[y/N]" not in proc.stdout
+    state = json.loads((tmp_path / "mock_needle_state.json").read_text(encoding="utf-8"))
+    assert state["position_valid"] is False and state["logical_position"] is None
+
+
+@pytest.mark.parametrize("args,message", [
+    (["status", "--steps", "50"], "--steps applies only to up/down"),
+    (["set-home", "--steps", "50"], "--steps applies only to up/down"),
+    (["up", "--steps", "0"], "--steps applies only to up/down"),
+    (["up", "--speed", "50"], "configured motion speed"),
+])
+def test_cli_rejects_steps_outside_up_down_and_any_speed_change(tmp_path, args, message):
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "arduino/scripts/needle_control.py"),
+         *args, "--config", str(EXAMPLE), "--live"],
+        cwd=ROOT, stdin=subprocess.DEVNULL, text=True, capture_output=True, timeout=15,
+    )
+    assert proc.returncode == 2 and message in proc.stderr

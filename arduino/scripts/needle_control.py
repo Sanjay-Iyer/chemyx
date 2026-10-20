@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 import argparse
-from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
 import _bootstrap  # noqa: F401
-from _common import confirm_live, controller_session
+from _common import controller_session
 
 from arduino.python.config import load_arduino_config
 from arduino.python.errors import MotionInterlockError, PositionUncertainError
-from arduino.python.manual_jog import execute_manual_jog, manual_runtime_config, plan_manual_jog
-from arduino.python.needle_state import NeedleStateStore, TrackedNeedle
+from arduino.python.manual_jog import tracked_relative_jog
+from arduino.python.needle_state import NeedleStateStore
 from arduino.python.home_recovery import STOP_UNRESOLVED, restore_home
 from arduino.python.protocol import bool_field
 
@@ -26,9 +25,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("status", "home", "set-home", "confirm-home", "up", "down", "return-home", "stop", "manual-up", "manual-down"))
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    parser.add_argument("--steps", type=int, help="Positive physical STEP pulses for one manual jog")
-    parser.add_argument("--speed", type=int, default=100, help="Manual jog ceiling in steps/s (default: 100)")
-    parser.add_argument("--acceleration", type=int, default=500, help="Manual jog ramp in steps/s^2 (default: 500)")
+    parser.add_argument("--steps", type=int,
+                        help="UP/DOWN only: move this many motor steps instead of one calibrated increment "
+                             "(needle.steps_per_unit). A size that is not a whole number of increments "
+                             "resets the movement count and clears a saved HOME until set-home is run again.")
+    parser.add_argument("--speed", type=int, default=100, help=argparse.SUPPRESS)
+    parser.add_argument("--acceleration", type=int, default=500, help=argparse.SUPPRESS)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--live", action="store_true")
     mode.add_argument("--mock", action="store_true")
@@ -36,40 +38,17 @@ def main(argv: list[str] | None = None) -> int:
     cfg = load_arduino_config(args.config)
     mode_name = "live" if args.live else "mock"
     action = {"home": "return-home", "set-home": "confirm-home"}.get(args.action, args.action)
-    if action in ("manual-up", "manual-down"):
-        if args.steps is None:
-            parser.error("manual-up/manual-down require --steps")
-        try:
-            plan = plan_manual_jog(action.removeprefix("manual-"), args.steps, args.speed, args.acceleration)
-            manual_cfg = manual_runtime_config(cfg, plan)
-        except (ValueError, MotionInterlockError) as exc:
-            parser.error(str(exc))
-        print(f"Manual {plan.direction.upper()}: exactly {abs(plan.signed_steps)} STEP pulses")
-        print(f"Signed command: {plan.command}")
-        print(f"Requested speed ceiling: {plan.speed_steps_s} steps/s; ramp: {plan.acceleration_steps_s2} steps/s^2")
-        print("Inspect clear travel and keep the 24 V driver-power disconnect within reach.")
-        if args.live:
-            confirm_live(f"Manual {plan.direction.upper()} {abs(plan.signed_steps)} steps")
-        with controller_session(manual_cfg, mode_name, allow_motion=True, apply_runtime_config=True) as controller:
-            state_path = Path(cfg["results"]["run_root_dir"]) / "mock_needle_state.json" if args.mock else Path(cfg["needle"]["state_path"])
-            try:
-                result = execute_manual_jog(controller, plan, state_path=state_path)
-                print(f"Arduino: {result.ack_raw}")
-                print(f"Arduino: {result.done_raw}")
-            finally:
-                # Leave volatile firmware motion commissioning off after this one move.
-                disarmed = deepcopy(manual_cfg)
-                disarmed["firmware"]["motion_enabled"] = False
-                controller.configure_runtime(disarmed)
-        print("Logical position is now UNKNOWN; manual jog did not establish HOME.")
-        return 0
-    if args.steps is not None or args.speed != 100 or args.acceleration != 500:
-        parser.error("--steps/--speed/--acceleration are only for manual-up/manual-down")
+    action = {"manual-up": "up", "manual-down": "down"}.get(action, action)
+    if args.speed != 100 or args.acceleration != 500:
+        parser.error("UP/DOWN use the configured motion speed and acceleration; adjust the configuration after physical verification")
+    if args.steps is not None and (action not in ("up", "down") or args.steps < 1):
+        parser.error("--steps applies only to up/down and must be a positive number of motor steps")
     home_action = action in ("return-home", "confirm-home")
     if args.live and action not in ("status", "stop"):
         cfg["firmware"]["motion_enabled"] = True
         if not home_action:
-            confirm_live(f"Move needle {action.upper()}")
+            # UP/DOWN move at once, without a confirmation prompt.
+            print("Relative manual move; no physical position sensor. Inspect clear travel in the requested direction; the saved count is not proof of clearance.")
     if args.mock:
         cfg["firmware"]["motion_enabled"] = True
         cfg["needle"].update({"steps_per_unit": cfg["needle"].get("steps_per_unit") or 20,
@@ -121,14 +100,14 @@ def main(argv: list[str] | None = None) -> int:
                   f"valid={str(valid).lower()}; source=software_estimate; "
                   f"firmware moving={firmware['moving']}; fault={firmware['fault']}")
             return 0
-        needle = TrackedNeedle(controller, cfg, state_path=state_path, allow_home_assumption=args.mock)
-        if action == "up":
-            needle.move_to(cfg["needle"]["up_position"])
-        elif action == "down":
-            needle.move_to(cfg["needle"]["down_position"])
-        status = needle.status()
-        print(f"Needle logical position: {status['logical_position']}; valid={status['position_valid']}; "
-              f"source={status['position_source']}; firmware moving={status['moving']}; fault={status['fault']}")
+        saved = tracked_relative_jog(controller, cfg, action, state_path=state_path, steps=args.steps)
+        print(f"Needle moved {action.upper()} {args.steps or cfg['needle']['steps_per_unit']} steps.")
+        if saved.logical_position is None:
+            print(f"Needle movement count: reset ({args.steps} is not a whole number of "
+                  f"{cfg['needle']['steps_per_unit']}-step increments); calibrated HOME=False. "
+                  "Run set-home at the sampling position before an experiment.")
+        else:
+            print(f"Needle movement count: {saved.logical_position:+d}; calibrated HOME={saved.position_valid}; source=software_estimate")
     return 0
 
 

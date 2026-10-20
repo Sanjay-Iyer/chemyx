@@ -218,12 +218,12 @@ def test_startup_returns_known_up_position_to_saved_zero(tmp_path):
         assert [(e["target"], e["target_steps"]) for e in finished] == [("HOME", 0), ("UP", 1)]
 
 
-def test_manual_commands_are_absolute_and_home_alias_works(tmp_path):
+def test_manual_commands_are_relative_from_home_and_home_alias_works(tmp_path):
     raw = yaml.safe_load((config.REPO_ROOT / "arduino/configs/arduino.example.yaml").read_text())
     raw["results"]["run_root_dir"] = str(tmp_path / "manual")
     path = tmp_path / "arduino.yaml"
     path.write_text(yaml.safe_dump(raw))
-    for action, position in [("set-home", 0), ("up", 1), ("up", 1), ("down", 0), ("down", 0), ("up", 1), ("home", 0)]:
+    for action, position in [("set-home", 0), ("up", 1), ("up", 2), ("down", 1), ("down", 0), ("up", 1), ("home", 0)]:
         result = subprocess.run([sys.executable, "-B", str(config.REPO_ROOT / "arduino/scripts/needle_control.py"), action, "--mock", "--config", str(path)], capture_output=True, text=True)
         assert result.returncode == 0, result.stdout + result.stderr
         state = json.loads((tmp_path / "manual/mock_needle_state.json").read_text())

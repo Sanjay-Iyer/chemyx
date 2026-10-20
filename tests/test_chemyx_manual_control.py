@@ -248,7 +248,7 @@ def test_experiment_then_separate_home_process(tmp_path):
     # 6. Channel 2 respects reagent-dose records: an uncertain dose blocks it.
     uncertain = tmp_path / "uncertain_doses"
     uncertain.mkdir()
-    (uncertain / "OTHER.json").write_text(json.dumps({"experiment_id": "OTHER", "status": "DISPATCH_INTENT"}))
+    (uncertain / "OTHER.json").write_text(json.dumps({"schema": "chemyx.si6-dose.v1", "experiment_id": "OTHER", "run_id": "old-run", "status": "DISPATCH_INTENT"}))
     revision = saved(root, 2)["revision"]
     code, out = run("chemyx_control.py", "home", "--channel", "2", "--mock", "--dose-ledger-dir", str(uncertain))
     assert code == 1 and "uncertain" in out and saved(root, 2)["revision"] == revision
@@ -399,15 +399,62 @@ def test_channel2_dose_records_block_and_are_never_cleared(rig, capsys):
     assert cli(rig, "withdraw", "--channel", "2", "--live") == 0
     rig.doses.mkdir()
     record = rig.doses / "EXP.json"
-    record.write_text(json.dumps({"experiment_id": "EXP", "status": "RESERVED"}), encoding="utf-8")
+    record.write_text(json.dumps({"schema": "chemyx.si6-dose.v1", "experiment_id": "EXP", "run_id": "old-run", "status": "RESERVED"}), encoding="utf-8")
     capsys.readouterr()
     # A reserved, undosed reaction must not receive reagent, even when authorized.
     assert cli(rig, "home", "--channel", "2", "--live", "--allow-channel2-infusion") == 1
     assert "RESERVED" in capsys.readouterr().out
-    record.write_text(json.dumps({"experiment_id": "EXP", "status": "DISPATCH_INTENT"}), encoding="utf-8")
+    record.write_text(json.dumps({"schema": "chemyx.si6-dose.v1", "experiment_id": "EXP", "run_id": "old-run", "status": "DISPATCH_INTENT"}), encoding="utf-8")
     assert cli(rig, "withdraw", "--channel", "2", "--live") == 1
     assert saved(rig.root, 2)["current_displacement_nl"] == 2 * ML
     before = record.read_bytes()
     assert cli(rig, "set-home", "--channel", "2", "--live") == 0
     assert record.read_bytes() == before
     assert cli(rig, "withdraw", "--channel", "1", "--live") == 0  # Channel 1 is unaffected
+
+
+def test_command_line_volume_and_rate_apply_to_one_command_only(rig):
+    assert cli(rig, "set-home", "--channel", "1", "--live") == 0
+    yaml_before = rig.config.read_bytes()
+    assert cli(rig, "withdraw", "--channel", "1", "--live", "--volume", "2.5", "--rate", "7.5") == 0
+    log = rig.ports[-1].tx_log
+    # Driver convention: +volume infuses, -volume withdraws.
+    assert "1 set volume -2.5\r" in log and "1 set rate 7.5\r" in log
+    assert saved(rig.root, 1)["current_displacement_nl"] == round(2.5 * ML)
+    assert cli(rig, "infuse", "--channel", "1", "--live", "--volume", "0.5") == 0
+    log = rig.ports[-1].tx_log
+    assert "1 set volume 0.5\r" in log and "1 set rate 5.0\r" in log  # YAML rate without --rate
+    assert saved(rig.root, 1)["current_displacement_nl"] == round(2.0 * ML)
+    # The chemyx_home.py wrapper accepts --rate for the return to HOME.
+    assert manual.main(["--channel", "1", "--live", "--rate", "2.0", "--config", str(rig.config)],
+                       command="home", input_fn=lambda _prompt: "y") == 0
+    log = rig.ports[-1].tx_log
+    assert "1 set volume 2.0\r" in log and "1 set rate 2.0\r" in log
+    assert saved(rig.root, 1)["current_displacement_nl"] == 0
+    assert rig.config.read_bytes() == yaml_before
+
+
+@pytest.mark.parametrize("args, message", [
+    (["home", "--volume", "1"], "--volume applies only to infuse and withdraw"),
+    (["set-home", "--rate", "1"], "--rate applies only to infuse, withdraw and home"),
+    (["withdraw", "--volume", "0"], "--volume must be finite and positive"),
+    (["withdraw", "--volume", "nan"], "--volume must be finite and positive"),
+    (["withdraw", "--rate", "500"], "--rate must be from"),
+    (["infuse", "--rate", "0"], "--rate must be from"),
+])
+def test_command_line_volume_and_rate_are_checked_before_any_pump_contact(rig, capsys, args, message):
+    with pytest.raises(SystemExit) as exc:
+        cli(rig, args[0], "--channel", "1", "--live", *args[1:])
+    assert exc.value.code == 2 and message in capsys.readouterr().err
+    assert not rig.ports
+
+
+def test_command_line_volume_still_cannot_overfill_or_empty_a_syringe(rig, capsys):
+    assert cli(rig, "set-home", "--channel", "1", "--live") == 0
+    capsys.readouterr()
+    assert cli(rig, "withdraw", "--channel", "1", "--live", "--volume", "25") == 1
+    assert "REFUSED" in capsys.readouterr().out
+    assert cli(rig, "infuse", "--channel", "1", "--live", "--volume", "0.1") == 1  # HOME is empty
+    assert "REFUSED" in capsys.readouterr().out
+    assert saved(rig.root, 1)["current_displacement_nl"] == 0
+    assert not [line for line in sent(rig) if "start" in line]

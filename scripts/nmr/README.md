@@ -49,7 +49,7 @@ processed folder first. Transfer/update the Phase 5 source code on the work
 laptop, then import that laptop's local raw files.
 
 For the current local GUI commands and configuration precedence, see
-[the operator guide](../../docs/CREATE_NEW_EXPERIMENT.md). Final whole-run
+[the operator guide](../../docs/07_other_experiments/08_create_experiment.md). Final whole-run
 reporting can be repeated offline without reprocessing individual spectra:
 
 ```powershell
@@ -61,7 +61,7 @@ This writes CSV/QC overviews and three dataset-titled PNGs to
 
 For the focused 5.7 ppm kinetics, completion-decision logic, slide/paper figure
 sets, and exact acquisition-time provenance, see
-[`docs/NMR_TARGET_PEAK_WORKFLOW.md`](../../docs/NMR_TARGET_PEAK_WORKFLOW.md).
+[`docs/05_nmr_analysis/04_target_peak_workflow.md`](../../docs/05_nmr_analysis/04_target_peak_workflow.md).
 
 Standalone tools for analysing NMReady JCAMP-DX (`.dx`) spectra. They read the
 core parser in `chemyx_lab/analysis/nmr.py` but are otherwise self-contained.

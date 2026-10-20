@@ -23,7 +23,7 @@ Interpretation caveat: zero-filled / interpolated spectrum points are **not**
 independent measurements.  A residual bootstrap over an oversampled spectrum
 can therefore *understate* the true experimental uncertainty; treat the
 intervals as a lower bound on measurement error, documented in
-``docs/nmr_statistics.md``.
+``docs/05_nmr_analysis/03_statistics_reference.md``.
 """
 
 from __future__ import annotations

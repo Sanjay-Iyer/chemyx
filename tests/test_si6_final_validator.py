@@ -205,7 +205,7 @@ def test_independent_nominal_guide_yaml_matches_actual_template():
     from chemyx_lab.testing.si6_synthetic_analysis import nominal
     raw = nominal()
     machine = yaml.safe_load((config.REPO_ROOT / "config_templates/machines/si6_instrument_settings.example.yaml").read_text())
-    text = (config.REPO_ROOT / "docs/SI6_CONFIG_USER_GUIDE.md").read_text(encoding="utf-8")
+    text = (config.REPO_ROOT / "docs/07_other_experiments/03_legacy_configuration.md").read_text(encoding="utf-8")
     blocks = re.findall(r"```yaml\n(.*?)```", text, re.S)
     assert len(blocks) >= 7
     def assert_subset(value, expected):

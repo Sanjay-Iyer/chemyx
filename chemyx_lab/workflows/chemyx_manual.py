@@ -17,7 +17,7 @@ import argparse
 import json
 import uuid
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterator
@@ -32,7 +32,7 @@ from .instrument_operations import configure_pump, format_seconds, move_seconds,
 
 
 DEFAULT_CONFIG = config.REPO_ROOT / "configs" / "chemyx" / "manual_control.yaml"
-COMMANDS = ("status", "prepare", "set-home", "home", "infuse", "withdraw", "stop", "verify")
+COMMANDS = ("status", "prepare", "set-home", "home", "infuse", "withdraw", "stop", "verify", "reconcile-dose", "recover-stale")
 UNITS_ML_MIN = 0
 EXTRA_SECONDS = 2.0
 TOP_KEYS = {"machine_config", "syringe_config", "dose_ledger_dir", "channels"}
@@ -199,30 +199,48 @@ def dose_records(directory: Path) -> list[dict[str, Any]]:
     for path in sorted(Path(directory).glob("*.json")):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-            status = data.get("status") if isinstance(data, dict) else None
+            if not isinstance(data, dict):
+                data = {}
+            status = data.get("status")
         except (OSError, ValueError):
             data, status = {}, None
-        if status not in {"RESERVED", "DISPATCH_INTENT", "CONFIRMED"}:
+        identity_ok = (data.get("schema") == "chemyx.si6-dose.v1" and data.get("experiment_id") == path.stem)
+        intact = (identity_ok and isinstance(data.get("run_id"), str) and bool(data["run_id"])
+                  and status in {"RESERVED", "DISPATCH_INTENT", "CONFIRMED"})
+        if not intact:
             status = "UNREADABLE"
-        records.append({"file": path.name, "experiment_id": (data or {}).get("experiment_id") or path.stem,
-                        "status": status, "run_id": (data or {}).get("run_id")})
+        reconciliation = (data or {}).get("reconciliation")
+        reconciled = (isinstance(reconciliation, dict) and reconciliation.get("operator_verified") is True
+                      and reconciliation.get("resolution") in {"unused", "retired"}
+                      and reconciliation.get("original_status") == status
+                      and (intact or identity_ok and data.get("status") == "UNREADABLE"
+                           and reconciliation.get("resolution") == "retired"
+                           and bool(reconciliation.get("original_record_backup"))))
+        records.append({"file": path.name, "experiment_id": path.stem,
+                        "status": status, "run_id": (data or {}).get("run_id"), "reconciled": reconciled})
     return records
 
 
 def channel2_refusal(direction: str, records: list[dict[str, Any]], allow_infusion: bool) -> str | None:
     """Why Channel 2 must not move, or None. Dose records are never cleared."""
+    records = [r for r in records if not r.get("reconciled")]
+    from .dose_recovery import reconciliation_command
     uncertain = [r for r in records if r["status"] not in {"RESERVED", "CONFIRMED"}]
+    # Name the record that actually blocks, with the resolution it can accept.
+    blocking = (uncertain or [r for r in records if r["status"] == "RESERVED"] or records)[:1]
+    recovery = (" Recovery: " + reconciliation_command(blocking[0]["experiment_id"], blocking[0]["status"]) +
+                ". Use unused only after verifying no dose was dispatched; use --resolution retired only after isolating the old reactor and servicing the syringe for a new reaction.") if blocking else ""
     if uncertain:
         names = ", ".join(f"{r['experiment_id']} ({r['status']})" for r in uncertain)
         return (f"Channel 2 motion refused: reagent dose record(s) {names} are uncertain. Reconcile the "
                 "dose against its experiment journal and the physical reactor first; this tool never "
-                "changes dose records.")
+                "changes dose records during movement." + recovery)
     if direction == "infuse":
         reserved = [r["experiment_id"] for r in records if r["status"] == "RESERVED"]
         if reserved:
             return (f"Channel 2 infusion refused: experiment(s) {', '.join(reserved)} are RESERVED without a "
                     "confirmed dose, so a manual reagent infusion could dose that reaction outside its "
-                    "accounting. Service the reagent syringe by hand if needed, then re-establish HOME.")
+                    "accounting. Verify the old process is stopped and reconcile its reservation." + recovery)
         if not allow_infusion:
             return ("Channel 2 infusion pushes reagent through the dosing line. Disconnect that line from "
                     "any reactor, route it to waste, then repeat the command with --allow-channel2-infusion.")
@@ -591,8 +609,7 @@ def cmd_move(args, settings: ManualSettings, channels: list[int], input_fn, comm
             print(f"{label} REFUSED - no pump command was sent:")
             for reason in refusals:
                 print(f"  - {reason}")
-            if command == "home":
-                print(RECOVERY)
+            print_recovery_commands(settings, channels)
             ledger.record_event("chemyx_manual_refused", command=command, channels=channels, reasons=refusals)
             return 1
         for ch, plan in plans.items():
@@ -675,6 +692,45 @@ def cmd_stop(args, settings: ManualSettings, channels: list[int], input_fn) -> i
     return 0 if ok else 1
 
 
+def cmd_recover_stale(args, settings, channels, input_fn):
+    # OS locks are authoritative: an owner.json by itself is never a live lock.
+    # PositionLedger retains known completed positions and makes pending moves
+    # UNKNOWN; acquiring it cannot turn unfinished motion into completion.
+    with ledger_session(bool(args.mock), "explicit stale-record reconciliation") as ledger:
+        ledger.record_event("stale_owner_reconciled", channels=channels, physical_position_changed=False)
+        for ch in channels:
+            view = ledger.state(ch)
+            print(f"Channel {ch}: {view['position_state']}; {view.get('uncertainty_reason') or 'no unfinished motion'}")
+        print("Stale software ownership reconciled. No pump command or HOME reset. Any pending motion remains UNKNOWN.")
+    return 0
+
+
+def cmd_reconcile_dose(args, settings, channels, input_fn):
+    from .dose_recovery import reconcile
+    if channels != [2] or not args.experiment_id or not args.resolution:
+        raise ManualControlError("reconcile-dose requires --channel 2 --experiment-id ID --resolution unused|retired; include --journal PATH when available")
+    with ledger_session(bool(args.mock), "explicit dose reconciliation") as ledger:
+        with pump_session(settings, bool(args.mock)) as pump:
+            for ch in (1, 2):
+                confirm_idle(pump, ch)
+            facts = ("the old run is stopped, no reagent was delivered, and the syringe/loading and paths are physically verified" if args.resolution == "unused" else
+                     "the old reactor is isolated and retired, and the reagent syringe has been serviced for an intentionally NEW reaction")
+            if not confirm(f"Confirm {facts}. Preserve old dose evidence and reconcile? [y/N]: ", mock=bool(args.mock), input_fn=input_fn):
+                return 1
+            path = reconcile(args.dose_ledger_dir, args.experiment_id, args.journal, args.resolution)
+            ledger.record_event("dose_reconciled", dose_record=str(path), resolution=args.resolution, physical_position_changed=False)
+            print(f"Dose reconciled: {path}. Original status preserved. HOME unchanged; physically verify loading and set-home only if the plunger was serviced.")
+    return 0
+
+
+def print_recovery_commands(settings, channels):
+    for ch in channels:
+        print(f"Inspect Channel {ch} and the fluid paths. Verify the old controller is stopped. If position is UNKNOWN, physically place the stopped plunger at its configured HOME, then run:")
+        print(f'  python scripts/chemyx_control.py set-home --channel {ch} --live --config "{settings.path}" --machine-config "{settings.machine_config}"')
+    print(f'For a software-only stale owner (no active process): python scripts/chemyx_control.py recover-stale --channel both --live --config "{settings.path}" --machine-config "{settings.machine_config}"')
+    print("An active OS lock cannot be cleared by recover-stale; finish/stop the owning process. Never delete a lock to bypass an active controller.")
+
+
 # -- entry point --------------------------------------------------------------
 def mode_name(args) -> str:
     return "live" if args.live else "mock" if args.mock else "offline"
@@ -695,10 +751,41 @@ def build_parser(command: str | None = None) -> argparse.ArgumentParser:
     modes.add_argument("--live", action="store_true", help="Contact the real pump")
     modes.add_argument("--mock", action="store_true", help="Use the mock pump and the separate mock ledger")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Manual control YAML")
+    parser.add_argument("--machine-config", type=Path, help="COM4/COM6 machine file (does not migrate saved HOME)")
+    parser.add_argument("--experiment-id", help="Old dose identity for explicit reconciliation")
+    parser.add_argument("--journal", type=Path, help="Old run's operation_journal.jsonl")
+    parser.add_argument("--resolution", choices=("unused", "retired"))
     parser.add_argument("--dose-ledger-dir", type=Path, help="Reagent dose ledger to respect (default from the YAML)")
     parser.add_argument("--allow-channel2-infusion", action="store_true",
                         help="Authorize a Channel 2 infusion for this one command after routing the reagent line to waste")
+    if command is None:
+        parser.add_argument("--volume", type=float, metavar="ML",
+                            help="infuse/withdraw only: volume in mL for this one command (default: manual_transfer.volume_ml)")
+    parser.add_argument("--rate", type=float, metavar="ML_MIN",
+                        help="infuse/withdraw/home only: rate in mL/min for this one command (default: manual_transfer.rate_ml_min)")
     return parser
+
+
+def command_line_transfer(parser: argparse.ArgumentParser, args, command: str) -> dict[str, float]:
+    """One-command overrides of the YAML manual_transfer volume and rate."""
+    overrides = {}
+    volume = getattr(args, "volume", None)
+    if volume is not None:
+        if command not in {"infuse", "withdraw"}:
+            parser.error("--volume applies only to infuse and withdraw")
+        try:
+            overrides["transfer_volume_ml"] = pump_channels.positive(volume, "--volume")
+        except ValueError as exc:
+            parser.error(str(exc))
+    if args.rate is not None:
+        if command not in {"infuse", "withdraw", "home"}:
+            parser.error("--rate applies only to infuse, withdraw and home")
+        try:
+            overrides["rate_ml_min"] = pump_channels.validate_rate(args.rate, UNITS_ML_MIN, "--rate")
+        except ValueError:
+            low, high = config.rate_limits(UNITS_ML_MIN)
+            parser.error(f"--rate must be from {low:g} to {high:g} mL/min")
+    return overrides
 
 
 def main(argv: list[str] | None = None, *, command: str | None = None, input_fn: Callable[[str], str] = input) -> int:
@@ -711,18 +798,34 @@ def main(argv: list[str] | None = None, *, command: str | None = None, input_fn:
         args.channel = "both"
     if command not in {"status", "verify"} and not (args.live or args.mock):
         parser.error(f"{command} requires --live or --mock")
+    transfer = command_line_transfer(parser, args, command)
     channels = [1, 2] if args.channel == "both" else [int(args.channel)]
     print(f"CHEMYX MANUAL CONTROL | {command.upper()} | {mode_name(args).upper()} | channel(s) {', '.join(map(str, channels))}")
     try:
         settings = load_manual_config(args.config)
+        if args.machine_config:
+            machine_path = config.resolve_repo_path(args.machine_config)
+            machine = config.load_machine_config(machine_path).chemyx
+            values = dict(port=machine.serial_port, baud_rate=machine.baud_rate, timeout=machine.timeout_seconds,
+                          response_delay=machine.response_delay_seconds)
+            values.update(config._explicit_env_pump_overrides())
+            settings = replace(settings, machine_config=machine_path, **{k: v for k, v in values.items() if k in {"port", "baud_rate", "timeout", "response_delay"}})
         missing = [ch for ch in channels if ch not in settings.channels]
         if missing:
             raise ManualControlError(f"Channel(s) {missing} are not configured in {settings.path}")
+        if transfer:
+            # This command only; the YAML defaults and saved HOME are unchanged.
+            settings = replace(settings, channels={ch: replace(cs, **transfer) if ch in channels else cs
+                                                   for ch, cs in settings.channels.items()})
+            print("Command line: " + ", ".join(
+                f"{label} {transfer[key]:g} {unit}" for key, label, unit in
+                (("transfer_volume_ml", "volume", "mL"), ("rate_ml_min", "rate", "mL/min")) if key in transfer))
         if args.dose_ledger_dir is None:
-            args.dose_ledger_dir = settings.dose_ledger_dir
+            args.dose_ledger_dir = (position.state_root(True).parent / "si6_doses_mock"
+                                   if args.mock and command == "reconcile-dose" else settings.dose_ledger_dir)
         print(f"Config: {settings.path}\nMachine: {settings.machine_config} | Chemyx port: {settings.port or 'unset'}")
         handlers = {"status": cmd_status, "verify": cmd_verify, "prepare": cmd_prepare, "set-home": cmd_set_home,
-                    "stop": cmd_stop}
+                    "stop": cmd_stop, "recover-stale": cmd_recover_stale, "reconcile-dose": cmd_reconcile_dose}
         if command in handlers:
             return handlers[command](args, settings, channels, input_fn)
         return cmd_move(args, settings, channels, input_fn, command)
@@ -731,4 +834,6 @@ def main(argv: list[str] | None = None, *, command: str | None = None, input_fn:
         return 1
     except Exception as exc:  # noqa: BLE001 - one clear operator-facing failure line
         print(f"CHEMYX {command.upper()}: FAILED ({type(exc).__name__}: {exc})")
+        if "settings" in locals():
+            print_recovery_commands(settings, channels)
         return 1

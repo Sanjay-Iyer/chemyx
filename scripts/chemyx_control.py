@@ -1,7 +1,7 @@
 """Standalone Chemyx Fusion 4000 control with a custom software HOME.
 
 HOME is a saved software reference, not a native Chemyx command. See
-docs/CHEMYX_MANUAL_CONTROL.md. Examples (PowerShell, repository root):
+docs/02_chemyx/02_manual_control_and_home.md. Examples (PowerShell, repository root):
 
     python scripts/chemyx_control.py status --channel both
     python scripts/chemyx_control.py set-home --channel 1 --live

@@ -1,4 +1,4 @@
-# Short attended commissioning run (docs/archive/LIVE_COMMISSIONING_CHECKLIST.md, F).
+# Short attended commissioning run (docs/99_archive/LIVE_COMMISSIONING_CHECKLIST.md, F).
 # Copy of 02_si6_automated_nmr.yaml changing only the initial stage (exactly
 # one immediate measurement) and the output folder. Pass it with
 # --workflow-config configs/experiments/02_si6_short_attended.local.yaml
@@ -12,7 +12,7 @@
 # here, so editing this file can never switch a run onto real hardware.
 #
 # Values marked COMMISSION must be confirmed on the instrument laptop before a
-# live run (docs/archive/LIVE_COMMISSIONING_CHECKLIST.md). Needle UP/DOWN positions
+# live run (docs/99_archive/LIVE_COMMISSIONING_CHECKLIST.md). Needle UP/DOWN positions
 # live in arduino/configs/arduino.local.yaml, not here.
 
 workflow:

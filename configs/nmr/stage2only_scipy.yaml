@@ -1,0 +1,22 @@
+# Approved primary method for the separate 08 / 09 workflows only.
+# This file is read by analysis subprocesses, never by the instrument controller.
+schema: chemyx.stage2-scipy.v1
+primary_method: width_95
+rel_height: 0.95
+detection:
+  name: prominence_8
+  search_low: 5.60
+  search_high: 6.00
+  prominence_snr: 8.0
+  height_snr: 5.0
+  distance_ppm: 0.02
+  minimum_width_ppm: 0.012
+  maximum_width_ppm: 0.18
+  expected_ppm: 5.79
+  maximum_shift_ppm: 0.12
+  smoothing_ppm: 0.006
+  prominence_window_ppm: 0.40
+  maximum_boundary_half_span_ppm: 0.18
+  envelope_gap_ppm: 0.025
+  baseline_noise_tolerance: 2.0
+  baseline_run_ppm: 0.008

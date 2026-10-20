@@ -302,7 +302,7 @@ def _parser(config_defaults=None) -> argparse.ArgumentParser:
             "bootstrap uncertainty, run QC, fixed-window time series, rates, "
             "statistical plateau, kinetics, spectral similarity). Off by "
             "default; also enabled by statistics.enabled in the config. "
-            "See docs/nmr_statistics.md."
+            "See docs/05_nmr_analysis/03_statistics_reference.md."
         ),
     )
     parser.add_argument(

@@ -7,7 +7,7 @@
 # here, so editing this file can never switch a run onto real hardware.
 #
 # Values marked COMMISSION must be confirmed on the instrument laptop before a
-# live run (docs/archive/LIVE_COMMISSIONING_CHECKLIST.md). Needle UP/DOWN positions
+# live run (docs/99_archive/LIVE_COMMISSIONING_CHECKLIST.md). Needle UP/DOWN positions
 # live in arduino/configs/arduino.local.yaml, not here.
 
 workflow:

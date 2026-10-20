@@ -14,7 +14,7 @@
     Downloads arduino-cli (SHA-256 verified), installs the "Arduino UNO R4
     Boards" core (arduino:renesas_uno) with its compiler and upload tools, and
     compiles the firmware once to prove the bundle. Driver post-install scripts
-    are skipped; see docs\archive\OFFLINE_SETUP.md for the upload driver.
+    are skipped; see docs\99_archive\OFFLINE_SETUP.md for the upload driver.
 
     On any computer, offline, with no hardware:
 

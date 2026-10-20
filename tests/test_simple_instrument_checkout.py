@@ -27,7 +27,8 @@ def rig(tmp_path, monkeypatch):
     settings = replace(settings, dose_ledger_dir=tmp_path / "doses")
     settings.dose_ledger_dir.mkdir()
     (settings.dose_ledger_dir / "existing_reaction.json").write_text(
-        '{"experiment_id":"existing_reaction","status":"CONFIRMED","volume_ml":1.86}\n')
+        json.dumps({"schema": "chemyx.si6-dose.v1", "experiment_id": "existing_reaction", "run_id": "old-run",
+                    "status": "CONFIRMED", "volume_ml": 1.86}) + "\n")
     needle_path = tmp_path / "needle.json"
     arduino["needle"]["state_path"] = str(needle_path)
     saved = NeedleState(logical_position=0, position_valid=True, reason="operator_confirmed_home",
@@ -150,7 +151,7 @@ def test_production_dose_records_and_recipe_unchanged(rig):
 
 @pytest.mark.parametrize("status", ["RESERVED", "DISPATCH_INTENT", "UNREADABLE"])
 def test_active_dose_guard_blocks_before_any_motor_movement(rig, status):
-    (rig.settings.dose_ledger_dir / "active.json").write_text(json.dumps({"status": status}))
+    (rig.settings.dose_ledger_dir / "active.json").write_text(json.dumps({"schema": "chemyx.si6-dose.v1", "experiment_id": "active", "run_id": "old-run", "status": status}))
     saved = rig.needle_path.read_bytes()
     report = run(rig)
     assert report["overall"] == "FAILED"

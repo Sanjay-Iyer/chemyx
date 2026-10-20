@@ -2,7 +2,7 @@
 
 Copy a complete YAML here to `configs/experiments/<your_name>.yaml`, then edit
 the copy. These recipes use the existing runner/schema. See
-`docs/CREATE_NEW_EXPERIMENT.md` for commands and configuration precedence.
+`docs/07_other_experiments/08_create_experiment.md` for commands and configuration precedence.
 
 | Recipe | Sampling | Stages |
 | --- | --- | --- |
@@ -23,7 +23,7 @@ to the existing default recipe. No template selects live mode.
 [`si6_two_channel_once.yaml`](si6_two_channel_once.yaml) is a complete simulation
 recipe for channel-1 sampling, one 50 µL channel-2 dose between stages, and
 channel-1 sampling again. See
-[channel configuration and HOME simulation commands](../../docs/CHEMYX_CHANNEL_WORKFLOW.md).
+[channel configuration and HOME simulation commands](../../docs/02_chemyx/04_channel_configuration.md).
 
 ## Two-stage Si6
 
@@ -32,6 +32,6 @@ increasing plateau profile. `si6_two_stage_fast_sim.yaml` exercises that entire
 sequence on an explicit virtual clock. `si6_two_stage_stage1_development.yaml`
 and `si6_two_stage_stage2_development.yaml` are editable full-reaction development
 starting points with chemical prerequisites preserved. See
-`docs/archive/SI6_TWO_STAGE_CONFIGURATION.md`, `docs/archive/SI6_TWO_STAGE_OPERATOR_GUIDE.md`
-and `docs/OFFLINE_DEPLOYMENT.md`. Nominal thresholds/syringe dimensions need
+`docs/99_archive/SI6_TWO_STAGE_CONFIGURATION.md`, `docs/99_archive/SI6_TWO_STAGE_OPERATOR_GUIDE.md`
+and `docs/06_deployment_and_backup/01_general_offline_deployment.md`. Nominal thresholds/syringe dimensions need
 WORK calibration; controller simulation is not physical verification.

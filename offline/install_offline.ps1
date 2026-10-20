@@ -131,7 +131,7 @@ if (Test-Path (Join-Path $offline "arduino\arduino-cli.exe")) {
     if ($LASTEXITCODE -ne 0) { throw "Offline firmware compile failed." }
 } else {
     Write-Host "      offline\arduino was not transferred. Retain commissioned firmware 1.2.1 before going"
-    Write-Host "      offline, or copy that bundle to reflash here (docs\archive\OFFLINE_SETUP.md)."
+    Write-Host "      offline, or copy that bundle to reflash here (docs\99_archive\OFFLINE_SETUP.md)."
 }
 
 if ($RunTests) {
@@ -154,4 +154,4 @@ if ($RunTests) {
 }
 
 Write-Host ""
-Write-Host "Offline install complete. Next steps are in docs\archive\LIVE_COMMISSIONING_CHECKLIST.md."
+Write-Host "Offline install complete. Next steps are in docs\99_archive\LIVE_COMMISSIONING_CHECKLIST.md."

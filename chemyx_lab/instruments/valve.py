@@ -10,7 +10,7 @@ no movement), so this driver validates every requested position against
 
 Protocol reference: IDEX doc 2321382G, "UART/USB Communication Protocol for
 TitanEX/TitanEZ/TitanHP, TitanHT Driver Boards and MX Series II Modules"
-(shipped in this repo at ``docs/reference/valve/titan_uart_protocol.pdf``; the same document
+(shipped in this repo at ``docs/08_reference/vendor/valve/titan_uart_protocol.pdf``; the same document
 is in IDEX's MX Series II Driver Development Package, File-1418039677).
 Summary of the wire protocol:
 
@@ -32,7 +32,7 @@ means *selectable positions*.
 
 The serial transport (port setup, framing, terminator, read loop) is lifted
 verbatim from the archived low-level bring-up script recorded in
-``docs/archive/ARCHIVE_MANIFEST.csv``, which was proven working on this hardware.
+``docs/99_archive/ARCHIVE_MANIFEST.csv``, which was proven working on this hardware.
 """
 
 from __future__ import annotations
@@ -475,7 +475,7 @@ class MX_valve:
                 f"set_command_mode_bcd() plus a power cycle; (2) the valve "
                 f"profile matches a {self.ports}-position valve -- "
                 f"get_profile(); (3) the stored error code -- get_error(). "
-                f"See docs/valve/mx2_guide.md."
+                f"See docs/08_reference/valve/01_mx2_guide.md."
             ) from exc
 
     def home(self, wait: bool = True) -> int | None:

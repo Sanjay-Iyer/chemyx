@@ -1,0 +1,37 @@
+# STAGE 2 ONLY. Prepare the Stage 2 reaction before launching --live.
+# No Stage 1, no Channel 2 dose, no prompts, no new HOME for either instrument.
+# Restore Channel 1 to its EXISTING empty HOME; leave Channel 2 loading/state alone.
+# Live spectrum processing runs in a separate background process for review only;
+# analysis.yaml, processing errors and analysis completion never control this clock.
+machine_config: configs/machines/si6_real_COM4.yaml
+arduino_config: arduino/configs/arduino_real_COM3.yaml
+manual_config: configs/chemyx/manual_control.yaml
+stage: {name: stage_2, hours: 6, interval_minutes: 30, include_endpoint: true}
+workflow:
+  initial_needle_position: UP
+  pump_extra_seconds: 2.0
+  cycle:
+    - {action: withdraw, channel: 1, volume_ml: 8.0, rate_ml_min: 5.0, needle_position: UP}
+    - {action: needle, position: HOME}
+    - {action: withdraw, channel: 1, volume_ml: 5.0, rate_ml_min: 5.0, needle_position: HOME}
+    - {action: pause, seconds: 10}
+    - {action: nmr, needle_position: HOME}
+    - {action: needle, position: UP}
+    - {action: infuse, channel: 1, volume_ml: 13.0, rate_ml_min: 5.0, needle_position: UP}
+    - {action: withdraw, channel: 1, volume_ml: 5.0, rate_ml_min: 5.0, needle_position: UP}
+    - {action: infuse, channel: 1, volume_ml: 5.0, rate_ml_min: 5.0, needle_position: UP}
+pump:
+  default_channel: 1
+  channels:
+    '1': {syringe_diameter_mm: 20.0, syringe_capacity_ml: 20.0, initial_retained_volume_ml: 0.0, syringe_safety_margin_ml: 1.0, units: mL/min, rate_ml_min: 5.0, default_volume_ml: 5.0}
+nmr:
+  route: iflow
+  result_type: fid
+  scans: 8
+  receiver_gain: 12.0
+  auto_gain: false
+  spectral_center: 5.0
+  sweep_width: 20.0
+retrieval_wait_seconds: 20
+output:
+  run_root_dir: results/stage2only

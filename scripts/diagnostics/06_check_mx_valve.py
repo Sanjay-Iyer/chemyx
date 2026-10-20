@@ -29,7 +29,7 @@ PowerShell examples (repo root, any Python with pyserial):
 
 If position moves fail but home works, the usual cause is the command mode:
 run with --set-bcd, power-cycle the 24 V supply, and run again.
-See docs/valve/mx2_guide.md.
+See docs/08_reference/valve/01_mx2_guide.md.
 """
 
 from __future__ import annotations
@@ -316,7 +316,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{failures} step(s) FAILED. Scroll up: every TX/RX line shows "
               "exactly what went over the wire.")
         print("If home worked but moves failed, check the command mode "
-              "(Step 2) and see docs/valve/mx2_guide.md.")
+              "(Step 2) and see docs/08_reference/valve/01_mx2_guide.md.")
         return 1
     print("All steps passed: the valve toggled 1 -> 2 -> 1 -> 2 with "
           "confirmed readbacks.")

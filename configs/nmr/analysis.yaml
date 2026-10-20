@@ -263,7 +263,7 @@ reference:
 #
 # NOTE: the process rebuilds the whole output folder each run, so turning this
 # off and re-running DELETES the statistics/ tables from a previous run.
-# See docs/nmr_statistics.md for every metric's definition and caveats.
+# See docs/05_nmr_analysis/03_statistics_reference.md for every metric's definition and caveats.
 # ---------------------------------------------------------------------------
 statistics:
   enabled: true

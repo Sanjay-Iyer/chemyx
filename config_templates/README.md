@@ -2,7 +2,7 @@
 
 For complete experiment recipes (standard, 30/60-minute, mixed intervals,
 one-cycle attended, or long monitoring), see [experiments/](experiments/README.md)
-and the [new-experiment guide](../docs/CREATE_NEW_EXPERIMENT.md).
+and the [new-experiment guide](../docs/07_other_experiments/08_create_experiment.md).
 
 Run these commands from the repository root. Files in this directory are
 **tracked, ready-to-edit templates**, but scripts do not read them here. Copy
@@ -53,7 +53,7 @@ already exist.
 | `chemyx.serial_port`, `chemyx.baud_rate`, optional `valve.serial_port` in `00_machine.local.template.yaml` | Pump and valve serial endpoints; COM assignments vary by laptop. `COM6` is an older work-laptop pump example, **not** the Arduino's COM3. | Attach one device at a time, compare port lists, identify the pump/valve in Device Manager, and verify baud rate against its setup. Do not infer the pump port from the Arduino port. |
 | `nmr.host`, `nmr.port` in `00_machine.local.template.yaml` | NMR RPC endpoint; `169.254.30.54:5000` is documented from the earlier rig, not proven on a new laptop. | Read the spectrometer's network/RPC settings or the instrument network documentation. `ipconfig` describes the laptop, not the NMR. After verifying the address, `Test-NetConnection 169.254.30.54 -Port 5000` checks network reachability; it does not validate an NMR acquisition. |
 | `input.paths`, `output.directory` in `analysis.local.template.yaml` | Existing `.dx` input tree and where processed results go; these often change with laptop storage. Example input: `results/raw/nmr/06-09-26`. | From the repo root, use `Test-Path results\raw\nmr\06-09-26` and `Resolve-Path results\raw\nmr\06-09-26`. For an output path that does not yet exist, verify its intended parent and available storage instead. |
-| `needle.steps_per_unit`, `needle.up_step_sign`, `needle.min_position/max_position`, UP/DOWN positions, driver settings, and safety flags in the Arduino templates | Physical travel/direction and operator-reviewed safeguards; these do **not** change merely because the laptop changes, but can change with hardware or wiring. The example software bounds are not measured limits. | **Must be physically measured/verified on the instrument. Do not copy blindly from another laptop.** There is no encoder or HOME/limit switch to discover these automatically. Keep motion disarmed until verified; see `arduino/docs/TEST_02_GUIDE.md` and `TEST_03_GUIDE.md`. |
+| `needle.steps_per_unit`, `needle.up_step_sign`, `needle.min_position/max_position`, UP/DOWN positions, driver settings, and safety flags in the Arduino templates | Physical travel/direction and operator-reviewed safeguards; these do **not** change merely because the laptop changes, but can change with hardware or wiring. The example software bounds are not measured limits. | **Must be physically measured/verified on the instrument. Do not copy blindly from another laptop.** There is no encoder or HOME/limit switch to discover these automatically. Keep motion disarmed until verified; see `docs/01_arduino/09_unloaded_motor_test.md` and `TEST_03_GUIDE.md`. |
 | `integrated.*` in `integrated_hello_world.local.template.yaml` | Paths to the machine/experiment configs plus reviewed Test 4 pump actions, NMR diagnostic and settle times. | The two paths already point to tracked/default locations. Inspect the actual cycle in `configs/experiments/02_si6_automated_nmr.yaml`; choose pump actions and timings only after reviewing the liquid path and the 120-second Test 4 budget. Unchosen actions remain `null` and block live Test 4B. |
 
 Read-only Windows port discovery (does not open a serial connection):
@@ -118,7 +118,7 @@ move until the physical setup is commissioned. `test_02_unloaded_motor.py`
 requires the motor to be mechanically **disconnected** from the needle axis;
 never run it coupled just to unlock Test 3. `04_run_nmr_1d_acquisition.py` can
 start a real scan; `06_check_mx_valve.py` can move a valve. Follow
-`docs/archive/LIVE_COMMISSIONING_CHECKLIST.md` before integrated live work.
+`docs/99_archive/LIVE_COMMISSIONING_CHECKLIST.md` before integrated live work.
 
 ## YAMLs already present at their runtime locations
 

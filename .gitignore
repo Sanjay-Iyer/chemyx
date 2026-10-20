@@ -66,6 +66,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+.pytest_tmp/
 .mypy_cache/
 .ruff_cache/
 # Disposable pytest --basetemp folders from earlier sessions.

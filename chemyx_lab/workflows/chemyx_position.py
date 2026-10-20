@@ -655,6 +655,35 @@ class PositionLedger:
         return saved
 
     # -- motion tracking -------------------------------------------------
+    def record_manual_return_home(self, identity: ChannelIdentity, *, run_id: str) -> dict[str, Any]:
+        """Record manual preparation at an EXISTING HOME, without redefining it.
+
+        The fixed-time workflow requires the operator to restore its starting
+        loading before launching. This records that return, including after an
+        interrupted previous run. It sends no motor command and preserves the
+        original HOME receipt, geometry, identity and movement totals.
+        """
+        ch = identity.channel
+        previous = self._current(ch)
+        if not previous["home_defined"] or not isinstance(previous["home"], dict):
+            raise HomeRefused(f"Channel {ch}: no established Chemyx HOME to preserve. "
+                              "Establish it with the standalone pump tool during manual setup.")
+        changes = identity_changes(previous["configuration_identity"], identity.reference_fields())
+        if changes:
+            raise HomeRefused(f"Channel {ch}: saved Chemyx HOME does not match this setup: "
+                              + "; ".join(changes) + ". The experiment will not redefine it.")
+        _check_fill(identity, 0, "manually restored HOME loading")
+        new = dict(previous, position_known=True, current_displacement_nl=0,
+                   pending_motion=False, pending_operation=None, uncertainty_reason=None)
+        return self._commit(ch, new, "chemyx_position_manual_return_home", manual_return_run_id=run_id,
+                            previous_position_state=previous["position_state"],
+                            previous_displacement_ml=previous["current_displacement_ml"],
+                            previous_uncertainty_reason=previous["uncertainty_reason"],
+                            previous_pending_operation=previous["pending_operation"],
+                            reference_redefined=False, physical_motion_commanded=False,
+                            physical_position_measured=False,
+                            reference_basis="operator_prepared_existing_home_before_launch")
+
     def tracker(self, *, channel: int, pump: str, diameter_mm: float, capacity_ml: float, source: str, run_id: str | None) -> "ChannelTracker":
         return ChannelTracker(self, channel=channel, identity=motion_fields(pump, diameter_mm, capacity_ml), source=source, run_id=run_id)
 

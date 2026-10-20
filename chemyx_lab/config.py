@@ -133,7 +133,7 @@ VALVE_CONFIG_FILE = _env(
 
 # NMR defaults. Keep the host unset in Python so real endpoints must come from
 # machine config, environment, or CLI; historical endpoint evidence is listed
-# in docs/archive/ARCHIVE_MANIFEST.csv.
+# in docs/99_archive/ARCHIVE_MANIFEST.csv.
 NMR_RPC_SCHEME = _env("NMR_RPC_SCHEME", "http")
 NMR_HOST = _env("NMR_HOST", "")
 NMR_PORT = _env("NMR_PORT", 5000, int)
@@ -443,7 +443,7 @@ def _explicit_env_pump_overrides() -> dict[str, Any]:
     return _explicit_env_overrides(mapping)
 
 
-def _explicit_env_nmr_overrides() -> dict[str, Any]:
+def _explicit_env_nmr_overrides(*, acquisition_only: bool = False) -> dict[str, Any]:
     mapping = {
         "NMR_HOST": ("host", str),
         "NMR_PORT": ("port", int),
@@ -460,6 +460,9 @@ def _explicit_env_nmr_overrides() -> dict[str, Any]:
         "NMR_SAVE_DIR": ("save_dir", Path),
         "NMR_TARGET_PPM": ("target_ppm", float),
     }
+    if acquisition_only:
+        mapping.pop("NMR_TARGET_PPM")  # Irrelevant to acquisition-only tools.
+        mapping.pop("NMR_DEFAULT_SCANS")  # This experiment's explicit preset wins.
     return _explicit_env_overrides(mapping)
 
 

@@ -1,7 +1,7 @@
 # FIRST SUPERVISED PHYSICAL TEST of the Chemyx Fusion 4000 (both channels).
 # Small 0.1 mL moves at 0.5 mL/min instead of the 5 mL / 10 mL/min defaults in
 # manual_control.yaml. Use with: --config configs/chemyx/first_motion_test.yaml
-# Guide: docs/CHEMYX_MANUAL_CONTROL.md ("First supervised physical test").
+# Guide: docs/02_chemyx/02_manual_control_and_home.md ("First supervised physical test").
 #
 # HOME for this test is the plunger fully depressed on BOTH channels, so each
 # channel withdraws first and HOME returns it by infusing the same volume.

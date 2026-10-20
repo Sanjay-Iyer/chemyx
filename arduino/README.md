@@ -1,3 +1,5 @@
+> Numbered operator guides: [01 — Arduino](../docs/01_arduino/00_START_HERE.md). For the full experiment: [03 — Fixed-time run](../docs/03_fixed_time_experiment/00_START_HERE.md).
+
 # Arduino needle controller — supervised D3/D4 demo
 
 The active UNO R4 Minima sketch is
@@ -34,8 +36,10 @@ READY is absent or the version differs, stop before motion tests. After
 flashing 1.2.1, update both `arduino.expected_version` and `firmware.version`
 in the local YAML to `1.2.1`; do not overwrite reviewed calibration.
 
-Python's `TrackedNeedle` in `arduino/python/needle_state.py` owns logical
-position: HOME=0 (inside the flask), UP=1 (raised), DOWN=0 (HOME). It stores an atomic JSON estimate
+Python's `TrackedNeedle` in `arduino/python/needle_state.py` owns automated logical
+position: HOME=0 (inside the flask), UP=1 (raised), DOWN=0 (HOME). The standalone
+manual script's UP/DOWN are relative +1/−1 increments in this same reference.
+It stores an atomic JSON estimate
 at `runs/arduino/needle_state.json` by default. The position is not measured:
 there is no encoder or physical HOME. Missing/corrupt state and failed or
 interrupted motion block automatic movement until inspection and supervised
@@ -47,7 +51,7 @@ physically place/verify the stationary needle at zero, then records that
 reference **without movement**. `set-home`/`confirm-home` remain explicit
 reference-setting aliases, including when a valid reference already exists.
 Corrupt JSON is preserved as `.corrupt-*.bak` after confirmation. See the
-[HOME recovery operating guide](docs/HOME_RECOVERY.md) for fault handling and
+[HOME recovery operating guide](../docs/01_arduino/02_home_recovery.md) for fault handling and
 the durable recovery journal. No acknowledgment flags are required.
 
 Configure the Arduino COM port, physical UP direction, steps per logical unit,
@@ -67,39 +71,40 @@ python arduino\scripts\needle_control.py status --live --config arduino\configs\
 ```
 
 The physical confirmation step must follow an actual needle inspection. Live
-HOME and manual motion each prompt for one `y`. `status` never moves the
+HOME prompts for one `y`; manual `up`/`down` move at once. `status` never moves the
 needle. `stop` is also available, but the existing 24 V driver-power
 disconnect is the physical stop. `ENABLE`/`DISABLE` in this firmware only arm
 software; they do not control the driver's unwired ENA input.
 
 ## Individually supervised manual jog
 
-This is separate from the staged Test 2/3 workflow and from persistent logical
-`up`/`down` control. It needs no prior test result, HOME, or `steps_per_unit`:
+The standalone script uses relative `up`/`down` (the `manual-up`/`manual-down`
+names are aliases). It needs no prior HOME, but retains the existing verified
+increment and physical direction calibration:
 
 ```powershell
-python arduino\scripts\needle_control.py manual-up --steps 200 --config arduino\configs\arduino.local.yaml --live
-python arduino\scripts\needle_control.py manual-down --steps 200 --config arduino\configs\arduino.local.yaml --live
+python arduino\scripts\needle_control.py up --config arduino\configs\arduino_real_COM3.yaml --live
+python arduino\scripts\needle_control.py down --config arduino\configs\arduino_real_COM3.yaml --live
 ```
 
-Run **one line at a time**, observe the axis, then decide whether to run the
-other. The script prints the exact signed JOG command and pulse count before
-asking for one `y`. Defaults are a
-100-steps/s ceiling (the historical bridge rate) and a 500-steps/s² firmware
-ramp. That ramp is the firmware's unloaded fallback, not a connected-axis
-measurement; use `--speed` and `--acceleration` for other reviewed values.
-Positive JOG drives D4 DIR LOW (historical UP); negative drives D4 DIR HIGH.
-Each command sends exactly one requested movement, prints the Arduino's actual
-ACK and DONE lines, and leaves firmware motion disarmed afterward. Manual jog
-invalidates any saved logical position: it does **not** establish HOME or prove
-physical travel from an encoder. Keep the 24 V driver-power disconnect within
-reach; `STOP` over USB is not a physical emergency stop.
+Run **one line at a time** and inspect clear physical travel first: there is no
+confirmation prompt. The current COM3 increment is 200 STEP pulses at 100 steps/s
+with a 500 steps/s² ramp. Add `--steps N` to move N pulses for one command; a size
+that is not a multiple of 200 resets the count and clears a saved HOME (run
+`set-home` again). Configure reviewed motion values in the Arduino YAML. Relative counts
+persist across invocations and enforce the configured −3/+5 travel bounds.
+Before calibration, count zero is only a relative origin: it cannot authorize
+automatic movement. `set-home` records the current physically verified stopped
+sampling HOME as zero without movement; after that, manual moves and automated
+absolute 0/1 positioning share the same ledger. Interrupted motion stays unknown.
+Keep the 24 V driver-power disconnect within reach; `STOP` over USB is not a
+physical emergency stop. See [the fixed-time operating guide](../docs/03_fixed_time_experiment/01_run_guide.md).
 
 For offline checks, use `--mock` instead of `--live`, or run
 `python -m pytest -q arduino/tests`. The staged Test 2, Test 3, and Test 4
-scripts remain available; see `arduino/docs/TEST_02_GUIDE.md`,
-`arduino/docs/TEST_03_GUIDE.md`, and `arduino/docs/TEST_04_GUIDE.md`.
-Firmware upload commands and pin details are in `arduino/docs/FIRMWARE.md`.
+scripts remain available; see `docs/01_arduino/09_unloaded_motor_test.md`,
+`docs/01_arduino/10_needle_axis_test.md`, and `docs/01_arduino/11_integrated_system_test.md`.
+Firmware upload commands and pin details are in `docs/01_arduino/05_firmware.md`.
 
 This is an attended demonstration, not an unattended production safety system.
 Software bounds cannot prevent a collision after missed steps, unpowered drift,

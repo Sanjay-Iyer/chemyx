@@ -1,8 +1,9 @@
 """Durable one-experiment admission and at-most-once reagent dispatch barrier.
 
-No automatic resume/replay is supported. A prior reservation always blocks a
-fresh live run, including a crash before reagent delivery. Keep this ledger with
-the physical experiment and its journal when copying the repository.
+No automatic resume/replay is supported within this ledger scope. Reusing a
+reservation path is refused, including after a crash before reagent delivery.
+The fixed-time runner uses a new results-local ledger on each manually prepared
+launch; the older workflow uses its shared physical-experiment ledger.
 """
 from __future__ import annotations
 
@@ -48,5 +49,8 @@ class DoseGuard:
         allowed = {"RESERVED": "DISPATCH_INTENT", "DISPATCH_INTENT": "CONFIRMED"}
         if allowed.get(self.data["status"]) != status:
             raise DoseReplayBlocked("Dose state does not permit dispatch or replay")
-        self.data = dict(self.data, status=status, **evidence)
-        write_json_atomic(self.path, self.data)
+        updated = dict(self.data, status=status, **evidence)
+        write_json_atomic(self.path, updated)
+        # Never report an in-memory CONFIRMED transition whose durable write
+        # failed. The old state continues to forbid automatic replay.
+        self.data = updated

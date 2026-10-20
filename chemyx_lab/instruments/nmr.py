@@ -1,7 +1,7 @@
 """Nanalysis/NMReady RPC client helpers.
 
 The endpoints implemented here come from
-``docs/reference/nmr_rpc_api/html/rpc-api.md``. The client uses
+``docs/08_reference/vendor/nmr_rpc_api/html/rpc-api.md``. The client uses
 only the Python standard library so it can run on a fresh instrument laptop
 after installing the existing repo dependencies.
 """

@@ -8,42 +8,45 @@ This repository is structured for two laptops:
 - Home laptop: development, documentation, dry-runs, and mocked tests only.
 - Work laptop: real Chemyx serial and NMR RPC hardware validation.
 
+Updates travel by **HOME Git push -> WORK Git pull -> external hard drive
+from WORK to the second WORK laptop**. HOME does not generate offline packages
+for this process. See the [Git and drive update guide](docs/03_fixed_time_experiment/04_offline_deployment.md).
+
 Real hardware was not contacted during this restructuring.
 
-## Three-instrument Si6 entry points
+## Find commands, configs and documentation
 
-At the instruments, use **[SI6_SIMPLE_RUN_GUIDE.md](docs/SI6_SIMPLE_RUN_GUIDE.md)**:
-Known HOME references → [standalone bench checkout](docs/SI6_SIMPLE_INSTRUMENT_CHECK.md)
-→ inspect results → restore production routing/loading → full experiment.
-`python scripts/03_simple_instrument_checkout.py --live` runs Arduino UP/DOWN/HOME
-and restoration, independent 1 mL withdraw/infuse pairs at 10 mL/min on both
-pump channels, then a 2-scan NMR acquisition with raw saving and optional FFT/ACME.
-No liquid enters the NMR; blank/background spectra are accepted. One startup y.
-Keep **[SI6_ERRORS_AND_FIXES.md](docs/SI6_ERRORS_AND_FIXES.md)** alongside it.
+Start with **[00 — Documentation index](docs/00_START_HERE.md)**. Guides are
+grouped by instrument/workflow, with numbered filenames in reading order.
 
-Production and the optional two-stage integration test use `scripts/02_si6_experiment.py` with explicit
-machine and Arduino configs. Production uses
-`configs/experiments/si6_real_two_stage.yaml`: fixed 48-hour Stage 1, one
-protected Channel 2 dose, then Stage 2 minimum 2 / maximum 6 hours with four
-qualifying post-minimum observations. Intervals are 120 / 30 minutes.
-The separate `si6_real_10min_checkout.yaml` uses nominal five-minute stages,
-one configured test infusion, and a complete NMR cycle per stage within its
-safe-boundary overall timeout. Fluid/routing descriptions are optional; actual
-transfer quantities and experiment identity remain required.
+| Workflow | Open this | Python/config |
+|---|---|---|
+| Arduino manual control | [01 — Arduino](docs/01_arduino/00_START_HERE.md) | `arduino/scripts/needle_control.py` / `arduino/configs/arduino_real_COM3.yaml` |
+| Chemyx manual control | [02 — Chemyx](docs/02_chemyx/00_START_HERE.md) | `scripts/chemyx_control.py` / `configs/chemyx/manual_control.yaml` |
+| Current full 48-hour / 6-hour run | **[03 — Fixed-time experiment](docs/03_fixed_time_experiment/00_START_HERE.md)** | `scripts/04_si6_fixed_time_run.py` / `configs/experiments/si6_fixed_48h_6h.yaml` |
+| Stage 2 only, six hours with live review | **[06 — stage2only](docs/03_fixed_time_experiment/06_stage2only_run_guide.md)** | `scripts/06_si6_stage2only_run.py` / `configs/experiments/si6_stage2only_6h.yaml` |
+| Re-run Stage 2 analysis on a selected folder | [07 — Stage 2 analysis recovery](docs/03_fixed_time_experiment/07_stage2only_analysis_recovery.md) | `scripts/07_analyze_stage2only.py` / `configs/nmr/analysis.yaml` |
+| Stage 2 only with primary SciPy dynamic area | **[08 — stage2only SciPy](docs/03_fixed_time_experiment/08_stage2only_scipy_run_guide.md)** | `scripts/08_si6_stage2only_scipy_run.py` / `configs/experiments/si6_stage2only_scipy_6h.yaml` |
+| Re-run primary SciPy Stage 2 analysis | [09 — SciPy analysis recovery](docs/03_fixed_time_experiment/09_stage2only_scipy_analysis.md) | `scripts/09_analyze_stage2only_scipy.py` / `configs/nmr/stage2only_scipy.yaml` |
+| Separate bench check | [04 — Instrument checkout](docs/04_instrument_checkout/00_START_HERE.md) | `scripts/03_simple_instrument_checkout.py` / `configs/checkouts/si6_simple_instrument_check.yaml` |
+| Saved NMR processing | [05 — Analysis](docs/05_nmr_analysis/00_START_HERE.md) | `scripts/05_analyze_fixed_time_run.py` / `configs/nmr/analysis.yaml` |
+| WORK updates and physical-state backup | [06 — Deployment](docs/06_deployment_and_backup/00_START_HERE.md) | Git/drive workflow and backup tools |
 
-One startup `y` starts either automation; there are no intermediate prompts.
-HOME=DOWN=0 is in the flask and UP=1 is out. Current results use
-`results/experiments/YYYYMMDD_experimentID[_n]` with separate stage data,
-dose evidence, logs and final QC. Retain the commissioned firmware and software
-HOME references; no hardware command is run on HOME.
+The fixed-time controller runs a full 48-hour Phase 1, one protected 1.86 mL
+Channel 2 dose and a full 6-hour Phase 2. Missing NMR data is logged without
+ending the stage. `--live` starts directly with no interactive prompts. There is
+currently no pause/resume. Each launch uses manually restored Channel 1 empty
+and Channel 2 at 5 mL. It loads the official needle HOME established by the
+Arduino-only script, moves to that HOME, then raises to UP. It never resets the
+needle's current location as a new HOME. Both Chemyx HOME definitions are also
+preserved: startup only logs your manual return to their existing HOME loading.
+Prior-dose JSON does not require
+reconciliation. See the numbered run guide for commands and limits.
 
-[Current operating index](docs/SI6_START_HERE.md),
-[configuration reference](docs/SI6_CONFIG_USER_GUIDE.md),
-[phase methods](docs/SI6_NMR_PHASE_METHODS.md), and
-[state preservation](docs/RIG_STATE_BACKUP.md) provide supporting detail.
-Superseded operating documents and dated audits are retained in
-**[docs/archive](docs/archive/README.md)**, with historical banners and repaired
-links. They are not the current bench procedure.
+The [older endpoint-controlled experiment](docs/07_other_experiments/00_START_HERE.md)
+uses `scripts/02_si6_experiment.py` and a different YAML. Its Stage 2 can finish
+before 6 hours. [Technical reviews](docs/90_reviews/00_START_HERE.md) and
+[historical documents](docs/99_archive/00_START_HERE.md) are separate from operating guides.
 
 ## Legacy two-instrument workflow
 
@@ -78,18 +81,8 @@ archive/           Git-tracked retired workflows
 
 ## Documentation
 
-- [Simple instrument operating guide](docs/SI6_SIMPLE_RUN_GUIDE.md)
-- [Errors and fixes](docs/SI6_ERRORS_AND_FIXES.md)
-- [Current operating index](docs/SI6_START_HERE.md)
-- [Standalone Chemyx quick reference](docs/CHEMYX_QUICK_REFERENCE.md)
-- [Offline deployment](docs/OFFLINE_DEPLOYMENT.md)
-- [Offline requirements](docs/OFFLINE_REQUIREMENTS.md)
-- [State backup and preservation](docs/RIG_STATE_BACKUP.md)
-- [Create experiments and use offline NMR GUIs](docs/CREATE_NEW_EXPERIMENT.md)
-- [NMR phase selection](docs/SI6_NMR_PHASE_METHODS.md)
-- [Experimental results layout](docs/SI6_EXPERIMENT_OUTPUTS.md)
-- [Scientific plotting workflow](docs/NMR_TARGET_PEAK_WORKFLOW.md)
-- [Historical docs and audit archive](docs/archive/README.md)
+Use the **[numbered documentation index](docs/00_START_HERE.md)** for all groups.
+The [rename map](docs/08_reference/02_documentation_map.md) resolves old filenames.
 
 ## Safety
 

@@ -49,7 +49,6 @@ from .instrument_operations import (
     sleep_with_progress,
 )
 from . import pump_channels
-from ..analysis.stage_completion import validate_completion
 
 
 DEFAULT_CONFIG = config.REPO_ROOT / "configs" / "experiments" / "02_si6_automated_nmr.yaml"
@@ -580,7 +579,12 @@ def _parse_stage(value: Any, label: str) -> Stage:
         section.get("plateau_stopping_enabled"),
         f"{label}.plateau_stopping_enabled",
     )
-    completion = validate_completion(section["completion"]) if "completion" in section else None
+    completion = None
+    if "completion" in section:
+        # Shared physical drivers are also used by acquisition-only/manual
+        # tools, which must not require the numerical endpoint dependencies.
+        from ..analysis.stage_completion import validate_completion
+        completion = validate_completion(section["completion"])
     area_only = completion is not None and completion.get("method") == "area_only"
     control_mode = section.get("control_mode", "nmr")
     if control_mode not in ("nmr", "fixed_duration", "minimum_then_nmr"):
@@ -737,7 +741,7 @@ def create_run_paths(
     )
 
 
-def build_instrument_settings(raw: dict[str, Any], machine_path: Path) -> tuple[config.PumpConfig, config.NmrSettings]:
+def build_instrument_settings(raw: dict[str, Any], machine_path: Path, *, acquisition_only: bool = False) -> tuple[config.PumpConfig, config.NmrSettings]:
     machine = config.load_machine_config(machine_path)
     channel = pump_channels.default_channel(raw)
     pump = pump_channels.channel_definitions(raw)[channel]
@@ -760,9 +764,9 @@ def build_instrument_settings(raw: dict[str, Any], machine_path: Path) -> tuple[
         route=nmr["route"], scans=nmr["scans"], receiver_gain=nmr["receiver_gain"],
         auto_gain=nmr["auto_gain"], spectral_center=nmr["spectral_center"],
         sweep_width=nmr["sweep_width"], result_type=nmr["result_type"],
-        target_ppm=nmr["target_ppm"],
+        target_ppm=0.0 if acquisition_only else nmr["target_ppm"],
     )
-    nmr_values.update(config._explicit_env_nmr_overrides())
+    nmr_values.update(config._explicit_env_nmr_overrides(acquisition_only=True) if acquisition_only else config._explicit_env_nmr_overrides())
     nmr_cfg = config.load_nmr_settings(load_local=False, **nmr_values)
     return pump_cfg, nmr_cfg
 

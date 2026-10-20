@@ -1,5 +1,60 @@
 # Repository agent guidance
 
+## Deployment workflow
+
+The user's deployment route is HOME Git push -> WORK laptop Git pull ->
+external-hard-drive transfer from WORK to the second WORK laptop. HOME does
+not prepare or transfer an offline package for either WORK laptop.
+
+Do not generate release ZIPs, offline handoff packages or export bundles unless
+the user explicitly changes this instruction. Do not run
+`scripts/prepare_si6_release.py` as a routine completion or verification step.
+Existing packages may remain; do not delete them just because they are unused.
+Keep current operating documentation aligned with the Git/WORK/drive workflow.
+
+## Official Arduino needle HOME
+
+The standalone Arduino script owns establishment of the official needle HOME
+and logs that explicit operator action. The three-instrument experiment must
+load the same saved reference and move to HOME=0, then UP=1. Never redefine the
+needle's current location as HOME when an experiment starts, silently replace
+an unknown reference, or delete its pending recovery marker. Normal movement
+updates the tracked current position without changing the HOME definition.
+
+## Automatic fixed-time run and official Chemyx HOME
+
+The fixed-time --live command starts without interactive prompts. The user
+prepares the rig first, including returning Channel 1 to its established 0 mL
+HOME loading and Channel 2 to its established 5 mL HOME loading. Record that
+manual return in current-position bookkeeping, preserving each original HOME
+receipt, identity and geometry. Never call set_home on live experiment startup
+or invent a missing/incompatible pump HOME. Old dose records do not block a
+new manually prepared run; keep the single-dose guard local to its results.
+
+The separate stage2only runner (`06_si6_stage2only_run.py`) starts directly at
+Stage 2 and never invokes Phase 1, dosing or dose reservations. Its six-hour
+schedule includes time 0 and the six-hour endpoint (13 slots every 30 minutes).
+Only Channel 1 is manually restored to its existing empty HOME. Never reset
+Channel 2 loading/displacement or require its HOME/dose reconciliation for this
+sampling-only runner. Preserve the original full-run script and preset.
+
+Stage2only also processes each saved measurement for review during the run.
+Keep analysis in a separate process with no instrument handles or control
+authority. The instrument runner must never import the review worker or execute
+numerical processing, wait/join for it, or use an analysis result/status/error as an admission or
+completion gate. Missing dependencies, worker crashes, bad metadata, processing
+exceptions and timeouts must not stop or shorten the six-hour run. Keep review
+outputs separate from raw data and required motion/state evidence.
+
+The separate 08/09 stage2only SciPy workflows use the user-approved primary
+algorithm: production ACME/ALS, find_peaks prominence >=8 sigma, then
+peak_widths(rel_height=0.95), interpolated endpoint-line baseline and positive
+trapezoidal area. Their primary area/time/rate/kinetic outputs must use dynamic
+area; fixed 5.70–5.90 ppm remains a labelled comparison, never a fallback for
+missing or invalid dynamic area. Preserve 06/07 behavior. Keep the same
+six-hour/13-slot instrument schedule and existing HOME/no-dose policies, and
+keep all numerical processing/profile validation out of the instrument process.
+
 ## Dataset-aware plot titles
 
 Every saved experimental-data figure must visibly identify its source dataset.
