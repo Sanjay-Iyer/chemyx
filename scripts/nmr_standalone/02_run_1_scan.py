@@ -1,4 +1,4 @@
-"""NMR Test 02: one live 1-scan acquisition through the 06/08 worker, fully recorded."""
+"""NMR Test 02: one live 1-scan acquisition (simplified 10/11 method; --experiment-worker for 06/08), fully recorded."""
 
 from __future__ import annotations
 

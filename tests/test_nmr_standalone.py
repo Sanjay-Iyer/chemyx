@@ -32,8 +32,9 @@ IDLE = {"ResultCode": 0, "NumberOfScansRun": 0, "JDX_FileContents_TD": "",
 class FakeNmr:
     """Scripted NMReady RPC server. ``status`` is returned before START."""
 
-    def __init__(self, *, status=IDLE, rpc_enabled=True, scans=1, raw=None, extra=None):
+    def __init__(self, *, status=IDLE, rpc_enabled=True, scans=1, raw=None, extra=None, acquire_done=True):
         self.status, self.rpc_enabled, self.scans = status, rpc_enabled, scans
+        self.acquire_done = acquire_done
         self.raw = raw if raw is not None else {"/x": (200, "text/plain", "")}
         self.extra = extra or {}
         self.requests = []
@@ -60,6 +61,9 @@ class FakeNmr:
             return self.json(example_iflow_1d_settings() if method == "GET" else {})
         if path == "/interfaces/iFlow/ExperimentSettings":
             return self.json(example_iflow_experiment_settings())
+        if path == "/interfaces/Service/Acquire" and method == "GET":
+            done = self.started and self.acquire_done
+            return self.json({"Status": {"InProgress": not done, "LastAcquireSuccessful": done}})
         if path == "/interfaces/iFlow/RunExperiment" and method == "PUT":
             self.started = True
             return self.json({"ExperimentNumber": 2, "ResultCode": 1, "TimeStamp": "new"})
@@ -228,10 +232,8 @@ def test_connection_test_passes_and_saves_full_evidence(serve, tmp_path):
 
 
 @pytest.mark.parametrize("fake, expected", [
-    (FakeNmr(status={"ResultCode": 2, "NumberOfScansRun": 0}), "ResultCode=2"),
     (FakeNmr(status={"ResultCode": 1}), "acquisition is running"),
     (FakeNmr(rpc_enabled=False), "Setup -> System -> Remote"),
-    (FakeNmr(status=(200, "text/plain", ' {"ResultCode": 0}')), "arrived as plain text"),
     (FakeNmr(extra={"/interfaces/iFlow/ExperimentSettings": (404, "text/plain", "Not Found")}),
      "ExperimentSettings settings template could not be read"),
 ])
@@ -243,6 +245,21 @@ def test_connection_test_explains_each_failure(serve, tmp_path, fake, expected):
     assert "RESULT: FAIL" in text and expected in text
     report = json.loads((tmp_path / "out" / ns.REPORT_NAME).read_text(encoding="utf-8"))
     assert report["verdict"] == "FAIL" and report["findings"]
+
+
+@pytest.mark.parametrize("status, expected", [
+    ({"ResultCode": 2, "NumberOfScansRun": 0}, "ResultCode=2"),
+    ((200, "text/plain", ' {"ResultCode": 0}'), "arrived as plain text"),
+])
+def test_connection_test_warns_on_an_unrecognised_idle_reply(serve, tmp_path, status, expected):
+    args = write_configs(tmp_path, serve(FakeNmr(status=status)))
+    lines = []
+    assert ns.connection_test(args + ["--output-dir", str(tmp_path / "out")], out=lines.append) == 0
+    text = "\n".join(lines)
+    assert "RESULT: PASS (with warnings)" in text and "[WARN] 06/08 do not recognise this status reply" in text
+    assert expected in text and "Tests 02/03 still run" in text
+    report = json.loads((tmp_path / "out" / ns.REPORT_NAME).read_text(encoding="utf-8"))
+    assert report["verdict"] == "PASS" and report["findings"][0]["level"] == "WARN"
 
 
 def test_connection_test_without_a_listener_diagnoses_the_port(tmp_path, serve):
@@ -268,12 +285,13 @@ def test_existing_output_folder_is_refused_without_contacting_the_nmr(serve, tmp
     assert "cannot create a new results folder" in "\n".join(lines) and not fake.requests
 
 
+@pytest.mark.parametrize("mode", [[], ["--experiment-worker"]])
 @pytest.mark.parametrize("scans", [1, 4])
-def test_acquisition_saves_raw_fid_with_requested_scans(serve, tmp_path, scans):
+def test_acquisition_saves_raw_fid_with_requested_scans(serve, tmp_path, scans, mode):
     fake = FakeNmr(scans=scans)
     args = write_configs(tmp_path, serve(fake))
     lines = []
-    code = ns.acquisition_test(args + ["--output-dir", str(tmp_path / "out")], scans=scans,
+    code = ns.acquisition_test(args + ["--output-dir", str(tmp_path / "out")] + mode, scans=scans,
                                input_fn=lambda prompt: "y", out=lines.append)
     text = "\n".join(lines)
     assert code == 0, text
@@ -285,13 +303,60 @@ def test_acquisition_saves_raw_fid_with_requested_scans(serve, tmp_path, scans):
     assert report["saved_file"]["averages"] == str(scans) and report["saved_file"]["is_fid"]
     assert report["saved_file"]["long_date"] == "2026/08/10 17:27:21-0400"
     assert Path(report["worker_result"]["path"]).name == f"nmr_{scans}scan_0001.dx"
+    assert report["method"] == ("experiment_worker" if mode else "simplified_acquire_nmr")
+    used_service_acquire = ("GET", "/interfaces/Service/Acquire") in fake.requests
+    assert used_service_acquire == (not mode)  # Only the 10/11 method reads Service/Acquire.
 
 
-def test_acquisition_refuses_unknown_status_without_start(serve, tmp_path):
-    fake = FakeNmr(status={"ResultCode": 2, "NumberOfScansRun": 0})
+def test_simplified_method_runs_despite_a_status_reply_06_08_refuse(serve, tmp_path):
+    fake = FakeNmr(status={"ResultCode": 2, "NumberOfScansRun": 0, "JDX_FileContents_TD": "",
+                           "OriginalReceipt": {"ExperimentNumber": 1, "ResultCode": 1, "TimeStamp": "old"}})
     args = write_configs(tmp_path, serve(fake))
     lines = []
     code = ns.acquisition_test(args + ["--output-dir", str(tmp_path / "out")], scans=1,
+                               input_fn=lambda prompt: "y", out=lines.append)
+    text = "\n".join(lines)
+    assert code == 0, text
+    assert "06/08 and 04 --nmr-check would refuse START" in text and "RESULT: PASS" in text
+    assert len(fake.puts("/RunExperiment")) == 1
+
+
+def test_simplified_method_explains_service_acquire_never_confirming(serve, tmp_path):
+    fake = FakeNmr(acquire_done=False)
+    args = write_configs(tmp_path, serve(fake))
+    lines = []
+    code = ns.acquisition_test(args + ["--output-dir", str(tmp_path / "out"), "--yes"], scans=1, out=lines.append)
+    text = "\n".join(lines)
+    assert code == 1 and "START was sent once" in text
+    assert "Service/Acquire never said the acquisition was done" in text and "--experiment-worker" in text
+    assert len(fake.puts("/RunExperiment")) == 1
+
+
+def test_simplified_method_needs_the_10_11_module(serve, tmp_path, monkeypatch):
+    monkeypatch.setitem(sys.modules, "chemyx_lab.workflows.stage2_demo_nmr", None)
+    fake = FakeNmr()
+    args = write_configs(tmp_path, serve(fake))
+    lines = []
+    code = ns.acquisition_test(args + ["--output-dir", str(tmp_path / "out")], scans=1, out=lines.append)
+    assert code == 2 and "stage2_demo_nmr.py" in "\n".join(lines) and not fake.requests
+
+
+def test_simplified_settings_match_the_10_stage2only_yaml():
+    path = config.REPO_ROOT / "configs/experiments/10_stage2only.yaml"
+    if not path.is_file():
+        pytest.skip("10_stage2only.yaml is not present")
+    expected = yaml.safe_load(path.read_text(encoding="utf-8"))["nmr"]
+    settings, _, _ = ns.load_settings(scans=expected["scans"])
+    actual = ns.demo_nmr_config(settings)
+    for key, value in actual.items():
+        assert expected.get(key) == value, (key, expected.get(key), value)
+
+
+def test_experiment_worker_refuses_unknown_status_without_start(serve, tmp_path):
+    fake = FakeNmr(status={"ResultCode": 2, "NumberOfScansRun": 0})
+    args = write_configs(tmp_path, serve(fake))
+    lines = []
+    code = ns.acquisition_test(args + ["--output-dir", str(tmp_path / "out"), "--experiment-worker"], scans=1,
                                input_fn=lambda prompt: pytest.fail("must not ask"), out=lines.append)
     text = "\n".join(lines)
     assert code == 1 and "START was NOT sent" in text and "NMR idle not confirmed" in text
@@ -318,7 +383,11 @@ def test_acquisition_respects_experiment_ownership(serve, tmp_path):
     assert not [method for method, _ in fake.requests if method == "PUT"]
 
 
-def test_acquisition_timeout_explains_that_start_was_sent(serve, tmp_path):
+@pytest.mark.parametrize("mode, expected", [
+    (["--experiment-worker"], ["not confirmed complete", "never reported 'running'"]),
+    ([], ["never reported this acquisition with the requested scans", "did a 1D experiment run"]),
+])
+def test_acquisition_timeout_explains_that_start_was_sent(serve, tmp_path, mode, expected):
     class NeverFinishes(FakeNmr):
         def respond(self, method, path, body):
             if path == ns.STATUS_PATH and self.started:
@@ -329,14 +398,16 @@ def test_acquisition_timeout_explains_that_start_was_sent(serve, tmp_path):
     fake = NeverFinishes()
     args = write_configs(tmp_path, serve(fake))
     lines = []
-    code = ns.acquisition_test(args + ["--output-dir", str(tmp_path / "out"), "--yes"], scans=1, out=lines.append)
+    code = ns.acquisition_test(args + ["--output-dir", str(tmp_path / "out"), "--yes"] + mode, scans=1,
+                               out=lines.append)
     text = "\n".join(lines)
     assert code == 1 and "START was sent once" in text
-    assert "not confirmed complete" in text and "never reported 'running'" in text
+    assert all(phrase in text for phrase in expected), text
     assert len(fake.puts("/RunExperiment")) == 1
 
 
-def test_acquisition_explains_forbidden_settings_change(serve, tmp_path):
+@pytest.mark.parametrize("mode", [[], ["--experiment-worker"]])
+def test_acquisition_explains_forbidden_settings_change(serve, tmp_path, mode):
     class Forbidden(FakeNmr):
         def respond(self, method, path, body):
             if method == "PUT":
@@ -347,7 +418,8 @@ def test_acquisition_explains_forbidden_settings_change(serve, tmp_path):
     fake = Forbidden()
     args = write_configs(tmp_path, serve(fake))
     lines = []
-    code = ns.acquisition_test(args + ["--output-dir", str(tmp_path / "out"), "--yes"], scans=1, out=lines.append)
+    code = ns.acquisition_test(args + ["--output-dir", str(tmp_path / "out"), "--yes"] + mode, scans=1,
+                               out=lines.append)
     text = "\n".join(lines)
     assert code == 1 and "HTTP 403 Forbidden" in text and "START was NOT sent" in text
     assert not fake.puts("/RunExperiment")
@@ -382,3 +454,4 @@ def test_scripts_show_help(script):
     assert result.returncode == 0, result.stderr
     assert "--machine-config" in result.stdout
     assert ("--yes" in result.stdout) == (script != "01_test_connection.py")
+    assert ("--experiment-worker" in result.stdout) == (script != "01_test_connection.py")

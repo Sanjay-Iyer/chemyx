@@ -22,10 +22,11 @@ First command, from the repository folder:
 python scripts\nmr_standalone\01_test_connection.py
 ```
 
-The tests use the same acquisition worker and settings as the
+Tests 02/03 use the simplified acquisition of `10_stage2only` and
+`11_3InstrumentCheck` by default, which skips the status check that stops the
 [06](../03_fixed_time_experiment/06_stage2only_run_guide.md) and
-[08](../03_fixed_time_experiment/08_stage2only_scipy_run_guide.md) Stage 2
-runs, so they reproduce the experiment's `NMR idle not confirmed` error with
-the NMR reply that caused it. Saved-data processing is in
+[08](../03_fixed_time_experiment/08_stage2only_scipy_run_guide.md) runs with
+`NMR idle not confirmed`. Add `--experiment-worker` to run the 06/08 method
+instead and compare. Saved-data processing is in
 [05 — NMR analysis](../05_nmr_analysis/00_START_HERE.md); the RPC API manual
 is in the [vendor reference](../08_reference/vendor/nmr_rpc_api/README.md).

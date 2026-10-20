@@ -1,11 +1,12 @@
 """Standalone NMR tests: a read-only connection test and single 1- or 4-scan runs.
 
-The acquisition tests call the Stage 2 experiment's own worker
-(``si6_fixed_time_nmr.acquire``) with the same preset, machine YAML and
-``NMR_*`` environment rules as 06/08, so a pass or a failure here means the
-same thing for those runs. Every HTTP exchange is printed, explained and saved
-for debugging. No pump, needle, HOME or dose record is opened and no spectrum
-is processed. START is sent at most once, only after positive idle evidence.
+Settings come from the same preset, machine YAML and ``NMR_*`` environment
+rules as 06/08. By default the acquisition tests call the simplified
+``stage2_demo_nmr.acquire_nmr`` used by 10_stage2only and 11_3InstrumentCheck
+(no status check before START); ``--experiment-worker`` calls the 06/08 worker
+(``si6_fixed_time_nmr.acquire``) instead, for comparison. Every HTTP exchange
+is printed, explained and saved for debugging. No pump, needle, HOME or dose
+record is opened, no spectrum is processed, and START is sent at most once.
 """
 from __future__ import annotations
 
@@ -274,6 +275,7 @@ class TracingClient(NmrRpcClient):
         self.exchanges = []
         self.echo = echo
         self.show_replies = show_replies
+        self.view = "strict"  # "simple": show raw status fields instead of the 06/08 verdict.
         self._t0 = time.monotonic()
 
     def _request(self, method, path, payload=None, params=None):
@@ -335,20 +337,28 @@ class TracingClient(NmrRpcClient):
     def _done(self, record, started):
         record["seconds"] = round(time.monotonic() - started, 3)
         if self.echo:
-            self.echo(describe(record, self.show_replies))
+            self.echo(describe(record, self.show_replies, self.view))
 
 
-def describe(record, show_reply=False):
+def describe(record, show_reply=False, view="strict"):
     head = f"  [{record['t_s']:6.1f} s] {record['method']:<3} {record['path'].replace('/interfaces/', '')}"
     if "error_type" in record:
         line = f"{head} -> FAILED after {record['seconds']:.1f} s: {record['error_type']}: {record['error']}"
         return line + (f"\n             reply: {compact(record['body'])}" if record.get("body") else "")
     line = f"{head} -> HTTP {record.get('http_status')} in {record['seconds']:.2f} s"
-    if "state" in record:
+    reply = record.get("reply") if isinstance(record.get("reply"), dict) else {}
+    if "state" in record and view == "simple":
+        parts = [f"{key}={reply[key]}" for key in ("ResultCode", "NumberOfScansRun") if key in reply]
+        receipt = reply.get("OriginalReceipt")
+        if isinstance(receipt, dict):
+            parts.append("receipt " + "/".join(str(receipt.get(key)) for key in ("ExperimentNumber", "TimeStamp")))
+        line += " | " + (", ".join(parts) or f"status: {compact(record.get('reply', record.get('body', '')), 120)}")
+    elif "state" in record:
         line += f" | NMR {record['state'].upper()}: {record['state_reason']}"
-        scans_run = record.get("reply", {}).get("NumberOfScansRun") if isinstance(record.get("reply"), dict) else None
-        if scans_run is not None:
-            line += f" | scans run: {scans_run}"
+        if reply.get("NumberOfScansRun") is not None:
+            line += f" | scans run: {reply['NumberOfScansRun']}"
+    elif record["path"].endswith("/Service/Acquire"):
+        show_reply = True
     elif record["method"] == "PUT" and record["path"].endswith("/RunExperiment"):
         line += " | START sent"
         show_reply = True
@@ -467,6 +477,19 @@ def status_findings(record, context):
     return [finding("FAIL", f"The NMR's acquisition status is not understood as idle {context}.",
                     f"{record['state_reason']}. This is exactly the condition that makes the experiment print "
                     f"'NMR idle not confirmed; START skipped to avoid overlap'. Reply: {reply}", fix)]
+
+
+def unrecognised_idle_warning(record):
+    """Test 01: a status reply 06/08 cannot read as idle (not positively busy)."""
+    reply = compact(record.get("reply", record.get("body")), 600)
+    fix = ["Tests 02/03 still run: they use the simplified 10/11 method, which does not check this reply.",
+           "Bring this debug report back to HOME so the reply can be reviewed before changing 06/08."]
+    if "ResultCode=" in record["state_reason"] and "only 0 (idle)" in record["state_reason"]:
+        fix.append("Note: the vendor manual's own ExperimentStatus example also shows ResultCode 2 and "
+                   "does not say what it means.")
+    return finding("WARN", "06/08 do not recognise this status reply as idle.",
+                   f"{record['state_reason']}. With this reply 06/08 and 04 --nmr-check print "
+                   f"'NMR idle not confirmed; START skipped to avoid overlap'. Reply: {reply}", fix)
 
 
 def new_output_dir(kind, output_dir=None):
@@ -653,10 +676,12 @@ def _connection_http_checks(settings, report, out):
                                 "SpectrometerStatus reports StandbyMode=true; it may not acquire until woken.",
                                 ["Wake the NMR on its touchscreen, then run this test again."]))
     out("")
-    out("[5/5] Acquisition readiness: exactly what 06/08 read before every START")
+    out("[5/5] Acquisition readiness: status reply (06/08 read it before every START) and settings templates")
     _read(client, client.iflow_experiment_status)
     status_record = _last(client, STATUS_PATH)
-    if status_record is None or status_record.get("state") != "idle":
+    if status_record is not None and status_record.get("state") == "unknown" and "error_type" not in status_record:
+        findings.append(unrecognised_idle_warning(status_record))
+    elif status_record is None or status_record.get("state") != "idle":
         findings += status_findings(status_record, "right now")
     for label, getter, path in (("iFlow/Settings/1D", client.iflow_1d_settings, "/interfaces/iFlow/Settings/1D"),
                                 ("iFlow/ExperimentSettings", client.iflow_experiment_settings,
@@ -680,11 +705,12 @@ def _finish(output, report, findings, out, *, read_only=False, start_sent=None):
     path = save_report(output, report, out)
     out("")
     out("=" * 78)
+    verdict = report["verdict"] + (" (with warnings)" if not failed and findings else "")
     if read_only:
-        out(f"RESULT: {report['verdict']}  (read-only test: no setting changed, no acquisition started)")
+        out(f"RESULT: {verdict}  (read-only test: no setting changed, no acquisition started)")
     else:
         sent = ("START was sent once" if start_sent else "START was NOT sent") if start_sent is not None else ""
-        out(f"RESULT: {report['verdict']}" + (f"  ({sent})" if sent else ""))
+        out(f"RESULT: {verdict}" + (f"  ({sent})" if sent else ""))
     if findings:
         out("What was found, and what to do:")
         print_findings(findings, out)
@@ -696,15 +722,31 @@ def _finish(output, report, findings, out, *, read_only=False, start_sent=None):
 
 # --- Tests 02/03: one live acquisition --------------------------------------
 
+def demo_nmr_config(settings):
+    """The resolved settings in the key names ``acquire_nmr`` (10/11) reads."""
+    return {"host": settings.host, "port": settings.port, "scheme": settings.scheme,
+            "http_timeout_seconds": settings.timeout, "acquisition_timeout_seconds": settings.max_wait_seconds,
+            "poll_seconds": settings.poll_seconds, "scans": settings.scans, "gain": settings.receiver_gain,
+            "auto_gain": settings.auto_gain, "center_ppm": settings.spectral_center,
+            "width_ppm": settings.sweep_width}
+
+
 def acquisition_test(argv=None, *, scans, input_fn=input, out=print):
     number = {1: "02", 4: "03"}.get(scans, "0x")
-    parser = argparse.ArgumentParser(description=f"One live {scans}-scan NMR acquisition through the 06/08 "
-                                     "acquisition worker, with every NMR request recorded for debugging. "
-                                     "No pump, needle, HOME or dose record is used.")
+    parser = argparse.ArgumentParser(description=f"One live {scans}-scan NMR acquisition with every NMR request "
+                                     "recorded. By default it uses the simplified acquisition of 10_stage2only "
+                                     "and 11_3InstrumentCheck (no status check before START). No pump, needle, "
+                                     "HOME or dose record is used.")
     add_common_arguments(parser)
     parser.add_argument("--yes", action="store_true", help="skip the single y/N question before START")
+    parser.add_argument("--experiment-worker", action="store_true",
+                        help="use the 06/08 acquisition worker instead (strict idle check before START), "
+                             "to compare with the default method")
     args = parser.parse_args(argv)
-    out(f"NMR TEST {number} - ONE {scans}-SCAN ACQUISITION (same worker and settings as the 06/08 Stage 2 runs)")
+    worker = args.experiment_worker
+    method = ("the 06/08 experiment worker (strict idle check before START)" if worker
+              else "the simplified 10/11 method (no status check before START)")
+    out(f"NMR TEST {number} - ONE {scans}-SCAN ACQUISITION using {method}")
     out("")
     out("[1/5] Configuration")
     loaded = _load(args, out, scans=scans)
@@ -712,10 +754,20 @@ def acquisition_test(argv=None, *, scans, input_fn=input, out=print):
         return 2
     settings, retrieval_wait, sources = loaded
     print_settings(settings, retrieval_wait, sources, out)
+    if not worker:
+        try:
+            # Imported here so test 01 keeps working if the 10/11 module is absent.
+            from .stage2_demo_nmr import acquire_nmr
+        except ImportError as exc:
+            out(f"  FAILED: the simplified method's code is missing: {type(exc).__name__}: {exc}")
+            out("  chemyx_lab/workflows/stage2_demo_nmr.py (shared with 10/11) must be copied with these scripts,")
+            out("  or add --experiment-worker. No NMR request was sent.")
+            return 2
     output = _output(out, f"{scans}scan", args.output_dir)
     if output is None:
         return 2
     report = base_report(f"{number}_acquisition_{scans}_scan", settings, retrieval_wait, sources)
+    report["method"] = "experiment_worker" if worker else "simplified_acquire_nmr"
     client = _client(settings, out, show_replies=False)
     report["http_exchanges"] = client.exchanges
     findings, start_sent = [], False
@@ -739,15 +791,25 @@ def acquisition_test(argv=None, *, scans, input_fn=input, out=print):
             return _finish(output, report, findings, out, start_sent=False)
         _read(client, client.iflow_experiment_status)
         status_record = _last(client, STATUS_PATH)
-        if status_record is None or status_record.get("state") != "idle":
+        strict_idle = status_record is not None and status_record.get("state") == "idle"
+        if worker and not strict_idle:
             findings += status_findings(status_record, "before this test")
             return _finish(output, report, findings, out, start_sent=False)
+        if not worker and not strict_idle:
+            out("  Note: 06/08 and 04 --nmr-check would refuse START with this status reply.")
+            out("  The simplified method does not check it; you confirm on the touchscreen that the NMR is idle.")
         out("")
-        out(f"[4/5] Acquire: settings PUT, idle re-check, one START, wait up to {settings.max_wait_seconds:g} s, "
-            "save the raw FID")
+        if worker:
+            out(f"[4/5] Acquire: settings PUT, idle re-check, one START, wait up to {settings.max_wait_seconds:g} s, "
+                "save the raw FID")
+        else:
+            out(f"[4/5] Acquire: settings PUT, one START, wait for this run's receipt, {scans} scan(s) and "
+                f"Service/Acquire 'done' (limit {settings.max_wait_seconds:g} s), save the raw FID")
         raw_path = output / "nmr_raw" / f"nmr_{scans}scan_0001.dx"
         if not args.yes:
             out(f"  The NMR will run {scans} scan(s) on whatever sample is in it now.")
+            if not worker:
+                out("  Check the NMR touchscreen shows it is idle (no experiment running).")
             answer = input_fn(f"  Start the {scans}-scan NMR acquisition now? [y/N]: ").strip().lower()
             if answer not in {"y", "yes"}:
                 out("  Declined. No setting was changed and no acquisition was started.")
@@ -764,7 +826,12 @@ def acquisition_test(argv=None, *, scans, input_fn=input, out=print):
                                      "Never run an NMR test during a live experiment."]))
             return _finish(output, report, findings, out, start_sent=False)
         try:
-            result = acquire(settings, raw_path, retrieval_wait, client=client)
+            if worker:
+                result = acquire(settings, raw_path, retrieval_wait, client=client)
+            else:
+                client.view = "simple"
+                result = acquire_nmr(demo_nmr_config(settings), raw_path, state={}, client=client,
+                                     emit=lambda message: out(f"  {message}"))
         finally:
             lock.release()
         report["worker_result"] = result
@@ -784,8 +851,9 @@ def acquisition_test(argv=None, *, scans, input_fn=input, out=print):
                 out(f"  Averages  : {facts['averages']} (requested scans: {scans})")
                 findings += fid_findings(facts, scans)
         else:
-            out(f"  Worker result: {result.get('status')}" + (f" - {result['error']}" if result.get("error") else ""))
-            findings += acquisition_findings(result, client)
+            detail = result.get("error") or result.get("reason")
+            out(f"  Result: {result.get('status')}" + (f" - {detail}" if detail else ""))
+            findings += acquisition_findings(result, client) if worker else simple_findings(result, client)
     except KeyboardInterrupt:
         findings.append(finding("FAIL", "Stopped with Ctrl+C.",
                                 "If START had already been sent, the NMR may still be acquiring.",
@@ -815,11 +883,39 @@ def fid_findings(facts, scans):
     return findings
 
 
+def _pre_start_failure(client):
+    """Finding for the last failed request when START was never sent, or None."""
+    failed = next((r for r in reversed(client.exchanges) if "error_type" in r), None)
+    if failed is None:
+        return None
+    name = failed["path"].replace("/interfaces/", "")
+    if failed.get("http_status") == 403:
+        return [finding("FAIL", f"The NMR refused {failed['method']} {name} with HTTP 403 Forbidden.",
+                        "Remote control (RPC API) is not enabled for settings changes.",
+                        ["On the NMR touchscreen: Setup -> System -> Remote, press Enable.",
+                         "Run the connection test (01) again."])]
+    return [finding("FAIL", f"{failed['method']} {name} failed before START: {failed['error_type']}: {failed['error']}.",
+                    "START was not sent, so nothing ran on the NMR.",
+                    ["Run the connection test (01) and fix the first failure it lists."])]
+
+
+def _start_record(client):
+    starts = [r for r in client.exchanges if r["path"].endswith("/RunExperiment")]
+    return starts[-1] if starts else None
+
+
+def _start_failure(start_record):
+    return [finding("FAIL", f"Sending START failed: {start_record['error_type']}: {start_record['error']}.",
+                    "The START request may or may not have reached the NMR; it is never sent twice.",
+                    ["Look at the NMR touchscreen: if it is acquiring, let it finish or cancel it there.",
+                     "Run the connection test (01) before trying again."])]
+
+
 def acquisition_findings(result, client):
+    """Findings for the 06/08 worker (``--experiment-worker``)."""
     error_text = result.get("error") or ""
     sent = bool(result.get("requested"))
-    starts = [r for r in client.exchanges if r["path"].endswith("/RunExperiment")]
-    start_record = starts[-1] if starts else None
+    start_record = _start_record(client)
     if "idle not confirmed" in error_text:
         return status_findings(_last(client, STATUS_PATH), "at the worker's first check")
     if "busy/unknown during setup" in error_text:
@@ -827,27 +923,16 @@ def acquisition_findings(result, client):
         found[0]["meaning"] += (" The first check was idle; the state changed while the settings were being sent "
                                 "(someone used the NMR, or sending settings changed the status).")
         return found
-    failed = next((r for r in reversed(client.exchanges) if "error_type" in r), None)
-    if not sent and failed is not None:
-        name = failed["path"].replace("/interfaces/", "")
-        if failed.get("http_status") == 403:
-            return [finding("FAIL", f"The NMR refused {failed['method']} {name} with HTTP 403 Forbidden.",
-                            "Remote control (RPC API) is not enabled for settings changes.",
-                            ["On the NMR touchscreen: Setup -> System -> Remote, press Enable.",
-                             "Run the connection test (01) again."])]
-        return [finding("FAIL", f"{failed['method']} {name} failed before START: {failed['error_type']}: {failed['error']}.",
-                        "START was not sent, so nothing ran on the NMR.",
-                        ["Run the connection test (01) and fix the first failure it lists."])]
+    if not sent and _pre_start_failure(client):
+        return _pre_start_failure(client)
     if isinstance(start_record, dict) and "error_type" in start_record:
-        return [finding("FAIL", f"Sending START failed: {start_record['error_type']}: {start_record['error']}.",
-                        "The START request may or may not have reached the NMR; it is never sent twice.",
-                        ["Look at the NMR touchscreen: if it is acquiring, let it finish or cancel it there.",
-                         "Run the connection test (01) before trying again."])]
+        return _start_failure(start_record)
     start_reply = compact(start_record.get("reply", start_record.get("body"))) if start_record else "none"
     if error_text.startswith("TimeoutError") and "not confirmed complete" in error_text:
         match = re.search(r"after \S+s \((.*)\); last status", error_text, re.S)
         reason = match.group(1) if match else error_text
-        saw_busy = any(r.get("state") == "busy" for r in client.exchanges if starts and r["n"] > starts[-1]["n"])
+        saw_busy = any(r.get("state") == "busy" for r in client.exchanges
+                       if start_record and r["n"] > start_record["n"])
         meaning = (f"START was sent, but completion could not be proven within the limit. Worker reason: {reason}. "
                    f"START reply: {start_reply}.")
         fix = ["Look at the NMR touchscreen: did a 1D experiment actually run?"]
@@ -868,3 +953,48 @@ def acquisition_findings(result, client):
                     "START was sent once." if sent else "START was not sent.",
                     ["Bring the debug report back to HOME: it lists every NMR request and reply."])]
 
+
+def simple_findings(result, client):
+    """Findings for the simplified 10/11 method (``acquire_nmr``)."""
+    reason = result.get("reason") or ""
+    start_record = _start_record(client)
+    if not result.get("requested"):
+        return _pre_start_failure(client) or [finding(
+            "FAIL", f"The acquisition stopped before START: {reason}.",
+            "START was not sent, so nothing ran on the NMR.",
+            ["Run the connection test (01) and fix the first failure it lists."])]
+    if isinstance(start_record, dict) and "error_type" in start_record:
+        return _start_failure(start_record)
+    start_reply = compact(result.get("start_reply"), 300)
+    final = compact(result.get("final"), 600)
+    if "START server response" in reason:
+        return [finding("FAIL", "The NMR answered START with an error.", f"START reply: {start_reply}.",
+                        ["Read the message on the NMR touchscreen.", "Bring the debug report back to HOME."])]
+    if result.get("status") == "NMR_MISSING":
+        return [finding("FAIL", "The acquisition finished, but no raw FID was returned or found.",
+                        f"{reason}. Last status: {final}.",
+                        ["Look for the file on the NMR itself (its JDX filename appears in the last status).",
+                         "Bring the debug report back to HOME for review."])]
+    if "does not yet match this START" in reason:
+        return [finding("FAIL", "The NMR never reported this acquisition with the requested scans.",
+                        f"START was sent once (reply: {start_reply}). Every later status reply showed a different "
+                        f"receipt (ExperimentNumber/TimeStamp) or fewer scans run than requested. Last status: {final}.",
+                        ["Look at the NMR touchscreen: did a 1D experiment run, and how many scans?",
+                         "If it ran, this NMR reports the run's identity differently than expected; bring the debug "
+                         "report back to HOME (it holds every status reply).",
+                         "If nothing ran, the NMR ignored START; check the touchscreen for an error message."])]
+    if "Service/Acquire has not confirmed" in reason:
+        return [finding("FAIL", "The scans were reported, but Service/Acquire never said the acquisition was done.",
+                        f"{reason}. This method waits for Service/Acquire to report InProgress=false and "
+                        f"LastAcquireSuccessful=true (the reply shape in the vendor manual).",
+                        ["Bring the debug report back to HOME: its Service/Acquire replies show what this NMR sends.",
+                         "For comparison, run the same test again with --experiment-worker."])]
+    if "changed during raw retrieval" in reason:
+        return [finding("FAIL", "The NMR started something else while the data was being collected.",
+                        reason, ["Make sure nobody uses the NMR touchscreen during a test, then try again."])]
+    if "ExperimentStatus:" in reason:
+        return [finding("FAIL", "Reading the NMR status kept failing after START.", reason,
+                        ["Look at the NMR touchscreen: if it is acquiring, let it finish.",
+                         "Run the connection test (01) to check the network, then try again."])]
+    return [finding("FAIL", f"The acquisition failed: {reason or result.get('status')}.", "START was sent once.",
+                    ["Bring the debug report back to HOME: it lists every NMR request and reply."])]
