@@ -4,7 +4,9 @@ Settings come from the same preset, machine YAML and ``NMR_*`` environment
 rules as 06/08. By default the acquisition tests call the simplified
 ``stage2_demo_nmr.acquire_nmr`` used by 10_stage2only and 11_3InstrumentCheck
 (no status check before START); ``--experiment-worker`` calls the 06/08 worker
-(``si6_fixed_time_nmr.acquire``) instead, for comparison. Every HTTP exchange
+(``si6_fixed_time_nmr.acquire``) instead, for comparison. Tests 04/05 use the
+simple legacy-style completion of the older three-instrument test: the driver's
+``wait_for_idle`` on ExperimentStatus until ResultCode 0. Every HTTP exchange
 is printed, explained and saved for debugging. No pump, needle, HOME or dose
 record is opened, no spectrum is processed, and START is sent at most once.
 """
@@ -25,9 +27,10 @@ from urllib import error, request
 
 from arduino.python.run_lock import PortProcessLock
 from .. import config
-from ..instruments.nmr import NmrRpcClient, NmrRpcConfig, NmrRpcError
+from ..instruments.nmr import (NmrRpcClient, NmrRpcConfig, NmrRpcError, build_iflow_1d_settings,
+                               build_iflow_experiment_settings, status_indicates_running)
 from ..runtime_state import write_json_atomic
-from .si6_fixed_time_nmr import acquire, declared_type, is_fid_type, is_jcamp, running_state
+from .si6_fixed_time_nmr import acquire, declared_type, is_fid_type, is_jcamp, raw_text, running_state
 
 DEFAULT_EXPERIMENT = Path("configs/experiments/si6_stage2only_6h.yaml")
 OUTPUT_ROOT = Path("results/nmr_standalone")
@@ -276,6 +279,7 @@ class TracingClient(NmrRpcClient):
         self.echo = echo
         self.show_replies = show_replies
         self.view = "strict"  # "simple": show raw status fields instead of the 06/08 verdict.
+        self.quiet_status = False  # True: status polls are recorded but not printed (04/05 print their own).
         self._t0 = time.monotonic()
 
     def _request(self, method, path, payload=None, params=None):
@@ -336,6 +340,8 @@ class TracingClient(NmrRpcClient):
 
     def _done(self, record, started):
         record["seconds"] = round(time.monotonic() - started, 3)
+        if self.quiet_status and record["path"] == STATUS_PATH and "error_type" not in record:
+            return
         if self.echo:
             self.echo(describe(record, self.show_replies, self.view))
 
@@ -482,7 +488,7 @@ def status_findings(record, context):
 def unrecognised_idle_warning(record):
     """Test 01: a status reply 06/08 cannot read as idle (not positively busy)."""
     reply = compact(record.get("reply", record.get("body")), 600)
-    fix = ["Tests 02/03 still run: they use the simplified 10/11 method, which does not check this reply.",
+    fix = ["Tests 02-05 still run: none of them checks this reply before START.",
            "Bring this debug report back to HOME so the reply can be reviewed before changing 06/08."]
     if "ResultCode=" in record["state_reason"] and "only 0 (idle)" in record["state_reason"]:
         fix.append("Note: the vendor manual's own ExperimentStatus example also shows ResultCode 2 and "
@@ -975,6 +981,19 @@ def simple_findings(result, client):
                         f"{reason}. Last status: {final}.",
                         ["Look for the file on the NMR itself (its JDX filename appears in the last status).",
                          "Bring the debug report back to HOME for review."])]
+    if "changed during raw retrieval" in reason:
+        return [finding("FAIL", "The NMR started something else while the data was being collected.",
+                        reason, ["Make sure nobody uses the NMR touchscreen during a test, then try again."])]
+    if "budget exhausted" in reason:
+        # The final reason depends on which request the time limit interrupted, so
+        # explain from the recorded replies after START instead.
+        after = [r for r in client.exchanges if start_record and r["n"] > start_record["n"] and "error_type" not in r]
+        acquire_replies = [r for r in after if r["path"].endswith("/Service/Acquire")]
+        if acquire_replies:
+            reason = (f"Service/Acquire has not confirmed completed acquisition: "
+                      f"{compact(acquire_replies[-1].get('reply'), 300)}")
+        elif any(r["path"] == STATUS_PATH for r in after):
+            reason = "ExperimentStatus does not yet match this START and requested scan count"
     if "does not yet match this START" in reason:
         return [finding("FAIL", "The NMR never reported this acquisition with the requested scans.",
                         f"START was sent once (reply: {start_reply}). Every later status reply showed a different "
@@ -989,12 +1008,244 @@ def simple_findings(result, client):
                         f"LastAcquireSuccessful=true (the reply shape in the vendor manual).",
                         ["Bring the debug report back to HOME: its Service/Acquire replies show what this NMR sends.",
                          "For comparison, run the same test again with --experiment-worker."])]
-    if "changed during raw retrieval" in reason:
-        return [finding("FAIL", "The NMR started something else while the data was being collected.",
-                        reason, ["Make sure nobody uses the NMR touchscreen during a test, then try again."])]
     if "ExperimentStatus:" in reason:
         return [finding("FAIL", "Reading the NMR status kept failing after START.", reason,
                         ["Look at the NMR touchscreen: if it is acquiring, let it finish.",
                          "Run the connection test (01) to check the network, then try again."])]
     return [finding("FAIL", f"The acquisition failed: {reason or result.get('status')}.", "START was sent once.",
                     ["Bring the debug report back to HOME: it lists every NMR request and reply."])]
+
+
+# --- Tests 04/05: legacy-style simple completion ----------------------------
+
+LEGACY_PROMPT = "Confirm NMR touchscreen shows IDLE and ready to acquire [y/N]: "
+
+
+def legacy_acquire(settings, path, client, templates, *, baseline_fid=None, out=print):
+    """Legacy-style acquisition: the sequence ``run_nmr_acquisition`` used on 2026-08-10.
+
+    PUT Settings/1D, PUT RunExperiment once, then the driver's own ``wait_for_idle``
+    on iFlow/ExperimentStatus (``status_indicates_running``: nonzero ResultCode, a
+    true running flag or PercentComplete below 100 = still running). Two small
+    additions to the legacy saver: the raw TD FID is taken instead of the first
+    text field (which could be the processed FD), and data identical to the FID
+    present before START is not saved as new.
+    """
+    path = Path(path)
+    result = {"status": "NMR_FAILED", "path": None, "requested": False, "phase": "configuration",
+              "method": "legacy_simple"}
+    last = {}
+
+    def read_status():
+        value = client.iflow_experiment_status()
+        last["status"] = value
+        code = value.get("ResultCode") if isinstance(value, dict) else None
+        scans_run = value.get("NumberOfScansRun") if isinstance(value, dict) else None
+        state = "WAITING" if status_indicates_running(value) else "COMPLETE"
+        out(f"  [{client.exchanges[-1]['t_s']:6.1f} s] NMR STATUS: {state} (ResultCode={code!r}, "
+            f"NumberOfScansRun={scans_run!r})")
+        return value
+
+    try:
+        one_d = build_iflow_1d_settings(templates[0], receiver_gain=settings.receiver_gain,
+                                        auto_gain=settings.auto_gain, export_filename=str(path))
+        run = build_iflow_experiment_settings(templates[1], scans=settings.scans,
+                                              receiver_gain=settings.receiver_gain,
+                                              spectral_center=settings.spectral_center,
+                                              sweep_width=settings.sweep_width, export_filename=str(path))
+        client.set_iflow_1d_settings(one_d)
+        out("  NMR CONFIGURATION: SENT")
+        result.update(phase="start", requested=True)  # A lost reply is an uncertain START; never resent.
+        result["start_reply"] = bounded(client.run_iflow_experiment(run))
+        out("  NMR START: SENT")
+        result["phase"] = "completion"
+        try:
+            final = client.wait_for_idle(status_getter=read_status, poll_seconds=settings.poll_seconds,
+                                         max_wait_seconds=settings.max_wait_seconds)
+        except NmrRpcError as exc:
+            if not str(exc).startswith("Timed out waiting"):
+                raise
+            result.update(timed_out=True, final=bounded(last.get("status")),
+                          error=f"NMR did not report completion within {settings.max_wait_seconds:g} s")
+            out(f"  NMR STATUS: TIMEOUT after {settings.max_wait_seconds:g} s. START is not sent again.")
+            out(f"  Last status response: {compact(last.get('status'), 1200)}")
+            return result
+        result.update(phase="retrieval", final=bounded(final))
+        text = raw_text(final)
+        if not text:
+            out("  RAW FID: NOT RETURNED")
+            server_name = final.get("JDX_Filename") if isinstance(final, dict) else None
+            result.update(status="NMR_MISSING",
+                          error=f"Completion was reported but the status reply has no raw FID; "
+                                f"server JDX_Filename={server_name!r}")
+            return result
+        if baseline_fid and text == baseline_fid:
+            out("  RAW FID: SAME AS BEFORE START (not new data)")
+            result.update(stale=True, error="The raw FID returned is identical to the one present before START")
+            return result
+        out("  RAW FID: RECEIVED")
+        result["phase"] = "save"
+        destination = path if not path.exists() else path.with_suffix(".rpc.dx")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with destination.open("x", encoding="utf-8", newline="") as handle:
+            handle.write(text)
+        if not destination.stat().st_size:
+            raise OSError(f"Saved file is empty: {destination}")
+        out(f"  DX FILE: SAVED {destination}")
+        result.update(status="NMR_SAVED", path=str(destination))
+        return result
+    except Exception as exc:
+        result["error"] = f"{type(exc).__name__}: {exc}"
+        if result["phase"] == "completion":
+            result["final"] = bounded(last.get("status"))
+        return result
+
+
+def legacy_acquisition_test(argv=None, *, scans, input_fn=input, out=print):
+    number = {1: "04", 4: "05"}.get(scans, "0x")
+    parser = argparse.ArgumentParser(description=f"One live {scans}-scan NMR acquisition with the simple "
+                                     "legacy-style completion (ExperimentStatus until ResultCode 0), as in the "
+                                     "older three-instrument test. No pump, needle, HOME or dose record is used.")
+    add_common_arguments(parser)
+    parser.add_argument("--yes", action="store_true", help="skip the single y/N question before START")
+    args = parser.parse_args(argv)
+    out(f"NMR TEST {number} - ONE {scans}-SCAN ACQUISITION, SIMPLE LEGACY-STYLE COMPLETION")
+    out("")
+    out("[1/6] Settings")
+    loaded = _load(args, out, scans=scans)
+    if loaded is None:
+        return 2
+    settings, retrieval_wait, sources = loaded
+    print_settings(settings, retrieval_wait, sources, out)
+    out("  NMR SETTINGS: LOADED")
+    output = _output(out, f"{scans}scan_simple", args.output_dir)
+    if output is None:
+        return 2
+    report = base_report(f"{number}_acquisition_{scans}_scan_simple", settings, retrieval_wait, sources)
+    report["method"] = "legacy_simple"
+    client = _client(settings, out, show_replies=False)
+    client.quiet_status = True  # Status polls are summarised as NMR STATUS lines; all are still recorded.
+    report["http_exchanges"] = client.exchanges
+    findings, start_sent = [], False
+    try:
+        out("")
+        out(f"[2/6] Connection to {settings.host}:{settings.port}")
+        net = network_check(settings.host, settings.port, settings.timeout, settings.scheme)
+        report["network"] = net
+        findings += network_findings(net)
+        baseline, problem = (None, None) if net["tcp"] != "open" else _read(client, client.iflow_experiment_status)
+        if net["tcp"] != "open" or problem:
+            print_network(net, out)
+            out("  NMR CONNECTION: FAILED" + (f" ({problem})" if problem else ""))
+            if problem:
+                findings += _pre_start_failure(client) or []
+            return _finish(output, report, findings, out, start_sent=False)
+        code = baseline.get("ResultCode") if isinstance(baseline, dict) else None
+        out(f"  NMR CONNECTION: OK (status ResultCode={code!r}; information only, START does not depend on it)")
+        out("")
+        out("[3/6] Settings templates")
+        templates = []
+        for getter in (client.iflow_1d_settings, client.iflow_experiment_settings):
+            value, problem = _read(client, getter)
+            if problem or not isinstance(value, dict):
+                out("  NMR SETTINGS TEMPLATES: FAILED")
+                findings += _pre_start_failure(client) or [finding(
+                    "FAIL", "A settings template is not a JSON object.", f"Reply: {compact(value)}",
+                    ["Bring the debug report back to HOME."])]
+                return _finish(output, report, findings, out, start_sent=False)
+            templates.append(value)
+        out("  NMR SETTINGS TEMPLATES: READ")
+        out("")
+        out("[4/6] Operator confirmation")
+        out(f"  The NMR will run {scans} scan(s) on whatever sample is in it now.")
+        if not args.yes and input_fn(f"  {LEGACY_PROMPT}").strip().lower() not in {"y", "yes"}:
+            out("  OPERATOR CONFIRMATION: NO. No setting was changed and no acquisition was started.")
+            report.update(verdict="DECLINED", findings=[])
+            save_report(output, report, out)
+            return 3
+        out("  OPERATOR CONFIRMATION: YES")
+        try:
+            lock = PortProcessLock(f"fixed-nmr:{settings.host}:{settings.port}").acquire()
+        except Exception as exc:
+            findings.append(finding("FAIL", "Another program on this laptop is using the NMR.",
+                                    f"The NMR ownership lock is held ({type(exc).__name__}). A running 06/08 "
+                                    "experiment, a 04 --nmr-check, or another NMR test window owns it.",
+                                    ["Let that program finish (or close it), then run this test again."]))
+            return _finish(output, report, findings, out, start_sent=False)
+        out("")
+        out(f"[5/6] Configure, START once, wait for completion (status every {settings.poll_seconds:g} s, "
+            f"limit {settings.max_wait_seconds:g} s)")
+        try:
+            result = legacy_acquire(settings, output / "nmr_raw" / f"nmr_{scans}scan_simple.dx", client,
+                                    templates, baseline_fid=raw_text(baseline), out=out)
+        finally:
+            lock.release()
+        report["worker_result"] = result
+        start_sent = bool(result.get("requested"))
+        out("")
+        out("[6/6] Check the saved raw file")
+        if result["status"] == "NMR_SAVED":
+            facts = inspect_fid(result["path"])
+            report["saved_file"] = facts
+            out(f"  File      : {facts['path']} ({facts['bytes']} bytes)")
+            out(f"  Data type : {facts['data_type']}   NMR time (LONG DATE): {facts['long_date']}")
+            out(f"  Averages  : {facts['averages']} (requested scans: {scans})")
+            findings += fid_findings(facts, scans)
+        else:
+            out(f"  Result: {result['status']} - {result.get('error')}")
+            findings += legacy_findings(result, client)
+    except KeyboardInterrupt:
+        findings.append(finding("FAIL", "Stopped with Ctrl+C.",
+                                "If START had already been sent, the NMR may still be acquiring.",
+                                ["Check the NMR touchscreen; let the run finish or cancel it there.",
+                                 "Do not send another START until the touchscreen shows the NMR idle."]))
+        start_sent = any(r["path"].endswith("/RunExperiment") for r in client.exchanges)
+        _finish(output, report, findings, out, start_sent=start_sent)
+        return 130
+    return _finish(output, report, findings, out, start_sent=start_sent)
+
+
+NO_RESTART = ("Do not run the test again yet: an uncertain completion is not permission to send another START. "
+              "Check the NMR touchscreen first.")
+
+
+def legacy_findings(result, client):
+    """Findings for the simple legacy-style method (04/05)."""
+    phase, error_text = result.get("phase"), result.get("error") or ""
+    start_record = _start_record(client)
+    final = compact(result.get("final"), 600)
+    if not result.get("requested"):
+        return _pre_start_failure(client) or [finding(
+            "FAIL", f"Sending the settings failed: {error_text}.", "START was not sent, so nothing ran on the NMR.",
+            ["Run the connection test (01) and fix the first failure it lists."])]
+    if isinstance(start_record, dict) and "error_type" in start_record:
+        return _start_failure(start_record)
+    if result.get("timed_out"):
+        return [finding("FAIL", f"The NMR did not report completion within the limit ({error_text}).",
+                        "START was sent once. This method waits while ExperimentStatus reports running: any "
+                        f"nonzero ResultCode, a true running flag, or PercentComplete below 100. Last status: {final}.",
+                        [NO_RESTART,
+                         "If the touchscreen is still acquiring, let it finish.",
+                         "If the touchscreen shows the run finished but the status kept a nonzero ResultCode, that "
+                         "is the code this NMR reports after a run: bring the debug report back to HOME.",
+                         "When the NMR is idle, test 02 (the other completion method) can be compared."])]
+    if phase == "completion":
+        return [finding("FAIL", f"Reading ExperimentStatus failed while waiting: {error_text}.",
+                        "START was already sent once; the legacy method stops at the first failed status read.",
+                        [NO_RESTART, "Run the connection test (01) once the NMR is idle."])]
+    if result.get("stale"):
+        return [finding("FAIL", "The NMR returned the same raw FID as before START.",
+                        "Completion was read before this acquisition produced data (the NMR had not started or "
+                        f"finished it). The old data was not saved as new. Last status: {final}.",
+                        [NO_RESTART, "Bring the debug report back to HOME."])]
+    if result["status"] == "NMR_MISSING":
+        return [finding("FAIL", "The NMR reported completion, but its status reply contained no raw FID.",
+                        f"{error_text}. If this happened right after START, the NMR may not have started yet: the "
+                        "legacy rule reads 'not running' as finished.",
+                        [NO_RESTART, "Look for the file on the NMR itself (JDX_Filename above).",
+                         "Bring the debug report back to HOME."])]
+    if phase == "save":
+        return [finding("FAIL", f"The raw FID was received but could not be saved: {error_text}.",
+                        "The acquisition itself finished.", ["Check disk space and folder permissions."])]
+    return [finding("FAIL", f"The acquisition failed: {error_text or result['status']}.", "START was sent once.",
+                    [NO_RESTART, "Bring the debug report back to HOME: it lists every NMR request and reply."])]

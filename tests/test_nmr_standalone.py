@@ -11,13 +11,14 @@ import socket
 import subprocess
 import sys
 import threading
+import time
 
 import pytest
 import yaml
 
 from arduino.python.run_lock import PortProcessLock
 from chemyx_lab import config
-from chemyx_lab.instruments.nmr import (NmrRpcClient, NmrRpcConfig, NmrRpcError,
+from chemyx_lab.instruments.nmr import (NmrRpcClient, NmrRpcConfig, NmrRpcError, status_indicates_running,
                                         example_iflow_1d_settings, example_iflow_experiment_settings)
 from chemyx_lab.workflows import nmr_standalone as ns
 from chemyx_lab.workflows.si6_automated_nmr import build_instrument_settings
@@ -257,7 +258,7 @@ def test_connection_test_warns_on_an_unrecognised_idle_reply(serve, tmp_path, st
     assert ns.connection_test(args + ["--output-dir", str(tmp_path / "out")], out=lines.append) == 0
     text = "\n".join(lines)
     assert "RESULT: PASS (with warnings)" in text and "[WARN] 06/08 do not recognise this status reply" in text
-    assert expected in text and "Tests 02/03 still run" in text
+    assert expected in text and "Tests 02-05 still run" in text
     report = json.loads((tmp_path / "out" / ns.REPORT_NAME).read_text(encoding="utf-8"))
     assert report["verdict"] == "PASS" and report["findings"][0]["level"] == "WARN"
 
@@ -447,11 +448,152 @@ def test_standalone_module_has_no_numerical_analysis_imports():
     assert "analysis" not in "".join(line for line in source.splitlines() if line.startswith(("import", "from")))
 
 
-@pytest.mark.parametrize("script", ["01_test_connection.py", "02_run_1_scan.py", "03_run_4_scans.py"])
+@pytest.mark.parametrize("script", ["01_test_connection.py", "02_run_1_scan.py", "03_run_4_scans.py",
+                                    "04_run_1_scan_simple.py", "05_run_4_scans_simple.py"])
 def test_scripts_show_help(script):
     result = subprocess.run([sys.executable, "-B", str(config.REPO_ROOT / "scripts/nmr_standalone" / script), "--help"],
                             cwd=config.REPO_ROOT, capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stderr
     assert "--machine-config" in result.stdout
     assert ("--yes" in result.stdout) == (script != "01_test_connection.py")
-    assert ("--experiment-worker" in result.stdout) == (script != "01_test_connection.py")
+    assert ("--experiment-worker" in result.stdout) == (script in {"02_run_1_scan.py", "03_run_4_scans.py"})
+
+
+# --- Tests 04/05: simple legacy-style completion ----------------------------
+
+class SequencedNmr(FakeNmr):
+    """After START, return ``after_start`` statuses in order; the last one repeats."""
+
+    def __init__(self, after_start, **kwargs):
+        super().__init__(**kwargs)
+        self.after_start = after_start
+
+    def respond(self, method, path, body):
+        if path == ns.STATUS_PATH and self.started:
+            self.requests.append((method, path))
+            self.polls_after_start += 1
+            return self.json(self.after_start[min(self.polls_after_start, len(self.after_start)) - 1])
+        return super().respond(method, path, body)
+
+
+def fid_with(scans):
+    return FID.replace("##.AVERAGES=8", f"##.AVERAGES={scans}")
+
+
+def run_simple(serve, tmp_path, fake, scans=1, answer="y", extra=()):
+    args = write_configs(tmp_path, serve(fake))
+    lines, prompts = [], []
+
+    def ask(prompt):
+        prompts.append(prompt)
+        return answer
+
+    code = ns.legacy_acquisition_test(args + ["--output-dir", str(tmp_path / "out"), *extra], scans=scans,
+                                      input_fn=ask, out=lines.append)
+    return code, "\n".join(lines), prompts
+
+
+def status_polls_after_start(fake):
+    start = fake.requests.index(("PUT", "/interfaces/iFlow/RunExperiment"))
+    return [r for r in fake.requests[start:] if r == ("GET", ns.STATUS_PATH)]
+
+
+@pytest.mark.parametrize("scans", [1, 4])
+def test_simple_method_saves_a_fresh_fid_with_requested_scans(serve, tmp_path, scans):
+    fake = FakeNmr(scans=scans)
+    code, text, prompts = run_simple(serve, tmp_path, fake, scans=scans)
+    assert code == 0, text
+    assert prompts == ["  " + ns.LEGACY_PROMPT]
+    order = ["NMR SETTINGS: LOADED", "NMR CONNECTION: OK", "NMR SETTINGS TEMPLATES: READ",
+             "OPERATOR CONFIRMATION: YES", "NMR CONFIGURATION: SENT", "NMR START: SENT",
+             "NMR STATUS: WAITING", "NMR STATUS: COMPLETE", "RAW FID: RECEIVED", "DX FILE: SAVED",
+             "RESULT: PASS  (START was sent once)"]
+    positions = [text.index(item) for item in order]
+    assert positions == sorted(positions), text
+    assert len(fake.puts("/RunExperiment")) == 1
+    assert ("GET", "/interfaces/Service/Acquire") not in fake.requests  # No extra completion endpoint.
+    report = json.loads((tmp_path / "out" / ns.REPORT_NAME).read_text(encoding="utf-8"))
+    sent = next(r for r in report["http_exchanges"] if r["path"].endswith("/RunExperiment"))
+    assert sent["sent"]["NumberOfScans"] == scans and report["method"] == "legacy_simple"
+    assert report["saved_file"]["averages"] == str(scans) and report["saved_file"]["is_fid"]
+    saved = Path(report["worker_result"]["path"])
+    assert saved.name == f"nmr_{scans}scan_simple.dx" and saved.read_text(encoding="utf-8") == fid_with(scans)
+
+
+def test_simple_method_has_no_pre_start_idle_gate(serve, tmp_path):
+    fake = FakeNmr(status={"ResultCode": 2, "NumberOfScansRun": 0, "JDX_FileContents_TD": ""})
+    code, text, _ = run_simple(serve, tmp_path, fake)
+    assert code == 0, text
+    assert "NMR CONNECTION: OK (status ResultCode=2" in text and len(fake.puts("/RunExperiment")) == 1
+
+
+def test_simple_method_waits_through_every_nonzero_result_code(serve, tmp_path):
+    done = {"ResultCode": 0, "NumberOfScansRun": 1, "JDX_FileContents_TD": fid_with(1)}
+    sequence = [{"ResultCode": 2, "NumberOfScansRun": 0}, {"ResultCode": 1, "NumberOfScansRun": 0},
+                {"ResultCode": 3, "NumberOfScansRun": 1}, done]
+    fake = SequencedNmr(sequence)
+    code, text, _ = run_simple(serve, tmp_path, fake)
+    assert code == 0, text
+    assert len(status_polls_after_start(fake)) == 4  # First poll right after START, as in wait_for_idle.
+    assert text.count("NMR STATUS: WAITING") == 3 and text.count("NMR STATUS: COMPLETE") == 1
+    assert [status_indicates_running(s) for s in sequence] == [True, True, True, False]  # The driver's own rule.
+
+
+def test_simple_method_timeout_prints_last_status_and_never_restarts(serve, tmp_path):
+    fake = SequencedNmr([{"ResultCode": 1, "NumberOfScansRun": 0}])
+    started = time.monotonic()
+    code, text, _ = run_simple(serve, tmp_path, fake)
+    assert time.monotonic() - started < 30
+    assert code == 1 and "NMR STATUS: TIMEOUT after 3 s" in text
+    assert 'Last status response: {"ResultCode": 1, "NumberOfScansRun": 0}' in text
+    assert "an uncertain completion is not permission to send another START" in text
+    assert len(fake.puts("/RunExperiment")) == 1
+    report = json.loads((tmp_path / "out" / ns.REPORT_NAME).read_text(encoding="utf-8"))
+    assert report["verdict"] == "FAIL" and report["worker_result"]["timed_out"]
+
+
+def test_simple_method_does_not_report_success_without_a_raw_fid(serve, tmp_path):
+    fake = SequencedNmr([{"ResultCode": 0, "NumberOfScansRun": 1, "JDX_FileContents_TD": "",
+                          "JDX_Filename": "C:/NMReady/data/x.dx"}])
+    code, text, _ = run_simple(serve, tmp_path, fake)
+    assert code == 1 and "RAW FID: NOT RETURNED" in text and "RESULT: FAIL" in text
+    assert "contained no raw FID" in text and "x.dx" in text
+    assert not list((tmp_path / "out").rglob("*.dx"))
+
+
+def test_simple_method_never_saves_the_previous_fid_as_new(serve, tmp_path):
+    old = fid_with(8)
+    fake = SequencedNmr([{"ResultCode": 0, "NumberOfScansRun": 8, "JDX_FileContents_TD": old}],
+                        status={"ResultCode": 0, "NumberOfScansRun": 8, "JDX_FileContents_TD": old})
+    code, text, _ = run_simple(serve, tmp_path, fake)
+    assert code == 1 and "SAME AS BEFORE START" in text and "same raw FID as before START" in text
+    assert not list((tmp_path / "out").rglob("*.dx")) and len(fake.puts("/RunExperiment")) == 1
+
+
+def test_simple_method_declined_changes_nothing(serve, tmp_path):
+    fake = FakeNmr()
+    code, text, _ = run_simple(serve, tmp_path, fake, answer="n")
+    assert code == 3 and "OPERATOR CONFIRMATION: NO" in text
+    assert not [method for method, _ in fake.requests if method == "PUT"]
+
+
+def test_simple_method_opens_no_serial_port(serve, tmp_path, monkeypatch):
+    import serial
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("a serial port (Arduino/Chemyx) was opened")
+
+    monkeypatch.setattr(serial, "Serial", refuse)
+    code, text, _ = run_simple(serve, tmp_path, FakeNmr(), extra=["--yes"])
+    assert code == 0, text
+    probe = ("import sys, chemyx_lab.workflows.nmr_standalone; "
+             "print([m for m in ('chemyx_lab.instruments.chemyx', 'chemyx_lab.workflows.chemyx_manual', "
+             "'chemyx_lab.workflows.si6_fixed_time') if m in sys.modules])")
+    result = subprocess.run([sys.executable, "-B", "-c", probe], cwd=config.REPO_ROOT,
+                            capture_output=True, text=True, timeout=60)
+    assert result.stdout.strip() == "[]", result.stderr
+
+
+def test_simple_method_uses_two_second_polls_and_300_second_limit():
+    settings, _, _ = ns.load_settings(scans=1)
+    assert settings.poll_seconds == 2 and settings.max_wait_seconds == 300
