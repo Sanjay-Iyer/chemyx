@@ -19,7 +19,7 @@ data during the experiment; missing spectra and analysis results cannot end a ph
 | [09 — Re-run SciPy Stage 2 analysis](09_stage2only_scipy_analysis.md) | Folder-picker recovery using exactly the same dynamic primary method as 08 |
 | [10 — Stage 2 operation and recovery](10_stage2only_operation_and_recovery.md) | Offline manual for the `06` run: Arduino and Channel 1 preparation, launch, every stopping error, recovery checks, restart |
 | [11 — Simplified Stage 2 demo (`10_stage2only`)](11_stage2only_demo.md) | Independent attended demo: six hours, 25 measurements every 15 minutes, optional one-time CH2 addition, direct NMR and separate live analysis |
-| [12 / 13 — Legacy NMR alternatives](12_13_legacy_nmr_alternatives.md) | Same full experiment and short instrument check using the standalone 04/05 legacy completion method |
+| [12 / 13 — Legacy NMR alternatives](12_13_legacy_nmr_alternatives.md) | Separate six-hour Stage 2 experiment and short instrument check using the standalone 04/05 legacy completion method |
 
 For the Stage 2 (`06`) run use this order: [Arduino manual operation](../01_arduino/01_manual_commands.md),
 then [Chemyx manual operation](../02_chemyx/01_quick_reference.md), then
@@ -42,7 +42,31 @@ then [Chemyx manual operation](../02_chemyx/01_quick_reference.md), then
 | Shared syringe HOME/loading | Read via the fixed-time preset | [manual_control.yaml](../../configs/chemyx/manual_control.yaml) |
 | Post-run processing | [05_analyze_fixed_time_run.py](../../scripts/05_analyze_fixed_time_run.py) | [analysis.yaml](../../configs/nmr/analysis.yaml) supplies processing defaults; the wrapper defaults to ACME |
 
-## Commands from the repository root
+## 12 / 13: check, then six-hour Stage 2 run
+
+On WORK, use its verified Python from `C:\code\chemyx_pump`, with the syringes
+and established Arduino reference prepared. First run the short check:
+
+```powershell
+python scripts\13_3InstrumentCheck.py --live
+```
+
+After the check finishes and the rig is ready for Stage 2, launch:
+
+```powershell
+python scripts\12_stage2only.py --live
+```
+
+Run one at a time; both start without prompts. `13` uses
+[13_3InstrumentCheck.yaml](../../configs/experiments/13_3InstrumentCheck.yaml)
+and the `12` base settings for a CH1 1 mL out/back check and one NMR scan.
+`12` uses [12_stage2only.yaml](../../configs/experiments/12_stage2only.yaml):
+six hours, 25 scheduled slots every 15 minutes including time zero and six hours,
+eight NMR scans per slot, and separate live analysis. Optional CH2 dosing is
+disabled by default. Read the [12 / 13 guide](12_13_legacy_nmr_alternatives.md)
+for preparation, results and NMR failure handling.
+
+## Other commands from the repository root
 
 On HOME use the `ai` environment for local checks:
 

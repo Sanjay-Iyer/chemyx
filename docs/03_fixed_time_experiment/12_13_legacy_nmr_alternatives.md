@@ -25,15 +25,22 @@ python scripts\12_stage2only.py --mock
 python scripts\13_3InstrumentCheck.py --mock
 ```
 
-WORK, with the syringes and established Arduino reference prepared:
+On WORK, use its existing verified Python from `C:\code\chemyx_pump`, with the
+syringes and established Arduino reference prepared. First run the short check:
 
 ```powershell
 python scripts\13_3InstrumentCheck.py --live
+```
+
+After the check finishes and the rig is ready for Stage 2, launch the six-hour run:
+
+```powershell
 python scripts\12_stage2only.py --live
 ```
 
-Each `--live` command starts automatically without another prompt. These are
-alternative commands, not instructions to run the two scripts concurrently.
+Each `--live` command starts automatically without another prompt. Run one at a
+time. `13` takes one NMR scan; `12` defaults to eight scans at each of 25 scheduled
+slots every 15 minutes, including time zero and the six-hour endpoint.
 
 `12` defaults to [12_stage2only.yaml](../../configs/experiments/12_stage2only.yaml).
 Its functional settings copy `10`: COM3 Arduino, COM4 Chemyx, 20 mm / 20 mL

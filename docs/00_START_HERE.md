@@ -1,5 +1,22 @@
 # 00 — Documentation: start here
 
+For **12_stage2only and its 13_3InstrumentCheck**, open the
+[12 / 13 run guide](03_fixed_time_experiment/12_13_legacy_nmr_alternatives.md).
+On WORK, from `C:\code\chemyx_pump` with the rig prepared, run the short check first:
+
+```powershell
+python scripts\13_3InstrumentCheck.py --live
+```
+
+After it finishes and the rig is ready for Stage 2, start the six-hour experiment:
+
+```powershell
+python scripts\12_stage2only.py --live
+```
+
+Both commands start without prompts; run one at a time. The guide links their
+default YAML files and explains the one-scan check and 25-slot experiment.
+
 For the current **Arduino + Chemyx + NMR, full 48-hour / 6-hour experiment**,
 open **[03 — Fixed-time experiment](03_fixed_time_experiment/00_START_HERE.md)**.
 Its commands, Python entry points and YAML files are listed together.
@@ -20,7 +37,7 @@ and [09 — SciPy analysis recovery](03_fixed_time_experiment/09_stage2only_scip
 |---|---|---|
 | [01](01_arduino/00_START_HERE.md) | Arduino needle | Manual status, UP/DOWN, HOME, STOP and hardware reference |
 | [02](02_chemyx/00_START_HERE.md) | Chemyx pump | Channel 1/2 control, syringe HOME, manual transfers and recovery |
-| [03](03_fixed_time_experiment/00_START_HERE.md) | Three-instrument fixed-time experiment | The current full 48-hour + one-dose + full 6-hour run |
+| [03](03_fixed_time_experiment/00_START_HERE.md) | Three-instrument fixed-time experiment | Full 48-hour / 6-hour run, Stage 2 alternatives, and the 12 / 13 commands |
 | [04](04_instrument_checkout/00_START_HERE.md) | Standalone instrument checkout | Separate bench check before an experiment |
 | [05](05_nmr_analysis/00_START_HERE.md) | NMR analysis | Saved-data processing, plotting, phase methods and statistics |
 | [06](06_deployment_and_backup/00_START_HERE.md) | Deployment and backup | WORK updates, offline dependencies, release inventory and rig-state backup |

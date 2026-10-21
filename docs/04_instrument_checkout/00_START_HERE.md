@@ -2,6 +2,30 @@
 
 [All documentation](../00_START_HERE.md)
 
+## 13 check before the 12 Stage 2 run
+
+For the legacy NMR Stage 2 workflow, use the
+[12 / 13 guide](../03_fixed_time_experiment/12_13_legacy_nmr_alternatives.md).
+On WORK, from `C:\code\chemyx_pump` with the rig prepared, run:
+
+```powershell
+python scripts\13_3InstrumentCheck.py --live
+```
+
+This checks Arduino movement, CH1 1 mL withdrawal/return and one NMR scan.
+It uses [13_3InstrumentCheck.yaml](../../configs/experiments/13_3InstrumentCheck.yaml),
+with base settings from [12_stage2only.yaml](../../configs/experiments/12_stage2only.yaml).
+After the check finishes and the rig is ready for Stage 2, start the six-hour run:
+
+```powershell
+python scripts\12_stage2only.py --live
+```
+
+Run one at a time; both start without prompts. `12` defaults to 25 scheduled
+slots every 15 minutes, with eight NMR scans per slot and separate live analysis.
+
+## Separate 03 bench checkout
+
 Read [01 — Bench checkout](01_bench_checkout.md). It tests Arduino, both pump
 channels and a 2-scan NMR acquisition independently. It is not the chemistry
 experiment and is not the fixed-time 8-scan NMR worker.

@@ -19,11 +19,32 @@ Real hardware was not contacted during this restructuring.
 Start with **[00 — Documentation index](docs/00_START_HERE.md)**. Guides are
 grouped by instrument/workflow, with numbered filenames in reading order.
 
+For the **12 / 13 legacy NMR workflow**, use WORK's verified Python from
+`C:\code\chemyx_pump`, with the rig prepared. First run the short instrument check:
+
+```powershell
+python scripts\13_3InstrumentCheck.py --live
+```
+
+After the check finishes and the rig is ready for Stage 2, launch the six-hour run:
+
+```powershell
+python scripts\12_stage2only.py --live
+```
+
+Run one command at a time. Both start without an interactive prompt. See the
+[12 / 13 guide](docs/03_fixed_time_experiment/12_13_legacy_nmr_alternatives.md)
+for preparation, configuration and results. `13` takes one NMR scan; `12`
+defaults to eight scans at each of 25 scheduled slots, every 15 minutes from
+time zero through six hours.
+
 | Workflow | Open this | Python/config |
 |---|---|---|
 | Arduino manual control | [01 — Arduino](docs/01_arduino/00_START_HERE.md) | `arduino/scripts/needle_control.py` / `arduino/configs/arduino_real_COM3.yaml` |
 | Chemyx manual control | [02 — Chemyx](docs/02_chemyx/00_START_HERE.md) | `scripts/chemyx_control.py` / `configs/chemyx/manual_control.yaml` |
 | NMR standalone tests (connection, 1 scan, 4 scans) | [09 — NMR instrument](docs/09_nmr_instrument/00_START_HERE.md) | `scripts/nmr_standalone/` / `configs/machines/si6_real_COM4.yaml` |
+| Short check before the 12 run | [13 — Three-instrument check](docs/03_fixed_time_experiment/12_13_legacy_nmr_alternatives.md) | `scripts/13_3InstrumentCheck.py` / `configs/experiments/13_3InstrumentCheck.yaml` |
+| Stage 2 only with legacy NMR completion | [12 — Six-hour Stage 2](docs/03_fixed_time_experiment/12_13_legacy_nmr_alternatives.md) | `scripts/12_stage2only.py` / `configs/experiments/12_stage2only.yaml` |
 | Current full 48-hour / 6-hour run | **[03 — Fixed-time experiment](docs/03_fixed_time_experiment/00_START_HERE.md)** | `scripts/04_si6_fixed_time_run.py` / `configs/experiments/si6_fixed_48h_6h.yaml` |
 | Stage 2 only, six hours with live review | **[06 — stage2only](docs/03_fixed_time_experiment/06_stage2only_run_guide.md)** | `scripts/06_si6_stage2only_run.py` / `configs/experiments/si6_stage2only_6h.yaml` |
 | Re-run Stage 2 analysis on a selected folder | [07 — Stage 2 analysis recovery](docs/03_fixed_time_experiment/07_stage2only_analysis_recovery.md) | `scripts/07_analyze_stage2only.py` / `configs/nmr/analysis.yaml` |
@@ -33,7 +54,7 @@ grouped by instrument/workflow, with numbered filenames in reading order.
 | Saved NMR processing | [05 — Analysis](docs/05_nmr_analysis/00_START_HERE.md) | `scripts/05_analyze_fixed_time_run.py` / `configs/nmr/analysis.yaml` |
 | WORK updates and physical-state backup | [06 — Deployment](docs/06_deployment_and_backup/00_START_HERE.md) | Git/drive workflow and backup tools |
 
-The fixed-time controller runs a full 48-hour Phase 1, one protected 1.86 mL
+The `04_si6_fixed_time_run.py` controller runs a full 48-hour Phase 1, one protected 1.86 mL
 Channel 2 dose and a full 6-hour Phase 2. Missing NMR data is logged without
 ending the stage. `--live` starts directly with no interactive prompts. There is
 currently no pause/resume. Each launch uses manually restored Channel 1 empty
