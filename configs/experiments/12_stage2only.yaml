@@ -1,0 +1,85 @@
+# Legacy NMR alternative to 10; physical settings are identical. This is the only adjustable experiment YAML.
+# Prepare CH1 empty; establish Arduino HOME with the standalone manual script.
+experiment:
+  name: stage2only_legacy_demo
+  duration_minutes: 360
+  interval_minutes: 15
+  include_final_observation: true
+
+arduino:
+  port: COM3
+  baud_rate: 115200
+  # Existing manual reference, not an experiment history or permission record.
+  state_path: runs/arduino/needle_state.json
+  home_position: 0
+  up_position: 1
+  min_position: -3
+  max_position: 5
+  steps_per_unit: 200
+  up_step_sign: 1
+  speed_steps_s: 100
+  acceleration_steps_s2: 500
+
+chemyx:
+  port: COM4                   # Change to COM6 when appropriate on WORK.
+  baud_rate: 115200
+  timeout_seconds: 2
+  response_delay_seconds: 0.2
+  syringe_diameter_mm: 20.0
+  syringe_capacity_ml: 20.0
+  safety_margin_ml: 1.0
+  sampling_channel: 1
+  initial_volume_ml: 0.0       # Operator manually prepares CH1 empty.
+  pre_sample_volume_ml: 8.0    # Withdraw with needle UP.
+  sample_volume_ml: 5.0        # Withdraw at existing HOME/DOWN.
+  sample_rate_ml_min: 5.0
+  return_rate_ml_min: 5.0      # Return all 13 mL, then wash 5 mL out/back.
+  wash_volume_ml: 5.0
+  wash_rate_ml_min: 5.0
+  settle_seconds: 10
+  extra_seconds: 2
+
+channel_2:
+  enabled: false
+  channel: 2
+  syringe_diameter_mm: 20.0
+  syringe_capacity_ml: 20.0
+  safety_margin_ml: 1.0
+  initial_volume_ml: 5.0       # Operator prepares this loading if enabled.
+  volume_ml: 1.86
+  rate_ml_min: 1.0
+  delay_after_time_zero_seconds: 180
+
+nmr:
+  host: 169.254.30.54
+  port: 5000
+  scheme: http
+  http_timeout_seconds: 10
+  acquisition_timeout_seconds: 300  # One setup/acquisition/retrieval budget.
+  poll_seconds: 2
+  scans: 8
+  gain: 12
+  auto_gain: false
+  center_ppm: 5
+  width_ppm: 20
+  raw_directory: nmr_raw      # Relative to each fresh run; 09-compatible names.
+
+analysis:
+  enabled: true
+  every_n_acquisitions: 1
+  phase_method: acme
+  save_spectrum_plots: true
+  save_area_vs_time: true
+  # Reuse established processing defaults; no new numerical algorithm.
+  processing_config: configs/nmr/analysis.yaml
+  target_peak:
+    prominence_snr: 8.0
+    rel_height: 0.95
+    search_low: 5.60
+    search_high: 6.00
+    expected_ppm: 5.79
+
+output:
+  root_dir: results/experiments
+  terminal_logging: true
+  save_log_file: true

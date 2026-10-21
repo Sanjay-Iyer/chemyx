@@ -1,0 +1,12 @@
+# Short attended hardware check. Connection settings (COM ports, NMR host,
+# syringe geometry, Arduino reference) come from the 12 configuration, which is
+# only read, never modified. These test settings are applied in memory.
+base_config: configs/experiments/12_stage2only.yaml
+
+three_instrument_check:
+  chemyx_channel: 1          # Channel 2 is never operated by the check.
+  withdraw_volume_ml: 1.0
+  infuse_volume_ml: 1.0
+  pump_rate_ml_min: 5.0
+  nmr_scans: 1
+  analyze_spectrum: true
