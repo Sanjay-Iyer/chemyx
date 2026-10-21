@@ -44,6 +44,7 @@ time zero through six hours.
 | Chemyx manual control | [02 — Chemyx](docs/02_chemyx/00_START_HERE.md) | `scripts/chemyx_control.py` / `configs/chemyx/manual_control.yaml` |
 | NMR standalone tests (connection, 1 scan, 4 scans) | [09 — NMR instrument](docs/09_nmr_instrument/00_START_HERE.md) | `scripts/nmr_standalone/` / `configs/machines/si6_real_COM4.yaml` |
 | Short check before the 12 run | [13 — Three-instrument check](docs/03_fixed_time_experiment/12_13_legacy_nmr_alternatives.md) | `scripts/13_3InstrumentCheck.py` / `configs/experiments/13_3InstrumentCheck.yaml` |
+| Full Stage 1 + dose + Stage 2 with simplified legacy NMR | [14 — Full two-stage run](docs/03_fixed_time_experiment/14_full_stage1_stage2.md) | `scripts/14_full_stage1_stage2.py` / `configs/experiments/14_full_stage1_stage2.yaml` |
 | Stage 2 only with legacy NMR completion | [12 — Six-hour Stage 2](docs/03_fixed_time_experiment/12_13_legacy_nmr_alternatives.md) | `scripts/12_stage2only.py` / `configs/experiments/12_stage2only.yaml` |
 | Current full 48-hour / 6-hour run | **[03 — Fixed-time experiment](docs/03_fixed_time_experiment/00_START_HERE.md)** | `scripts/04_si6_fixed_time_run.py` / `configs/experiments/si6_fixed_48h_6h.yaml` |
 | Stage 2 only, six hours with live review | **[06 — stage2only](docs/03_fixed_time_experiment/06_stage2only_run_guide.md)** | `scripts/06_si6_stage2only_run.py` / `configs/experiments/si6_stage2only_6h.yaml` |
@@ -53,6 +54,15 @@ time zero through six hours.
 | Separate bench check | [04 — Instrument checkout](docs/04_instrument_checkout/00_START_HERE.md) | `scripts/03_simple_instrument_checkout.py` / `configs/checkouts/si6_simple_instrument_check.yaml` |
 | Saved NMR processing | [05 — Analysis](docs/05_nmr_analysis/00_START_HERE.md) | `scripts/05_analyze_fixed_time_run.py` / `configs/nmr/analysis.yaml` |
 | WORK updates and physical-state backup | [06 — Deployment](docs/06_deployment_and_backup/00_START_HERE.md) | Git/drive workflow and backup tools |
+
+For the complete experiment with `12`'s simplified NMR method, see the
+[14 run guide](docs/03_fixed_time_experiment/14_full_stage1_stage2.md). On WORK:
+
+```powershell
+python scripts\14_full_stage1_stage2.py --live
+```
+
+It runs 48-hour Stage 1, one 1.86 mL CH2 boundary dose, then six-hour Stage 2.
 
 The `04_si6_fixed_time_run.py` controller runs a full 48-hour Phase 1, one protected 1.86 mL
 Channel 2 dose and a full 6-hour Phase 2. Missing NMR data is logged without

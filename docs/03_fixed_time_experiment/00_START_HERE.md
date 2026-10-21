@@ -20,6 +20,7 @@ data during the experiment; missing spectra and analysis results cannot end a ph
 | [10 — Stage 2 operation and recovery](10_stage2only_operation_and_recovery.md) | Offline manual for the `06` run: Arduino and Channel 1 preparation, launch, every stopping error, recovery checks, restart |
 | [11 — Simplified Stage 2 demo (`10_stage2only`)](11_stage2only_demo.md) | Independent attended demo: six hours, 25 measurements every 15 minutes, optional one-time CH2 addition, direct NMR and separate live analysis |
 | [12 / 13 — Legacy NMR alternatives](12_13_legacy_nmr_alternatives.md) | Separate six-hour Stage 2 experiment and short instrument check using the standalone 04/05 legacy completion method |
+| [14 — Full Stage 1 and Stage 2 with simplified NMR](14_full_stage1_stage2.md) | 48-hour Stage 1, one boundary dose, six-hour Stage 2; same NMR and physical adapter as 12 |
 
 For the Stage 2 (`06`) run use this order: [Arduino manual operation](../01_arduino/01_manual_commands.md),
 then [Chemyx manual operation](../02_chemyx/01_quick_reference.md), then
@@ -32,6 +33,7 @@ then [Chemyx manual operation](../02_chemyx/01_quick_reference.md), then
 | Run, validate or simulate | [04_si6_fixed_time_run.py](../../scripts/04_si6_fixed_time_run.py) | [si6_fixed_48h_6h.yaml](../../configs/experiments/si6_fixed_48h_6h.yaml) |
 | Run the simplified attended Stage 2 demo | [10_stage2only.py](../../scripts/10_stage2only.py) | [10_stage2only.yaml](../../configs/experiments/10_stage2only.yaml); [operator guide](11_stage2only_demo.md) |
 | Run the legacy NMR Stage 2 alternative | [12_stage2only.py](../../scripts/12_stage2only.py) | [12_stage2only.yaml](../../configs/experiments/12_stage2only.yaml); [12/13 guide](12_13_legacy_nmr_alternatives.md) |
+| Run both stages with simplified legacy NMR | [14_full_stage1_stage2.py](../../scripts/14_full_stage1_stage2.py) | [14_full_stage1_stage2.yaml](../../configs/experiments/14_full_stage1_stage2.yaml); [14 guide](14_full_stage1_stage2.md) |
 | Check all three instruments with legacy NMR | [13_3InstrumentCheck.py](../../scripts/13_3InstrumentCheck.py) | [13_3InstrumentCheck.yaml](../../configs/experiments/13_3InstrumentCheck.yaml); one scan, CH1 only |
 | Run Stage 2 only | [06_si6_stage2only_run.py](../../scripts/06_si6_stage2only_run.py) | [si6_stage2only_6h.yaml](../../configs/experiments/si6_stage2only_6h.yaml) |
 | Re-run Stage 2 analysis | [07_analyze_stage2only.py](../../scripts/07_analyze_stage2only.py) | [analysis.yaml](../../configs/nmr/analysis.yaml), with a folder picker or explicit data directory |
@@ -65,6 +67,20 @@ six hours, 25 scheduled slots every 15 minutes including time zero and six hours
 eight NMR scans per slot, and separate live analysis. Optional CH2 dosing is
 disabled by default. Read the [12 / 13 guide](12_13_legacy_nmr_alternatives.md)
 for preparation, results and NMR failure handling.
+
+## 14: full Stage 1 and Stage 2 with simplified NMR
+
+On WORK, after preparing CH1 empty, CH2 at 5 mL and the established needle HOME:
+
+```powershell
+python scripts\14_full_stage1_stage2.py --live
+```
+
+This runs Stage 1 for 48 hours with two-hour sampling, doses CH2 once with
+1.86 mL, then runs Stage 2 for six hours with 30-minute sampling, including
+the endpoint. It uses the same simplified NMR acquisition as `12`; review
+analysis runs separately and cannot end either stage. See the
+[14 guide](14_full_stage1_stage2.md) for settings, results and recovery.
 
 ## Other commands from the repository root
 

@@ -17,6 +17,17 @@ python scripts\12_stage2only.py --live
 Both commands start without prompts; run one at a time. The guide links their
 default YAML files and explains the one-scan check and 25-slot experiment.
 
+For the **full Stage 1 → dose → Stage 2 experiment using the same simplified NMR
+method**, open [14 — Full two-stage run](03_fixed_time_experiment/14_full_stage1_stage2.md).
+On WORK with both pumps prepared:
+
+```powershell
+python scripts\14_full_stage1_stage2.py --live
+```
+
+`14` defaults to 48-hour Stage 1 with two-hour sampling, one 1.86 mL CH2 dose,
+then six-hour Stage 2 with 30-minute sampling and an endpoint measurement.
+
 For the current **Arduino + Chemyx + NMR, full 48-hour / 6-hour experiment**,
 open **[03 — Fixed-time experiment](03_fixed_time_experiment/00_START_HERE.md)**.
 Its commands, Python entry points and YAML files are listed together.

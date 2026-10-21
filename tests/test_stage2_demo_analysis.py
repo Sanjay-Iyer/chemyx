@@ -72,9 +72,11 @@ def test_metadata_timing_prefers_long_date_and_never_filename_or_mtime():
         analysis.authoritative_time({})
 
 
-def test_cumulative_table_and_every_plot_have_actual_dataset_title(tmp_path, spectrum):
+@pytest.mark.parametrize("stage", ["stage_1", "stage_2"])
+def test_cumulative_table_and_every_plot_have_actual_dataset_title(tmp_path, spectrum, stage):
+    spectrum["path"] = tmp_path / f"{stage}_0001.dx"
     second = deepcopy(spectrum)
-    second["path"] = tmp_path / "stage_2_0002.dx"
+    second["path"] = tmp_path / f"{stage}_0002.dx"
     second["timestamp"] = datetime(2026, 10, 20, 0, 15, 40, tzinfo=timezone.utc)
     second["intensity"] *= .001
     rows = analysis.measure([spectrum, second], analysis.detection_settings({}))

@@ -32,7 +32,8 @@ from .scipy_peak_benchmark_plots import draw_integration
 from .scipy_peak_comparison import DetectionSettings, ascending, choose_target, detection_context, evaluate
 
 PRIMARY_METHOD = "scipy_width95_prominence8"
-RAW_NAME = re.compile(r"stage_2_(\d+)(\.rpc)?\.dx", re.IGNORECASE)
+# 14 keeps stages in separate directories, so observation numbers stay local.
+RAW_NAME = re.compile(r"stage_[12]_(\d+)(\.rpc)?\.dx", re.IGNORECASE)
 
 
 def authoritative_time(metadata):

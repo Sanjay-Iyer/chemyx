@@ -1,0 +1,88 @@
+# Full run: 48-hour Stage 1 -> one boundary dose -> six-hour Stage 2.
+# Prepare CH1 empty, CH2 at 5 mL and the existing official Arduino HOME.
+# Stage schedules below control acquisition; experiment duration is descriptive.
+# Same hardware settings and simplified NMR method as 12; no Time-0 CH2 dose.
+experiment:
+  name: full_stage1_stage2_legacy
+  duration_minutes: 3240
+  interval_minutes: 15
+  include_final_observation: true
+arduino:
+  port: COM3
+  baud_rate: 115200
+  state_path: runs/arduino/needle_state.json
+  home_position: 0
+  up_position: 1
+  min_position: -3
+  max_position: 5
+  steps_per_unit: 200
+  up_step_sign: 1
+  speed_steps_s: 100
+  acceleration_steps_s2: 500
+chemyx:
+  port: COM4
+  baud_rate: 115200
+  timeout_seconds: 2
+  response_delay_seconds: 0.2
+  syringe_diameter_mm: 20.0
+  syringe_capacity_ml: 20.0
+  safety_margin_ml: 1.0
+  sampling_channel: 1
+  initial_volume_ml: 0.0
+  pre_sample_volume_ml: 8.0
+  sample_volume_ml: 5.0
+  sample_rate_ml_min: 5.0
+  return_rate_ml_min: 5.0
+  wash_volume_ml: 5.0
+  wash_rate_ml_min: 5.0
+  settle_seconds: 10
+  extra_seconds: 2
+channel_2:
+  enabled: true
+  channel: 2
+  syringe_diameter_mm: 20.0
+  syringe_capacity_ml: 20.0
+  safety_margin_ml: 1.0
+  initial_volume_ml: 5.0
+  volume_ml: 1.86
+  rate_ml_min: 1.0
+  delay_after_time_zero_seconds: 0
+nmr:
+  host: 169.254.30.54
+  port: 5000
+  scheme: http
+  http_timeout_seconds: 10
+  acquisition_timeout_seconds: 300
+  poll_seconds: 2
+  scans: 8
+  gain: 12
+  auto_gain: false
+  center_ppm: 5
+  width_ppm: 20
+  raw_directory: nmr_raw
+analysis:
+  enabled: true
+  every_n_acquisitions: 1
+  phase_method: acme
+  save_spectrum_plots: true
+  save_area_vs_time: true
+  processing_config: configs/nmr/analysis.yaml
+  target_peak:
+    prominence_snr: 8.0
+    rel_height: 0.95
+    search_low: 5.6
+    search_high: 6.0
+    expected_ppm: 5.79
+output:
+  root_dir: results/experiments
+  terminal_logging: true
+  save_log_file: true
+stages:
+- name: stage_1
+  duration_minutes: 2880
+  interval_minutes: 120
+  include_final_observation: false
+- name: stage_2
+  duration_minutes: 360
+  interval_minutes: 30
+  include_final_observation: true

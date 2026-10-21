@@ -7,6 +7,15 @@ configurations remain unchanged. `12` injects the legacy NMR callable into `10`'
 existing experiment loop; `13` injects the same callable into `11`'s check. Both
 reuse the same Arduino/Chemyx drivers, saved needle reference and motion functions.
 
+For the full 48-hour Stage 1 → one boundary dose → six-hour Stage 2 experiment
+using this same NMR method, use [14 — Full two-stage run](14_full_stage1_stage2.md):
+
+```powershell
+python scripts\14_full_stage1_stage2.py --live
+```
+
+This WORK command uses its own preset; `12` remains Stage 2 only.
+
 | Comparison | Difference |
 |---|---|
 | `10` → `12` | Same physical recipe, six-hour clock, 15-minute interval, 25 scheduled slots, eight scans, analysis and optional CH2 dose; different NMR completion/raw retrieval |
