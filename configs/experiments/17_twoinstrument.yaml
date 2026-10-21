@@ -1,0 +1,46 @@
+# ==========================================
+# CHEMYX CHANNEL 1 - SAMPLING SETTINGS
+# ==========================================
+# EDIT HERE: each cycle withdraws withdraw_volume_ml, runs the NMR, then infuses
+# infuse_volume_ml. Change either number on its own (e.g. infuse 5.1, 5.5, 6.0).
+chemyx:
+  channel: 1
+  withdraw_volume_ml: 5.0
+  infuse_volume_ml: 5.2
+  withdraw_rate_ml_min: 5.0   # Script 15's working sample rate.
+  infuse_rate_ml_min: 5.0     # Script 15's working return rate.
+
+  # Set this to the ACTUAL liquid initially loaded by the operator.
+  # Extra delivered per cycle = infuse - withdraw = 0.2 mL; 25 cycles need 5.0 mL,
+  # so 6.0 mL leaves 1.0 mL after all cycles. If you change the infuse volume,
+  # load at least observation_count x (infuse - withdraw) and update this value.
+  # Leave at least withdraw_volume_ml of headroom in the 20 mL syringe.
+  initial_volume_ml: 6.0
+  syringe_diameter_mm: 20.0
+  syringe_capacity_ml: 20.0
+  port: COM4                 # Change to COM6 if the pump is there.
+  baud_rate: 115200
+  timeout_seconds: 2
+  response_delay_seconds: 0.2
+  extra_seconds: 2           # Same timed transfer + STOP completion as Script 15.
+
+experiment:
+  observation_count: 25      # 0, 15, ... 360 minutes (six-hour endpoint included).
+  interval_minutes: 15       # Slots stay anchored to run start; late slots are skipped.
+
+# Same interface, timeouts and polling as Script 15 / standalone 04/05.
+nmr:
+  host: 169.254.30.54
+  port: 5000
+  scheme: http
+  http_timeout_seconds: 10
+  acquisition_timeout_seconds: 300
+  poll_seconds: 2
+  scans: 8
+  gain: 12
+  auto_gain: false
+  center_ppm: 5
+  width_ppm: 20
+
+output:
+  root_dir: results/experiments

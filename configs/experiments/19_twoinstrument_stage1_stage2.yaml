@@ -1,0 +1,82 @@
+# 19 — Stage 1 (48 h) -> one Channel 2 dose -> Stage 2 (6 h), on 17's two-instrument
+# setup: Chemyx + NMR, needle stationary in the flask, no Arduino.
+# Script 18 (quick check) reads this file too, so ports and NMR stay in one place.
+
+# ==========================================
+# EDIT HERE: SAMPLING VOLUMES (Chemyx Channel 1)
+# ==========================================
+# Every sample: withdraw withdraw_volume_ml -> NMR -> infuse infuse_volume_ml.
+# Change either number on its own (e.g. infuse 5.1, 5.5 or 6.0).
+chemyx:
+  channel: 1
+  withdraw_volume_ml: 5.0
+  infuse_volume_ml: 5.2
+  withdraw_rate_ml_min: 5.0
+  infuse_rate_ml_min: 5.0
+
+  # Set this to the ACTUAL liquid loaded in Channel 1 before starting.
+  # Extra delivered per sample = infuse - withdraw = 0.2 mL; 37 samples need 7.4 mL,
+  # so 9.0 mL leaves 1.6 mL at the end. 19 refuses to start if the loading cannot
+  # cover every sample, or if a withdrawal would overfill the syringe.
+  initial_volume_ml: 9.0
+  syringe_diameter_mm: 20.0
+  syringe_capacity_ml: 20.0
+  port: COM4                 # Change to COM6 if the pump is there.
+  baud_rate: 115200
+  timeout_seconds: 2
+  response_delay_seconds: 0.2
+  extra_seconds: 2           # Same timed transfer + STOP completion as 15/17.
+
+# ==========================================
+# CHANNEL 2: ONE DOSE BETWEEN STAGE 1 AND STAGE 2 (same values as 14)
+# ==========================================
+channel_2:
+  channel: 2
+  volume_ml: 1.86
+  rate_ml_min: 1.0
+  initial_volume_ml: 5.0     # ACTUAL liquid loaded in Channel 2 before starting.
+  syringe_diameter_mm: 20.0
+  syringe_capacity_ml: 20.0
+
+# ==========================================
+# SCHEDULE (same as 14). Slots are anchored to each stage's start; late slots are skipped.
+# ==========================================
+stages:
+  stage_1:
+    duration_minutes: 2880           # 48 h
+    interval_minutes: 120            # 24 samples at 0, 2, ... 46 h; then the window runs to 48 h
+    include_final_observation: false
+  stage_2:                           # Starts when the Channel 2 dose has finished.
+    duration_minutes: 360            # 6 h
+    interval_minutes: 30             # 13 samples at 0, 0.5, ... 6 h
+    include_final_observation: true
+
+# Same interface, timeouts and polling as 15 / 17 / standalone 04/05.
+nmr:
+  host: 169.254.30.54
+  port: 5000
+  scheme: http
+  http_timeout_seconds: 10
+  acquisition_timeout_seconds: 300
+  poll_seconds: 2
+  scans: 8
+  gain: 12
+  auto_gain: false
+  center_ppm: 5
+  width_ppm: 20
+
+# Live review plots: one separate process per stage (14's review worker) writes
+# stage_N/analysis/*.png and peak_areas.csv after each saved spectrum. It never
+# controls or delays the run. false = raw data only.
+review:
+  enabled: true
+  processing_config: configs/nmr/analysis.yaml
+  target_peak:
+    prominence_snr: 8.0
+    rel_height: 0.95
+    search_low: 5.6
+    search_high: 6.0
+    expected_ppm: 5.79
+
+output:
+  root_dir: results/experiments

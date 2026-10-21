@@ -240,17 +240,69 @@ def test_pump_error_stops_both_before_closing_and_returns_home(home, rigs, monke
     assert "STOP" in [line.split()[1] for line in rig.needle.controller.transport.tx_log]
 
 
-def test_ctrl_c_during_transfer_stops_everything_and_returns_home(home, rigs):
-    class InterruptingClock(SimulatedClock):
-        def sleep(self, seconds):
-            if seconds > 60:  # The first 8 mL withdrawal.
-                raise KeyboardInterrupt
-            super().sleep(seconds)
+class CtrlCHalfway(SimulatedClock):
+    """Ctrl+C once, halfway through the first transfer wait longer than `over` seconds."""
+    def __init__(self, over):
+        super().__init__()
+        self.over, self.fired = over, False
+
+    def sleep(self, seconds):
+        if seconds > self.over and not self.fired:
+            self.fired = True
+            self.elapsed += seconds / 2 - 1  # Pump ran 48 s of 98 s (15) or 6 s of 14 s (16).
+            raise KeyboardInterrupt
+        super().sleep(seconds)
+
+
+def test_ctrl_c_mid_withdraw_in_15_empties_syringe_and_returns_home(home, rigs):
     status, _ = stage2.run(rig_cfg(stage2, home, duration_minutes=30), mock=True, output_dir=home / "run",
-                           clock=InterruptingClock(), rig_factory=rigs)
-    assert status == "INTERRUPTED" and saved(home) == (0, 0) and rigs.made[0].returned_home
+                           clock=CtrlCHalfway(60), rig_factory=rigs)
+    rig, log = rigs.made[0], (home / "run/log.txt").read_text(encoding="utf-8")
+    assert status == "INTERRUPTED" and rig.pump.contents_ml == 0 and saved(home) == (0, 0) and rig.returned_home
+    assert "withdraw of 8 mL stopped after about 48 s; syringe holds about 3.92 mL" in log  # 4 mL - 1 s of flow.
+    assert "volume -> 'volume = 3.916'" in log and "Channel 1 syringe emptied" in log  # Rounded down.
+    assert log.index("Emptying Channel 1") < log.index("Needle at HOME") < log.index("Serial ports closed")
+
+
+def test_ctrl_c_mid_withdraw_in_16_empties_syringe_and_returns_home(home, rigs):
+    passed, results = check.run(rig_cfg(check, home), mock=True, output_dir=home / "run", clock=CtrlCHalfway(10),
+                                rig_factory=rigs)
+    rig, log = rigs.made[0], (home / "run/log.txt").read_text(encoding="utf-8")
+    assert not passed and results["Chemyx CH1 withdraw/infuse"] == "INTERRUPTED"
+    assert rig.pump.contents_ml == 0 and saved(home) == (0, 0) and results["Needle HOME + ports closed"] == "PASS"
+    assert "infuse about 0.42 mL back" in log  # 0.5 mL withdrawn - 1 s of flow.
+    assert jogs(rig.needle.controller.transport) == [200, -200, 200, -200]  # Test UP/DOWN, then UP to empty, HOME.
+
+
+def test_pump_error_mid_sample_empties_syringe_with_needle_up(home, rigs, monkeypatch):
+    original, starts = Pump.start, []
+
+    def second_start_fails(self, channel=None, delay=None):
+        starts.append(channel)
+        return "error: syringe stalled" if len(starts) == 2 else original(self, channel=channel, delay=delay)
+    monkeypatch.setattr(Pump, "start", second_start_fails)
+    status, _ = stage2.run(rig_cfg(stage2, home, duration_minutes=30), mock=True, output_dir=home / "run",
+                           rig_factory=rigs)
+    rig, log = rigs.made[0], (home / "run/log.txt").read_text(encoding="utf-8")
+    assert status == "STOPPED" and len(starts) == 3 and rig.pump.contents_ml == 0 and saved(home) == (0, 0)
+    assert "infuse about 8.00 mL back" in log  # The completed 8 mL pre-sample; the rejected 5 mL never ran.
+    assert jogs(rig.needle.controller.transport) == [200, -200, 200, -200]  # UP, DOWN to sample, UP to empty, HOME.
+
+
+def test_needle_error_does_not_auto_empty(home, rigs, monkeypatch):
+    original, calls = NeedleController.jog, []
+
+    def second_jog_fails(self, steps, speed):
+        calls.append(steps)
+        if len(calls) == 2:
+            raise DoneTimeout("no DONE")
+        return original(self, steps, speed)
+    monkeypatch.setattr(NeedleController, "jog", second_jog_fails)
+    status, _ = stage2.run(rig_cfg(stage2, home, duration_minutes=30), mock=True, output_dir=home / "run",
+                           rig_factory=rigs)
     log = (home / "run/log.txt").read_text(encoding="utf-8")
-    assert "STOPPING: Ctrl+C" in log and "between 0 and 8 mL" in log
+    assert status == "STOPPED" and rigs.made[0].pump.contents_ml == 8 and calls == [200, -200]
+    assert "syringe NOT emptied after this error; about 8.00 mL left" in log and "Emptying Channel 1" not in log
 
 
 def test_failed_needle_move_in_16_keeps_last_saved_position(home, rigs, monkeypatch):

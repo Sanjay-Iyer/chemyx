@@ -13,7 +13,7 @@ port lock files. Nothing from an earlier run can block the next one.
 | After a failure | Can leave a flag that blocks manual and automated commands | Files keep their last completed values; nothing blocks; check the needle by eye |
 | Chemyx STOP reply | Must be exactly `pump stop` | Any reply (logged); only `error`/`invalid` in a set/start reply fails |
 | NMR failure | 12 keeps an unresolved START pending in memory | Each slot independent; failed slot skipped |
-| Output | log, summary JSON, config copy, live analysis | `log.txt` and `nmr_raw\*.dx` only |
+| Output | log, summary JSON, config copy, live analysis | `log.txt`, `nmr_raw\*.dx`, then 15's post-run 09 analysis (`analysis_stage2only_scipy\`) |
 | End of run | Needle UP | Needle returned to HOME (0) |
 
 ## Before every run
@@ -65,21 +65,62 @@ per part. Exit code 0 only when every part passes.
 12's recipe: withdraw 8 mL (needle UP), needle DOWN to HOME, withdraw 5 mL,
 settle 10 s, 8-scan NMR (`nmr_raw\stage_2_0001.dx` ...), needle UP, return
 13 mL, wash 5 mL out and back. A slot whose start time has already passed is
-skipped. At the end the needle returns to HOME. Analyse the spectra afterwards
-with the command printed at the end of the log (`09_analyze_stage2only_scipy.py`).
+skipped. At the end the needle returns to HOME and the ports close.
+
+## Automatic analysis after 15
+
+When the physical run has finished (needle at HOME, ports closed) and at least
+one spectrum was saved, 15 runs the existing `09_analyze_stage2only_scipy.py` on
+`nmr_raw\` in a separate process: ACME/ALS processing, 8σ `find_peaks`,
+`peak_widths(rel_height=0.95)` dynamic area. Expect a few minutes (about 6 min
+for 25 spectra on HOME). Its summary lines go into `log.txt`; the last line
+says COMPLETE, PARTIAL or FAILED and where the plots are:
+
+```text
+<run folder>\
+    log.txt
+    nmr_raw\stage_2_0001.dx ...                       raw data, only read
+    analysis_stage2only_scipy\<date_time_id>\
+        ANALYSIS_SUMMARY.txt, processor.log
+        stage_2\target_peak_measurements.csv          area per spectrum, JCAMP time
+        stage_2\plots\area_vs_time.png                peak area vs acquisition time
+        stage_2\plots\observations\obs_0001_full_spectrum.png ...   one per .dx
+```
+
+Each spectrum plot is titled with the run and observation number and names its
+source `.dx` file (observations are numbered in acquisition order, so after a
+failed slot `obs_0003` can be `stage_2_0004.dx`). Times come only from JCAMP
+`LONG DATE` metadata. Mock spectra are copies of one fixture with the same
+`LONG DATE`, so a mock rehearsal's time axis is a single instant.
+
+An analysis problem (missing package, crash, timeout, bad file) is logged as
+`ANALYSIS FAILED` with the command to rerun it, and never changes the run's
+status or exit code; the raw `.dx` files stay as saved. Ctrl+C during the
+analysis skips it. After Ctrl+C during the run there is no analysis. To
+(re)analyse any run later, which adds a new dated folder beside the old ones:
+
+```powershell
+python scripts\09_analyze_stage2only_scipy.py "<run folder>\nmr_raw"
+```
 
 ## Errors and Ctrl+C
 
 | Event | What happens |
 |---|---|
 | NMR failure or timeout | Logged; that slot's spectrum is skipped; the physical sample return and wash still run; the schedule continues |
-| Needle or pump error | STOP to pump and Arduino, needle returned to HOME, ports closed, exit |
-| Ctrl+C | Same as a hardware error; press Ctrl+C again to skip the return to HOME |
+| Ctrl+C or pump error | STOP to pump and Arduino; needle UP; Channel 1 infused back to empty; needle to HOME; ports closed; exit |
+| Needle error | STOP to pump and Arduino; syringe **not** emptied (needle position uncertain); the log gives the mL left |
 | Needle move without DONE | Not counted; the needle is **not** moved again; the log says to check it by eye and run `needle_control.py set-home` |
 | Leftover Arduino firmware fault | Cleared at connect |
 
-When a run stops mid-transfer, the log says roughly how much liquid is in the
-syringe; empty Channel 1 before the next run.
+Emptying after Ctrl+C or a pump error uses the volumes of the transfers that
+finished plus an estimate of the interrupted one from how long the pump ran.
+The estimate is rounded down by about one second of flow (about 0.1 mL at
+5 mL/min) so the plunger is never pushed past fully-in. Press Ctrl+C again to
+skip emptying or the return to HOME. If emptying is skipped or fails, or after
+a needle error, the log gives the mL left in the syringe: push Channel 1 back
+to empty (front panel) before the next run, because 15/16 start by assuming it
+is empty.
 
 ## Settings
 
@@ -97,4 +138,4 @@ reads that file and adds only the check volumes, rate and scan count.
 - Kept safety: firmware 120-second move timeout, configured travel range,
   syringe 0 to 20 mL bounds, STOP on every error.
 
-Offline tests: `python -m pytest tests\test_simple_rig.py -q`.
+Offline tests: `python -m pytest tests\test_simple_rig.py tests\test_15_post_run_analysis.py -q`.

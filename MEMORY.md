@@ -11,6 +11,23 @@ machine-local dependencies/data are handled on the WORK side of the transfer.
 The user handles Git push/pull; do not infer an instruction to commit or push
 from a request to edit or validate code.
 
+## Script 15 must analyse its own data (clarified 2026-10-21)
+
+Collecting only raw `.dx` files was not what the user wanted from 15. After the
+physical run ends, 15 automatically runs the existing 09 SciPy analysis
+(results CSV, one spectrum PNG per `.dx`, area vs JCAMP time) in a separate
+process. Instrument control, schedule and the no-lockout design stay as they
+were; an analysis failure is only logged.
+
+## Two-instrument 17 / 18 / 19 (clarified 2026-10-21)
+
+17's setup (Chemyx + NMR, needle stationary in the flask, one startup
+confirmation) is the base for 18 (quick check: CH1 1 mL out/back, 1-scan NMR,
+CH2 STOP only) and 19 (48 h Stage 1 every 2 h -> one CH2 dose of 1.86 mL at
+1 mL/min with no needle move -> 6 h Stage 2 every 30 min). The user chose live
+review plots per stage (14's separate review worker). The user wants the infuse
+volume at 5.2 mL and easy to change in the YAML; tests read volumes from the YAML.
+
 ## Arduino HOME ownership (clarified 2026-10-19)
 
 The user establishes the official needle HOME with the Arduino-only script,

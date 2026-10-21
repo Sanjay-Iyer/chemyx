@@ -9,18 +9,30 @@ withdraw 5 mL, settle, NMR scan, needle UP, return 13 mL, wash 5 mL out/back.
 An NMR failure skips that slot's spectrum and the schedule continues. A needle
 or pump error, or Ctrl+C, STOPs the pump and Arduino, returns the needle to
 HOME and exits. Output: one folder with nmr_raw/*.dx and log.txt.
+
+Once the physical run has ended (needle at HOME, ports closed), the command
+line runs the existing 09 SciPy analysis on the saved spectra in its own
+process: tables and PNG plots go to analysis_stage2only_scipy/ in the same
+folder. The raw .dx files are only read. Analysis problems are logged; they
+never change the run's status or exit code. After Ctrl+C there is no analysis.
 """
 from __future__ import annotations
 
 import argparse
+import json
 import math
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 import _bootstrap  # noqa: F401
 from chemyx_lab.workflows.simple_rig import (HardwareError, RealClock, SimpleRig, SimulatedClock,
     check_settings, clock_text, close_logger, load_settings, make_logger, new_run_dir, ok)
 
 DEFAULT_CONFIG = Path("configs/experiments/15_stage2_simple.yaml")
+ANALYSIS_SCRIPT = Path(__file__).resolve().with_name("09_analyze_stage2only_scipy.py")
+ANALYSIS_TIMEOUT_SECONDS = 3600  # 09's own processor limit; 15 waits up to 10 minutes longer.
 EXTRA_SETTINGS = {
     "experiment": ("duration_minutes", "interval_minutes", "include_final_observation"),
     "chemyx": ("pre_sample_volume_ml", "sample_volume_ml", "sample_rate_ml_min", "return_rate_ml_min",
@@ -55,7 +67,53 @@ def sample(rig, cfg, path):
     return result
 
 
-def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=SimpleRig):
+def analyze_after_run(raw_dir, log, *, timeout=ANALYSIS_TIMEOUT_SECONDS):
+    """Post-run only: script 09 in a separate process on the saved spectra. Never raises.
+
+    Returns 09's exit code (0 complete, 1 partial/failed, 2 no usable spectra), or None
+    when 09 could not be run to the end.
+    """
+    later = f'python scripts\\09_analyze_stage2only_scipy.py "{raw_dir}"'
+    log.info("=" * 60)
+    log.info("POST-RUN ANALYSIS: script 09 (SciPy 8-sigma / width 0.95) in a separate process")
+    log.info("The physical run is finished; this takes a few minutes. Ctrl+C skips it.")
+    try:
+        proc = subprocess.run([sys.executable, str(ANALYSIS_SCRIPT), str(raw_dir), "--timeout-seconds", f"{timeout:g}"],
+                              cwd=ANALYSIS_SCRIPT.parents[1], env=dict(os.environ, PYTHONIOENCODING="utf-8"),
+                              stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", timeout=timeout + 600)
+    except KeyboardInterrupt:
+        log.warning(f"Analysis skipped (Ctrl+C); raw spectra kept. Run it later: {later}")
+        return None
+    except Exception as exc:
+        log.error(f"ANALYSIS FAILED: {type(exc).__name__}: {exc}")
+        log.error(f"Raw spectra kept unchanged. Run it later: {later}")
+        return None
+    output = None
+    for line in (proc.stdout + proc.stderr).splitlines():
+        if line.strip():
+            log.info(f"09: {line}")
+        if line.startswith("Output: "):
+            output = Path(line[len("Output: "):].strip())
+    status = "UNKNOWN"
+    try:
+        status = json.loads((output / "analysis_summary.json").read_text(encoding="utf-8"))["status"]
+    except Exception:
+        pass
+    plots = output / "stage_2" / "plots" if output else None
+    if proc.returncode == 0 and plots:
+        ok(log, f"Analysis COMPLETE. Plots: {plots}")
+        ok(log, f"Results table: {output / 'stage_2' / 'target_peak_measurements.csv'}")
+    elif status == "PARTIAL" and plots and plots.is_dir():
+        log.warning(f"Analysis PARTIAL (see {output / 'ANALYSIS_SUMMARY.txt'}). Plots made: {plots}")
+    else:
+        log.error(f"ANALYSIS FAILED ({status}, 09 exit {proc.returncode}); see {output or 'the 09 lines above'}")
+        log.error(f"Raw spectra kept unchanged. Run it later: {later}")
+    return proc.returncode
+
+
+def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=SimpleRig, analyze=None):
+    """The physical run. `analyze(raw_dir, log)`, when given, runs only after the rig has closed."""
     clock = clock or (SimulatedClock() if mock else RealClock())
     run_dir = new_run_dir(cfg, "15_stage2_simple", output_dir)
     raw_dir = run_dir / "nmr_raw"
@@ -112,7 +170,12 @@ def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=SimpleRig):
         else:
             log.error(line)
         log.info(f"Spectra: {raw_dir}")
-        if tally["saved"]:
+        if tally["saved"] and analyze is not None and status != "INTERRUPTED":
+            try:
+                analyze(raw_dir, log)  # The rig's with-block has already returned HOME and closed the ports.
+            except BaseException as exc:  # Never let analysis replace the physical result.
+                log.error(f"ANALYSIS FAILED: {type(exc).__name__}: {exc}; raw spectra kept")
+        elif tally["saved"]:
             log.info(f'Analysis later: python scripts\\09_analyze_stage2only_scipy.py "{raw_dir}"')
         close_logger(log)
     return status, tally
@@ -132,7 +195,7 @@ def main(argv=None):
         print(f"15 configuration error: {type(exc).__name__}: {exc}", flush=True)
         return 2
     try:
-        status, _ = run(cfg, mock=args.mock, output_dir=args.output_dir)
+        status, _ = run(cfg, mock=args.mock, output_dir=args.output_dir, analyze=analyze_after_run)
     except Exception as exc:  # Only before the log exists, e.g. the output folder already exists.
         print(f"15 could not start: {type(exc).__name__}: {exc}", flush=True)
         return 1

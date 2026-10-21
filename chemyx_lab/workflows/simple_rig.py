@@ -23,7 +23,6 @@ import sys
 import time
 from types import SimpleNamespace
 
-from arduino.python.simple_needle import NeedleError, SimpleNeedle
 from .. import config
 from ..instruments.chemyx import Pump
 from ..instruments.nmr import NmrRpcConfig
@@ -38,7 +37,7 @@ REQUIRED = {
     "arduino": ("port", "baud_rate", "steps_per_unit", "up_step_sign", "speed_steps_s",
                 "acceleration_steps_s2", "min_position", "max_position", "up_position", "position_file"),
     "chemyx": ("port", "baud_rate", "channel", "timeout_seconds", "response_delay_seconds",
-               "syringe_diameter_mm", "syringe_capacity_ml", "extra_seconds"),
+               "syringe_diameter_mm", "syringe_capacity_ml", "extra_seconds", "return_rate_ml_min"),
     "nmr": ("host", "port", "scheme", "http_timeout_seconds", "acquisition_timeout_seconds",
             "poll_seconds", "scans", "gain", "auto_gain", "center_ppm", "width_ppm"),
     "output": ("root_dir",),
@@ -49,7 +48,13 @@ class PumpCommandError(RuntimeError):
     """A pump command failed now; the run stops. Nothing is saved for later."""
 
 
-HardwareError = (NeedleError, PumpCommandError)  # Either one stops the run.
+def __getattr__(name):
+    # Keep the 15/16 public imports, without loading Arduino for pump/NMR-only users.
+    if name in {"NeedleError", "SimpleNeedle", "HardwareError"}:
+        from arduino.python.simple_needle import NeedleError, SimpleNeedle
+        return {"NeedleError": NeedleError, "SimpleNeedle": SimpleNeedle,
+                "HardwareError": (NeedleError, PumpCommandError)}[name]
+    raise AttributeError(name)
 
 
 # ---------------------------------------------------------------- clocks/settings
@@ -186,6 +191,8 @@ def close_logger(log):
 # ------------------------------------------------------------------------ needle
 def make_needle(cfg, *, mock, log):
     """The same SimpleNeedle (and position files) as needle_control.py."""
+    from arduino.python.simple_needle import SimpleNeedle
+
     a = cfg["arduino"]
     return SimpleNeedle(port=a["port"], baud_rate=a["baud_rate"], steps_per_unit=int(a["steps_per_unit"]),
                         up_step_sign=int(a["up_step_sign"]), speed_steps_s=a["speed_steps_s"],
@@ -206,7 +213,7 @@ class SyringePump:
         self.capacity = float(p["syringe_capacity_ml"])
         self.extra_seconds = float(p["extra_seconds"])
         self.contents_ml = 0.0  # The operator starts with the syringe empty.
-        self.active = None      # (action, volume) while a timed transfer is running.
+        self.active = None      # (action, volume, rate, started_at) while a timed transfer is running.
         self.port = "mock Chemyx" if mock else p["port"]
         self.pump = Pump(port=p["port"], baud_rate=p["baud_rate"], channel=self.channel, units=0,
                          timeout=p["timeout_seconds"], response_delay=0 if mock else p["response_delay_seconds"],
@@ -248,12 +255,29 @@ class SyringePump:
         self._send("diameter", lambda: pump.set_diameter(self.diameter, channel=ch))
         self._send("rate", lambda: pump.set_rate(rate, channel=ch))
         self._send("volume", lambda: pump.set_volume(-volume if action == "withdraw" else volume, channel=ch))
-        self.active = (action, volume)
+        self.active = (action, volume, rate, self.clock.now())
         self._send("start", lambda: pump.start(channel=ch, delay=0))
         self.clock.sleep(volume / rate * 60 + self.extra_seconds)
         self._send("stop", lambda: pump.stop(channel=ch), strict=False)  # Wording is never checked.
         self.active, self.contents_ml = None, max(0.0, after)
-        self.log.info(f"Chemyx CH{ch}: {action} complete; syringe holds about {self.contents_ml:g} mL")
+        self.log.info(f"Chemyx CH{ch}: {action} complete; syringe holds about {round(self.contents_ml, 2):g} mL")
+
+    def settle_interrupted(self, stopped_at):
+        """After an emergency STOP mid-transfer: estimate the contents from how long the pump ran.
+
+        Biased low by one second of flow, so emptying never pushes past fully-in.
+        """
+        if self.active is None:
+            return
+        action, volume, rate, started_at = self.active
+        moved, margin = min(volume, max(0.0, rate * (stopped_at - started_at) / 60)), rate / 60
+        if action == "withdraw":
+            self.contents_ml += max(0.0, moved - margin)
+        else:
+            self.contents_ml = max(0.0, self.contents_ml - min(volume, moved + margin))
+        self.active = None
+        self.log.warning(f"Chemyx CH{self.channel}: {action} of {volume:g} mL stopped after about "
+                         f"{stopped_at - started_at:.0f} s; syringe holds about {self.contents_ml:.2f} mL (estimated)")
 
     def stop(self):
         try:
@@ -351,12 +375,16 @@ class SimpleRig:
     """Arduino + Chemyx + NMR for one run, used as a context manager.
 
     Startup uses the saved needle position (live: set-home must have been run).
-    On any error or Ctrl+C: STOP the pump and the Arduino, return the needle to
-    HOME when its position is known (Ctrl+C again skips that), close both ports.
+    On any error or Ctrl+C: STOP the pump and the Arduino. After Ctrl+C or a pump
+    error, also raise the needle and infuse the estimated syringe contents back
+    (as the recipe returns a sample). Then return the needle to HOME when its
+    position is known and close both ports. Ctrl+C again skips a cleanup step.
     """
 
     def __init__(self, cfg, *, mock, clock, log):
         self.log, self.clock = log, clock
+        self.up_position = cfg["arduino"]["up_position"]
+        self.empty_rate = float(cfg["chemyx"]["return_rate_ml_min"])
         self.needle = make_needle(cfg, mock=mock, log=log)
         self.pump = SyringePump(cfg, mock=mock, clock=clock, log=log)
         self.nmr = NmrScanner(cfg, mock=mock, clock=clock, log=log)
@@ -365,6 +393,8 @@ class SimpleRig:
         self.returned_home = False
 
     def __enter__(self):
+        from arduino.python.simple_needle import NeedleError
+
         try:
             try:
                 self.needle.connect()
@@ -399,6 +429,11 @@ class SimpleRig:
                 cause = "Ctrl+C" if issubclass(exc_type, KeyboardInterrupt) else f"{exc_type.__name__}: {exc}"
                 self.log.error(f"STOPPING: {cause}")
                 self.emergency_stop()
+                if issubclass(exc_type, (KeyboardInterrupt, PumpCommandError)):
+                    self.empty_syringe()
+                elif self.pump.contents_ml >= 0.01:
+                    self.log.warning(f"Chemyx: syringe NOT emptied after this error; about "
+                                     f"{self.pump.contents_ml:.2f} mL left; empty Channel 1 by hand")
             self.returned_home = self.return_home()
         finally:
             self.close()
@@ -418,14 +453,39 @@ class SimpleRig:
         return self.nmr.scan(path, scans)
 
     def emergency_stop(self):
+        stopped_at = self.clock.now()
         self.pump.stop()
         self.needle.stop()
-        if self.pump.active:
-            action, volume = self.pump.active
-            self.log.warning(f"Chemyx: interrupted during a {volume:g} mL {action}; syringe holds between "
-                             f"{self.pump.contents_ml:g} and {max(0, self.pump.contents_ml + (volume if action == 'withdraw' else -volume)):g} mL")
-        elif self.pump.contents_ml:
-            self.log.warning(f"Chemyx: syringe still holds about {self.pump.contents_ml:g} mL; empty it before the next run")
+        self.pump.settle_interrupted(stopped_at)
+
+    def empty_syringe(self):
+        """Needle UP, then infuse the estimated contents back to empty. Never raises."""
+        volume = math.floor(self.pump.contents_ml * 1000) / 1000  # Round down: never past fully-in.
+        if volume < 0.01:
+            return True
+        if not self.needle.known:
+            self.log.error(f"Chemyx: syringe NOT emptied (needle position uncertain); about {volume:.2f} mL "
+                           "left; empty Channel 1 by hand")
+            return False
+        self.log.warning(f"Emptying Channel 1: needle UP, infuse about {volume:.2f} mL back (press Ctrl+C to skip)")
+        try:
+            self.needle.move_to_units(self.up_position)
+            self.pump.transfer("infuse", volume, self.empty_rate)
+            self.pump.contents_ml = 0.0  # Under 0.001 mL of rounding is left.
+        except KeyboardInterrupt:
+            stopped_at = self.clock.now()
+            self.pump.stop()
+            self.pump.settle_interrupted(stopped_at)
+            self.log.warning(f"Emptying skipped (Ctrl+C); about {self.pump.contents_ml:.2f} mL may remain; "
+                             "empty Channel 1 by hand")
+            return False
+        except Exception as exc:
+            self.pump.stop()
+            self.log.error(f"Emptying failed ({exc}); about {self.pump.contents_ml:.2f} mL may remain; "
+                           "empty Channel 1 by hand")
+            return False
+        ok(self.log, "Channel 1 syringe emptied (estimated from pump time; up to about 0.1 mL may remain)")
+        return True
 
     def return_home(self):
         n = self.needle

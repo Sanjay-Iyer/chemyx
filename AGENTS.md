@@ -25,6 +25,13 @@ any Chemyx STOP reply, and use the standalone 04/05 NMR `legacy_acquire`. Do
 not add validity flags, fault files, HOME-reference, journal or lockout rules
 to them.
 
+15's command line processes and plots its spectra automatically, but only after
+the physical run has ended (rig context exited: needle HOME, ports closed): it
+runs `scripts/09_analyze_stage2only_scipy.py` on `nmr_raw` as a separate
+process, never imports numerical code, and never lets an analysis result,
+error or timeout change the run's status or exit code. `run()` without
+`analyze=` stays the plain physical run used by the tests.
+
 ## Official Arduino needle HOME (older workflows 04–14)
 
 These rules apply to the older workflows that still use needle_state.json;

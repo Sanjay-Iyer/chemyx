@@ -22,6 +22,8 @@ data during the experiment; missing spectra and analysis results cannot end a ph
 | [12 / 13 — Legacy NMR alternatives](12_13_legacy_nmr_alternatives.md) | Separate six-hour Stage 2 experiment and short instrument check using the standalone 04/05 legacy completion method |
 | [14 — Full Stage 1 and Stage 2 with simplified NMR](14_full_stage1_stage2.md) | 48-hour Stage 1, one boundary dose, six-hour Stage 2; same NMR and physical adapter as 12 |
 | [15 / 16 — Simple runs, no state files](15_16_simple_runs.md) | 12/13 recipe with in-memory needle position, relaxed pump replies and no lockouts |
+| [17 — Two instruments, needle stationary](17_twoinstrument_guide.md) | Chemyx + NMR only: withdraw → NMR → infuse every 15 minutes for six hours |
+| [18 / 19 — Two-instrument check and full run](18_19_twoinstrument_runs.md) | 17's setup: quick check, then 48-hour Stage 1, one CH2 dose, six-hour Stage 2 with live review plots |
 
 For the Stage 2 (`06`) run use this order: [Arduino manual operation](../01_arduino/01_manual_commands.md),
 then [Chemyx manual operation](../02_chemyx/01_quick_reference.md), then
@@ -35,6 +37,7 @@ then [Chemyx manual operation](../02_chemyx/01_quick_reference.md), then
 | Run the simplified attended Stage 2 demo | [10_stage2only.py](../../scripts/10_stage2only.py) | [10_stage2only.yaml](../../configs/experiments/10_stage2only.yaml); [operator guide](11_stage2only_demo.md) |
 | Run the legacy NMR Stage 2 alternative | [12_stage2only.py](../../scripts/12_stage2only.py) | [12_stage2only.yaml](../../configs/experiments/12_stage2only.yaml); [12/13 guide](12_13_legacy_nmr_alternatives.md) |
 | Run both stages with simplified legacy NMR | [14_full_stage1_stage2.py](../../scripts/14_full_stage1_stage2.py) | [14_full_stage1_stage2.yaml](../../configs/experiments/14_full_stage1_stage2.yaml); [14 guide](14_full_stage1_stage2.md) |
+| Run both stages, needle stationary (Chemyx + NMR) | [19_twoinstrument_stage1_stage2.py](../../scripts/19_twoinstrument_stage1_stage2.py) | [19_twoinstrument_stage1_stage2.yaml](../../configs/experiments/19_twoinstrument_stage1_stage2.yaml); check first with [18_twoinstrument_check.py](../../scripts/18_twoinstrument_check.py); [18/19 guide](18_19_twoinstrument_runs.md) |
 | Check all three instruments with legacy NMR | [13_3InstrumentCheck.py](../../scripts/13_3InstrumentCheck.py) | [13_3InstrumentCheck.yaml](../../configs/experiments/13_3InstrumentCheck.yaml); one scan, CH1 only |
 | Run Stage 2 only | [06_si6_stage2only_run.py](../../scripts/06_si6_stage2only_run.py) | [si6_stage2only_6h.yaml](../../configs/experiments/si6_stage2only_6h.yaml) |
 | Re-run Stage 2 analysis | [07_analyze_stage2only.py](../../scripts/07_analyze_stage2only.py) | [analysis.yaml](../../configs/nmr/analysis.yaml), with a folder picker or explicit data directory |

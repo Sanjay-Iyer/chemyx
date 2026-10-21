@@ -1,0 +1,11 @@
+# 18 — quick check of the 19 two-instrument rig (Chemyx + NMR, needle stationary).
+# Ports, syringes, Channel 2 and NMR settings come from 19's file; only the check
+# values are here. Same volume out and back, so the Channel 1 loading is unchanged for 19.
+base_config: configs/experiments/19_twoinstrument_stage1_stage2.yaml
+
+chemyx:
+  withdraw_volume_ml: 1.0
+  infuse_volume_ml: 1.0
+
+nmr:
+  scans: 1

@@ -43,7 +43,7 @@ def render(spectra, rows, rates, normalized, dataset, raw_config, output):
         if math.isfinite(row.get("candidate_area", float("nan"))) and not math.isfinite(row["area"]):
             display.update(area_dynamic=row["candidate_area"], area_signed=row.get("candidate_signed_area", float("nan")))
         draw_integration(ax, s, display)
-        ax.set_title(f"8σ prominence; rel_height=0.95; acquired {s['acquisition_time']}", fontsize=9)
+        ax.set_title(f"{Path(s['path']).name}; 8σ prominence; rel_height=0.95; acquired {s['acquisition_time']}", fontsize=9)
         fig.text(.5, .012, "Shading uses original unsmoothed ACME/ALS data; warnings describe analysis only.", ha="center", fontsize=8)
         save(fig, name, f"{s['observation']} Primary Dynamic Peak Integration", observation=s["observation"])
 
@@ -53,6 +53,7 @@ def render(spectra, rows, rates, normalized, dataset, raw_config, output):
         ax.plot(s["ppm"], s["intensity"], lw=.8)
         ax.axvspan(5.6, 6.0, color="#56b4e9", alpha=.15, label="Target-center search region")
         ax.set(xlim=(12, 0), xlabel="Chemical shift (ppm)", ylabel="ACME/ALS real intensity (a.u.)")
+        ax.set_title(f"{Path(s['path']).name}; acquired {s['acquisition_time']}", fontsize=9)
         ax.legend(fontsize=8)
         save(fig, f"observations/{s['observation']}_full_spectrum", f"{s['observation']} Full Processed Spectrum", observation=s["observation"])
     # The inherited dashboard selects this before older observation files.

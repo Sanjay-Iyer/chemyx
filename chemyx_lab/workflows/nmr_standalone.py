@@ -25,7 +25,6 @@ import sys
 import time
 from urllib import error, request
 
-from arduino.python.run_lock import PortProcessLock
 from .. import config
 from ..instruments.nmr import (NmrRpcClient, NmrRpcConfig, NmrRpcError, build_iflow_1d_settings,
                                build_iflow_experiment_settings, status_indicates_running)
@@ -738,6 +737,8 @@ def demo_nmr_config(settings):
 
 
 def acquisition_test(argv=None, *, scans, input_fn=input, out=print):
+    from arduino.python.run_lock import PortProcessLock
+
     number = {1: "02", 4: "03"}.get(scans, "0x")
     parser = argparse.ArgumentParser(description=f"One live {scans}-scan NMR acquisition with every NMR request "
                                      "recorded. By default it uses the simplified acquisition of 10_stage2only "
@@ -1102,6 +1103,8 @@ def legacy_acquire(settings, path, client, templates, *, baseline_fid=None, out=
 
 
 def legacy_acquisition_test(argv=None, *, scans, input_fn=input, out=print):
+    from arduino.python.run_lock import PortProcessLock
+
     number = {1: "04", 4: "05"}.get(scans, "0x")
     parser = argparse.ArgumentParser(description=f"One live {scans}-scan NMR acquisition with the simple "
                                      "legacy-style completion (ExperimentStatus until ResultCode 0), as in the "
