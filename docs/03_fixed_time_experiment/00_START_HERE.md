@@ -21,6 +21,7 @@ data during the experiment; missing spectra and analysis results cannot end a ph
 | [11 — Simplified Stage 2 demo (`10_stage2only`)](11_stage2only_demo.md) | Independent attended demo: six hours, 25 measurements every 15 minutes, optional one-time CH2 addition, direct NMR and separate live analysis |
 | [12 / 13 — Legacy NMR alternatives](12_13_legacy_nmr_alternatives.md) | Separate six-hour Stage 2 experiment and short instrument check using the standalone 04/05 legacy completion method |
 | [14 — Full Stage 1 and Stage 2 with simplified NMR](14_full_stage1_stage2.md) | 48-hour Stage 1, one boundary dose, six-hour Stage 2; same NMR and physical adapter as 12 |
+| [15 / 16 — Simple runs, no state files](15_16_simple_runs.md) | 12/13 recipe with in-memory needle position, relaxed pump replies and no lockouts |
 
 For the Stage 2 (`06`) run use this order: [Arduino manual operation](../01_arduino/01_manual_commands.md),
 then [Chemyx manual operation](../02_chemyx/01_quick_reference.md), then

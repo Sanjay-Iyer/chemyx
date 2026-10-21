@@ -46,6 +46,8 @@ time zero through six hours.
 | Short check before the 12 run | [13 — Three-instrument check](docs/03_fixed_time_experiment/12_13_legacy_nmr_alternatives.md) | `scripts/13_3InstrumentCheck.py` / `configs/experiments/13_3InstrumentCheck.yaml` |
 | Full Stage 1 + dose + Stage 2 with simplified legacy NMR | [14 — Full two-stage run](docs/03_fixed_time_experiment/14_full_stage1_stage2.md) | `scripts/14_full_stage1_stage2.py` / `configs/experiments/14_full_stage1_stage2.yaml` |
 | Stage 2 only with legacy NMR completion | [12 — Six-hour Stage 2](docs/03_fixed_time_experiment/12_13_legacy_nmr_alternatives.md) | `scripts/12_stage2only.py` / `configs/experiments/12_stage2only.yaml` |
+| Simple check, no state files or lockouts | [16 — Simple check](docs/03_fixed_time_experiment/15_16_simple_runs.md) | `scripts/16_3_instrument_check_simple.py` / `configs/experiments/16_3_instrument_check_simple.yaml` |
+| Simple six-hour Stage 2, no state files or lockouts | [15 — Simple Stage 2](docs/03_fixed_time_experiment/15_16_simple_runs.md) | `scripts/15_stage2_simple.py` / `configs/experiments/15_stage2_simple.yaml` |
 | Current full 48-hour / 6-hour run | **[03 — Fixed-time experiment](docs/03_fixed_time_experiment/00_START_HERE.md)** | `scripts/04_si6_fixed_time_run.py` / `configs/experiments/si6_fixed_48h_6h.yaml` |
 | Stage 2 only, six hours with live review | **[06 — stage2only](docs/03_fixed_time_experiment/06_stage2only_run_guide.md)** | `scripts/06_si6_stage2only_run.py` / `configs/experiments/si6_stage2only_6h.yaml` |
 | Re-run Stage 2 analysis on a selected folder | [07 — Stage 2 analysis recovery](docs/03_fixed_time_experiment/07_stage2only_analysis_recovery.md) | `scripts/07_analyze_stage2only.py` / `configs/nmr/analysis.yaml` |

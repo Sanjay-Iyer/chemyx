@@ -12,9 +12,24 @@ the user explicitly changes this instruction. Do not run
 Existing packages may remain; do not delete them just because they are unused.
 Keep current operating documentation aligned with the Git/WORK/drive workflow.
 
-## Official Arduino needle HOME
+## Simple 15/16 scripts: deliberate exception
 
-The standalone Arduino script owns establishment of the official needle HOME
+`arduino/scripts/needle_control.py`, `arduino/python/simple_needle.py`,
+`scripts/15_stage2_simple.py`, `scripts/16_3_instrument_check_simple.py` and
+`chemyx_lab/workflows/simple_rig.py` are the user's requested no-lockout path.
+The needle position is two plain-text files with one integer each
+(`runs/arduino/simple_needle_position.txt` counter, `simple_needle_steps.txt`
+motor steps from HOME), written only after DONE. They never read or write
+needle_state.json, journals, pump ledgers, dose records or port locks, accept
+any Chemyx STOP reply, and use the standalone 04/05 NMR `legacy_acquire`. Do
+not add validity flags, fault files, HOME-reference, journal or lockout rules
+to them.
+
+## Official Arduino needle HOME (older workflows 04–14)
+
+These rules apply to the older workflows that still use needle_state.json;
+needle_control.py no longer writes that file. The original standalone Arduino
+script owned establishment of the official needle HOME
 and logs that explicit operator action. The three-instrument experiment must
 load the same saved reference and move to HOME=0, then UP=1. Never redefine the
 needle's current location as HOME when an experiment starts, silently replace

@@ -6,8 +6,8 @@
 |---|---|
 | Python command | [needle_control.py](../../arduino/scripts/needle_control.py) |
 | Current calibrated configuration | [arduino_real_COM3.yaml](../../arduino/configs/arduino_real_COM3.yaml) |
-| Runtime position estimate | `runs/arduino/needle_state.json` |
-| Detailed recovery | [02 — HOME recovery](02_home_recovery.md) |
+| Saved position (one integer each) | `runs/arduino/simple_needle_position.txt` (counter), `runs/arduino/simple_needle_steps.txt` (motor steps from HOME) |
+| Shared code (also used by 15/16) | [simple_needle.py](../../arduino/python/simple_needle.py) |
 
 From the repository root on WORK, with the rig physically inspected, choose
 one command as needed:
@@ -64,22 +64,26 @@ STOP:
 python arduino\scripts\needle_control.py stop --live --config arduino\configs\arduino_real_COM3.yaml
 ```
 
-UP/DOWN move at once, with no confirmation prompt, and need no HOME. They are
-relative +1/-1 using the existing 200-step increment and reviewed direction.
-A pre-HOME relative count is uncalibrated and cannot authorize automation.
+| Command | Position counter | Motor steps from HOME |
+|---|---|---|
+| `set-home` (one `y`, no movement) | 0 | 0 |
+| `up` / `down` (moves at once) | +1 / −1 per completed command | ± the steps moved (200, or `--steps N`) |
+| `home` (one `y`) | 0 | moves back by the saved steps, then 0 |
+| `status` | shown | shown, with firmware `moving`/`fault` |
+| `stop` | unchanged | unchanged |
 
 `--steps N` (UP/DOWN only) moves N motor steps instead of 200 for that one
-command, at most 1600 (the configured -3 to +5 travel). A multiple of 200 counts
-as whole increments and keeps the count and any saved HOME. Any other size
-resets the count and clears a saved HOME, so run `set-home` again once the
-needle is where you want HOME. Speed and acceleration stay as configured.
-`set-home` and `home` still ask one confirmation. Automated HOME=DOWN=0
-is the sampling location in the flask; UP=1 is raised. `set-home` records the
-current physically verified stopped location without movement. `home` uses
-the calibrated absolute zero or requires supervised physical recovery when
-the reference is unknown. Interrupted motion remains uncertain.
+command, at most 1600 (the configured -3 to +5 travel). The counter still
+changes by one; `home` uses the saved motor steps, so mixed step sizes return
+correctly. Speed and acceleration stay as configured. HOME = DOWN = 0 is the
+sampling location in the flask; UP = 1 is raised. Scripts 15 and 16 read and
+update the same two files.
 
-The configuration retains bounds -3 through +5. There are no physical limit
-switches or encoder measurements. Inspect clear travel before jogging; retain
-the commissioned wiring, firmware and calibration. See the recovery guide
-for uncertain-state handling rather than changing the reference to bypass a limit.
+The files are written only after the Arduino reports the move finished. No
+fault, validity or recovery state is saved, so an earlier failure never blocks
+a command. If a move is interrupted or fails, the command says so: check the
+needle by eye and run `set-home` before relying on the saved position. Without
+a `set-home`, UP/DOWN still move but nothing is saved. Firmware travel bounds,
+the 120-second move timeout and STOP are unchanged; there are no physical limit
+switches or encoder. The old `needle_state.json` and HOME journals are no longer
+read or written by this script (older workflows 04–14 still use them).

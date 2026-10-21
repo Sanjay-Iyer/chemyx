@@ -1,0 +1,54 @@
+# 15 — simple Stage 2 run (replaces 12). Also the base settings for 16.
+# No needle_state.json, journals, pump ledgers or lockouts. The needle position
+# is the same plain-integer file pair that needle_control.py uses.
+# Before starting: HOME set with needle_control.py set-home, Channel 1 syringe
+# empty, NMR idle with NMReady open.
+experiment:
+  duration_minutes: 360
+  interval_minutes: 15
+  include_final_observation: true   # 25 slots: 0, 15, ... 360 minutes.
+
+arduino:
+  port: COM3
+  baud_rate: 115200
+  steps_per_unit: 200          # One UP/DOWN increment, as in the manual script.
+  up_step_sign: 1
+  speed_steps_s: 100
+  acceleration_steps_s2: 500
+  min_position: -3             # Travel range in increments; HOME = 0.
+  max_position: 5
+  up_position: 1               # Raised position between samples.
+  position_file: runs/arduino/simple_needle_position.txt  # Shared with needle_control.py.
+
+chemyx:
+  port: COM4                   # Change to COM6 if the pump is there.
+  baud_rate: 115200
+  timeout_seconds: 2
+  response_delay_seconds: 0.2
+  channel: 1
+  syringe_diameter_mm: 20.0
+  syringe_capacity_ml: 20.0
+  pre_sample_volume_ml: 8.0    # Withdrawn with the needle UP.
+  sample_volume_ml: 5.0        # Withdrawn at HOME (needle DOWN).
+  sample_rate_ml_min: 5.0
+  return_rate_ml_min: 5.0      # Returns all 13 mL with the needle UP.
+  wash_volume_ml: 5.0          # Then 5 mL out and back.
+  wash_rate_ml_min: 5.0
+  settle_seconds: 10           # Wait after sampling, before the NMR scan.
+  extra_seconds: 2             # Added to each timed transfer before STOP.
+
+nmr:
+  host: 169.254.30.54
+  port: 5000
+  scheme: http
+  http_timeout_seconds: 10
+  acquisition_timeout_seconds: 300  # Per scan: setup, acquisition and retrieval.
+  poll_seconds: 2
+  scans: 8
+  gain: 12
+  auto_gain: false
+  center_ppm: 5
+  width_ppm: 20
+
+output:
+  root_dir: results/experiments
