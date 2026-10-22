@@ -20,6 +20,9 @@ Keep current operating documentation aligned with the Git/WORK/drive workflow.
 (three instruments; 21/22 were 15/16). The two-instrument scripts 23/24/25
 (`23_stage1stage2.py`, `24_stage2only.py`, `25_2instrumentquickcheck.py`; were
 19/17/18) use only simple_rig's pump and NMR parts, never Arduino code.
+`scripts/26_chemyxmanual.py` (manual withdraw/infuse/stop/status) belongs to
+the same path: it reuses SyringePump, writes no files and never reads or
+writes `runtime/chemyx_state` (chemyx_control.py's ledger) or dose records.
 The needle position is two plain-text files with one integer each
 (`runs/arduino/simple_needle_position.txt` counter, `simple_needle_steps.txt`
 motor steps from HOME), written only after DONE. They never read or write

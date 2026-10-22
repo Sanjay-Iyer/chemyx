@@ -1,0 +1,10 @@
+# 26 — simple manual Chemyx control: withdraw / infuse / stop / status.
+# No saved position, HOME, locks or dose records, so a stopped run can never block it.
+# The COM port and syringe sizes come from 20's file (Channel 1 from 21's chemyx
+# section, Channel 2 from 20's channel_2 section), so they always match the runs.
+# For the two-instrument rig you can also pass --config configs\experiments\23_stage1stage2.yaml.
+base_config: configs/experiments/20_stage1stage2.yaml
+
+manual:
+  channel_1_rate_ml_min: 5.0   # Default speed for each channel; --rate overrides it for one command.
+  channel_2_rate_ml_min: 1.0

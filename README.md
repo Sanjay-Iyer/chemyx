@@ -52,6 +52,7 @@ time zero through six hours.
 | 2 instruments (needle stationary): Stage 1 + CH2 dose + Stage 2 | [23 / 24 / 25](docs/03_fixed_time_experiment/23_25_two_instrument_runs.md) | `scripts/23_stage1stage2.py` / `configs/experiments/23_stage1stage2.yaml` |
 | 2 instruments (needle stationary): six-hour Stage 2 only | [23 / 24 / 25](docs/03_fixed_time_experiment/23_25_two_instrument_runs.md) | `scripts/24_stage2only.py` / `configs/experiments/24_stage2only.yaml` |
 | 2 instruments (needle stationary): quick check | [23 / 24 / 25](docs/03_fixed_time_experiment/23_25_two_instrument_runs.md) | `scripts/25_2instrumentquickcheck.py` / `configs/experiments/25_2instrumentquickcheck.yaml` |
+| Manual Chemyx withdraw / infuse / stop / status, no saved state (use around 20–25) | [26 — simple manual Chemyx](docs/03_fixed_time_experiment/26_chemyx_manual.md) | `scripts/26_chemyxmanual.py` / `configs/experiments/26_chemyxmanual.yaml` |
 | Current full 48-hour / 6-hour run | **[03 — Fixed-time experiment](docs/03_fixed_time_experiment/00_START_HERE.md)** | `scripts/04_si6_fixed_time_run.py` / `configs/experiments/si6_fixed_48h_6h.yaml` |
 | Stage 2 only, six hours with live review | **[06 — stage2only](docs/03_fixed_time_experiment/06_stage2only_run_guide.md)** | `scripts/06_si6_stage2only_run.py` / `configs/experiments/si6_stage2only_6h.yaml` |
 | Re-run Stage 2 analysis on a selected folder | [07 — Stage 2 analysis recovery](docs/03_fixed_time_experiment/07_stage2only_analysis_recovery.md) | `scripts/07_analyze_stage2only.py` / `configs/nmr/analysis.yaml` |

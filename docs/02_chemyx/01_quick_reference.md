@@ -49,6 +49,7 @@ pump shows up on COM6, see [Change settings](#change-volume-rate-port-or-syringe
 
 | What | Path | Notes |
 |---|---|---|
+| Simple tool (no saved state) | `scripts\26_chemyxmanual.py` | status, stop, infuse, withdraw; use it around 20–25 runs ([guide](../03_fixed_time_experiment/26_chemyx_manual.md)) |
 | Main tool | `scripts\chemyx_control.py` | status, verify, prepare, set-home, home, infuse, withdraw, stop |
 | HOME shortcut | `scripts\chemyx_home.py` | same as `chemyx_control.py home` |
 | Everyday settings | `configs\chemyx\manual_control.yaml` | used by default; 5 mL per move at 10 mL/min |

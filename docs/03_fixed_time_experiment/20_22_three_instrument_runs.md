@@ -172,8 +172,16 @@ The estimate is rounded down by about one second of flow (about 0.1 mL at
 5 mL/min) so the plunger is never pushed past fully-in. Press Ctrl+C again to
 skip emptying or the return to HOME. If emptying is skipped or fails, or after
 a needle error, the log gives the mL left in the syringe: push Channel 1 back
-to empty (front panel) before the next run, because 20/21/22 start by assuming
-it is empty.
+to empty before the next run, because 20/21/22 start by assuming it is empty.
+Use [26 — simple manual Chemyx](26_chemyx_manual.md) (it keeps no saved state,
+so a stopped run never blocks it) or the Chemyx front panel:
+
+```powershell
+python scripts\26_chemyxmanual.py infuse --channel 1 --volume 3.9 --live
+```
+
+Nothing that 20, 21 or 22 writes blocks a later run: an interrupted run leaves
+only `log.txt`, its saved spectra and the two needle integers.
 
 ## Limits
 

@@ -7,9 +7,17 @@ Read [01 — Quick reference](01_quick_reference.md) for commands and
 loading and dose restrictions. [03 — Driver reference](03_driver_reference.md)
 and [04 — Channel configuration](04_channel_configuration.md) are supporting detail.
 
+**After a 20–25 run, use 26.** [26 — simple manual Chemyx](../03_fixed_time_experiment/26_chemyx_manual.md)
+(`scripts\26_chemyxmanual.py withdraw|infuse|stop|status`) keeps no saved
+position, HOME, locks or dose records, so it works even when a run was stopped
+mid-transfer. `chemyx_control.py` below keeps its own saved record and refuses
+moves when that record does not match the syringe (for example after a 20–25
+run, or after its own `stop`, which marks the position UNKNOWN until `set-home`).
+
 | Item | File |
 |---|---|
-| Manual Python command | [scripts/chemyx_control.py](../../scripts/chemyx_control.py) |
+| Simple manual command (no saved state) | [scripts/26_chemyxmanual.py](../../scripts/26_chemyxmanual.py) |
+| Manual Python command with saved HOME | [scripts/chemyx_control.py](../../scripts/chemyx_control.py) |
 | HOME alias | [scripts/chemyx_home.py](../../scripts/chemyx_home.py) |
 | Manual settings and HOME convention | [configs/chemyx/manual_control.yaml](../../configs/chemyx/manual_control.yaml) |
 | Pump endpoint | [COM4](../../configs/machines/si6_real_COM4.yaml) or [COM6](../../configs/machines/si6_real_COM6.yaml) |

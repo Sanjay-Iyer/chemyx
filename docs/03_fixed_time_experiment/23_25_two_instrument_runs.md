@@ -162,6 +162,13 @@ python scripts\09_analyze_stage2only_scipy.py "<run folder>"
 Connections close after cleanup; saved spectra remain. No fault files, journals,
 HOME records or previous logs are read to permit another run: there is no pause
 or resume. After a stop, prepare the rig again and start fresh (23 begins with
-Stage 1 and includes the dose again).
+Stage 1 and includes the dose again). If the log reports a sample that was not
+returned, restore the loading you set in `initial_volume_ml` first (for example
+infuse the 5.0 mL withdrawal), with [26 — simple manual Chemyx](26_chemyx_manual.md)
+or the front panel:
+
+```powershell
+python scripts\26_chemyxmanual.py infuse --channel 1 --volume 5.0 --live
+```
 
 Offline tests: `python -m pytest tests\test_twoinstrument.py tests\test_23_25_twoinstrument.py -q`.

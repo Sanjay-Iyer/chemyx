@@ -24,7 +24,9 @@ were; an analysis failure is only logged.
 The user renamed the simple scripts so they are easy to remember: three
 instruments 20 stage1stage2 (new), 21 stage2only (was 15), 22 quick check
 (was 16); two instruments 23 stage1stage2 (was 19), 24 stage2only (was 17),
-25 quick check (was 18). Keep new work in this scheme.
+25 quick check (was 18). Keep new work in this scheme. 26 is the simple
+manual Chemyx tool (withdraw/infuse/stop/status, no saved state), added because
+chemyx_control.py's saved record refused to empty a syringe after a stopped run.
 
 ## Two-instrument 23 / 24 / 25 (clarified 2026-10-21)
 

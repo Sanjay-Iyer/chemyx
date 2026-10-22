@@ -14,9 +14,11 @@ data during the experiment; missing spectra and analysis results cannot end a ph
 | Stage 2 only (6 h) | `21_stage2only.py` | `24_stage2only.py` |
 | Quick check | `22_3instrumentquickcheck.py` | `25_2instrumentquickcheck.py` |
 | Guide | [20 / 21 / 22](20_22_three_instrument_runs.md) | [23 / 24 / 25](23_25_two_instrument_runs.md) |
+| Manual Chemyx (both rigs) | `26_chemyxmanual.py`: withdraw / infuse / stop / status, no saved state ([guide](26_chemyx_manual.md)) | same |
 
 Each script has a YAML of the same name in `configs/experiments/`. Scripts 15–19
-were renamed: 15 → 21, 16 → 22, 17 → 24, 18 → 25, 19 → 23 (20 is new).
+were renamed: 15 → 21, 16 → 22, 17 → 24, 18 → 25, 19 → 23 (20 and 26 are new).
+None of 20–26 writes a file that can block a later run, even after Ctrl+C.
 
 | Read in order | Purpose |
 |---|---|
