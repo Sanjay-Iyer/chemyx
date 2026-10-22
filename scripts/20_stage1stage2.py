@@ -21,6 +21,7 @@ from pathlib import Path
 import _bootstrap  # noqa: F401
 from chemyx_lab.workflows.simple_rig import (HardwareError, RealClock, SimpleRig, SimulatedClock, SyringePump,
     close_logger, make_logger, new_run_dir, ok)
+from chemyx_lab.workflows.simple_review import begin_review
 
 
 def load_script(name, filename):
@@ -118,8 +119,7 @@ def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=StageRig, review_
         stage_dirs = {name: run_dir / name for name in STAGES}
         for name, folder in stage_dirs.items():
             (folder / "nmr_raw").mkdir(parents=True)
-            if review_launcher is not None and cfg["review"]["enabled"]:
-                review_launcher(folder, folder / "nmr_raw", cfg, log)  # Before the serial ports open.
+            begin_review(folder, folder / "nmr_raw", cfg, log, review_launcher)  # Before the serial ports open.
         with rig_factory(cfg, mock=mock, clock=clock, log=log) as rig:
             rig.needle_to(0)  # The saved HOME (moves only if the needle was left elsewhere).
             rig.needle_to(cfg["arduino"]["up_position"])

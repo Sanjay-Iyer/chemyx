@@ -5,6 +5,8 @@ Chemyx and sends STOP to Channel 1 and Channel 2 (CH2 never moves), checks the
 NMR answers, then one 24 cycle with the check values: CH1 withdraw 1 mL ->
 1-scan NMR -> CH1 infuse 1 mL. One startup confirmation. Writes log.txt and
 check_0001.dx in a new folder. Exit code 0 only when every part passes.
+Separate live review produces full-spectrum and target-peak plots in analysis/;
+the physical check never waits for processing or uses its result.
 """
 from __future__ import annotations
 
@@ -14,6 +16,7 @@ from pathlib import Path
 
 import _bootstrap  # noqa: F401
 from chemyx_lab.workflows.simple_rig import PumpCommandError, RealClock, SimulatedClock, close_logger, make_logger, ok
+from chemyx_lab.workflows.simple_review import begin_review, start_review
 
 
 def load_script(name, filename):
@@ -50,7 +53,8 @@ def report(log, outcome, text):
         log.warning(text)
 
 
-def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=stage1stage2.StageRig, confirm=False, input_fn=input):
+def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=stage1stage2.StageRig, confirm=False, input_fn=input,
+        review_launcher=None):
     clock = clock or (SimulatedClock() if mock else RealClock())
     run_dir = stage1stage2.results_dir(cfg, output_dir, PREFIX)
     log = make_logger(run_dir, clock, PREFIX)
@@ -68,6 +72,7 @@ def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=stage1stage2.Stag
         if confirm and input_fn("Confirm rig is ready [y/N]: ").strip().lower() not in {"y", "yes"}:
             status = "DECLINED"
             return status, results
+        begin_review(run_dir, run_dir, cfg, log, review_launcher)  # check_0001.dx lives in the run folder.
         with rig_factory(cfg, mock=mock, clock=clock, log=log) as rig:
             results["connect"] = "PASS" if rig.ch2_ready else "FAIL"
             results["nmr_check"] = "PASS" if rig.nmr.check() else "FAIL"
@@ -119,7 +124,7 @@ def main(argv=None):
         print(f"25 configuration error: {type(exc).__name__}: {exc}", flush=True)
         return 2
     try:
-        status, results = run(cfg, mock=args.mock, output_dir=args.output_dir, confirm=True)
+        status, results = run(cfg, mock=args.mock, output_dir=args.output_dir, confirm=True, review_launcher=start_review)
     except Exception as exc:
         print(f"25 could not start: {type(exc).__name__}: {exc}", flush=True)
         return 1

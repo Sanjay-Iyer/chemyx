@@ -31,15 +31,17 @@ any Chemyx STOP reply, and use the standalone 04/05 NMR `legacy_acquire`. Do
 not add validity flags, fault files, HOME-reference, journal or lockout rules
 to them.
 
-21's command line processes and plots its spectra automatically, but only after
-the physical run has ended (rig context exited: needle HOME, ports closed): it
-runs `scripts/09_analyze_stage2only_scipy.py` on `nmr_raw` as a separate
-process, never imports numerical code, and never lets an analysis result,
-error or timeout change the run's status or exit code. `run()` without
-`analyze=` stays the plain physical run used by the tests. 20 and 23 start
-one live review process per stage (14's review worker) before the ports open,
-never import it and never read its results; `run()` without `review_launcher=`
-starts none.
+All 20-25 command lines start live review before instrument ports open, using
+`simple_review.py` to launch 14's review worker in a separate process. 20 and
+23 start one worker per stage; 21/22/24/25 start one per run/check. Every saved
+stage_1/stage_2/observation/check .dx file is processed for full-spectrum and
+target-peak plots. The instrument runner never imports numerical code, waits
+for review or reads its results; `run()` without `review_launcher=` starts none.
+No analysis output, error or timeout can control instruments, block startup or
+change the physical result. Review outputs stay separate from raw data.
+21 also preserves its final `scripts/09_analyze_stage2only_scipy.py` report on
+`nmr_raw`, only after the physical rig context has exited (needle HOME, ports
+closed). `run()` without `analyze=` starts no final report.
 
 ## Official Arduino needle HOME (older workflows 04–14)
 

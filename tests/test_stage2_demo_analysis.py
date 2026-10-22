@@ -72,11 +72,11 @@ def test_metadata_timing_prefers_long_date_and_never_filename_or_mtime():
         analysis.authoritative_time({})
 
 
-@pytest.mark.parametrize("stage", ["stage_1", "stage_2"])
-def test_cumulative_table_and_every_plot_have_actual_dataset_title(tmp_path, spectrum, stage):
-    spectrum["path"] = tmp_path / f"{stage}_0001.dx"
+@pytest.mark.parametrize("prefix", ["stage_1", "stage_2", "observation", "check"])
+def test_cumulative_table_and_every_plot_have_actual_dataset_title(tmp_path, spectrum, prefix):
+    spectrum["path"] = tmp_path / f"{prefix}_0001.dx"
     second = deepcopy(spectrum)
-    second["path"] = tmp_path / f"{stage}_0002.dx"
+    second["path"] = tmp_path / f"{prefix}_0002.dx"
     second["timestamp"] = datetime(2026, 10, 20, 0, 15, 40, tzinfo=timezone.utc)
     second["intensity"] *= .001
     rows = analysis.measure([spectrum, second], analysis.detection_settings({}))
@@ -96,6 +96,16 @@ def test_cumulative_table_and_every_plot_have_actual_dataset_title(tmp_path, spe
         saved = list(csv.DictReader(handle))
     assert float(saved[1]["elapsed_hours"]) == rows[1]["elapsed_hours"]
     assert math.isnan(float(saved[1]["area"]))
+
+
+@pytest.mark.parametrize("prefix", ["stage_1", "stage_2", "observation", "check"])
+def test_each_raw_filename_is_discovered_with_its_rpc_variant_and_exact_source(tmp_path, prefix):
+    for name in (f"{prefix}_001.dx", f"{prefix}_001.rpc.dx", f"{prefix}_002.dx", "unrelated.dx"):
+        (tmp_path / name).write_text("raw file", encoding="utf-8")
+    groups = analysis.raw_groups(tmp_path, {}, tmp_path)
+    assert list(groups) == [1, 2]
+    assert [path.name for path in groups[1]] == [f"{prefix}_001.rpc.dx", f"{prefix}_001.dx"]
+    assert [path.name for path in groups[2]] == [f"{prefix}_002.dx"]
 
 
 def test_bad_raw_file_is_isolated_from_following_spectrum(tmp_path, spectrum, monkeypatch):

@@ -1,6 +1,7 @@
 # 22 — quick three-instrument check (was 16, replaces 13). Ports, syringe and NMR
 # settings come from the 21 file; only these test settings are added here.
 # Before starting: needle at HOME (sampling depth), Channel 1 empty, NMR idle.
+# Live spectrum/target-peak review is inherited from 21 and processes check_0001.dx.
 base_config: configs/experiments/21_stage2only.yaml
 
 check:

@@ -18,17 +18,14 @@ from datetime import datetime
 import importlib.util
 import itertools
 import math
-import os
 from pathlib import Path
-import subprocess
-import sys
 
 import _bootstrap  # noqa: F401
-import yaml
 
 from chemyx_lab import config
 from chemyx_lab.workflows.simple_rig import (PumpCommandError, RealClock, SimulatedClock, SyringePump, clock_text,
     close_logger, load_settings, make_logger, new_run_dir, ok)
+from chemyx_lab.workflows.simple_review import begin_review, start_review
 
 
 def load_script(name, filename):
@@ -236,29 +233,6 @@ class StageRig(stage2only.TwoInstrumentRig):
         return super().__exit__(exc_type, exc, tb)
 
 
-# -------------------------------------------------------------- live review
-def start_review(stage_dir, raw_dir, cfg, log):
-    """One review child per stage (14's worker): reads raw files only; never waited on or read back."""
-    r = cfg["review"]
-    settings = {"experiment": {"name": stage_dir.parent.name}, "analysis": {
-        "dataset_display_name": f"{stage_dir.parent.name} {stage_dir.name}", "phase_method": "acme",
-        "processing_config": r["processing_config"], "target_peak": dict(r["target_peak"]),
-        "save_spectrum_plots": True, "save_area_vs_time": True, "every_n_acquisitions": 1}}
-    try:
-        path = stage_dir / "review_config.yaml"
-        path.write_text(yaml.safe_dump(settings, sort_keys=False), encoding="utf-8")
-        command = [sys.executable, "-m", "chemyx_lab.analysis.stage2_demo_analysis", "--run-dir", str(stage_dir),
-                   "--config", str(path), "--raw-dir", str(raw_dir), "--watch", "--parent-pid", str(os.getpid())]
-        options = {"creationflags": subprocess.CREATE_NO_WINDOW | subprocess.IDLE_PRIORITY_CLASS} if os.name == "nt" else {}
-        env = dict(os.environ, MPLBACKEND="Agg", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1")
-        with (stage_dir / "review.log").open("a", encoding="utf-8") as output:
-            subprocess.Popen(command, cwd=config.REPO_ROOT, stdin=subprocess.DEVNULL, stdout=output,
-                             stderr=subprocess.STDOUT, close_fds=True, env=env, **options)
-        log.info(f"Review plots ({stage_dir.name}): {stage_dir / 'analysis'}, updated after each saved spectrum")
-    except Exception as exc:
-        log.warning(f"Review plots ({stage_dir.name}) NOT started: {type(exc).__name__}: {exc}; the run continues")
-
-
 # ---------------------------------------------------------------------- run
 def run_stage(rig, cfg, name, stage_dir, clock, log, tally, sample=None):
     """One stage window; `sample(rig, cfg, path, number)` defaults to 24's cycle (20 passes 21's)."""
@@ -311,8 +285,7 @@ def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=StageRig, confirm
         stage_dirs = {name: run_dir / name for name in STAGES}
         for name, folder in stage_dirs.items():
             (folder / "nmr_raw").mkdir(parents=True)
-            if review_launcher is not None and cfg["review"]["enabled"]:
-                review_launcher(folder, folder / "nmr_raw", cfg, log)  # Before the serial port opens.
+            begin_review(folder, folder / "nmr_raw", cfg, log, review_launcher)  # Before the serial port opens.
         with rig_factory(cfg, mock=mock, clock=clock, log=log) as rig:
             run_stage(rig, cfg, "stage_1", stage_dirs["stage_1"], clock, log, tally)
             log.info("=" * 60)

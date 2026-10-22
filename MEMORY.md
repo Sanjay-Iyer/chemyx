@@ -37,6 +37,9 @@ CH2 STOP only) and 23 (48 h Stage 1 every 2 h -> one CH2 dose of 1.86 mL at
 review plots per stage (14's separate review worker); 20 mirrors 23 with
 three instruments (needle to HOME for the dose, as in 14). The user wants the infuse
 volume at 5.2 mL and easy to change in the YAML; tests read volumes from the YAML.
+On 2026-10-22 the user chose that a failed NMR scan in 23/24/25 is skipped like
+20/21 (one cancel, no idle wait, sample returned, schedule continues) instead of
+stopping the run when NMR idle is not confirmed.
 
 ## Arduino HOME ownership (clarified 2026-10-19)
 

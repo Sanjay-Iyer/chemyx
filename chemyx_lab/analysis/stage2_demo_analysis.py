@@ -1,4 +1,4 @@
-"""Small, instrument-free live review child for ``10_stage2only``.
+"""Instrument-free live review child shared by 10/14 and the simple 20-25 runs.
 
 Each invocation catches up with saved raw files. Cached ACME/ALS arrays avoid
 rephasing earlier acquisitions; the cumulative CSV is also the plot's time
@@ -32,8 +32,9 @@ from .scipy_peak_benchmark_plots import draw_integration
 from .scipy_peak_comparison import DetectionSettings, ascending, choose_target, detection_context, evaluate
 
 PRIMARY_METHOD = "scipy_width95_prominence8"
-# 14 keeps stages in separate directories, so observation numbers stay local.
-RAW_NAME = re.compile(r"stage_[12]_(\d+)(\.rpc)?\.dx", re.IGNORECASE)
+# Full runs keep stages in separate directories; 24 and the checks use their
+# own prefixes. Preserve group 1 (observation number) and group 2 (RPC variant).
+RAW_NAME = re.compile(r"(?:stage_[12]|observation|check)_(\d+)(\.rpc)?\.dx", re.IGNORECASE)
 
 
 def authoritative_time(metadata):

@@ -5,8 +5,8 @@
 | Script | What it runs | Settings |
 |---|---|---|
 | `20_stage1stage2.py` | 48 h Stage 1 → one Channel 2 dose → 6 h Stage 2, live review plots | [20_stage1stage2.yaml](../../configs/experiments/20_stage1stage2.yaml) (dose, stages, plots) on top of 21's file |
-| `21_stage2only.py` (was 15) | 6 h Stage 2 only, then automatic 09 analysis | [21_stage2only.yaml](../../configs/experiments/21_stage2only.yaml) (ports, recipe, NMR, schedule) |
-| `22_3instrumentquickcheck.py` (was 16) | Quick check of all three instruments | [22_3instrumentquickcheck.yaml](../../configs/experiments/22_3instrumentquickcheck.yaml) (check values) on top of 21's file |
+| `21_stage2only.py` (was 15) | 6 h Stage 2 only, live spectrum/peak plots, then automatic 09 report | [21_stage2only.yaml](../../configs/experiments/21_stage2only.yaml) (ports, recipe, NMR, schedule, review) |
+| `22_3instrumentquickcheck.py` (was 16) | Quick check of all three instruments, automatic spectrum/peak plots | [22_3instrumentquickcheck.yaml](../../configs/experiments/22_3instrumentquickcheck.yaml) (check values) on top of 21's file |
 
 Simpler replacements for `12`, `13` and `14`. They use the same Arduino, Chemyx
 and NMR drivers, the same physical recipe and the same 04/05 legacy NMR
@@ -86,7 +86,12 @@ skipped (no catch-up). At the end the needle returns to HOME and the ports close
 Connect Arduino and Chemyx, check the NMR answers (warning only), needle UP one
 increment and DOWN to HOME, Channel 1 withdraw 1 mL and infuse 1 mL at 5 mL/min,
 one NMR scan saved as `nmr_raw\check_0001.dx`, then a PASS/FAIL line per part.
-Exit code 0 only when every part passes. It does not move Channel 2.
+The initial NMR reachability check is advisory; exit code 0 requires the motion,
+saved scan and cleanup checks to pass. It does not move Channel 2. A separate
+review child processes the saved check file into `analysis\observation_0001.png`
+(full spectrum), `analysis\observation_0001_target.png` (target region), and
+`analysis\peak_areas.csv`. These finish shortly after the physical check exits;
+processing success is independent of the instrument PASS/FAIL result.
 
 ## 20: Stage 1 → dose → Stage 2
 
@@ -118,7 +123,19 @@ run before Stage 2 (needle to HOME, ports closed) and reports the dose as
 fresh 20 starts with Stage 1 and includes the dose again. Use 21 when only
 Stage 2 is wanted.
 
-## 21: automatic analysis after the run
+## 21: live spectrum review and final report
+
+Before the instrument ports open, 21 starts the same separate review worker as
+20 and 23. After each saved `.dx` file it updates `analysis\observation_0001.png`
+... (ACME/ALS full spectra), `analysis\observation_0001_target.png` ... (target
+peak region), `analysis\peak_areas.csv` and `analysis\peak_area_vs_time.png`.
+Open the PNGs while the run is active to inspect the peak near 5.79 ppm;
+`detection_status` and `analysis_quality_pass` are recorded in the CSV. Missing
+peaks retain a missing/flagged result; a missing plot is a processing error or
+delay, not evidence that the peak is absent. Details go to `review.log`.
+All titles name the dataset. `review.enabled: false` disables this optional
+review only; the physical schedule is unchanged. No analysis output is read by
+the instrument runner, and a missing dependency or worker failure cannot stop it.
 
 When the physical run has finished (needle at HOME, ports closed) and at least
 one spectrum was saved, 21 runs the existing `09_analyze_stage2only_scipy.py` on
@@ -130,6 +147,9 @@ says COMPLETE, PARTIAL or FAILED and where the plots are:
 ```text
 results\experiments\21_stage2only_<timestamp>\
     log.txt
+    review.log, review_config.yaml
+    analysis\observation_0001.png, observation_0001_target.png ...    live review
+    analysis\peak_areas.csv, peak_area_vs_time.png
     nmr_raw\stage_2_0001.dx ...                       raw data, only read
     analysis_stage2only_scipy\<date_time_id>\
         ANALYSIS_SUMMARY.txt, processor.log
@@ -148,7 +168,8 @@ fixture with the same `LONG DATE`, so a mock rehearsal's time axis is a single i
 An analysis problem (missing package, crash, timeout, bad file) is logged as
 `ANALYSIS FAILED` with the command to rerun it, and never changes the run's
 status or exit code; the raw `.dx` files stay as saved. Ctrl+C during the
-analysis skips it. After Ctrl+C during the run there is no analysis. To
+analysis skips it. After Ctrl+C during the run there is no final 09 report;
+live review can still finish processing raw files already saved. To
 (re)analyse any Stage 2 data later (21's run folder, or 20's `stage_2` folder),
 which adds a new dated folder beside the old ones:
 
@@ -180,8 +201,9 @@ so a stopped run never blocks it) or the Chemyx front panel:
 python scripts\26_chemyxmanual.py infuse --channel 1 --volume 3.9 --live
 ```
 
-Nothing that 20, 21 or 22 writes blocks a later run: an interrupted run leaves
-only `log.txt`, its saved spectra and the two needle integers.
+Nothing that 20, 21 or 22 writes blocks a later run. Saved spectra, logs, review
+outputs and the two needle integers are retained after interruption; review
+reports are never admission requirements.
 
 ## Limits
 

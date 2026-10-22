@@ -13,6 +13,7 @@ import yaml
 
 from chemyx_lab.instruments.chemyx import Pump
 from chemyx_lab.workflows import simple_rig
+from chemyx_lab.workflows import simple_review
 from chemyx_lab.workflows.simple_rig import FIXTURE, SimulatedClock, close_logger, make_logger
 from chemyx_lab.workflows.stage2_legacy_nmr import MockLegacyClient
 
@@ -163,6 +164,33 @@ def test_23_nmr_failure_is_skipped_and_the_run_continues(tmp_path, rigs, monkeyp
     assert volumes(rigs.made[0], 1) == [-WITHDRAW, INFUSE] * 4  # The failed sample was still returned.
 
 
+def timed_out_first_scan(monkeypatch):
+    """The first scan times out (START sent), the NMR never confirms idle and the cancel gets no reply."""
+    original, calls = simple_rig.NmrScanner.scan, []
+
+    def scan(self, path, scans):
+        calls.append(path)
+        if len(calls) == 1:
+            return dict(status="NMR_FAILED", path=None, requested=True, timed_out=True, error="simulated timeout")
+        return original(self, path, scans)
+    monkeypatch.setattr(simple_rig.NmrScanner, "scan", scan)
+
+    def no_reply(self):
+        raise RuntimeError("no reply to cancel")
+    monkeypatch.setattr(simple_rig._MockTracingClient, "cancel_iflow_experiment", no_reply)
+
+
+def test_23_failed_scan_without_idle_confirmation_never_stops_the_run(tmp_path, rigs, monkeypatch):
+    timed_out_first_scan(monkeypatch)
+    status, tally = s23.run(short(s23.load_config()), mock=True, output_dir=tmp_path / "run", rig_factory=rigs)
+    assert status == "COMPLETE" and tally["dose"] == "COMPLETE"
+    assert tally["stage_1"] == dict(slots=2, saved=1, nmr_failed=1, missed=0)
+    assert tally["stage_2"] == dict(slots=2, saved=2, nmr_failed=0, missed=0)
+    assert volumes(rigs.made[0], 1) == [-WITHDRAW, INFUSE] * 4 and volumes(rigs.made[0], 2) == [D23["volume_ml"]]
+    log = (tmp_path / "run/log.txt").read_text(encoding="utf-8")
+    assert "NMR: cancel not sent (RuntimeError: no reply to cancel)" in log and "STOPPED" not in log
+
+
 def test_23_dose_rejected_stops_before_stage_2(tmp_path, rigs, monkeypatch):
     original = Pump.set_volume
     monkeypatch.setattr(Pump, "set_volume", lambda self, value, channel=None: "error: syringe stalled"
@@ -201,7 +229,7 @@ def test_23_review_starts_once_per_stage_before_the_port_opens(tmp_path, rigs):
 def test_23_review_that_cannot_start_never_affects_the_run(tmp_path, rigs, monkeypatch):
     def broken(*args, **kwargs):
         raise OSError("no python here")
-    monkeypatch.setattr(s23.subprocess, "Popen", broken)
+    monkeypatch.setattr(simple_review.subprocess, "Popen", broken)
     status, tally = s23.run(short(s23.load_config()), mock=True, output_dir=tmp_path / "run",
                                  rig_factory=rigs, review_launcher=s23.start_review)
     assert status == "COMPLETE" and tally["stage_2"]["saved"] == 2
@@ -219,7 +247,7 @@ def test_23_review_config_drives_the_review_worker_with_labelled_plots(tmp_path,
     for i in range(2):
         (stage / "nmr_raw" / f"stage_1_{i + 1:04d}.dx").write_bytes(shifted(FIXTURE.read_bytes(), 120 * i // 60))
     launched = []
-    monkeypatch.setattr(s23.subprocess, "Popen", lambda command, **kwargs: launched.append(command))
+    monkeypatch.setattr(simple_review.subprocess, "Popen", lambda command, **kwargs: launched.append(command))
     log = make_logger(tmp_path, SimulatedClock(), "review_test")
     try:
         s23.start_review(stage, stage / "nmr_raw", s23.load_config(), log)
@@ -294,6 +322,14 @@ def test_25_nmr_failure_fails_the_check_but_returns_the_sample(tmp_path, rigs, m
     assert "CHECK FAILED" in (tmp_path / "run/log.txt").read_text(encoding="utf-8")
 
 
+def test_25_scan_timeout_without_idle_confirmation_fails_only_the_nmr_part(tmp_path, rigs, monkeypatch):
+    timed_out_first_scan(monkeypatch)
+    status, results = s25.run(s25.load_config(), mock=True, output_dir=tmp_path / "run", rig_factory=rigs)
+    assert status == "COMPLETE" and results["nmr"] == "FAIL"
+    assert results["withdraw"] == results["infuse"] == results["close"] == "PASS"
+    assert volumes(rigs.made[0], 1) == [-1.0, 1.0]
+
+
 def test_25_pump_failure_fails_without_a_blind_infusion(tmp_path, rigs, monkeypatch):
     monkeypatch.setattr(Pump, "start", lambda self, **kwargs: (_ for _ in ()).throw(TimeoutError("no reply")))
     status, results = s25.run(s25.load_config(), mock=True, output_dir=tmp_path / "run", rig_factory=rigs)
@@ -304,7 +340,11 @@ def test_25_pump_failure_fails_without_a_blind_infusion(tmp_path, rigs, monkeypa
 
 @pytest.mark.parametrize("answer,code", [("y", 0), ("n", 3)])
 def test_25_cli_one_confirmation_and_exit_codes(tmp_path, answer, code):
+    cfg = s25.load_config()
+    cfg["review"]["enabled"] = False  # Keep this subprocess focused on physical-check exit codes.
+    path = write(tmp_path, cfg)
     proc = subprocess.run([sys.executable, "scripts/25_2instrumentquickcheck.py", "--mock", "--output-dir",
-                           str(tmp_path / "run")], cwd=ROOT, input=answer + "\n", capture_output=True, text=True, timeout=120)
+                           str(tmp_path / "run"), "--config", str(path)], cwd=ROOT, input=answer + "\n",
+                          capture_output=True, text=True, timeout=120)
     assert proc.returncode == code, proc.stdout + proc.stderr
     assert proc.stdout.count("Confirm rig is ready [y/N]:") == 1

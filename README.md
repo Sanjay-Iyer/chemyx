@@ -47,11 +47,11 @@ time zero through six hours.
 | Full Stage 1 + dose + Stage 2 with simplified legacy NMR | [14 — Full two-stage run](docs/03_fixed_time_experiment/14_full_stage1_stage2.md) | `scripts/14_full_stage1_stage2.py` / `configs/experiments/14_full_stage1_stage2.yaml` |
 | Stage 2 only with legacy NMR completion | [12 — Six-hour Stage 2](docs/03_fixed_time_experiment/12_13_legacy_nmr_alternatives.md) | `scripts/12_stage2only.py` / `configs/experiments/12_stage2only.yaml` |
 | 3 instruments, simple: Stage 1 + CH2 dose + Stage 2 | [20 / 21 / 22](docs/03_fixed_time_experiment/20_22_three_instrument_runs.md) | `scripts/20_stage1stage2.py` / `configs/experiments/20_stage1stage2.yaml` |
-| 3 instruments, simple: six-hour Stage 2 only | [20 / 21 / 22](docs/03_fixed_time_experiment/20_22_three_instrument_runs.md) | `scripts/21_stage2only.py` / `configs/experiments/21_stage2only.yaml` |
-| 3 instruments, simple: quick check | [20 / 21 / 22](docs/03_fixed_time_experiment/20_22_three_instrument_runs.md) | `scripts/22_3instrumentquickcheck.py` / `configs/experiments/22_3instrumentquickcheck.yaml` |
+| 3 instruments, simple: six-hour Stage 2 only, live plots + final report | [20 / 21 / 22](docs/03_fixed_time_experiment/20_22_three_instrument_runs.md) | `scripts/21_stage2only.py` / `configs/experiments/21_stage2only.yaml` |
+| 3 instruments, simple: quick check + spectrum/peak plots | [20 / 21 / 22](docs/03_fixed_time_experiment/20_22_three_instrument_runs.md) | `scripts/22_3instrumentquickcheck.py` / `configs/experiments/22_3instrumentquickcheck.yaml` |
 | 2 instruments (needle stationary): Stage 1 + CH2 dose + Stage 2 | [23 / 24 / 25](docs/03_fixed_time_experiment/23_25_two_instrument_runs.md) | `scripts/23_stage1stage2.py` / `configs/experiments/23_stage1stage2.yaml` |
-| 2 instruments (needle stationary): six-hour Stage 2 only | [23 / 24 / 25](docs/03_fixed_time_experiment/23_25_two_instrument_runs.md) | `scripts/24_stage2only.py` / `configs/experiments/24_stage2only.yaml` |
-| 2 instruments (needle stationary): quick check | [23 / 24 / 25](docs/03_fixed_time_experiment/23_25_two_instrument_runs.md) | `scripts/25_2instrumentquickcheck.py` / `configs/experiments/25_2instrumentquickcheck.yaml` |
+| 2 instruments (needle stationary): six-hour Stage 2 only + live plots | [23 / 24 / 25](docs/03_fixed_time_experiment/23_25_two_instrument_runs.md) | `scripts/24_stage2only.py` / `configs/experiments/24_stage2only.yaml` |
+| 2 instruments (needle stationary): quick check + spectrum/peak plots | [23 / 24 / 25](docs/03_fixed_time_experiment/23_25_two_instrument_runs.md) | `scripts/25_2instrumentquickcheck.py` / `configs/experiments/25_2instrumentquickcheck.yaml` |
 | Manual Chemyx withdraw / infuse / stop / status, no saved state (use around 20–25) | [26 — simple manual Chemyx](docs/03_fixed_time_experiment/26_chemyx_manual.md) | `scripts/26_chemyxmanual.py` / `configs/experiments/26_chemyxmanual.yaml` |
 | Current full 48-hour / 6-hour run | **[03 — Fixed-time experiment](docs/03_fixed_time_experiment/00_START_HERE.md)** | `scripts/04_si6_fixed_time_run.py` / `configs/experiments/si6_fixed_48h_6h.yaml` |
 | Stage 2 only, six hours with live review | **[06 — stage2only](docs/03_fixed_time_experiment/06_stage2only_run_guide.md)** | `scripts/06_si6_stage2only_run.py` / `configs/experiments/si6_stage2only_6h.yaml` |
@@ -61,6 +61,13 @@ time zero through six hours.
 | Separate bench check | [04 — Instrument checkout](docs/04_instrument_checkout/00_START_HERE.md) | `scripts/03_simple_instrument_checkout.py` / `configs/checkouts/si6_simple_instrument_check.yaml` |
 | Saved NMR processing | [05 — Analysis](docs/05_nmr_analysis/00_START_HERE.md) | `scripts/05_analyze_fixed_time_run.py` / `configs/nmr/analysis.yaml` |
 | WORK updates and physical-state backup | [06 — Deployment](docs/06_deployment_and_backup/00_START_HERE.md) | Git/drive workflow and backup tools |
+
+All simple 20-25 command lines process every saved NMR spectrum in a separate
+background review process, including both quick checks. Open `analysis/` in
+the run folder (or each `stage_N/` folder for 20/23) for full-spectrum and
+target-peak PNGs and `peak_areas.csv`; processing messages are in `review.log`.
+Processing errors never control the instruments or block another run. Script
+21 also keeps its final 09 analysis report after the physical run ends.
 
 For the complete experiment with `12`'s simplified NMR method, see the
 [14 run guide](docs/03_fixed_time_experiment/14_full_stage1_stage2.md). On WORK:

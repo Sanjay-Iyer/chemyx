@@ -333,6 +333,7 @@ def test_travel_range_is_checked_before_any_motion(home):
 
 def test_check_22_cli_exit_codes(home):
     cfg = rig_cfg(check, home)
+    cfg["review"]["enabled"] = False  # Exit-code coverage; live review has separate tests.
     good = home / "c16.yaml"
     good.write_text(yaml.safe_dump(cfg), encoding="utf-8")
     run = lambda *args: subprocess.run([sys.executable, "scripts/22_3instrumentquickcheck.py", *args], cwd=ROOT,

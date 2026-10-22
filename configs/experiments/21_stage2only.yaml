@@ -50,5 +50,17 @@ nmr:
   center_ppm: 5
   width_ppm: 20
 
+# Background full-spectrum / target-peak plots after each saved file (also 22).
+# Review outputs never control the instruments. 21 also keeps its final 09 report.
+review:
+  enabled: true
+  processing_config: configs/nmr/analysis.yaml
+  target_peak:
+    prominence_snr: 8.0
+    rel_height: 0.95
+    search_low: 5.6
+    search_high: 6.0
+    expected_ppm: 5.79
+
 output:
   root_dir: results/experiments

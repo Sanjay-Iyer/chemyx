@@ -108,6 +108,7 @@ def test_cli_exit_code_follows_the_physical_run_when_analysis_fails(home, monkey
            "arduino": {"position_file": str(home / "simple_needle_position.txt")}}
     (home / "c15.yaml").write_text(yaml.safe_dump(cfg), encoding="utf-8")
     monkeypatch.setattr(stage2, "ANALYSIS_SCRIPT", fake_09(tmp_path, "sys.exit(1)\n"))
+    monkeypatch.setattr(stage2, "start_review", lambda *args: None)  # This test isolates the final 09 report.
     assert stage2.main(["--mock", "--config", str(home / "c15.yaml"), "--output-dir", str(home / "run")]) == 0
     assert "ANALYSIS FAILED" in (home / "run/log.txt").read_text(encoding="utf-8")
 

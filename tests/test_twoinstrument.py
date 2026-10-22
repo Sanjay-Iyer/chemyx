@@ -177,6 +177,7 @@ sys.addaudithook(audit)
 sys.path.insert(0, str(pathlib.Path.cwd() / "scripts"))
 builtins.input = lambda prompt: "y"
 ns = runpy.run_path("scripts/24_stage2only.py")
+ns["main"].__globals__["start_review"] = lambda *args: None  # Isolate instrument/state-access coverage.
 assert ns["main"](["--mock", "--output-dir", sys.argv[1]]) == 0
 assert not any(name == "arduino" or name.startswith("arduino.") for name in sys.modules)
 '''
@@ -199,46 +200,49 @@ class FirstScanMissing(MockLegacyClient):
         return reply
 
 
-def test_e_nmr_failure_returns_sample_and_continues_only_after_idle(tmp_path, rigs, monkeypatch):
+def test_e_nmr_failure_sends_one_cancel_returns_sample_and_continues(tmp_path, rigs, monkeypatch):
     monkeypatch.setattr(simple_rig, "MockLegacyClient", FirstScanMissing)
     status, tally = workflow.run(settings(2), mock=True, output_dir=tmp_path / "run", rig_factory=rigs)
     assert status == "COMPLETE" and tally == dict(slots=2, saved=1, nmr_failed=1, missed=0)
     rig = rigs.made[0]
     assert volumes(rig.transport) == [-WITHDRAW, INFUSE] * 2
     assert rig.nmr.fake.counter == 2 and not rig.nmr_pending
+    assert len([p for _, p, _ in rig.nmr.fake.calls if p.endswith("CancelExperiment")]) == 1
     assert files(tmp_path / "run") == ["log.txt", "observation_002.dx"]
     text = (tmp_path / "run/log.txt").read_text(encoding="utf-8")
-    assert "FAILED" in text and "no raw FID" in text and "idle confirmed after failure" in text
-    assert text.index("idle confirmed after failure") < text.index(f"Infuse {INFUSE:g} mL - COMPLETE") < text.index("Observation 2/2")
+    assert "FAILED" in text and "no raw FID" in text and "the schedule continues" in text
+    assert text.index("NMR: cancel sent (no wait)") < text.index(f"Infuse {INFUSE:g} mL - COMPLETE") < text.index("Observation 2/2")
 
 
-@pytest.mark.parametrize("unknown", [False, True])
-def test_e_uncertain_nmr_stops_after_return_without_another_start(tmp_path, rigs, monkeypatch, unknown):
-    class CannotConfirmIdle(FirstScanMissing):
-        def _request(self, method, path, payload=None, params=None):
-            reply = super()._request(method, path, payload, params)
-            if path.endswith("ExperimentStatus") and self.counter == 1:
-                return {} if unknown else {"ResultCode": 1}
-            return reply
+@pytest.mark.parametrize("case", ["timeout_with_unknown_reply", "cancel_fails", "failed_before_start"])
+def test_e_unconfirmed_nmr_never_stops_the_run_or_waits_for_idle(tmp_path, rigs, monkeypatch, case):
+    monkeypatch.setattr(simple_rig, "MockLegacyClient", FirstScanMissing)
 
-    monkeypatch.setattr(simple_rig, "MockLegacyClient", CannotConfirmIdle)
-    # Simulate timeout without spending 300 seconds in the real driver's poll loop.
-    def timed_out_scan(self, path, scans):
-        self.fake.counter = 1
-        return dict(status="NMR_FAILED", error="simulated acquisition timeout")
+    def failed_scan(self, path, scans):
+        # legacy_acquire's timeout result has requested=True; NmrScanner's pre-START failure has no START.
+        if case == "failed_before_start":
+            return dict(status="NMR_FAILED", path=None, error="simulated status read failure (nothing sent)")
+        return dict(status="NMR_FAILED", path=None, requested=True, timed_out=True, error="simulated acquisition timeout")
+    monkeypatch.setattr(simple_rig.NmrScanner, "scan", failed_scan)
 
-    monkeypatch.setattr(simple_rig.NmrScanner, "scan", timed_out_scan)
-    if not unknown:
-        def still_busy(self, **kwargs):
-            raise NmrRpcError("Timed out waiting for NMR run to finish")
-        monkeypatch.setattr(simple_rig._MockTracingClient, "wait_for_idle", still_busy)
-    status, _ = workflow.run(settings(2), mock=True, output_dir=tmp_path / "run", rig_factory=rigs)
-    assert status == "STOPPED"
-    assert volumes(rigs.made[0].transport) == [-WITHDRAW, INFUSE]
-    assert len([event for event in rigs.events if event[0] == "nmr"]) == 1
-    assert files(tmp_path / "run") == ["log.txt"]
+    def must_not_wait(self, **kwargs):
+        raise AssertionError("A failed scan must not wait for NMR idle")
+    monkeypatch.setattr(simple_rig._MockTracingClient, "wait_for_idle", must_not_wait)
+    if case == "cancel_fails":
+        def no_reply(self):
+            raise NmrRpcError("no reply to cancel")
+        monkeypatch.setattr(simple_rig._MockTracingClient, "cancel_iflow_experiment", no_reply)
+    status, tally = workflow.run(settings(2), mock=True, output_dir=tmp_path / "run", rig_factory=rigs)
+    assert status == "COMPLETE" and tally == dict(slots=2, saved=0, nmr_failed=2, missed=0)
+    rig = rigs.made[0]
+    assert volumes(rig.transport) == [-WITHDRAW, INFUSE] * 2  # Both samples returned; the second slot still ran.
+    assert len([event for event in rigs.events if event[0] == "nmr"]) == 2
+    cancels = [p for _, p, _ in rig.nmr.fake.calls if p.endswith("CancelExperiment")]
+    assert len(cancels) == (0 if case in ("failed_before_start", "cancel_fails") else 2)
     text = (tmp_path / "run/log.txt").read_text(encoding="utf-8")
-    assert "NMR: idle NOT confirmed" in text and "sample returned, run stopped" in text
+    assert text.count("spectrum skipped, the schedule continues") == 2 and "STOPPED" not in text
+    if case == "cancel_fails":
+        assert "NMR: cancel not sent (NmrRpcError: no reply to cancel)" in text
 
 
 def test_e_nmr_exception_also_returns_completed_withdrawal(tmp_path, rigs, monkeypatch):

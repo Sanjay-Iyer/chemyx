@@ -10,11 +10,15 @@ An NMR failure skips that slot's spectrum and the schedule continues. A needle
 or pump error, or Ctrl+C, STOPs the pump and Arduino, returns the needle to
 HOME and exits. Output: one folder with nmr_raw/*.dx and log.txt.
 
-Once the physical run has ended (needle at HOME, ports closed), the command
+The command line starts live review in a separate process before the ports
+open: every saved spectrum gets full-spectrum and target-peak plots in analysis/.
+This process never controls or delays the instruments. Once the physical run
+has ended (needle at HOME, ports closed), the command
 line runs the existing 09 SciPy analysis on the saved spectra in its own
 process: tables and PNG plots go to analysis_stage2only_scipy/ in the same
 folder. The raw .dx files are only read. Analysis problems are logged; they
-never change the run's status or exit code. After Ctrl+C there is no analysis.
+never change the run's status or exit code. After Ctrl+C there is no final 09
+report; live review can still finish processing raw files already saved.
 """
 from __future__ import annotations
 
@@ -29,6 +33,7 @@ import sys
 import _bootstrap  # noqa: F401
 from chemyx_lab.workflows.simple_rig import (HardwareError, RealClock, SimpleRig, SimulatedClock,
     check_settings, clock_text, close_logger, load_settings, make_logger, new_run_dir, ok)
+from chemyx_lab.workflows.simple_review import begin_review, start_review
 
 DEFAULT_CONFIG = Path("configs/experiments/21_stage2only.yaml")
 ANALYSIS_SCRIPT = Path(__file__).resolve().with_name("09_analyze_stage2only_scipy.py")
@@ -112,8 +117,8 @@ def analyze_after_run(raw_dir, log, *, timeout=ANALYSIS_TIMEOUT_SECONDS):
     return proc.returncode
 
 
-def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=SimpleRig, analyze=None):
-    """The physical run. `analyze(raw_dir, log)`, when given, runs only after the rig has closed."""
+def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=SimpleRig, analyze=None, review_launcher=None):
+    """Optional live review; `analyze(raw_dir, log)` still runs only after the rig has closed."""
     clock = clock or (SimulatedClock() if mock else RealClock())
     run_dir = new_run_dir(cfg, "21_stage2only", output_dir)
     raw_dir = run_dir / "nmr_raw"
@@ -129,6 +134,7 @@ def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=SimpleRig, analyz
         log.info(f"Results: {run_dir}")
         log.info("Assuming: HOME set with needle_control.py, Channel 1 syringe empty, NMR idle")
         log.info("=" * 60)
+        begin_review(run_dir, raw_dir, cfg, log, review_launcher)
         with rig_factory(cfg, mock=mock, clock=clock, log=log) as rig:
             rig.needle_to(0)  # The saved HOME (moves only if the needle was left elsewhere).
             rig.needle_to(cfg["arduino"]["up_position"])
@@ -195,7 +201,8 @@ def main(argv=None):
         print(f"21 configuration error: {type(exc).__name__}: {exc}", flush=True)
         return 2
     try:
-        status, _ = run(cfg, mock=args.mock, output_dir=args.output_dir, analyze=analyze_after_run)
+        status, _ = run(cfg, mock=args.mock, output_dir=args.output_dir, analyze=analyze_after_run,
+                        review_launcher=start_review)
     except Exception as exc:  # Only before the log exists, e.g. the output folder already exists.
         print(f"21 could not start: {type(exc).__name__}: {exc}", flush=True)
         return 1

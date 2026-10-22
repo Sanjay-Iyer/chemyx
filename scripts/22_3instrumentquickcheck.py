@@ -8,6 +8,9 @@ Channel 1 syringe empty, NMR idle. --live starts immediately:
   3. Channel 1: withdraw 1 mL, infuse 1 mL
   4. one NMR scan (04/05 legacy completion), saved as nmr_raw/check_0001.dx
   5. needle at HOME, ports closed; PASS/FAIL printed for each part
+
+The command line also starts a separate live review child: analysis/ holds the
+full spectrum and target-peak plots. Processing never changes the check result.
 """
 from __future__ import annotations
 
@@ -17,6 +20,7 @@ from pathlib import Path
 import _bootstrap  # noqa: F401
 from chemyx_lab.workflows.simple_rig import (HardwareError, RealClock, SimpleRig, SimulatedClock,
     check_settings, close_logger, load_settings, make_logger, new_run_dir, ok)
+from chemyx_lab.workflows.simple_review import begin_review, start_review
 
 DEFAULT_CONFIG = Path("configs/experiments/22_3instrumentquickcheck.yaml")
 EXTRA_SETTINGS = {"check": ("withdraw_volume_ml", "infuse_volume_ml", "pump_rate_ml_min", "nmr_scans")}
@@ -28,7 +32,7 @@ def load_config(path=DEFAULT_CONFIG):
     return check_settings(load_settings(path), EXTRA_SETTINGS)
 
 
-def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=SimpleRig):
+def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=SimpleRig, review_launcher=None):
     clock = clock or (SimulatedClock() if mock else RealClock())
     run_dir = new_run_dir(cfg, "22_3instrumentquickcheck", output_dir)
     log = make_logger(run_dir, clock, "22_3instrumentquickcheck")
@@ -41,6 +45,7 @@ def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=SimpleRig):
         log.info(f"Results: {run_dir}")
         log.info("Assuming: HOME set with needle_control.py, Channel 1 syringe empty, NMR idle")
         log.info("=" * 60)
+        begin_review(run_dir, run_dir / "nmr_raw", cfg, log, review_launcher)
         with rig_factory(cfg, mock=mock, clock=clock, log=log) as rig:
             results[current] = "PASS"
             results["NMR reachable"] = "PASS" if rig.nmr_reachable else "WARN"
@@ -101,7 +106,7 @@ def main(argv=None):
         print(f"22 configuration error: {type(exc).__name__}: {exc}", flush=True)
         return 2
     try:
-        passed, results = run(cfg, mock=args.mock, output_dir=args.output_dir)
+        passed, results = run(cfg, mock=args.mock, output_dir=args.output_dir, review_launcher=start_review)
     except Exception as exc:  # Only before the log exists, e.g. the output folder already exists.
         print(f"22 could not start: {type(exc).__name__}: {exc}", flush=True)
         return 1

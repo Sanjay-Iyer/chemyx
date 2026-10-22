@@ -1,8 +1,13 @@
 """24 (was 17): two instruments, Stage 2 only. Stationary needle, CH1 WITHDRAW -> NMR -> INFUSE.
 
-One startup confirmation. No Arduino, Stage 1, Channel 2, processing or saved
+One startup confirmation. No Arduino, Stage 1, Channel 2 or saved
 control state. Uses Script 21's SyringePump and standalone 04/05 NmrScanner.
-Only log.txt and raw observation_001.dx, ... are written in each new run folder.
+Raw observation_001.dx, ... and log.txt are written in each new run folder.
+The command line starts separate live review before the pump opens: full
+spectra and target-peak plots go in analysis/ after every saved file. Review
+never controls the instruments or changes the run status.
+A failed NMR scan is logged and skipped, as in 20/21: one NMR cancel is sent
+(no waiting), the sample is still returned and the schedule continues.
 """
 from __future__ import annotations
 
@@ -17,13 +22,13 @@ from chemyx_lab.workflows.simple_rig import (
     NmrScanner, PumpCommandError, RealClock, SimulatedClock, SyringePump,
     clock_text, close_logger, load_settings, make_logger, new_run_dir, ok,
 )
-from chemyx_lab.workflows.si6_fixed_time_nmr import running_state
+from chemyx_lab.workflows.simple_review import begin_review, start_review
 
 DEFAULT_CONFIG = Path("configs/experiments/24_stage2only.yaml")
 
 
 class NmrRunError(RuntimeError):
-    """NMR idle could not be confirmed after a failed acquisition."""
+    """Kept for 23/25's error handling; a failed NMR scan no longer raises it."""
 
 
 def load_config(path=DEFAULT_CONFIG):
@@ -132,29 +137,14 @@ class TwoInstrumentRig:
             self.transfer("infuse")
             self.sample_pending = False
 
-    def stop_nmr_and_confirm_idle(self):
-        """Error path only: existing iFlow cancel and legacy wait; no new START."""
-        self.nmr_stop_attempted = True
-        client = self.nmr.client()
+    def cancel_nmr(self):
+        """Error path only: one iFlow cancel, no waiting. The run never waits on or stops for the reply."""
+        self.nmr_stop_attempted, self.nmr_pending = True, False
         try:
-            client.cancel_iflow_experiment()
-            self.log.warning("NMR: STOP/cancel sent")
+            self.nmr.client().cancel_iflow_experiment()
+            self.log.warning("NMR: cancel sent (no wait)")
         except Exception as exc:
-            self.log.warning(f"NMR: STOP/cancel failed: {type(exc).__name__}: {exc}")
-        try:
-            final = client.wait_for_idle(status_getter=client.iflow_experiment_status,
-                                        poll_seconds=self.cfg["nmr"]["poll_seconds"],
-                                        max_wait_seconds=self.cfg["nmr"]["acquisition_timeout_seconds"])
-            # The existing positive-idle parser is used only after an error.
-            # An empty/unknown reply must never authorize another START.
-            if running_state(final) is not False:
-                raise NmrRunError("NMR status does not confirm idle")
-        except Exception as exc:
-            self.log.error(f"NMR: idle NOT confirmed: {type(exc).__name__}: {exc}")
-            return False
-        self.nmr_pending = False
-        ok(self.log, "NMR: idle confirmed after failure")
-        return True
+            self.log.warning(f"NMR: cancel not sent ({type(exc).__name__}: {exc}); check the NMR touchscreen")
 
     def __exit__(self, exc_type, exc, tb):
         try:
@@ -162,7 +152,7 @@ class TwoInstrumentRig:
                 self.log.error(f"STOPPING: {exc_type.__name__}: {exc}")
                 self.pump.stop()  # Always before closing the port.
                 if self.nmr_pending and not self.nmr_stop_attempted:
-                    self.stop_nmr_and_confirm_idle()
+                    self.cancel_nmr()  # Quick: the sample is returned right after.
                 if self.sample_pending and not self.pump_uncertain:
                     try:
                         self.return_sample()
@@ -184,20 +174,20 @@ def sample(rig, cfg, path, number):
     try:
         result = rig.nmr.scan(path, cfg["nmr"]["scans"])
     except Exception as exc:
-        result = dict(status="NMR_FAILED", error=f"{type(exc).__name__}: {exc}")
-    idle = True
+        result = dict(status="NMR_FAILED", requested=None, error=f"{type(exc).__name__}: {exc}")
     if result["status"] == "NMR_SAVED":
         rig.nmr_pending = False
         ok(rig.log, f"NMR: Observation {number}, {cfg['nmr']['scans']} scans - COMPLETE")
         rig.log.info(f"Saved {Path(result['path']).name}")
     else:
-        rig.log.error(f"NMR observation {number} FAILED: {result.get('error') or result['status']}")
-        idle = rig.stop_nmr_and_confirm_idle()
-    # Even if NMR idle cannot be confirmed, return a completed withdrawal when
-    # pump displacement remains known and the operator-confirmed path is open.
-    rig.return_sample()
-    if not idle:
-        raise NmrRunError("NMR idle remains uncertain; sample returned, run stopped; check the NMR touchscreen")
+        rig.log.error(f"NMR observation {number} FAILED: {result.get('error') or result['status']}; "
+                      "spectrum skipped, the schedule continues")
+        # legacy_acquire reports requested=True once START was sent (None: unknown). A failure
+        # before START sent nothing, so there is nothing to cancel. As in 20/21, never wait or stop.
+        if result.get("requested", False) is not False:
+            rig.cancel_nmr()
+        rig.nmr_pending = False
+    rig.return_sample()  # A completed withdrawal always goes back, whatever the NMR did.
     return result
 
 
@@ -215,7 +205,8 @@ def results_dir(cfg, output_dir):
             suffix += 1
 
 
-def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=TwoInstrumentRig, confirm=False, input_fn=input):
+def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=TwoInstrumentRig, confirm=False, input_fn=input,
+        review_launcher=None):
     clock = clock or (SimulatedClock() if mock else RealClock())
     run_dir = results_dir(cfg, output_dir)
     log = make_logger(run_dir, clock, "24_stage2only")
@@ -230,6 +221,7 @@ def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=TwoInstrumentRig,
         if confirm and input_fn("Confirm rig is ready [y/N]: ").strip().lower() not in {"y", "yes"}:
             status = "DECLINED"
             return status, tally
+        begin_review(run_dir, run_dir, cfg, log, review_launcher)  # Raw .dx files are directly in this run folder.
         with rig_factory(cfg, mock=mock, clock=clock, log=log) as rig:
             start = clock.now()
             for number, due in enumerate(slots, 1):
@@ -279,7 +271,7 @@ def main(argv=None):
         print(f"24 configuration error: {type(exc).__name__}: {exc}", flush=True)
         return 2
     try:
-        status, _ = run(cfg, mock=args.mock, output_dir=args.output_dir, confirm=True)
+        status, _ = run(cfg, mock=args.mock, output_dir=args.output_dir, confirm=True, review_launcher=start_review)
     except Exception as exc:
         print(f"24 could not start: {type(exc).__name__}: {exc}", flush=True)
         return 1

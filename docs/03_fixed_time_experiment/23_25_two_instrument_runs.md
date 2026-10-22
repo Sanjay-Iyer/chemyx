@@ -5,8 +5,8 @@
 | Script | What it runs | Settings |
 |---|---|---|
 | `23_stage1stage2.py` (was 19) | 48 h Stage 1 → one Channel 2 dose → 6 h Stage 2, live review plots | [23_stage1stage2.yaml](../../configs/experiments/23_stage1stage2.yaml) |
-| `24_stage2only.py` (was 17) | 6 h Stage 2 only (25 samples every 15 min), raw data | [24_stage2only.yaml](../../configs/experiments/24_stage2only.yaml) |
-| `25_2instrumentquickcheck.py` (was 18) | Quick check of both instruments | [25_2instrumentquickcheck.yaml](../../configs/experiments/25_2instrumentquickcheck.yaml) (check values) on top of 23's file |
+| `24_stage2only.py` (was 17) | 6 h Stage 2 only (25 samples every 15 min), live spectrum/peak plots | [24_stage2only.yaml](../../configs/experiments/24_stage2only.yaml) |
+| `25_2instrumentquickcheck.py` (was 18) | Quick check of both instruments, automatic spectrum/peak plots | [25_2instrumentquickcheck.yaml](../../configs/experiments/25_2instrumentquickcheck.yaml) (check values) on top of 23's file |
 
 The needle stays secured in the flask: no Arduino imports, commands, HOME checks
 or position files (the Arduino can be disconnected). Every sample is the same
@@ -94,6 +94,12 @@ python scripts\24_stage2only.py --mock
 
 Exit code 0 only when every part passes (`CHECK PASSED: the rig is ready for 23 or 24`).
 Results: `results/experiments/25_2instrumentquickcheck_<timestamp>/log.txt` and `check_0001.dx`.
+The command also starts a separate review child before the pump opens. It
+processes the saved check file into `analysis\observation_0001.png` (full
+spectrum), `analysis\observation_0001_target.png` (target peak region), and
+`analysis\peak_areas.csv`. The final plots finish shortly after the physical
+check exits. Processing errors go to `review.log` and never change the
+instrument PASS/FAIL result.
 
 ## 23: Stage 1 → dose → Stage 2 (same schedule as 14 and 20)
 
@@ -142,8 +148,21 @@ Defaults: 25 samples at 0, 15, … 360 minutes; 8 scans each. Change
 `experiment.observation_count`, `experiment.interval_minutes` or `nmr.scans` in
 its YAML. Raw files `observation_001.dx` … and `log.txt` are saved directly under
 `results/experiments/24_stage2only_<timestamp>/` (a suffix avoids collisions;
-existing folders are never overwritten). 24 makes no plots; to analyse the
-spectra afterwards:
+existing folders are never overwritten). Before the pump opens, 24 starts a
+separate review child. After every saved observation it updates:
+
+- `analysis\observation_0001.png` ... full ACME/ALS spectra
+- `analysis\observation_0001_target.png` ... the target region near 5.79 ppm
+- `analysis\peak_areas.csv` detection status, peak area and quality flags
+- `analysis\peak_area_vs_time.png` using JCAMP acquisition metadata
+
+Open the PNGs during the run to inspect the peak. Plots are saved in the
+background, so allow processing time after each acquisition. Every title names
+the dataset. A missing plot means processing has not finished or failed; it
+does not mean the peak is absent. See `review.log` for processing messages.
+Review uses the same ACME/ALS and primary 8-sigma / width-0.95 algorithm as
+20/23. `review.enabled: false` disables review. Analysis never controls,
+delays or changes the instrument run. For the full 09 report afterwards:
 
 ```powershell
 python scripts\09_analyze_stage2only_scipy.py "<run folder>"
@@ -153,11 +172,15 @@ python scripts\09_analyze_stage2only_scipy.py "<run folder>"
 
 | Event | What happens |
 |---|---|
-| NMR failure | Logged, iFlow cancel and idle wait, the sample is still returned, the schedule continues once idle is confirmed |
-| NMR idle not confirmed | Sample returned, run stops; check the NMR touchscreen |
+| NMR failure or timeout | Logged; one NMR cancel is sent if START was sent (no waiting, the reply is never required); the sample is still returned; that spectrum is skipped and the schedule continues, as in 20/21. 25 marks its NMR part FAIL |
 | Pump error or uncertain displacement | STOP; no blind infusion; the log asks for physical inspection |
 | Channel 2 dose error or Ctrl+C during the dose (23) | CH2 STOP, run stops before Stage 2; the dose is reported `UNCERTAIN` and never repeated automatically |
-| Ctrl+C | STOP to both channels; a completed, known withdrawal is returned |
+| Ctrl+C | STOP to both channels; if a scan was running, one NMR cancel (no waiting); a completed, known withdrawal is returned at once |
+
+A failed scan never stops the run or waits for the NMR to report idle. The next
+sample is 15 minutes (24) or 30 minutes to 2 hours (23) later, so the NMR has long
+finished; if it were still busy, that sample's scan would also be skipped, and the
+NMR code never saves an old spectrum as new.
 
 Connections close after cleanup; saved spectra remain. No fault files, journals,
 HOME records or previous logs are read to permit another run: there is no pause
