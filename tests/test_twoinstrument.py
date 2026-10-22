@@ -1,4 +1,4 @@
-"""Focused Script 17 tests: existing mock Chemyx serial + fixture NMR, no hardware."""
+"""Focused Script 24 (was 17) tests: existing mock Chemyx serial + fixture NMR, no hardware."""
 from __future__ import annotations
 
 import importlib.util
@@ -16,7 +16,7 @@ from chemyx_lab.workflows.stage2_legacy_nmr import MockLegacyClient
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-spec = importlib.util.spec_from_file_location("twoinstrument_test", ROOT / "scripts/17_twoinstrument.py")
+spec = importlib.util.spec_from_file_location("twoinstrument_test", ROOT / "scripts/24_stage2only.py")
 workflow = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(workflow)
 
@@ -159,7 +159,7 @@ def test_c_full_six_hour_schedule(tmp_path, rigs):
 
 
 def test_d_fresh_process_arduino_unavailable_and_no_state_access(tmp_path):
-    # Install the import/access guard BEFORE loading Script 17 or its helpers.
+    # Install the import/access guard BEFORE loading Script 24 or its helpers.
     code = r'''
 import builtins, importlib.abc, pathlib, runpy, sys
 class NoArduino(importlib.abc.MetaPathFinder):
@@ -176,7 +176,7 @@ def audit(event, args):
 sys.addaudithook(audit)
 sys.path.insert(0, str(pathlib.Path.cwd() / "scripts"))
 builtins.input = lambda prompt: "y"
-ns = runpy.run_path("scripts/17_twoinstrument.py")
+ns = runpy.run_path("scripts/24_stage2only.py")
 assert ns["main"](["--mock", "--output-dir", sys.argv[1]]) == 0
 assert not any(name == "arduino" or name.startswith("arduino.") for name in sys.modules)
 '''
@@ -318,7 +318,7 @@ def test_g_prior_logs_and_error_files_are_never_read(tmp_path, rigs, monkeypatch
     assert all(files(p) == ["log.txt", "observation_001.dx"] for p in runs)
 
 
-def test_overrun_uses_script15_missed_slot_handling(tmp_path, rigs):
+def test_overrun_uses_script21_missed_slot_handling(tmp_path, rigs):
     cfg = settings(4)
     cfg["experiment"]["interval_minutes"] = 2
     # Each cycle (withdraw + 80 s mock NMR + infuse) takes over 200 simulated s, so slots at 120 and 360 are missed.

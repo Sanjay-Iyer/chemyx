@@ -1,4 +1,4 @@
-"""Simple Arduino needle + Chemyx pump + NMR helpers for scripts 15 and 16.
+"""Simple Arduino needle + Chemyx pump + NMR helpers for scripts 20-22 (pump/NMR parts also 23-25).
 
 Deliberately minimal. Nothing here reads or writes needle_state.json, HOME
 journals, pump ledgers, dose records or port lock files, so nothing left over
@@ -49,7 +49,7 @@ class PumpCommandError(RuntimeError):
 
 
 def __getattr__(name):
-    # Keep the 15/16 public imports, without loading Arduino for pump/NMR-only users.
+    # Keep the 20-22 public imports, without loading Arduino for pump/NMR-only users.
     if name in {"NeedleError", "SimpleNeedle", "HardwareError"}:
         from arduino.python.simple_needle import NeedleError, SimpleNeedle
         return {"NeedleError": NeedleError, "SimpleNeedle": SimpleNeedle,

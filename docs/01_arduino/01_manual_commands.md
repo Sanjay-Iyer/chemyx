@@ -7,7 +7,7 @@
 | Python command | [needle_control.py](../../arduino/scripts/needle_control.py) |
 | Current calibrated configuration | [arduino_real_COM3.yaml](../../arduino/configs/arduino_real_COM3.yaml) |
 | Saved position (one integer each) | `runs/arduino/simple_needle_position.txt` (counter), `runs/arduino/simple_needle_steps.txt` (motor steps from HOME) |
-| Shared code (also used by 15/16) | [simple_needle.py](../../arduino/python/simple_needle.py) |
+| Shared code (also used by 20/21/22) | [simple_needle.py](../../arduino/python/simple_needle.py) |
 
 From the repository root on WORK, with the rig physically inspected, choose
 one command as needed:
@@ -76,7 +76,7 @@ python arduino\scripts\needle_control.py stop --live --config arduino\configs\ar
 command, at most 1600 (the configured -3 to +5 travel). The counter still
 changes by one; `home` uses the saved motor steps, so mixed step sizes return
 correctly. Speed and acceleration stay as configured. HOME = DOWN = 0 is the
-sampling location in the flask; UP = 1 is raised. Scripts 15 and 16 read and
+sampling location in the flask; UP = 1 is raised. Scripts 20, 21 and 22 read and
 update the same two files.
 
 The files are written only after the Arduino reports the move finished. No

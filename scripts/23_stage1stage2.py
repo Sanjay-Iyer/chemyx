@@ -1,9 +1,9 @@
-"""19: 48 h Stage 1 -> one Channel 2 dose -> 6 h Stage 2 on 17's two-instrument setup.
+"""23 (was 19): two instruments, 48 h Stage 1 -> one Channel 2 dose -> 6 h Stage 2.
 
 Chemyx + NMR only: the needle stays in the flask and no Arduino is used. Every
-sample is 17's cycle (CH1 withdraw -> NMR -> CH1 infuse), using 17's rig and
+sample is 24's cycle (CH1 withdraw -> NMR -> CH1 infuse), using 24's rig and
 cycle code unchanged. Between the stages Channel 2 infuses one dose over the
-same serial connection. One startup confirmation. 19 refuses to start if the
+same serial connection. One startup confirmation. 23 refuses to start if the
 Channel 1 loading cannot cover every sample.
 
 Live review plots come from one separate, instrument-free process per stage
@@ -38,9 +38,9 @@ def load_script(name, filename):
     return module
 
 
-seventeen = load_script("twoinstrument_17_for_19", "17_twoinstrument.py")
-DEFAULT_CONFIG = Path("configs/experiments/19_twoinstrument_stage1_stage2.yaml")
-PREFIX = "19_twoinstrument_stage1_stage2"
+stage2only = load_script("stage2only_24_for_23", "24_stage2only.py")
+DEFAULT_CONFIG = Path("configs/experiments/23_stage1stage2.yaml")
+PREFIX = "23_stage1stage2"
 STAGES = ("stage_1", "stage_2")
 REQUIRED = {
     "chemyx": ("channel", "withdraw_volume_ml", "infuse_volume_ml", "withdraw_rate_ml_min", "infuse_rate_ml_min",
@@ -65,7 +65,7 @@ def _number(value, name, *, zero=False):
 
 
 def observation_times(stage):
-    """Script 15's slots: 0, interval, ... below the duration, plus the endpoint when asked."""
+    """Script 21's slots: 0, interval, ... below the duration, plus the endpoint when asked."""
     duration, interval = stage["duration_minutes"] * 60.0, stage["interval_minutes"] * 60.0
     slots = [i * interval for i in range(math.ceil(duration / interval))]
     return slots + ([duration] if stage["include_final_observation"] else [])
@@ -88,8 +88,6 @@ def syringe_plan(cfg):
             raise ValueError(f"Channel 1 runs out at sample {number} of {cycles}: {cycles} samples x "
                              f"{infuse - withdraw:+.3f} mL need at least {need:.2f} mL loaded, but "
                              f"chemyx.initial_volume_ml is {float(c['initial_volume_ml']):g} mL")
-    if not float(d["volume_ml"]) <= float(d["initial_volume_ml"]) <= float(d["syringe_capacity_ml"]):
-        raise ValueError("channel_2.initial_volume_ml must cover volume_ml and fit the syringe")
     return dict(cycles=cycles, ch1_left=max(0.0, contents), ch1_peak=peak, ch1_net=cycles * (infuse - withdraw),
                 ch2_left=float(d["initial_volume_ml"]) - float(d["volume_ml"]))
 
@@ -100,29 +98,48 @@ def load_config(path=DEFAULT_CONFIG):
         for key in keys:
             if not isinstance(cfg.get(section), dict) or key not in cfg[section]:
                 raise ValueError(f"Missing setting: {section}.{key}")
-    c, d, n = cfg["chemyx"], cfg["channel_2"], cfg["nmr"]
-    if c["channel"] != 1 or d["channel"] != 2:
-        raise ValueError("19 samples with chemyx.channel: 1 and doses with channel_2.channel: 2")
+    c, n = cfg["chemyx"], cfg["nmr"]
+    if c["channel"] != 1:
+        raise ValueError("23 samples with chemyx.channel: 1")
     for key in ("withdraw_volume_ml", "infuse_volume_ml", "withdraw_rate_ml_min", "infuse_rate_ml_min",
                 "syringe_capacity_ml", "timeout_seconds"):
         _number(c[key], f"chemyx.{key}")
     for key in ("initial_volume_ml", "extra_seconds", "response_delay_seconds"):
         _number(c[key], f"chemyx.{key}", zero=True)
-    for key in ("volume_ml", "rate_ml_min", "syringe_capacity_ml"):
-        _number(d[key], f"channel_2.{key}")
-    _number(d["initial_volume_ml"], "channel_2.initial_volume_ml", zero=True)
     low, high = config.rate_limits(0)
-    for name, value in (("chemyx.withdraw_rate_ml_min", c["withdraw_rate_ml_min"]),
-                        ("chemyx.infuse_rate_ml_min", c["infuse_rate_ml_min"]), ("channel_2.rate_ml_min", d["rate_ml_min"])):
-        if not low <= float(value) <= high:
-            raise ValueError(f"{name} is outside the pump's range")
-    for name, value in (("chemyx", c["syringe_diameter_mm"]), ("channel_2", d["syringe_diameter_mm"])):
-        if not config.DIAMETER_MIN <= float(value) <= config.DIAMETER_MAX:
-            raise ValueError(f"{name}.syringe_diameter_mm is outside the pump's range")
+    for name in ("withdraw_rate_ml_min", "infuse_rate_ml_min"):
+        if not low <= float(c[name]) <= high:
+            raise ValueError(f"chemyx.{name} is outside the pump's range")
+    if not config.DIAMETER_MIN <= float(c["syringe_diameter_mm"]) <= config.DIAMETER_MAX:
+        raise ValueError("chemyx.syringe_diameter_mm is outside the pump's range")
     if type(n["scans"]) is not int or n["scans"] < 1:
         raise ValueError("nmr.scans must be a positive whole number")
     for key in ("http_timeout_seconds", "acquisition_timeout_seconds", "poll_seconds"):
         _number(n[key], f"nmr.{key}")
+    check_dose_and_stages(cfg)
+    syringe_plan(cfg)
+    return cfg
+
+
+def check_dose_and_stages(cfg):
+    """Channel 2, both stages and live review; shared with 20 (three instruments)."""
+    for section in ("channel_2", "stages", "review"):
+        for key in REQUIRED[section]:
+            if not isinstance(cfg.get(section), dict) or key not in cfg[section]:
+                raise ValueError(f"Missing setting: {section}.{key}")
+    d = cfg["channel_2"]
+    if d["channel"] != 2:
+        raise ValueError("The boundary dose uses channel_2.channel: 2")
+    for key in ("volume_ml", "rate_ml_min", "syringe_capacity_ml"):
+        _number(d[key], f"channel_2.{key}")
+    _number(d["initial_volume_ml"], "channel_2.initial_volume_ml", zero=True)
+    low, high = config.rate_limits(0)
+    if not low <= float(d["rate_ml_min"]) <= high:
+        raise ValueError("channel_2.rate_ml_min is outside the pump's range")
+    if not config.DIAMETER_MIN <= float(d["syringe_diameter_mm"]) <= config.DIAMETER_MAX:
+        raise ValueError("channel_2.syringe_diameter_mm is outside the pump's range")
+    if not float(d["volume_ml"]) <= float(d["initial_volume_ml"]) <= float(d["syringe_capacity_ml"]):
+        raise ValueError("channel_2.initial_volume_ml must cover volume_ml and fit the syringe")
     for name in STAGES:
         stage = cfg["stages"][name]
         if not isinstance(stage, dict) or not {"duration_minutes", "interval_minutes", "include_final_observation"} <= set(stage):
@@ -133,8 +150,6 @@ def load_config(path=DEFAULT_CONFIG):
             raise ValueError(f"Invalid or excessive schedule for stages.{name}")
     if type(cfg["review"]["enabled"]) is not bool:
         raise ValueError("review.enabled must be true or false")
-    syringe_plan(cfg)
-    return cfg
 
 
 def hours(minutes):
@@ -146,7 +161,7 @@ def summary_lines(cfg):
     plan, t1, t2 = syringe_plan(cfg), observation_times(s1), observation_times(s2)
     net = float(c["infuse_volume_ml"]) - float(c["withdraw_volume_ml"])
     return [
-        "19 TWO-INSTRUMENT STAGE 1 + STAGE 2 EXPERIMENT",
+        "23 TWO-INSTRUMENT STAGE 1 + STAGE 2 RUN",
         "Arduino: NOT USED | Needle: stationary in flask",
         f"Every sample: CH1 withdraw {c['withdraw_volume_ml']:g} mL -> NMR {n['scans']} scans -> CH1 infuse "
         f"{c['infuse_volume_ml']:g} mL (flow {c['withdraw_rate_ml_min']:g} / {c['infuse_rate_ml_min']:g} mL/min; "
@@ -185,8 +200,8 @@ def channel_2_settings(cfg):
                            syringe_capacity_ml=d["syringe_capacity_ml"])}
 
 
-class StageRig(seventeen.TwoInstrumentRig):
-    """17's CH1 + NMR rig, plus Channel 2 on the same Chemyx connection for the boundary dose only."""
+class StageRig(stage2only.TwoInstrumentRig):
+    """24's CH1 + NMR rig, plus Channel 2 on the same Chemyx connection for the boundary dose only."""
 
     def __init__(self, cfg, *, mock, clock, log):
         super().__init__(cfg, mock=mock, clock=clock, log=log)
@@ -214,7 +229,7 @@ class StageRig(seventeen.TwoInstrumentRig):
 
     def __exit__(self, exc_type, exc, tb):
         if exc_type is not None and self.pump.pump.is_connected:
-            self.ch2.stop()  # Before 17's cleanup closes the shared port.
+            self.ch2.stop()  # Before 24's cleanup closes the shared port.
             if self.dose_pending:
                 self.log.error("Channel 2 dose interrupted; CH2 STOP sent. The amount added is uncertain and the "
                                "dose is never repeated automatically: inspect before another run.")
@@ -225,7 +240,7 @@ class StageRig(seventeen.TwoInstrumentRig):
 def start_review(stage_dir, raw_dir, cfg, log):
     """One review child per stage (14's worker): reads raw files only; never waited on or read back."""
     r = cfg["review"]
-    settings = {"experiment": {"name": PREFIX}, "analysis": {
+    settings = {"experiment": {"name": stage_dir.parent.name}, "analysis": {
         "dataset_display_name": f"{stage_dir.parent.name} {stage_dir.name}", "phase_method": "acme",
         "processing_config": r["processing_config"], "target_peak": dict(r["target_peak"]),
         "save_spectrum_plots": True, "save_area_vs_time": True, "every_n_acquisitions": 1}}
@@ -245,14 +260,16 @@ def start_review(stage_dir, raw_dir, cfg, log):
 
 
 # ---------------------------------------------------------------------- run
-def run_stage(rig, cfg, name, stage_dir, clock, log, tally):
+def run_stage(rig, cfg, name, stage_dir, clock, log, tally, sample=None):
+    """One stage window; `sample(rig, cfg, path, number)` defaults to 24's cycle (20 passes 21's)."""
+    sample = sample or stage2only.sample
     stage, counts = cfg["stages"][name], tally[name]
     slots = observation_times(stage)
     start = clock.now()
     log.info("=" * 60)
     log.info(f"{name.upper()} STARTED: {len(slots)} samples over {hours(stage['duration_minutes'])}")
     for number, due in enumerate(slots, 1):
-        # Same fixed-start schedule and missed-slot behaviour as 15 and 17.
+        # Same fixed-start schedule and missed-slot behaviour as 21 and 24.
         if number > 1 and clock.now() - start > due + 1e-6:
             counts["missed"] += 1
             log.warning(f"{name} sample {number}/{len(slots)} MISSED (scheduled {clock_text(due)}); continuing")
@@ -262,7 +279,7 @@ def run_stage(rig, cfg, name, stage_dir, clock, log, tally):
             while clock.now() - start < due:
                 clock.sleep(due - (clock.now() - start))
         log.info(f"--- {name} sample {number}/{len(slots)} (scheduled {clock_text(due)}) ---")
-        result = seventeen.sample(rig, cfg, stage_dir / "nmr_raw" / f"{name}_{number:04d}.dx", number)
+        result = sample(rig, cfg, stage_dir / "nmr_raw" / f"{name}_{number:04d}.dx", number)
         counts["saved" if result["status"] == "NMR_SAVED" else "nmr_failed"] += 1
     end = stage["duration_minutes"] * 60.0
     if clock.now() - start < end:
@@ -308,7 +325,7 @@ def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=StageRig, confirm
     except KeyboardInterrupt:
         status = "INTERRUPTED"
         log.error("Interrupted by operator (Ctrl+C)")
-    except (PumpCommandError, seventeen.NmrRunError) as exc:
+    except (PumpCommandError, stage2only.NmrRunError) as exc:
         status = "STOPPED"
         log.error(str(exc))
     except Exception as exc:
@@ -345,12 +362,12 @@ def main(argv=None):
     try:
         cfg = load_config(args.config)
     except Exception as exc:
-        print(f"19 configuration error: {type(exc).__name__}: {exc}", flush=True)
+        print(f"23 configuration error: {type(exc).__name__}: {exc}", flush=True)
         return 2
     try:
         status, _ = run(cfg, mock=args.mock, output_dir=args.output_dir, confirm=True, review_launcher=start_review)
     except Exception as exc:
-        print(f"19 could not start: {type(exc).__name__}: {exc}", flush=True)
+        print(f"23 could not start: {type(exc).__name__}: {exc}", flush=True)
         return 1
     return {"COMPLETE": 0, "DECLINED": 3, "INTERRUPTED": 130}.get(status, 1)
 

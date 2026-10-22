@@ -1,7 +1,7 @@
-"""17: stationary needle, Chemyx CH1 WITHDRAW -> NMR -> INFUSE at fixed times.
+"""24 (was 17): two instruments, Stage 2 only. Stationary needle, CH1 WITHDRAW -> NMR -> INFUSE.
 
 One startup confirmation. No Arduino, Stage 1, Channel 2, processing or saved
-control state. Uses Script 15's SyringePump and standalone 04/05 NmrScanner.
+control state. Uses Script 21's SyringePump and standalone 04/05 NmrScanner.
 Only log.txt and raw observation_001.dx, ... are written in each new run folder.
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ from chemyx_lab.workflows.simple_rig import (
 )
 from chemyx_lab.workflows.si6_fixed_time_nmr import running_state
 
-DEFAULT_CONFIG = Path("configs/experiments/17_twoinstrument.yaml")
+DEFAULT_CONFIG = Path("configs/experiments/24_stage2only.yaml")
 
 
 class NmrRunError(RuntimeError):
@@ -43,7 +43,7 @@ def load_config(path=DEFAULT_CONFIG):
                 raise ValueError(f"Missing setting: {section}.{key}")
     c, n, exp = cfg["chemyx"], cfg["nmr"], cfg["experiment"]
     if type(c["channel"]) is not int or c["channel"] != 1:
-        raise ValueError("Script 17 requires chemyx.channel: 1")
+        raise ValueError("Script 24 requires chemyx.channel: 1")
     for section, key in ((exp, "observation_count"), (n, "scans")):
         if type(section[key]) is not int or section[key] < 1:
             raise ValueError(f"{key} must be a positive whole number")
@@ -79,7 +79,7 @@ def summary_lines(cfg):
     c, n, exp = cfg["chemyx"], cfg["nmr"], cfg["experiment"]
     net = float(c["infuse_volume_ml"]) - float(c["withdraw_volume_ml"])
     return [
-        "17 TWO-INSTRUMENT EXPERIMENT",
+        "24 TWO-INSTRUMENT STAGE 2 ONLY RUN",
         "Arduino: NOT USED | Needle: Stationary in flask",
         f"Chemyx: Channel 1 | Withdraw: {c['withdraw_volume_ml']:g} mL | Infuse: {c['infuse_volume_ml']:g} mL",
         f"Flow: withdraw {c['withdraw_rate_ml_min']:g}, infuse {c['infuse_rate_ml_min']:g} mL/min",
@@ -203,14 +203,14 @@ def sample(rig, cfg, path, number):
 
 def results_dir(cfg, output_dir):
     if output_dir is not None:
-        return new_run_dir(cfg, "17_twoinstrument", output_dir)
+        return new_run_dir(cfg, "24_stage2only", output_dir)
     root = config.resolve_repo_path(cfg["output"]["root_dir"])
-    stem = f"17_twoinstrument_{datetime.now():%Y%m%d_%H%M%S}"
+    stem = f"24_stage2only_{datetime.now():%Y%m%d_%H%M%S}"
     suffix = 0
     while True:
         target = root / (stem if suffix == 0 else f"{stem}_{suffix}")
         try:
-            return new_run_dir(cfg, "17_twoinstrument", target)
+            return new_run_dir(cfg, "24_stage2only", target)
         except FileExistsError:
             suffix += 1
 
@@ -218,7 +218,7 @@ def results_dir(cfg, output_dir):
 def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=TwoInstrumentRig, confirm=False, input_fn=input):
     clock = clock or (SimulatedClock() if mock else RealClock())
     run_dir = results_dir(cfg, output_dir)
-    log = make_logger(run_dir, clock, "17_twoinstrument")
+    log = make_logger(run_dir, clock, "24_stage2only")
     slots = observation_times(cfg)
     tally = dict(slots=len(slots), saved=0, nmr_failed=0, missed=0)
     status = "FAILED"
@@ -233,7 +233,7 @@ def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=TwoInstrumentRig,
         with rig_factory(cfg, mock=mock, clock=clock, log=log) as rig:
             start = clock.now()
             for number, due in enumerate(slots, 1):
-                # Same fixed-start schedule and missed-slot behavior as Script 15.
+                # Same fixed-start schedule and missed-slot behavior as Script 21.
                 if number > 1 and clock.now() - start > due + 1e-6:
                     tally["missed"] += 1
                     log.warning(f"Slot {number}/{len(slots)} MISSED (scheduled {clock_text(due)}); continuing")
@@ -276,12 +276,12 @@ def main(argv=None):
     try:
         cfg = load_config(args.config)
     except Exception as exc:
-        print(f"17 configuration error: {type(exc).__name__}: {exc}", flush=True)
+        print(f"24 configuration error: {type(exc).__name__}: {exc}", flush=True)
         return 2
     try:
         status, _ = run(cfg, mock=args.mock, output_dir=args.output_dir, confirm=True)
     except Exception as exc:
-        print(f"17 could not start: {type(exc).__name__}: {exc}", flush=True)
+        print(f"24 could not start: {type(exc).__name__}: {exc}", flush=True)
         return 1
     return {"COMPLETE": 0, "DECLINED": 3, "INTERRUPTED": 130}.get(status, 1)
 

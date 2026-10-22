@@ -1,4 +1,4 @@
-"""15 — simple Stage 2 run (replaces 12): no state files, no lockouts.
+"""21 — three-instrument Stage 2 only (simple; was 15, replaces 12): no state files, no lockouts.
 
 Prepare first: HOME set with needle_control.py set-home (shared position file),
 Channel 1 syringe empty, NMR idle. --live starts immediately, moves the needle
@@ -30,9 +30,9 @@ import _bootstrap  # noqa: F401
 from chemyx_lab.workflows.simple_rig import (HardwareError, RealClock, SimpleRig, SimulatedClock,
     check_settings, clock_text, close_logger, load_settings, make_logger, new_run_dir, ok)
 
-DEFAULT_CONFIG = Path("configs/experiments/15_stage2_simple.yaml")
+DEFAULT_CONFIG = Path("configs/experiments/21_stage2only.yaml")
 ANALYSIS_SCRIPT = Path(__file__).resolve().with_name("09_analyze_stage2only_scipy.py")
-ANALYSIS_TIMEOUT_SECONDS = 3600  # 09's own processor limit; 15 waits up to 10 minutes longer.
+ANALYSIS_TIMEOUT_SECONDS = 3600  # 09's own processor limit; 21 waits up to 10 minutes longer.
 EXTRA_SETTINGS = {
     "experiment": ("duration_minutes", "interval_minutes", "include_final_observation"),
     "chemyx": ("pre_sample_volume_ml", "sample_volume_ml", "sample_rate_ml_min", "return_rate_ml_min",
@@ -115,15 +115,15 @@ def analyze_after_run(raw_dir, log, *, timeout=ANALYSIS_TIMEOUT_SECONDS):
 def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=SimpleRig, analyze=None):
     """The physical run. `analyze(raw_dir, log)`, when given, runs only after the rig has closed."""
     clock = clock or (SimulatedClock() if mock else RealClock())
-    run_dir = new_run_dir(cfg, "15_stage2_simple", output_dir)
+    run_dir = new_run_dir(cfg, "21_stage2only", output_dir)
     raw_dir = run_dir / "nmr_raw"
-    log = make_logger(run_dir, clock, "15_stage2_simple")
+    log = make_logger(run_dir, clock, "21_stage2only")
     slots = observation_times(cfg)
     tally = dict(slots=len(slots), saved=0, nmr_failed=0, missed=0)
     status = "FAILED"
     try:
         log.info("=" * 60)
-        log.info("15 STAGE 2 SIMPLE RUN" + (" [MOCK: no hardware]" if mock else " [LIVE]"))
+        log.info("21 THREE-INSTRUMENT STAGE 2 ONLY RUN" + (" [MOCK: no hardware]" if mock else " [LIVE]"))
         log.info(f"{len(slots)} slots every {cfg['experiment']['interval_minutes']:g} min over "
                  f"{cfg['experiment']['duration_minutes']:g} min; {cfg['nmr']['scans']} scans each")
         log.info(f"Results: {run_dir}")
@@ -192,12 +192,12 @@ def main(argv=None):
     try:
         cfg = load_config(args.config)
     except Exception as exc:
-        print(f"15 configuration error: {type(exc).__name__}: {exc}", flush=True)
+        print(f"21 configuration error: {type(exc).__name__}: {exc}", flush=True)
         return 2
     try:
         status, _ = run(cfg, mock=args.mock, output_dir=args.output_dir, analyze=analyze_after_run)
     except Exception as exc:  # Only before the log exists, e.g. the output folder already exists.
-        print(f"15 could not start: {type(exc).__name__}: {exc}", flush=True)
+        print(f"21 could not start: {type(exc).__name__}: {exc}", flush=True)
         return 1
     return {"COMPLETE": 0, "INTERRUPTED": 130}.get(status, 1)
 

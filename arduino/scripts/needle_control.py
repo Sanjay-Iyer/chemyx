@@ -1,7 +1,7 @@
 """Manual D3 STEP / D4 DIR needle control: status, set-home, home, up, down, stop.
 
 The position is two plain-text integers in runs/arduino, shared with scripts
-15/16 (see arduino/python/simple_needle.py): the logical counter (SET-HOME and
+20/21/22 (see arduino/python/simple_needle.py): the logical counter (SET-HOME and
 HOME -> 0, UP +1, DOWN -1 per completed command) and the motor steps from HOME.
 No saved fault, validity or recovery state is checked, so an earlier failure
 never blocks a later command.

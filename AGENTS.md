@@ -12,11 +12,14 @@ the user explicitly changes this instruction. Do not run
 Existing packages may remain; do not delete them just because they are unused.
 Keep current operating documentation aligned with the Git/WORK/drive workflow.
 
-## Simple 15/16 scripts: deliberate exception
+## Simple 20–25 scripts: deliberate exception
 
 `arduino/scripts/needle_control.py`, `arduino/python/simple_needle.py`,
-`scripts/15_stage2_simple.py`, `scripts/16_3_instrument_check_simple.py` and
-`chemyx_lab/workflows/simple_rig.py` are the user's requested no-lockout path.
+`scripts/20_stage1stage2.py`, `scripts/21_stage2only.py`, `scripts/22_3instrumentquickcheck.py` and
+`chemyx_lab/workflows/simple_rig.py` are the user's requested no-lockout path
+(three instruments; 21/22 were 15/16). The two-instrument scripts 23/24/25
+(`23_stage1stage2.py`, `24_stage2only.py`, `25_2instrumentquickcheck.py`; were
+19/17/18) use only simple_rig's pump and NMR parts, never Arduino code.
 The needle position is two plain-text files with one integer each
 (`runs/arduino/simple_needle_position.txt` counter, `simple_needle_steps.txt`
 motor steps from HOME), written only after DONE. They never read or write
@@ -25,12 +28,15 @@ any Chemyx STOP reply, and use the standalone 04/05 NMR `legacy_acquire`. Do
 not add validity flags, fault files, HOME-reference, journal or lockout rules
 to them.
 
-15's command line processes and plots its spectra automatically, but only after
+21's command line processes and plots its spectra automatically, but only after
 the physical run has ended (rig context exited: needle HOME, ports closed): it
 runs `scripts/09_analyze_stage2only_scipy.py` on `nmr_raw` as a separate
 process, never imports numerical code, and never lets an analysis result,
 error or timeout change the run's status or exit code. `run()` without
-`analyze=` stays the plain physical run used by the tests.
+`analyze=` stays the plain physical run used by the tests. 20 and 23 start
+one live review process per stage (14's review worker) before the ports open,
+never import it and never read its results; `run()` without `review_launcher=`
+starts none.
 
 ## Official Arduino needle HOME (older workflows 04–14)
 

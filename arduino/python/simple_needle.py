@@ -1,4 +1,4 @@
-"""Simple needle control shared by needle_control.py and scripts 15/16.
+"""Simple needle control shared by needle_control.py and scripts 20/21/22.
 
 Two plain-text files, one signed integer each, side by side (runs/arduino):
 
@@ -131,7 +131,7 @@ class SimpleNeedle:
         self._jog(-self.steps, home=True)
 
     def move_to_units(self, units):
-        """15/16: go to an absolute position in increments (0 = HOME, 1 = UP)."""
+        """20/21/22: go to an absolute position in increments (0 = HOME, 1 = UP)."""
         if not self.has_home:
             raise NeedleError("No HOME recorded: place the needle at the sampling position and run set-home")
         target = round(units * self.unit)

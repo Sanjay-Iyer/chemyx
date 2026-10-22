@@ -1,3 +1,4 @@
+# 24 — two instruments (Chemyx + NMR, needle stationary), Stage 2 only (was 17).
 # ==========================================
 # CHEMYX CHANNEL 1 - SAMPLING SETTINGS
 # ==========================================
@@ -7,8 +8,8 @@ chemyx:
   channel: 1
   withdraw_volume_ml: 5.0
   infuse_volume_ml: 5.2
-  withdraw_rate_ml_min: 5.0   # Script 15's working sample rate.
-  infuse_rate_ml_min: 5.0     # Script 15's working return rate.
+  withdraw_rate_ml_min: 5.0   # Script 21's working sample rate.
+  infuse_rate_ml_min: 5.0     # Script 21's working return rate.
 
   # Set this to the ACTUAL liquid initially loaded by the operator.
   # Extra delivered per cycle = infuse - withdraw = 0.2 mL; 25 cycles need 5.0 mL,
@@ -22,13 +23,13 @@ chemyx:
   baud_rate: 115200
   timeout_seconds: 2
   response_delay_seconds: 0.2
-  extra_seconds: 2           # Same timed transfer + STOP completion as Script 15.
+  extra_seconds: 2           # Same timed transfer + STOP completion as Script 21.
 
 experiment:
   observation_count: 25      # 0, 15, ... 360 minutes (six-hour endpoint included).
   interval_minutes: 15       # Slots stay anchored to run start; late slots are skipped.
 
-# Same interface, timeouts and polling as Script 15 / standalone 04/05.
+# Same interface, timeouts and polling as Script 21 / standalone 04/05.
 nmr:
   host: 169.254.30.54
   port: 5000

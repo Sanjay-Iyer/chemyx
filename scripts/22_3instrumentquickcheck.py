@@ -1,4 +1,4 @@
-"""16 — quick three-instrument check (replaces 13): no state files, no lockouts.
+"""22 — quick three-instrument check (simple; was 16, replaces 13): no state files, no lockouts.
 
 Prepare first: HOME set with needle_control.py set-home (shared position file),
 Channel 1 syringe empty, NMR idle. --live starts immediately:
@@ -18,7 +18,7 @@ import _bootstrap  # noqa: F401
 from chemyx_lab.workflows.simple_rig import (HardwareError, RealClock, SimpleRig, SimulatedClock,
     check_settings, close_logger, load_settings, make_logger, new_run_dir, ok)
 
-DEFAULT_CONFIG = Path("configs/experiments/16_3_instrument_check_simple.yaml")
+DEFAULT_CONFIG = Path("configs/experiments/22_3instrumentquickcheck.yaml")
 EXTRA_SETTINGS = {"check": ("withdraw_volume_ml", "infuse_volume_ml", "pump_rate_ml_min", "nmr_scans")}
 STEPS = ("Connect Arduino + Chemyx", "NMR reachable", "Needle UP/DOWN", "Chemyx CH1 withdraw/infuse",
          "NMR scan", "Needle HOME + ports closed")
@@ -30,14 +30,14 @@ def load_config(path=DEFAULT_CONFIG):
 
 def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=SimpleRig):
     clock = clock or (SimulatedClock() if mock else RealClock())
-    run_dir = new_run_dir(cfg, "16_check_simple", output_dir)
-    log = make_logger(run_dir, clock, "16_check_simple")
+    run_dir = new_run_dir(cfg, "22_3instrumentquickcheck", output_dir)
+    log = make_logger(run_dir, clock, "22_3instrumentquickcheck")
     t = cfg["check"]
     results = {step: "NOT RUN" for step in STEPS}
     current, rig = STEPS[0], None
     try:
         log.info("=" * 60)
-        log.info("16 THREE-INSTRUMENT CHECK (simple)" + (" [MOCK: no hardware]" if mock else " [LIVE]"))
+        log.info("22 THREE-INSTRUMENT QUICK CHECK" + (" [MOCK: no hardware]" if mock else " [LIVE]"))
         log.info(f"Results: {run_dir}")
         log.info("Assuming: HOME set with needle_control.py, Channel 1 syringe empty, NMR idle")
         log.info("=" * 60)
@@ -98,12 +98,12 @@ def main(argv=None):
     try:
         cfg = load_config(args.config)
     except Exception as exc:
-        print(f"16 configuration error: {type(exc).__name__}: {exc}", flush=True)
+        print(f"22 configuration error: {type(exc).__name__}: {exc}", flush=True)
         return 2
     try:
         passed, results = run(cfg, mock=args.mock, output_dir=args.output_dir)
     except Exception as exc:  # Only before the log exists, e.g. the output folder already exists.
-        print(f"16 could not start: {type(exc).__name__}: {exc}", flush=True)
+        print(f"22 could not start: {type(exc).__name__}: {exc}", flush=True)
         return 1
     return 0 if passed else (130 if "INTERRUPTED" in results.values() else 1)
 

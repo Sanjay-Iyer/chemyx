@@ -1,4 +1,4 @@
-# 15 — simple Stage 2 run (replaces 12). Also the base settings for 16.
+# 21 — three-instrument Stage 2 only (simple; was 15, replaces 12). Also the base settings for 20 and 22.
 # No needle_state.json, journals, pump ledgers or lockouts. The needle position
 # is the same plain-integer file pair that needle_control.py uses.
 # Before starting: HOME set with needle_control.py set-home, Channel 1 syringe

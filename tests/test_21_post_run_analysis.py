@@ -1,4 +1,4 @@
-"""Script 15 post-run analysis: only after the physical run, never changes it (mock only)."""
+"""Script 21 (was 15) post-run analysis: only after the physical run, never changes it (mock only)."""
 import csv
 import hashlib
 import re
@@ -104,7 +104,7 @@ def test_analysis_failure_keeps_status_raw_data_and_exit_code(home, rigs, monkey
 
 
 def test_cli_exit_code_follows_the_physical_run_when_analysis_fails(home, monkeypatch, tmp_path):
-    cfg = {"base_config": "configs/experiments/15_stage2_simple.yaml", "experiment": {"duration_minutes": 15},
+    cfg = {"base_config": "configs/experiments/21_stage2only.yaml", "experiment": {"duration_minutes": 15},
            "arduino": {"position_file": str(home / "simple_needle_position.txt")}}
     (home / "c15.yaml").write_text(yaml.safe_dump(cfg), encoding="utf-8")
     monkeypatch.setattr(stage2, "ANALYSIS_SCRIPT", fake_09(tmp_path, "sys.exit(1)\n"))
@@ -128,7 +128,7 @@ def shifted(data, minutes):
 
 @pytest.mark.parametrize("count", [1, 2])
 def test_real_09_processing_writes_results_and_labelled_pngs(tmp_path, count):
-    raw = tmp_path / "15_stage2_simple_20261021_170000/nmr_raw"
+    raw = tmp_path / "21_stage2only_20261021_170000/nmr_raw"
     raw.mkdir(parents=True)
     for i in range(count):
         (raw / f"stage_2_{i + 1:04d}.dx").write_bytes(shifted(FIXTURE.read_bytes(), 15 * i))
@@ -151,7 +151,7 @@ def test_real_09_processing_writes_results_and_labelled_pngs(tmp_path, count):
     assert [float(r["elapsed_hours"]) for r in rows] == pytest.approx([.25 * i for i in range(count)])
     assert all(r["timestamp_source"] == "LONG DATE header" for r in rows)
     with Image.open(plots / "observations/obs_0001_full_spectrum.png") as im:
-        assert im.info["Title"] == "15_stage2_simple_20261021_170000 Stage 2 obs_0001 Full Processed Spectrum"
+        assert im.info["Title"] == "21_stage2only_20261021_170000 Stage 2 obs_0001 Full Processed Spectrum"
     assert "stage_2_0001.dx" in (plots / "observations/obs_0001_full_spectrum.svg").read_text(encoding="utf-8")
     text = (raw.parent / "log.txt").read_text(encoding="utf-8")
     assert "Analysis COMPLETE" in text and str(plots) in text

@@ -1,4 +1,4 @@
-"""needle_control.py + scripts 15/16: shared plain-integer needle position, no lockouts (mock only)."""
+"""needle_control.py + scripts 21/22 (was 15/16): shared plain-integer needle position, no lockouts (mock only)."""
 import importlib.util
 import json
 import re
@@ -30,12 +30,12 @@ def load(name, path):
     return module
 
 
-stage2 = load("simple_stage2_test", ROOT / "scripts/15_stage2_simple.py")
-check = load("simple_check_test", ROOT / "scripts/16_3_instrument_check_simple.py")
+stage2 = load("simple_stage2_test", ROOT / "scripts/21_stage2only.py")
+check = load("simple_check_test", ROOT / "scripts/22_3instrumentquickcheck.py")
 manual = load("simple_needle_control_test", NEEDLE_CONTROL)
 SOURCES = ["arduino/python/simple_needle.py", "arduino/scripts/needle_control.py",
-           "chemyx_lab/workflows/simple_rig.py", "scripts/15_stage2_simple.py",
-           "scripts/16_3_instrument_check_simple.py"]
+           "chemyx_lab/workflows/simple_rig.py", "scripts/21_stage2only.py",
+           "scripts/22_3instrumentquickcheck.py"]
 
 
 # ------------------------------------------------------------------ helpers
@@ -146,7 +146,7 @@ def test_3_failed_move_or_stop_does_not_lock_later_processes(home, monkeypatch, 
         assert saved(home)[0] == expected
 
 
-def test_4_check_16_complete_and_ends_at_shared_home(home, rigs):
+def test_4_check_22_complete_and_ends_at_shared_home(home, rigs):
     assert cli(home, "set-home")[0] == 0 and cli(home, "up")[0] == 0  # Left UP by the manual tool.
     before = repo_state()
     passed, results = check.run(rig_cfg(check, home), mock=True, output_dir=home / "run", rig_factory=rigs)
@@ -159,7 +159,7 @@ def test_4_check_16_complete_and_ends_at_shared_home(home, rigs):
     assert repo_state() == before
 
 
-def test_5_stage2_15_full_schedule_eight_scans_ends_at_home(home, rigs):
+def test_5_stage2_21_full_schedule_eight_scans_ends_at_home(home, rigs):
     cfg = rig_cfg(stage2, home)
     assert stage2.observation_times(cfg) == [i * 15 * 60.0 for i in range(25)]
     status, tally = stage2.run(cfg, mock=True, output_dir=home / "run", rig_factory=rigs)
@@ -249,12 +249,12 @@ class CtrlCHalfway(SimulatedClock):
     def sleep(self, seconds):
         if seconds > self.over and not self.fired:
             self.fired = True
-            self.elapsed += seconds / 2 - 1  # Pump ran 48 s of 98 s (15) or 6 s of 14 s (16).
+            self.elapsed += seconds / 2 - 1  # Pump ran 48 s of 98 s (21) or 6 s of 14 s (22).
             raise KeyboardInterrupt
         super().sleep(seconds)
 
 
-def test_ctrl_c_mid_withdraw_in_15_empties_syringe_and_returns_home(home, rigs):
+def test_ctrl_c_mid_withdraw_in_21_empties_syringe_and_returns_home(home, rigs):
     status, _ = stage2.run(rig_cfg(stage2, home, duration_minutes=30), mock=True, output_dir=home / "run",
                            clock=CtrlCHalfway(60), rig_factory=rigs)
     rig, log = rigs.made[0], (home / "run/log.txt").read_text(encoding="utf-8")
@@ -264,7 +264,7 @@ def test_ctrl_c_mid_withdraw_in_15_empties_syringe_and_returns_home(home, rigs):
     assert log.index("Emptying Channel 1") < log.index("Needle at HOME") < log.index("Serial ports closed")
 
 
-def test_ctrl_c_mid_withdraw_in_16_empties_syringe_and_returns_home(home, rigs):
+def test_ctrl_c_mid_withdraw_in_22_empties_syringe_and_returns_home(home, rigs):
     passed, results = check.run(rig_cfg(check, home), mock=True, output_dir=home / "run", clock=CtrlCHalfway(10),
                                 rig_factory=rigs)
     rig, log = rigs.made[0], (home / "run/log.txt").read_text(encoding="utf-8")
@@ -305,7 +305,7 @@ def test_needle_error_does_not_auto_empty(home, rigs, monkeypatch):
     assert "syringe NOT emptied after this error; about 8.00 mL left" in log and "Emptying Channel 1" not in log
 
 
-def test_failed_needle_move_in_16_keeps_last_saved_position(home, rigs, monkeypatch):
+def test_failed_needle_move_in_22_keeps_last_saved_position(home, rigs, monkeypatch):
     monkeypatch.setattr(NeedleController, "jog", lambda self, steps, speed: (_ for _ in ()).throw(DoneTimeout("no DONE")))
     passed, results = check.run(rig_cfg(check, home), mock=True, output_dir=home / "run", rig_factory=rigs)
     assert not passed and results["Needle UP/DOWN"] == "FAIL" and results["Needle HOME + ports closed"] == "FAIL"
@@ -331,11 +331,11 @@ def test_travel_range_is_checked_before_any_motion(home):
         close_logger(log)
 
 
-def test_check_16_cli_exit_codes(home):
+def test_check_22_cli_exit_codes(home):
     cfg = rig_cfg(check, home)
     good = home / "c16.yaml"
     good.write_text(yaml.safe_dump(cfg), encoding="utf-8")
-    run = lambda *args: subprocess.run([sys.executable, "scripts/16_3_instrument_check_simple.py", *args], cwd=ROOT,
+    run = lambda *args: subprocess.run([sys.executable, "scripts/22_3instrumentquickcheck.py", *args], cwd=ROOT,
                                        capture_output=True, text=True, timeout=120).returncode
     assert run("--mock", "--config", str(good), "--output-dir", str(home / "run")) == 0
     bad = home / "bad.yaml"
