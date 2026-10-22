@@ -25,6 +25,23 @@ chemyx:
   response_delay_seconds: 0.2
   extra_seconds: 2           # Same timed transfer + STOP completion as Script 21.
 
+# ==========================================
+# OPTIONAL CHANNEL 2 DOSE
+# ==========================================
+# enabled: true -> once the time-0 sample has finished (sample returned), wait
+# delay_after_time_zero_seconds, then Channel 2 infuses volume_ml at rate_ml_min
+# (no needle movement). Then 24 waits for the next sample as usual. The schedule
+# does not move: a sample whose time passes during the dose is skipped.
+channel_2:
+  enabled: false
+  channel: 2
+  volume_ml: 1.86
+  rate_ml_min: 1.0
+  delay_after_time_zero_seconds: 180   # 3 minutes
+  initial_volume_ml: 5.0     # ACTUAL liquid loaded in Channel 2 before starting.
+  syringe_diameter_mm: 20.0
+  syringe_capacity_ml: 20.0
+
 experiment:
   observation_count: 25      # 0, 15, ... 360 minutes (six-hour endpoint included).
   interval_minutes: 15       # Slots stay anchored to run start; late slots are skipped.

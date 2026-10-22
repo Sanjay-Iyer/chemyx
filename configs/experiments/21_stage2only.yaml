@@ -37,6 +37,24 @@ chemyx:
   settle_seconds: 10           # Wait after sampling, before the NMR scan.
   extra_seconds: 2             # Added to each timed transfer before STOP.
 
+# ==========================================
+# OPTIONAL CHANNEL 2 DOSE (21 only; 20 always doses between its stages)
+# ==========================================
+# enabled: true -> once the time-0 sample has finished (sample returned, washed),
+# wait delay_after_time_zero_seconds, then: needle to HOME, Channel 2 infuses
+# volume_ml at rate_ml_min, needle UP. Then 21 waits for the next sample as usual.
+# The schedule does not move: a sample whose time passes during the dose is
+# skipped. 20 has its own channel_2 section (its dose is between stages); 22 never doses.
+channel_2:
+  enabled: false
+  channel: 2
+  volume_ml: 1.86
+  rate_ml_min: 1.0
+  delay_after_time_zero_seconds: 180   # 3 minutes
+  initial_volume_ml: 5.0     # ACTUAL liquid loaded in Channel 2 before starting.
+  syringe_diameter_mm: 20.0
+  syringe_capacity_ml: 20.0
+
 nmr:
   host: 169.254.30.54
   port: 5000

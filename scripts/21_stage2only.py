@@ -10,6 +10,10 @@ An NMR failure skips that slot's spectrum and the schedule continues. A needle
 or pump error, or Ctrl+C, STOPs the pump and Arduino, returns the needle to
 HOME and exits. Output: one folder with nmr_raw/*.dx and log.txt.
 
+Optional (channel_2.enabled: true): one Channel 2 dose a set delay after the
+time-0 sample finishes (needle to HOME, CH2 infuse, needle UP, as in 20); the
+sampling schedule is unchanged.
+
 The command line starts live review in a separate process before the ports
 open: every saved spectrum gets full-spectrum and target-peak plots in analysis/.
 This process never controls or delays the instruments. Once the physical run
@@ -33,6 +37,7 @@ import sys
 import _bootstrap  # noqa: F401
 from chemyx_lab.workflows.simple_rig import (HardwareError, RealClock, SimpleRig, SimulatedClock,
     check_settings, clock_text, close_logger, load_settings, make_logger, new_run_dir, ok)
+from chemyx_lab.workflows.simple_dose import Channel2, check_channel_2, dose_after_time_zero, dose_enabled, plan_lines
 from chemyx_lab.workflows.simple_review import begin_review, start_review
 
 DEFAULT_CONFIG = Path("configs/experiments/21_stage2only.yaml")
@@ -46,7 +51,33 @@ EXTRA_SETTINGS = {
 
 
 def load_config(path=DEFAULT_CONFIG):
-    return check_settings(load_settings(path), EXTRA_SETTINGS)
+    cfg = check_settings(load_settings(path), EXTRA_SETTINGS)
+    check_channel_2(cfg)  # Only when channel_2.enabled is true.
+    return cfg
+
+
+class DoseRig(SimpleRig):
+    """The 21 rig; with channel_2.enabled, also Channel 2 on the same Chemyx connection (dose as in 20)."""
+
+    def __init__(self, cfg, *, mock, clock, log):
+        super().__init__(cfg, mock=mock, clock=clock, log=log)
+        self.ch2 = Channel2(cfg, mock=mock, clock=clock, log=log) if dose_enabled(cfg) else None
+
+    def __enter__(self):
+        super().__enter__()
+        if self.ch2:
+            self.ch2.attach(self.pump.pump)
+        return self
+
+    def dose(self):
+        self.needle_to(0)  # HOME, as in 14 and 20.
+        self.ch2.dose()
+        self.needle_to(self.up_position)
+
+    def __exit__(self, exc_type, exc, tb):
+        if exc_type is not None and self.ch2:
+            self.ch2.stop()
+        return super().__exit__(exc_type, exc, tb)
 
 
 def observation_times(cfg):
@@ -117,7 +148,7 @@ def analyze_after_run(raw_dir, log, *, timeout=ANALYSIS_TIMEOUT_SECONDS):
     return proc.returncode
 
 
-def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=SimpleRig, analyze=None, review_launcher=None):
+def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=DoseRig, analyze=None, review_launcher=None):
     """Optional live review; `analyze(raw_dir, log)` still runs only after the rig has closed."""
     clock = clock or (SimulatedClock() if mock else RealClock())
     run_dir = new_run_dir(cfg, "21_stage2only", output_dir)
@@ -125,14 +156,20 @@ def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=SimpleRig, analyz
     log = make_logger(run_dir, clock, "21_stage2only")
     slots = observation_times(cfg)
     tally = dict(slots=len(slots), saved=0, nmr_failed=0, missed=0)
+    dosing = dose_enabled(cfg)
+    if dosing:
+        tally["dose"] = "NOT ATTEMPTED"
     status = "FAILED"
     try:
         log.info("=" * 60)
         log.info("21 THREE-INSTRUMENT STAGE 2 ONLY RUN" + (" [MOCK: no hardware]" if mock else " [LIVE]"))
         log.info(f"{len(slots)} slots every {cfg['experiment']['interval_minutes']:g} min over "
                  f"{cfg['experiment']['duration_minutes']:g} min; {cfg['nmr']['scans']} scans each")
+        for line in plan_lines(cfg) if dosing else []:
+            log.info(line + (" (needle to HOME, CH2 infuse, needle UP)" if line.startswith("Channel 2") else ""))
         log.info(f"Results: {run_dir}")
-        log.info("Assuming: HOME set with needle_control.py, Channel 1 syringe empty, NMR idle")
+        log.info("Assuming: HOME set with needle_control.py, Channel 1 syringe empty, NMR idle"
+                 + (f", Channel 2 loaded with {cfg['channel_2']['initial_volume_ml']:g} mL" if dosing else ""))
         log.info("=" * 60)
         begin_review(run_dir, raw_dir, cfg, log, review_launcher)
         with rig_factory(cfg, mock=mock, clock=clock, log=log) as rig:
@@ -158,6 +195,8 @@ def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=SimpleRig, analyz
                     tally["nmr_failed"] += 1
                     log.warning(f"Slot {number}/{len(slots)} done; NMR failed, spectrum skipped "
                                 f"({str(result.get('error') or result['status'])[:300]})")
+                if number == 1 and dosing:  # After the time-0 sample has finished, then wait as usual.
+                    dose_after_time_zero(rig, cfg, clock, log, tally, start, slots[1] if len(slots) > 1 else None)
             status = "COMPLETE"
     except KeyboardInterrupt:
         status = "INTERRUPTED"
@@ -166,9 +205,12 @@ def run(cfg, *, mock, output_dir=None, clock=None, rig_factory=SimpleRig, analyz
     except Exception as exc:
         log.error(f"FAILED: {type(exc).__name__}: {exc}")
     finally:
+        if tally.get("dose") == "STARTED":
+            tally["dose"] = "UNCERTAIN"
         log.info("=" * 60)
         line = (f"{status} | slots {tally['slots']} | spectra saved {tally['saved']} | "
-                f"NMR failed {tally['nmr_failed']} | missed {tally['missed']}")
+                f"NMR failed {tally['nmr_failed']} | missed {tally['missed']}"
+                + (f" | CH2 dose: {tally['dose']}" if dosing else ""))
         if status == "COMPLETE" and tally["saved"] == tally["slots"]:
             ok(log, line)
         elif status == "COMPLETE":

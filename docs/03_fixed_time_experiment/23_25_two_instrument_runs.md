@@ -168,6 +168,39 @@ delays or changes the instrument run. For the full 09 report afterwards:
 python scripts\09_analyze_stage2only_scipy.py "<run folder>"
 ```
 
+### 24: optional Channel 2 dose after the time-0 sample
+
+Off by default. To use it, set `enabled: true` in the `channel_2` section of
+[24_stage2only.yaml](../../configs/experiments/24_stage2only.yaml), with the
+Channel 2 line secured in the flask and Channel 2 loaded:
+
+```yaml
+channel_2:
+  enabled: true
+  channel: 2
+  volume_ml: 1.86
+  rate_ml_min: 1.0
+  delay_after_time_zero_seconds: 180   # 3 minutes
+  initial_volume_ml: 5.0               # what you loaded in Channel 2
+  syringe_diameter_mm: 20.0
+  syringe_capacity_ml: 20.0
+```
+
+When the time-0 sample has finished (sample returned), 24 waits
+`delay_after_time_zero_seconds`, then Channel 2 infuses `volume_ml` once at
+`rate_ml_min` (about 2 minutes; no needle movement), then waits for the next
+sample as usual. The summary before the confirmation shows the dose plan, and
+the last log line shows `CH2 dose: COMPLETE`. The schedule never moves; with
+the default 15-minute interval the time-0 sample (about 4 minutes) + 3 minutes
++ 2 minutes of dose fits easily. A sample whose time passes during the dose
+would be skipped.
+
+24 refuses to start (exit code 2) if an enabled dose is set up wrong (Channel 2
+loaded with less than `volume_ml`, a rate outside the pump's range, a negative
+delay). Ctrl+C or a pump error during the dose sends CH2 STOP, stops the run and
+reports the dose `UNCERTAIN`; it is never repeated automatically. 23 keeps its
+own dose between stages, and 25 never doses.
+
 ## Errors (23, 24, 25)
 
 | Event | What happens |

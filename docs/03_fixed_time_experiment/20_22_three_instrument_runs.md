@@ -177,6 +177,41 @@ which adds a new dated folder beside the old ones:
 python scripts\09_analyze_stage2only_scipy.py "<run folder>\nmr_raw"
 ```
 
+## 21: optional Channel 2 dose after the time-0 sample
+
+Off by default. To use it, set `enabled: true` in the `channel_2` section of
+[21_stage2only.yaml](../../configs/experiments/21_stage2only.yaml) and load Channel 2:
+
+```yaml
+channel_2:
+  enabled: true
+  channel: 2
+  volume_ml: 1.86
+  rate_ml_min: 1.0
+  delay_after_time_zero_seconds: 180   # 3 minutes
+  initial_volume_ml: 5.0               # what you loaded in Channel 2
+  syringe_diameter_mm: 20.0
+  syringe_capacity_ml: 20.0
+```
+
+When the time-0 sample has finished (sample returned and washed), 21 waits
+`delay_after_time_zero_seconds`, then: needle to HOME, Channel 2 infuses
+`volume_ml` once at `rate_ml_min` (1.86 mL at 1 mL/min is about 2 minutes),
+needle UP. Then it waits for the next sample as usual. The startup lines and
+the log show the plan, the dose time and the result (`CH2 dose: COMPLETE`).
+
+The sampling schedule never moves: if the dose is still running at the next
+sample's time, that sample is skipped (as for any late slot). With the default
+15-minute interval a time-0 sample takes about 9–10 minutes, so 3 minutes +
+2 minutes of dose leaves about a minute. If the log shows `Slot 2 MISSED`,
+shorten the delay or lengthen `experiment.interval_minutes`.
+
+21 refuses to start (exit code 2) if an enabled dose is set up wrong: Channel 2
+loaded with less than `volume_ml`, a rate outside the pump's range, or a
+negative delay. Ctrl+C or a pump error during the dose sends CH2 STOP, stops the
+run (needle to HOME, ports closed) and reports the dose `UNCERTAIN`; it is never
+repeated automatically. 20 keeps its own dose between stages, and 22 never doses.
+
 ## Errors and Ctrl+C (20, 21, 22)
 
 | Event | What happens |

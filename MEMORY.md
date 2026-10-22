@@ -40,6 +40,8 @@ volume at 5.2 mL and easy to change in the YAML; tests read volumes from the YAM
 On 2026-10-22 the user chose that a failed NMR scan in 23/24/25 is skipped like
 20/21 (one cancel, no idle wait, sample returned, schedule continues) instead of
 stopping the run when NMR idle is not confirmed.
+The Stage 2 only runs 21/24 can also do one optional Channel 2 dose (channel_2.enabled,
+default false) 180 s after the time-0 sample finishes; the sampling schedule never moves.
 
 ## Arduino HOME ownership (clarified 2026-10-19)
 
