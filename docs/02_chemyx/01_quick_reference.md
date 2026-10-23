@@ -4,10 +4,46 @@
 
 Copy-paste commands for the Chemyx Fusion 4000 standalone tools, plus where
 every file is and what it does. Everything here works on the instrument laptop
-with no internet. Longer explanations are in
+with no internet.
+
+## Main command: 26 (no HOME needed)
+
+For everyday manual moves use `scripts\26_chemyxmanual.py`. It keeps no saved
+position, HOME, locks or dose records, so it never refuses because of an
+earlier run, Ctrl+C or STOP. Full guide:
+[26 — simple manual Chemyx](../03_fixed_time_experiment/26_chemyx_manual.md).
+
+```powershell
+python scripts\26_chemyxmanual.py status --live
+```
+
+```powershell
+python scripts\26_chemyxmanual.py infuse --channel 1 --volume 1 --live
+```
+
+```powershell
+python scripts\26_chemyxmanual.py withdraw --channel 1 --volume 1 --live
+```
+
+```powershell
+python scripts\26_chemyxmanual.py stop --live
+```
+
+Use `--channel 2` for Channel 2, `--rate ML_MIN` for one command's speed, `--yes`
+to skip the y/N question, `--mock` to rehearse, and
+`--config configs\experiments\23_stage1stage2.yaml` for the two-instrument rig.
+
+## The older tool: chemyx_control.py (needs a saved HOME)
+
+**Everything below this point is the older `chemyx_control.py`.** It keeps a
+saved HOME and position record and refuses withdraw, infuse and home until a
+HOME is saved (`set-home`), after its own `stop` (position UNKNOWN), or when the
+record no longer matches the syringe (for example after a 20–25 run). Use it only
+with the older workflows (04, 06, 10, 12, 14). Longer explanations are in
 [02_manual_control_and_home.md](02_manual_control_and_home.md).
 
 **Jump to:**
+[26 (main command)](#main-command-26-no-home-needed) ·
 [Start](#start) ·
 [Where everything is](#where-everything-is) ·
 [How it works](#how-it-works-in-one-minute) ·
@@ -49,8 +85,8 @@ pump shows up on COM6, see [Change settings](#change-volume-rate-port-or-syringe
 
 | What | Path | Notes |
 |---|---|---|
-| Simple tool (no saved state) | `scripts\26_chemyxmanual.py` | status, stop, infuse, withdraw; use it around 20–25 runs ([guide](../03_fixed_time_experiment/26_chemyx_manual.md)) |
-| Main tool | `scripts\chemyx_control.py` | status, verify, prepare, set-home, home, infuse, withdraw, stop |
+| **Main manual command (no HOME)** | `scripts\26_chemyxmanual.py` | status, stop, infuse, withdraw ([guide](../03_fixed_time_experiment/26_chemyx_manual.md)) |
+| Older tool (needs a saved HOME) | `scripts\chemyx_control.py` | status, verify, prepare, set-home, home, infuse, withdraw, stop |
 | HOME shortcut | `scripts\chemyx_home.py` | same as `chemyx_control.py home` |
 | Everyday settings | `configs\chemyx\manual_control.yaml` | used by default; 5 mL per move at 10 mL/min |
 | First-test settings | `configs\chemyx\first_motion_test.yaml` | 0.1 mL per move at 0.5 mL/min; add `--config` |
@@ -179,7 +215,9 @@ run `set-home --channel 2` again before using that file.
 
 ## Everyday commands
 
-These use `configs\chemyx\manual_control.yaml`: **1 mL per command at
+These are the older tool's commands and need a saved HOME; for moves without a
+HOME use [26](#main-command-26-no-home-needed).
+They use `configs\chemyx\manual_control.yaml`: **1 mL per command at
 10 mL/min** on both channels. Channel 2's HOME there is "loaded with 5.0 mL
 reagent", the experiment's starting state, so a Channel 2 infuse can push out
 at most those 5 mL and a withdraw can fill the syringe to at most 20 mL.

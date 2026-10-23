@@ -2,6 +2,11 @@
 
 # Chemyx manual control and software HOME
 
+> **This page is about the older `chemyx_control.py`, which needs a saved HOME
+> before it will move.** For everyday manual moves use
+> [26 — simple manual Chemyx](../03_fixed_time_experiment/26_chemyx_manual.md)
+> (`scripts\26_chemyxmanual.py`), which needs no HOME and keeps no saved state.
+
 These are standalone manual-tool rules. The fixed-time experiment refreshes
 pump loading references from manual setup and does not require prior-dose
 reconciliation. Its needle uses the saved Arduino-only HOME and returns to it;

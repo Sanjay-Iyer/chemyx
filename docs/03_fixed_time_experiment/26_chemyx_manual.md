@@ -2,8 +2,10 @@
 
 [Experiment index](00_START_HERE.md) | [26 script](../../scripts/26_chemyxmanual.py) | [26 settings](../../configs/experiments/26_chemyxmanual.yaml) | [Three-instrument 20 / 21 / 22](20_22_three_instrument_runs.md) | [Two-instrument 23 / 24 / 25](23_25_two_instrument_runs.md)
 
-Use 26 to move Channel 1 or 2 by hand, for example to empty liquid left in a
-syringe after a 20–25 run was stopped early. It uses the same pump code as
+26 is the main manual Chemyx command: use it to move Channel 1 or 2 by hand, for
+example to empty liquid left in a syringe after a 20–25 run was stopped early.
+It needs no HOME (the older `chemyx_control.py` does; see
+[02 — Chemyx](../02_chemyx/00_START_HERE.md#older-tool-with-a-saved-home-chemyx_controlpy)). It uses the same pump code as
 20–25 (timed transfer, then STOP; any STOP reply is accepted) and keeps **no**
 saved position, HOME, locks, journals or dose records. It writes no files and
 reads none back, so an earlier stopped run, Ctrl+C or STOP can never make it
